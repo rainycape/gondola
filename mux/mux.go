@@ -1,7 +1,6 @@
 package mux
 
 import (
-	"fmt"
 	"net/http"
 	"regexp"
 )
@@ -100,7 +99,5 @@ func (c *Context) IndexValue(idx int) string {
 }
 
 func (c *Context) ParamValue(name string) string {
-	fmt.Println(c.submatches)
-	fmt.Println(c.params)
 	return c.params[name]
 }

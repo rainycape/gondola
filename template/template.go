@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"gondola/files"
 	"html/template"
 	"io/ioutil"
 	log "logging"
@@ -14,7 +15,15 @@ import (
 	"strings"
 	"sync"
 	"text/template/parse"
-	"webutil"
+)
+
+type ScriptType int
+
+const (
+	_ ScriptType = iota
+	ScriptTypeStandard
+	ScriptTypeAsync
+	ScriptTypeOnload
 )
 
 var (
@@ -33,7 +42,7 @@ var assetsBoilerPlate = `
 {{ end }}
 {{ define "scripts" }}
   {{ range .__scripts }}
-    {{ if .Async }}
+    {{ if .IsAsync }}
       <script type="text/javascript">
         (function() {
           var li = document.createElement('script'); li.type = 'text/javascript'; li.async = true;
@@ -69,8 +78,12 @@ func SetDebug(d bool) {
 }
 
 type Script struct {
-	Url   template.JS
-	Async bool
+	Url  template.JS
+	Type ScriptType
+}
+
+func (s *Script) IsAsync() bool {
+	return s.Type == ScriptTypeAsync
 }
 
 type Template struct {
@@ -92,39 +105,45 @@ func (t *Template) Clone() (*Template, error) {
 	return clon, nil
 }
 
-func (t *Template) parseTemplateNodes(nodes []parse.Node) {
+func (t *Template) walkNodes(nodes []parse.Node, nodeType parse.NodeType, f func(node parse.Node)) {
 	for _, node := range nodes {
+		nt := node.Type()
+		if nt == nodeType {
+			f(node)
+		}
 		switch node.Type() {
-		case parse.NodeTemplate:
-			parts := strings.Split(node.String(), "\"")
-			name := parts[1]
-			if strings.HasSuffix(name, ".html") {
-				filename := GetTemplatePath(name)
-				_, err := TemplateFromFile(t.Template, name, filename)
-				if err != nil {
-					panic(err)
-				}
-				t.Filenames = append(t.Filenames, filename)
-			}
 		case parse.NodeIf:
 			ifNode := node.(*parse.IfNode)
-			t.parseTemplateNodes(ifNode.List.Nodes)
+			t.walkNodes(ifNode.List.Nodes, nodeType, f)
 			if ifNode.ElseList != nil {
-				t.parseTemplateNodes(ifNode.ElseList.Nodes)
+				t.walkNodes(ifNode.ElseList.Nodes, nodeType, f)
 			}
 		case parse.NodeRange:
 			rangeNode := node.(*parse.RangeNode)
-			t.parseTemplateNodes(rangeNode.List.Nodes)
+			t.walkNodes(rangeNode.List.Nodes, nodeType, f)
 			if rangeNode.ElseList != nil {
-				t.parseTemplateNodes(rangeNode.ElseList.Nodes)
+				t.walkNodes(rangeNode.ElseList.Nodes, nodeType, f)
 			}
 		case parse.NodeWith:
 			withNode := node.(*parse.WithNode)
-			t.parseTemplateNodes(withNode.List.Nodes)
+			t.walkNodes(withNode.List.Nodes, nodeType, f)
 			if withNode.ElseList != nil {
-				t.parseTemplateNodes(withNode.ElseList.Nodes)
+				t.walkNodes(withNode.ElseList.Nodes, nodeType, f)
 			}
 		}
+	}
+}
+
+func (t *Template) appendTemplateNode(node parse.Node) {
+	parts := strings.Split(node.String(), "\"")
+	name := parts[1]
+	if strings.HasSuffix(name, ".html") {
+		filename := GetTemplatePath(name)
+		_, err := TemplateFromFile(t.Template, name, filename)
+		if err != nil {
+			panic(err)
+		}
+		t.Filenames = append(t.Filenames, filename)
 	}
 }
 
@@ -135,7 +154,20 @@ func (t *Template) ParseRemainingTemplates() {
 		if err != nil {
 			panic(err)
 		}
-		t.parseTemplateNodes(tree[v].Root.Nodes)
+		t.walkNodes(tree[v].Root.Nodes, parse.NodeTemplate, func(node parse.Node) {
+			t.appendTemplateNode(node)
+		})
+	}
+}
+
+func (t *Template) appendStaticAsset(node parse.Node) {
+	str := node.String()
+	if strings.HasPrefix(str, "{{stylesheet") {
+		t.AddStylesheet(node)
+	} else if strings.HasPrefix(str, "{{script") {
+		t.AddScript(node, ScriptTypeStandard)
+	} else if strings.HasPrefix(str, "{{ascript") {
+		t.AddScript(node, ScriptTypeAsync)
 	}
 }
 
@@ -146,19 +178,9 @@ func (t *Template) ParseStaticAssets() {
 		if err != nil {
 			panic(err)
 		}
-		nodes := tree[v].Root.Nodes
-		for _, n := range nodes {
-			if n.Type() == parse.NodeAction {
-				str := n.String()
-				if strings.HasPrefix(str, "{{stylesheet") {
-					t.AddStylesheet(n)
-				} else if strings.HasPrefix(str, "{{script") {
-					t.AddScript(n, false)
-				} else if strings.HasPrefix(str, "{{ascript") {
-					t.AddScript(n, true)
-				}
-			}
-		}
+		t.walkNodes(tree[v].Root.Nodes, parse.NodeAction, func(node parse.Node) {
+			t.appendStaticAsset(node)
+		})
 	}
 }
 
@@ -188,9 +210,9 @@ func (t *Template) addAssetNode(node parse.Node, nodes *[]string) {
 	*nodes = append(*nodes, url)
 }
 
-func (t *Template) AddScript(node parse.Node, async bool) {
+func (t *Template) AddScript(node parse.Node, scriptType ScriptType) {
 	url := t.getAssetUrl(node)
-	t.Scripts = append(t.Scripts, Script{template.JS(url), async})
+	t.Scripts = append(t.Scripts, Script{template.JS(url), scriptType})
 }
 
 func (t *Template) AddStylesheet(node parse.Node) {
@@ -198,8 +220,9 @@ func (t *Template) AddStylesheet(node parse.Node) {
 	t.Stylesheets = append(t.Stylesheets, url)
 }
 
-func GetAssetUrl(name string) string {
-	return webutil.StaticFileUrl(staticFilesUrl, name)
+func GetAssetUrl(name ...string) string {
+	n := strings.Join(name, "")
+	return files.StaticFileUrl(staticFilesUrl, n)
 }
 
 func eq(args ...interface{}) bool {

@@ -95,7 +95,10 @@ type Context struct {
 }
 
 func (c *Context) IndexValue(idx int) string {
-	return c.submatches[idx]
+	if idx < len(c.submatches) {
+	    return c.submatches[idx]
+	}
+	return ""
 }
 
 func (c *Context) ParamValue(name string) string {

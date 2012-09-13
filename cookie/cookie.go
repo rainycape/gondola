@@ -68,7 +68,7 @@ func SetSecure(w http.ResponseWriter, name string, value interface{}) error {
 	if err != nil {
 		return err
 	}
-	encoded, err := coder.Encode(name, value)
+	encoded, err := coder.Encode(name, &value)
 	if err != nil {
 		return err
 	}

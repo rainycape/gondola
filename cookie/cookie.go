@@ -4,12 +4,18 @@ import (
 	"code.google.com/p/gorilla/securecookie"
 	"errors"
 	"net/http"
+	"time"
 )
 
 var (
 	ErrNoHashKey = errors.New("No cookie hash key specified")
 	HashKey      = ""
 	EncryptKey   = ""
+	Permanent    = false
+	MaxAge       = 0
+
+	deleteExpires = time.Unix(0, 0).UTC()
+	maxExpires    = time.Unix(2147483647, 0).UTC()
 )
 
 func getCookieCoder() (*securecookie.SecureCookie, error) {
@@ -23,11 +29,27 @@ func getCookieCoder() (*securecookie.SecureCookie, error) {
 	return securecookie.New([]byte(HashKey), encryptKey), nil
 }
 
+func getCookieExpires() time.Time {
+	if Permanent {
+		return maxExpires
+	}
+	return time.Now().UTC().Add(time.Duration(MaxAge) * time.Second)
+}
+
+func getCookieMaxAge() int {
+	if Permanent {
+		return int(-time.Since(maxExpires) / time.Second)
+	}
+	return MaxAge
+}
+
 func Set(w http.ResponseWriter, name string, value string) error {
 	cookie := &http.Cookie{
-		Name:  name,
-		Value: value,
-		Path:  "/",
+		Name:    name,
+		Value:   value,
+		Path:    "/",
+		Expires: getCookieExpires(),
+		MaxAge:  getCookieMaxAge(),
 	}
 	http.SetCookie(w, cookie)
 	return nil
@@ -72,9 +94,10 @@ func GetSecure(r *http.Request, name string) (interface{}, error) {
 
 func Delete(w http.ResponseWriter, name string) {
 	cookie := &http.Cookie{
-		Name:   name,
-		Path:   "/",
-		MaxAge: -1,
+		Name:    name,
+		Path:    "/",
+		Expires: deleteExpires,
+		MaxAge:  -1,
 	}
 	http.SetCookie(w, cookie)
 }

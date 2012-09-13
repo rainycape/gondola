@@ -23,6 +23,24 @@ func getCookieCoder() (*securecookie.SecureCookie, error) {
 	return securecookie.New([]byte(HashKey), encryptKey), nil
 }
 
+func Set(w http.ResponseWriter, name string, value string) error {
+	cookie := &http.Cookie{
+		Name:  name,
+		Value: value,
+		Path:  "/",
+	}
+	http.SetCookie(w, cookie)
+	return nil
+}
+
+func Get(r *http.Request, name string) (string, error) {
+	cookie, err := r.Cookie(name)
+	if err != nil {
+		return "", err
+	}
+	return cookie.Value, nil
+}
+
 func SetSecure(w http.ResponseWriter, name string, value interface{}) error {
 	coder, err := getCookieCoder()
 	if err != nil {
@@ -32,17 +50,11 @@ func SetSecure(w http.ResponseWriter, name string, value interface{}) error {
 	if err != nil {
 		return err
 	}
-	cookie := &http.Cookie{
-		Name:  name,
-		Value: encoded,
-		Path:  "/",
-	}
-	http.SetCookie(w, cookie)
-	return nil
+	return Set(w, name, encoded)
 }
 
 func GetSecure(r *http.Request, name string) (interface{}, error) {
-	cookie, err := r.Cookie(name)
+	cookieValue, err := Get(r, name)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +63,7 @@ func GetSecure(r *http.Request, name string) (interface{}, error) {
 		return nil, err
 	}
 	var value interface{}
-	err = coder.Decode(name, cookie.Value, &value)
+	err = coder.Decode(name, cookieValue, &value)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +73,6 @@ func GetSecure(r *http.Request, name string) (interface{}, error) {
 func Delete(w http.ResponseWriter, name string) {
 	cookie := &http.Cookie{
 		Name:   name,
-		Value:  "",
 		Path:   "/",
 		MaxAge: -1,
 	}

@@ -5,7 +5,7 @@ import (
 	"regexp"
 )
 
-type RecoverHandler func(http.ResponseWriter, *http.Request, interface{}) interface{}
+type RecoverHandler func(*http.Request, http.ResponseWriter, interface{}) interface{}
 
 type RequestProcessor func(*http.Request) (*http.Request, bool)
 
@@ -43,7 +43,7 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if err := recover(); err != nil {
 			for _, v := range mux.RecoverHandlers {
-				err = v(w, r, err)
+				err = v(r, w, err)
 				if err == nil {
 					break
 				}

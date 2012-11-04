@@ -335,7 +335,7 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"lower":      lower,
 	"join":       join,
 	"chunks":     chunks,
-	"makemap":    makemap,
+	"map":    makemap,
 	"stylesheet": dummy,
 	"script":     dummy,
 	"ascript":    dummy,

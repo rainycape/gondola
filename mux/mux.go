@@ -7,7 +7,7 @@ import (
 
 type RecoverHandler func(*http.Request, http.ResponseWriter, interface{}) interface{}
 
-type RequestProcessor func(*http.Request) (*http.Request, bool)
+type RequestProcessor func(*http.Request, http.ResponseWriter, *Context) (*http.Request, bool)
 
 type Handler func(http.ResponseWriter, *http.Request, *Context)
 
@@ -54,8 +54,9 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	stop := false
+	ctx := &Context{}
 	for _, v := range mux.RequestProcessors {
-		r, stop = v(r)
+		r, stop = v(r, w, ctx)
 		if stop {
 			break
 		}
@@ -70,10 +71,8 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						params[n] = submatches[ii]
 					}
 				}
-				ctx := &Context{
-					submatches: submatches,
-					params:     params,
-				}
+				ctx.submatches = submatches
+				ctx.params = params
 				v.handler(w, r, ctx)
 				stop = true
 				break
@@ -94,9 +93,13 @@ type Context struct {
 	params     map[string]string
 }
 
+func (c *Context) Count() int {
+	return len(c.submatches)
+}
+
 func (c *Context) IndexValue(idx int) string {
 	if idx < len(c.submatches) {
-	    return c.submatches[idx]
+		return c.submatches[idx]
 	}
 	return ""
 }

@@ -91,7 +91,7 @@ func New() *Mux {
 type Context struct {
 	submatches []string
 	params     map[string]string
-	Data interface{} /* Left to the user */
+	Data       interface{} /* Left to the user */
 }
 
 func (c *Context) Count() int {

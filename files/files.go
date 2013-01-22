@@ -24,7 +24,7 @@ func watchDir(dir string, f func(string, string)) {
 	}
 	mask := inotify.IN_DELETE | inotify.IN_MODIFY
 	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
+		if info != nil && info.IsDir() {
 			err = watcher.AddWatch(path, mask)
 			if err != nil {
 				panic(err)

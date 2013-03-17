@@ -12,6 +12,8 @@ type RequestProcessor func(http.ResponseWriter, *http.Request, *Context) (*http.
 
 type Handler func(http.ResponseWriter, *http.Request, *Context)
 
+type ContextFinalizer func(*Context)
+
 type handlerInfo struct {
 	/* TODO: Add support for patterns specifing a host */
 	re      *regexp.Regexp
@@ -22,6 +24,7 @@ type Mux struct {
 	handlers          []*handlerInfo
 	RequestProcessors []RequestProcessor
 	RecoverHandlers   []RecoverHandler
+	ContextFinalizers []ContextFinalizer
 }
 
 func (mux *Mux) HandleMuxFunc(pattern string, handler Handler) {
@@ -40,6 +43,10 @@ func (mux *Mux) AddRecoverHandler(rh RecoverHandler) {
 	mux.RecoverHandlers = append(mux.RecoverHandlers, rh)
 }
 
+func (mux *Mux) AddContextFinalizer(cf ContextFinalizer) {
+	mux.ContextFinalizers = append(mux.ContextFinalizers, cf)
+}
+
 func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -56,7 +63,7 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 	stop := false
 	ctx := &Context{}
-	defer ctx.Close()
+	defer mux.CloseContext(ctx)
 	for _, v := range mux.RequestProcessors {
 		r, stop = v(w, r, ctx)
 		if stop {
@@ -84,6 +91,13 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.DefaultServeMux.ServeHTTP(w, r)
 		}
 	}
+}
+
+func (mux *Mux) CloseContext(ctx *Context) {
+	for _, v := range mux.ContextFinalizers {
+		v(ctx)
+	}
+	ctx.Close()
 }
 
 func New() *Mux {

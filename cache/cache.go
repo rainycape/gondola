@@ -18,6 +18,7 @@ type Backend interface {
 	Get(key string) ([]byte, error)
 	GetMulti(keys []string) (map[string][]byte, error)
 	Delete(key string) error
+	Close() error
 }
 
 type Codec struct {
@@ -128,6 +129,10 @@ func (c *Cache) Delete(key string) {
 	if err != nil {
 		log.Errorf("Error deleting cache key %s: %s", key, err)
 	}
+}
+
+func (c *Cache) Close() {
+	c.Backend.Close()
 }
 
 func RegisterBackend(scheme string, f BackendInitializer) {

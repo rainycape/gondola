@@ -23,6 +23,10 @@ func (c *DummyBackend) Delete(key string) error {
 	return nil
 }
 
+func (c *DummyBackend) Close() error {
+	return nil
+}
+
 func InitializeDummyBackend(cacheUrl *url.URL) Backend {
 	return &DummyBackend{}
 }

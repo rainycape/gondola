@@ -8,8 +8,9 @@ import (
 type BackendInitializer func(*url.URL) Backend
 
 var (
-	backends = map[string]BackendInitializer{}
-	codecs   = map[string]*Codec{}
+	defaultCacheUrl string
+	backends        = map[string]BackendInitializer{}
+	codecs          = map[string]*Codec{}
 )
 
 type Backend interface {
@@ -137,6 +138,14 @@ func RegisterCodec(name string, codec *Codec) {
 	codecs[name] = codec
 }
 
+func SetDefaultCacheUrl(url string) {
+	defaultCacheUrl = url
+}
+
+func DefaultCacheUrl() string {
+	return defaultCacheUrl
+}
+
 func New(cacheUrl string) *Cache {
 	cache := &Cache{}
 	var query url.Values
@@ -176,4 +185,8 @@ func New(cacheUrl string) *Cache {
 	}
 	cache.Backend = backendInitializer(u)
 	return cache
+}
+
+func NewDefault() *Cache {
+	return New(defaultCacheUrl)
 }

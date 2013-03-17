@@ -1,6 +1,7 @@
 package mux
 
 import (
+	"gondola/cache"
 	"net/http"
 	"regexp"
 )
@@ -55,6 +56,7 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 	stop := false
 	ctx := &Context{}
+	defer ctx.Close()
 	for _, v := range mux.RequestProcessors {
 		r, stop = v(w, r, ctx)
 		if stop {
@@ -91,6 +93,7 @@ func New() *Mux {
 type Context struct {
 	submatches []string
 	params     map[string]string
+	c          *cache.Cache
 	Data       interface{} /* Left to the user */
 }
 
@@ -107,4 +110,18 @@ func (c *Context) IndexValue(idx int) string {
 
 func (c *Context) ParamValue(name string) string {
 	return c.params[name]
+}
+
+func (c *Context) Cache() *cache.Cache {
+	if c.c == nil {
+		c.c = cache.NewDefault()
+	}
+	return c.c
+}
+
+func (c *Context) Close() {
+	if c.c != nil {
+		c.c.Close()
+		c.c = nil
+	}
 }

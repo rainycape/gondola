@@ -156,7 +156,7 @@ func New(cacheUrl string) *Cache {
 	var query url.Values
 	u, err := url.Parse(cacheUrl)
 	if err != nil {
-		if err != nil {
+		if err != nil && cacheUrl != "" {
 			log.Errorf("Invalid cache URL '%s': %s\n", cacheUrl, err)
 		}
 	} else {

@@ -143,11 +143,11 @@ func RegisterCodec(name string, codec *Codec) {
 	codecs[name] = codec
 }
 
-func SetDefaultCacheUrl(url string) {
+func SetDefaultUrl(url string) {
 	defaultCacheUrl = url
 }
 
-func DefaultCacheUrl() string {
+func DefaultUrl() string {
 	return defaultCacheUrl
 }
 

@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"strings"
 	"time"
 )
 
@@ -87,11 +86,11 @@ func (f *FileSystemBackend) Close() error {
 func init() {
 	RegisterBackend("file", func(cacheUrl *url.URL) Backend {
 		var root string
-		path := cacheUrl.Host
-		if strings.HasPrefix(root, "/") {
-			root = path
+		if cacheUrl.Host == "" {
+			/* Absolute path */
+			root = path.Join("/", cacheUrl.Path)
 		} else {
-			root = util.RelativePath(path)
+			root = util.RelativePath(cacheUrl.Host)
 		}
 		return &FileSystemBackend{Root: root}
 	})

@@ -1,7 +1,6 @@
 package mux
 
 import (
-	"gondola/cache"
 	"net/http"
 	"regexp"
 )
@@ -11,8 +10,6 @@ type RecoverHandler func(http.ResponseWriter, *http.Request, interface{}) interf
 type RequestProcessor func(http.ResponseWriter, *http.Request, *Context) (*http.Request, bool)
 
 type Handler func(http.ResponseWriter, *http.Request, *Context)
-
-type ContextFinalizer func(*Context)
 
 type handlerInfo struct {
 	/* TODO: Add support for patterns specifing a host */
@@ -102,40 +99,4 @@ func (mux *Mux) CloseContext(ctx *Context) {
 
 func New() *Mux {
 	return &Mux{}
-}
-
-type Context struct {
-	submatches []string
-	params     map[string]string
-	c          *cache.Cache
-	Data       interface{} /* Left to the user */
-}
-
-func (c *Context) Count() int {
-	return len(c.submatches)
-}
-
-func (c *Context) IndexValue(idx int) string {
-	if idx < len(c.submatches) {
-		return c.submatches[idx]
-	}
-	return ""
-}
-
-func (c *Context) ParamValue(name string) string {
-	return c.params[name]
-}
-
-func (c *Context) Cache() *cache.Cache {
-	if c.c == nil {
-		c.c = cache.NewDefault()
-	}
-	return c.c
-}
-
-func (c *Context) Close() {
-	if c.c != nil {
-		c.c.Close()
-		c.c = nil
-	}
 }

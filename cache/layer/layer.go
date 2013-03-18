@@ -50,16 +50,18 @@ func New(c *cache.Cache, k KeyFunc, f FilterFunc, e ExpirationFunc) Func {
 						return
 					}
 				}
-			}
-			lw := &layerWriter{w, bytes.NewBuffer(nil), 0, nil}
-			fun(lw, r, ctx)
-			if key != "" && f(r, lw.statusCode, lw.header, ctx) {
-				response := &cachedResponse{lw.header, lw.statusCode, lw.buf.Bytes()}
-				data, err := cache.GobEncoder.Encode(response)
-				if err == nil {
-					ctx.SetCached(true)
-					c.SetBytes(key, data, e(r, lw.statusCode, lw.header, ctx))
+				lw := &layerWriter{w, bytes.NewBuffer(nil), 0, nil}
+				fun(lw, r, ctx)
+				if f(r, lw.statusCode, lw.header, ctx) {
+					response := &cachedResponse{lw.header, lw.statusCode, lw.buf.Bytes()}
+					data, err := cache.GobEncoder.Encode(response)
+					if err == nil {
+						ctx.SetCached(true)
+						c.SetBytes(key, data, e(r, lw.statusCode, lw.header, ctx))
+					}
 				}
+			} else {
+				fun(w, r, ctx)
 			}
 		}
 	}

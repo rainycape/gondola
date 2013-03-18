@@ -30,7 +30,11 @@ func (f *FileSystemBackend) Set(key string, b []byte, timeout int) error {
 		return err
 	}
 	defer fd.Close()
-	binary.Write(fd, binary.LittleEndian, time.Now().Unix()+int64(timeout))
+	expiration := int64(timeout)
+	if expiration > 0 {
+		expiration += time.Now().Unix()
+	}
+	binary.Write(fd, binary.LittleEndian, expiration)
 	total := len(b)
 	for t := 0; t < total; {
 		n, err := fd.Write(b)
@@ -52,7 +56,7 @@ func (f *FileSystemBackend) Get(key string) ([]byte, error) {
 	defer fd.Close()
 	var expiration int64
 	binary.Read(fd, binary.LittleEndian, &expiration)
-	if expiration < time.Now().Unix() {
+	if expiration > 0 && expiration < time.Now().Unix() {
 		f.Delete(key)
 		return nil, nil
 	}

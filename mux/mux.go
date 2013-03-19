@@ -2,6 +2,7 @@ package mux
 
 import (
 	"gondola/files"
+	"gondola/template"
 	"net/http"
 	"regexp"
 )
@@ -53,6 +54,7 @@ func (mux *Mux) HandleStaticFiles(prefix string, dir string) {
 	mux.HandleMuxFunc(prefix, handler)
 	mux.HandleMuxFunc("/favicon.ico$", handler)
 	mux.HandleMuxFunc("/robots.txt$", handler)
+	template.SetStaticFilesUrl(prefix)
 }
 
 func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {

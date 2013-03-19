@@ -1,6 +1,7 @@
 package mux
 
 import (
+	"gondola/files"
 	"net/http"
 	"regexp"
 )
@@ -42,6 +43,16 @@ func (mux *Mux) AddRecoverHandler(rh RecoverHandler) {
 
 func (mux *Mux) AddContextFinalizer(cf ContextFinalizer) {
 	mux.ContextFinalizers = append(mux.ContextFinalizers, cf)
+}
+
+func (mux *Mux) HandleStaticFiles(prefix string, dir string) {
+	filesHandler := files.StaticFilesHandler(prefix, dir)
+	handler := func(w http.ResponseWriter, r *http.Request, ctx *Context) {
+		filesHandler(w, r)
+	}
+	mux.HandleMuxFunc(prefix, handler)
+	mux.HandleMuxFunc("/favicon.ico$", handler)
+	mux.HandleMuxFunc("/robots.txt$", handler)
 }
 
 func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {

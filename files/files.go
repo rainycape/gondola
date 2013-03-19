@@ -1,7 +1,7 @@
 package files
 
 import (
-	"exp/inotify"
+	"code.google.com/p/go.exp/fsnotify"
 	"fmt"
 	"hash/adler32"
 	"io/ioutil"
@@ -13,19 +13,21 @@ import (
 	"sync"
 )
 
-var dirs = make(map[string]string)
-var hashes = make(map[string]string)
-var mutex = sync.RWMutex{}
+var (
+	dirs   = make(map[string]string)
+	hashes = make(map[string]string)
+	mutex  = sync.RWMutex{}
+)
 
-func watchDir(dir string, f func(string, string)) {
-	watcher, err := inotify.NewWatcher()
+func watchDir(dir string, f func(string, *fsnotify.FileEvent)) {
+	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-	mask := inotify.IN_DELETE | inotify.IN_MODIFY
+	flags := uint32(fsnotify.FSN_DELETE | fsnotify.FSN_MODIFY)
 	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if info != nil && info.IsDir() {
-			err = watcher.AddWatch(path, mask)
+			err = watcher.WatchFlags(path, flags)
 			if err != nil {
 				panic(err)
 			}
@@ -36,7 +38,7 @@ func watchDir(dir string, f func(string, string)) {
 		for {
 			select {
 			case ev := <-watcher.Event:
-				f(dir, ev.Name)
+				f(dir, ev)
 			case err := <-watcher.Error:
 				log.Printf("Error watching %s: %s", dir, err)
 			}
@@ -48,16 +50,25 @@ func StaticFilesHandler(prefix string, dir string) func(http.ResponseWriter, *ht
 	prefixLength := len(prefix)
 	dirs[prefix] = dir
 	dirLen := len(dir)
-	watchDir(dir, func(dir string, filename string) {
+	watchDir(dir, func(dir string, ev *fsnotify.FileEvent) {
+		filename := ev.Name
 		relative := filename[dirLen:]
 		url := getStaticFileUrl(prefix, relative)
-		hash, err := GetFileHash(filename)
-		if hash != "" && err == nil {
+		if ev.IsDelete() {
 			mutex.Lock()
-			hashes[url] = hash
+			delete(hashes, url)
 			mutex.Unlock()
 		} else {
-			delete(hashes, "url")
+			hash, err := fileHash(filename)
+			if hash != "" && err == nil {
+				mutex.Lock()
+				hashes[url] = hash
+				mutex.Unlock()
+			} else {
+				mutex.Lock()
+				delete(hashes, url)
+				mutex.Unlock()
+			}
 		}
 	})
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -97,7 +108,7 @@ func StaticFileUrl(prefix string, name string) string {
 		fileDir := dirs[prefix]
 		filePath := path.Clean(path.Join(fileDir, name))
 		var err error
-		hash, err = GetFileHash(filePath)
+		hash, err = fileHash(filePath)
 		if err == nil {
 			mutex.Lock()
 			hashes[url] = hash
@@ -110,7 +121,7 @@ func StaticFileUrl(prefix string, name string) string {
 	return url
 }
 
-func GetFileHash(filename string) (string, error) {
+func fileHash(filename string) (string, error) {
 	b, err := ioutil.ReadFile(filename)
 	if err == nil {
 		value := adler32.Checksum(b)

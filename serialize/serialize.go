@@ -36,8 +36,8 @@ func Write(w http.ResponseWriter, value interface{}, s Serializer) (int, error) 
 		n, err := w.Write(data)
 		c += n
 		if err != nil {
-			return n, err
+			return c, err
 		}
 	}
-	return n, nil
+	return total, nil
 }

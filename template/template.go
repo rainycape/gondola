@@ -289,6 +289,7 @@ func load(name string, t *Template) error {
 
 func Load(name string) (*Template, error) {
 	t := &Template{}
+	t.mu = &sync.Mutex{}
 	err := load(name, t)
 	if err != nil {
 		return nil, err

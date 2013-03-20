@@ -28,7 +28,7 @@ type Mux struct {
 	RequestProcessors []RequestProcessor
 	RecoverHandlers   []RecoverHandler
 	ContextFinalizers []ContextFinalizer
-	contextType       reflect.Type
+	contextTransform  *reflect.Value
 }
 
 func (mux *Mux) HandleFunc(pattern string, handler Handler) {
@@ -56,19 +56,24 @@ func (mux *Mux) AddContextFinalizer(cf ContextFinalizer) {
 	mux.ContextFinalizers = append(mux.ContextFinalizers, cf)
 }
 
-func (mux *Mux) SetContextType(ctx interface{}) {
-	t := reflect.TypeOf(ctx)
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
+func (mux *Mux) SetContextTransform(f interface{}) {
+	t := reflect.TypeOf(f)
+	if t.Kind() != reflect.Func {
+		panic(fmt.Errorf("Context transform must be a function, instead it's %t", f))
 	}
-	if t.Kind() != reflect.Struct {
-		panic(fmt.Errorf("Invalid context type %s, must be a struct", t))
+	if t.IsVariadic() {
+		panic(fmt.Errorf("Context transform can't be a variadic function"))
 	}
-	mux.contextType = t
-}
-
-func (mux *Mux) ContextType() reflect.Type {
-	return mux.contextType
+	contextType := reflect.TypeOf(&Context{})
+	if t.NumIn() != 1 || t.In(0) != contextType {
+		panic(fmt.Errorf("Context transform must receive only 1 %s argument", contextType))
+	}
+	if t.NumOut() != 1 || t.Out(0).Kind() != reflect.Ptr || t.Out(0).Elem().Kind() != reflect.Struct {
+		panic(fmt.Errorf("Context transform must return just 1 argument which must be a pointer to a struct"))
+	}
+	/* All checks passed */
+	val := reflect.ValueOf(f)
+	mux.contextTransform = &val
 }
 
 func (mux *Mux) HandleStaticFiles(prefix string, dir string) {

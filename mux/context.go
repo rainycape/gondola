@@ -4,7 +4,6 @@ import (
 	"gondola/cache"
 	"net/http"
 	"reflect"
-	"unsafe"
 )
 
 type ContextFinalizer func(*Context)
@@ -74,17 +73,21 @@ func (c *Context) Mux() *Mux {
 // an interface{}. Intended for use in templates
 // e.g. {{ Ctx.C.MyCustomMethod }}
 //
-// For use in code it's better to define a conveniency
+// For use in code it's better to use the function
+// you previously defined as the context transformation for
+// the mux e.g.
 // function in your own code to avoid type assertions
-// e.g.
 // func Context(ctx *mux.Context) *mycontext {
 //	return (*mycontext)(ctx)
 // }
+// ...
+// mymux.SetContextTransform(Context)
 
 func (c *Context) C() interface{} {
 	if c.customContext == nil {
-		if c.mux.contextType != nil {
-			c.customContext = reflect.NewAt(c.mux.contextType, unsafe.Pointer(c)).Interface()
+		if c.mux.contextTransform != nil {
+			result := c.mux.contextTransform.Call([]reflect.Value{reflect.ValueOf(c)})
+			c.customContext = result[0].Interface()
 		} else {
 			c.customContext = c
 		}

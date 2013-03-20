@@ -2,11 +2,14 @@ package mux
 
 import (
 	"gondola/cache"
+	"net/http"
 )
 
 type ContextFinalizer func(*Context)
 
 type Context struct {
+	W http.ResponseWriter
+	R *http.Request
 	submatches []string
 	params     map[string]string
 	c          *cache.Cache

@@ -72,7 +72,7 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	stop := false
-	ctx := &Context{}
+	ctx := &Context{W: w, R: r}
 	defer mux.CloseContext(ctx)
 	for _, v := range mux.RequestProcessors {
 		r, stop = v(w, r, ctx)

@@ -3,19 +3,24 @@ package mux
 import (
 	"gondola/cache"
 	"net/http"
+	"reflect"
+	"unsafe"
 )
 
 type ContextFinalizer func(*Context)
 
 type Context struct {
-	W http.ResponseWriter
-	R *http.Request
-	submatches []string
-	params     map[string]string
-	c          *cache.Cache
-	cached     bool
-	fromCache  bool
-	Data       interface{} /* Left to the user */
+	W             http.ResponseWriter
+	R             *http.Request
+	submatches    []string
+	params        map[string]string
+	c             *cache.Cache
+	cached        bool
+	fromCache     bool
+	handlerName   string
+	mux           *Mux
+	customContext interface{}
+	Data          interface{} /* Left to the user */
 }
 
 func (c *Context) Count() int {
@@ -54,6 +59,37 @@ func (c *Context) Cached() bool {
 
 func (c *Context) ServedFromCache() bool {
 	return c.fromCache
+}
+
+func (c *Context) HandlerName() string {
+	return c.handlerName
+}
+
+// Returns the Mux this Context originated from
+func (c *Context) Mux() *Mux {
+	return c.mux
+}
+
+// Returns the custom type context wrapped in
+// an interface{}. Intended for use in templates
+// e.g. {{ Ctx.C.MyCustomMethod }}
+//
+// For use in code it's better to define a conveniency
+// function in your own code to avoid type assertions
+// e.g.
+// func Context(ctx *mux.Context) *mycontext {
+//	return (*mycontext)(ctx)
+// }
+
+func (c *Context) C() interface{} {
+	if c.customContext == nil {
+		if c.mux.contextType != nil {
+			c.customContext = reflect.NewAt(c.mux.contextType, unsafe.Pointer(c)).Interface()
+		} else {
+			c.customContext = c
+		}
+	}
+	return c.customContext
 }
 
 func (c *Context) Close() {

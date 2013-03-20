@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"gondola/files"
-	"gondola/util"
+	"gondola/mux"
+	"gondola/template/config"
 	"html/template"
 	"io/ioutil"
 	"log"
@@ -28,10 +29,8 @@ const (
 )
 
 var (
-	staticFilesUrl string
-	templatesPath  = util.RelativePath("tmpl")
-	commentRe      = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
-	keyRe          = regexp.MustCompile(`(?s:\s*([\w\-_])+:)`)
+	commentRe = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
+	keyRe     = regexp.MustCompile(`(?s:\s*([\w\-_])+:)`)
 )
 
 var stylesBoilerplate = `
@@ -57,19 +56,23 @@ var scriptsBoilerplate = `
 `
 
 func StaticFilesUrl() string {
-	return staticFilesUrl
+	return config.StaticFilesUrl()
 }
 
+// Sets the base url for static assets. Might be
+// relative (e.g. /static/) or absolute (e.g. http://static.example.com/)
 func SetStaticFilesUrl(url string) {
-	staticFilesUrl = url
+	config.SetStaticFilesUrl(url)
 }
 
 func Path() string {
-	return templatesPath
+	return config.Path()
 }
 
+// Sets the path for the template files. By default, it's
+// initialized to the directory tmpl relative to the executable
 func SetPath(p string) {
-	templatesPath = p
+	config.SetPath(p)
 }
 
 type script struct {
@@ -87,7 +90,7 @@ type Template struct {
 	scripts []*script
 	styles  []string
 	mu      *sync.Mutex
-	context interface{}
+	context *mux.Context
 }
 
 func (t *Template) parseScripts(value string, st ScriptType) {
@@ -97,7 +100,7 @@ func (t *Template) parseScripts(value string, st ScriptType) {
 	}
 }
 
-func (t *Template) Render(w http.ResponseWriter, ctx interface{}, data interface{}) error {
+func (t *Template) Render(w http.ResponseWriter, ctx *mux.Context, data interface{}) error {
 	var buf bytes.Buffer
 	t.mu.Lock()
 	t.context = ctx
@@ -113,7 +116,7 @@ func (t *Template) Render(w http.ResponseWriter, ctx interface{}, data interface
 	return nil
 }
 
-func (t *Template) MustRender(w http.ResponseWriter, ctx interface{}, data interface{}) {
+func (t *Template) MustRender(w http.ResponseWriter, ctx *mux.Context, data interface{}) {
 	err := t.Render(w, ctx, data)
 	if err != nil {
 		http.Error(w, "Error", http.StatusInternalServerError)
@@ -123,7 +126,7 @@ func (t *Template) MustRender(w http.ResponseWriter, ctx interface{}, data inter
 
 func AssetUrl(name ...string) string {
 	n := strings.Join(name, "")
-	return files.StaticFileUrl(staticFilesUrl, n)
+	return files.StaticFileUrl(config.StaticFilesUrl(), n)
 }
 
 func eq(args ...interface{}) bool {
@@ -245,7 +248,7 @@ func parseComment(value string, t *Template, name string) {
 }
 
 func getTemplatePath(name string) string {
-	return path.Join(templatesPath, name)
+	return path.Join(config.Path(), name)
 }
 
 func load(name string, t *Template) error {
@@ -276,8 +279,15 @@ func load(name string, t *Template) error {
 	}
 	tmpl = tmpl.Funcs(templateFuncs)
 	tmpl = tmpl.Funcs(template.FuncMap{
-		"Context": func() interface{} {
+		"Ctx": func() interface{} {
 			return t.context
+		},
+		"reverse": func(name string, args ...interface{}) string {
+			val, err := t.context.Mux().Reverse(name, args...)
+			if err != nil {
+				panic(err)
+			}
+			return val
 		},
 	})
 	tmpl, err = tmpl.Parse(s)
@@ -316,7 +326,7 @@ func MustLoad(name string) *Template {
 	return t
 }
 
-func Render(name string, w http.ResponseWriter, ctx interface{}, data interface{}) error {
+func Render(name string, w http.ResponseWriter, ctx *mux.Context, data interface{}) error {
 	t, err := Load(name)
 	if err != nil {
 		return err
@@ -324,7 +334,7 @@ func Render(name string, w http.ResponseWriter, ctx interface{}, data interface{
 	return t.Render(w, ctx, data)
 }
 
-func MustRender(name string, w http.ResponseWriter, ctx interface{}, data interface{}) {
+func MustRender(name string, w http.ResponseWriter, ctx *mux.Context, data interface{}) {
 	err := Render(name, w, ctx, data)
 	if err != nil {
 		log.Panic(err)

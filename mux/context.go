@@ -2,14 +2,16 @@ package mux
 
 import (
 	"gondola/cache"
+	"gondola/errors"
 	"net/http"
 	"reflect"
+	"strings"
 )
 
 type ContextFinalizer func(*Context)
 
 type Context struct {
-	W             http.ResponseWriter
+	http.ResponseWriter
 	R             *http.Request
 	submatches    []string
 	params        map[string]string
@@ -35,6 +37,18 @@ func (c *Context) IndexValue(idx int) string {
 
 func (c *Context) ParamValue(name string) string {
 	return c.params[name]
+}
+
+func (c *Context) FormValue(name string) string {
+	return c.R.FormValue(name)
+}
+
+func (c *Context) RequireFormValue(name string) string {
+	val := strings.TrimSpace(c.FormValue(name))
+	if val == "" {
+		errors.MissingParameter(name)
+	}
+	return val
 }
 
 func (c *Context) Cache() *cache.Cache {

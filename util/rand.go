@@ -5,6 +5,9 @@ import (
 	"io"
 )
 
+// RandomString returns a random string with the given length
+// The alphabet used includes all lowercase and uppercase ascii
+// letters and the numbers
 func RandomString(length int) string {
 	/* From https://github.com/dchest/uniuri/blob/master/uniuri.go */
 	chars := "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ0123456789"

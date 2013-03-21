@@ -5,6 +5,13 @@ import (
 	"path"
 )
 
+// RelativePath returns the given path
+// relative to the application binary
+// e.g.
+// binary is at /home/fiam/example/example
+// RelativePath("foo") returns /home/fiam/example/foo
+// RelativePath("foo/bar") returns /home/fiam/example/foo/bar
+// RelativePath("/foo/bar") returns /home/fiam/example/foo/bar
 func RelativePath(name string) string {
 	wd, _ := os.Getwd()
 	var full string

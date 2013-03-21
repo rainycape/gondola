@@ -32,11 +32,13 @@ type handlerInfo struct {
 }
 
 type Mux struct {
-	handlers          []*handlerInfo
 	ContextProcessors []ContextProcessor
 	ContextFinalizers []ContextFinalizer
 	RecoverHandlers   []RecoverHandler
+	handlers          []*handlerInfo
 	contextTransform  *reflect.Value
+	trustXHeaders     bool
+	keepRemotePort    bool
 }
 
 // HandleFunc adds an anonymous handler. Anonymous handlers can't be reversed.
@@ -121,6 +123,39 @@ func (mux *Mux) SetContextTransform(f interface{}) {
 	mux.contextTransform = &val
 }
 
+// TrustsXHeaders returns if the mux uses X headers
+// for determining the remote IP and scheme. See SetTrustXHeaders()
+// for a more detailed explanation.
+func (mux *Mux) TrustsXHeaders() bool {
+	return mux.trustXHeaders
+}
+
+// SetTrustXHeaders sets if the mux uses X headers like
+// X-Real-IP, X-Forwarded-For, X-Scheme and X-Forwarded-Proto
+// to override the remote IP and scheme. This is useful
+// when running your application behind a proxy or load balancer.
+// The default is disabled. Please, keep in mind that enabling
+// XHeaders processing when not running behind a proxy or load
+// balancer which sanitizes the input *IS A SECURITY RISK*.
+func (mux *Mux) SetTrustXHeaders(t bool) {
+	mux.trustXHeaders = t
+}
+
+// KeepsRemotePort returns if the mux keeps the remote port
+// in http.Request.RemoteAddr field. See SetKeepRemotePort
+// for a more detailed explanation.
+func (mux *Mux) KeepsRemotePort() bool {
+	return mux.keepRemotePort
+}
+
+// SetKeepRemovePort sets if the mux keeps the remote port
+// in http.Request.RemoteAddr field. Since the remote port
+// is rarely useful, this defaults to false, so RemoteAddr
+// will only contain an address
+func (mux *Mux) SetKeepRemotePort(k bool) {
+	mux.keepRemotePort = k
+}
+
 // HandleStaticFiles adds several handlers to the mux which handle
 // static files efficiently and allows the use of the "assset"
 // function from the templates. prefix might be a relative
@@ -185,6 +220,19 @@ func (mux *Mux) ListenAndServe(port int) error {
 	return http.ListenAndServe(":"+strconv.Itoa(port), mux)
 }
 
+func (mux *Mux) readXHeaders(r *http.Request) {
+	/* TODO: Handle scheme */
+	realIp := r.Header.Get("X-Real-IP")
+	if realIp != "" {
+		r.RemoteAddr = realIp
+		return
+	}
+	forwardedFor := r.Header.Get("X-Forwarded-For")
+	if forwardedFor != "" {
+		r.RemoteAddr = forwardedFor
+	}
+}
+
 func (mux *Mux) recover(ctx *Context) {
 	if err := recover(); err != nil {
 		for _, v := range mux.RecoverHandlers {
@@ -212,6 +260,27 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := &Context{ResponseWriter: w, R: r, mux: mux}
 	defer mux.closeContext(ctx)
 	defer mux.recover(ctx)
+	if mux.trustXHeaders {
+		mux.readXHeaders(r)
+	}
+	if !mux.keepRemotePort {
+		addr := r.RemoteAddr
+		if strings.Count(addr, ".") == 3 {
+			/* IPv4 e.g. 127.0.0.1:8000 */
+			idx := strings.Index(addr, ":")
+			if idx >= 0 {
+				r.RemoteAddr = addr[:idx]
+			}
+		} else {
+			/* IPv6 e.g. [1fff:0:a88:85a3::ac1f]:8001 */
+			if addr != "" && addr[0] == '[' {
+				idx := strings.Index(addr, "]")
+				if idx >= 0 {
+					r.RemoteAddr = addr[1:idx]
+				}
+			}
+		}
+	}
 	for _, v := range mux.ContextProcessors {
 		if v(ctx) {
 			return

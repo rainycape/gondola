@@ -115,25 +115,29 @@ func (c *Context) RequireParseFormValue(name string, arg interface{}) {
 	}
 }
 
+func (c *Context) funcName(depth int) string {
+	funcName := "???"
+	caller, _, _, ok := runtime.Caller(depth + 1)
+	if ok {
+		f := runtime.FuncForPC(caller)
+		if f != nil {
+			fullName := strings.Trim(f.Name(), ".")
+			parts := strings.Split(fullName, ".")
+			simpleName := parts[len(parts)-1]
+			funcName = fmt.Sprintf("%s()", simpleName)
+		}
+	}
+	return funcName
+}
+
 func (c *Context) parseTypedValue(val string, arg interface{}) bool {
 	v := reflect.ValueOf(arg)
 	for v.Type().Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
 	if !v.CanSet() {
-		funcName := "???"
-		caller, _, _, ok := runtime.Caller(1)
-		if ok {
-			f := runtime.FuncForPC(caller)
-			if f != nil {
-				fullName := strings.Trim(f.Name(), ".")
-				parts := strings.Split(fullName, ".")
-				simpleName := parts[len(parts)-1]
-				funcName = fmt.Sprintf("%s()", simpleName)
-			}
-		}
 		panic(fmt.Errorf("Invalid argument type passed to %s. Please pass %s instead of %s.",
-			funcName, reflect.PtrTo(v.Type()), v.Type()))
+			c.funcName(1), reflect.PtrTo(v.Type()), v.Type()))
 	}
 	switch v.Type().Kind() {
 	case reflect.Bool:
@@ -175,7 +179,8 @@ func (c *Context) parseTypedValue(val string, arg interface{}) bool {
 		v.SetString(val)
 		return true
 	default:
-		panic(fmt.Errorf("Invalid type passed %s", v.Type()))
+		panic(fmt.Errorf("Invalid arguent type passed to %s: %s. Please, see ParseFormValue() docs for a list of the supported types.",
+			c.funcName(1), v.Type()))
 	}
 	return false
 }

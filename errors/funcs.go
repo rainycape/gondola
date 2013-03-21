@@ -19,3 +19,9 @@ func KindNotFound(kind string) {
 func MissingParameter(name string) {
 	panic(&MissingParameterError{name})
 }
+
+// InvalidParameterType raises an InvalidParameterTypeError
+// error with the given parameter name and type name
+func InvalidParameterType(name string, ptype string) {
+    panic(&InvalidParameterTypeError{&MissingParameterError{name}, ptype})
+}

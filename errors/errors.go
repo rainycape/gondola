@@ -36,3 +36,12 @@ func (m *MissingParameterError) StatusCode() int {
 func (m *MissingParameterError) String() string {
 	return fmt.Sprintf("Missing required parameter \"%s\"", m.ParameterName)
 }
+
+type InvalidParameterTypeError struct {
+    *MissingParameterError
+    ParameterType string
+}
+
+func (i *InvalidParameterTypeError) String() string {
+    return fmt.Sprintf("Required parameter \"%s\" must be of type %s", i.ParameterName, i.ParameterType)
+}

@@ -14,9 +14,9 @@ var (
 )
 
 type Func func(mux.Handler) mux.Handler
-type KeyFunc func(*http.Request, *mux.Context) string
-type FilterFunc func(*http.Request, int, http.Header, *mux.Context) bool
-type ExpirationFunc func(*http.Request, int, http.Header, *mux.Context) int
+type KeyFunc func(*mux.Context) string
+type FilterFunc func(*mux.Context, int, http.Header) bool
+type ExpirationFunc func(*mux.Context, int, http.Header) int
 
 func New(c *cache.Cache, k KeyFunc, f FilterFunc, e ExpirationFunc) Func {
 	if c == nil {
@@ -32,8 +32,8 @@ func New(c *cache.Cache, k KeyFunc, f FilterFunc, e ExpirationFunc) Func {
 		e = DefaultExpirationFunc
 	}
 	return func(fun mux.Handler) mux.Handler {
-		return func(w http.ResponseWriter, r *http.Request, ctx *mux.Context) {
-			key := k(r, ctx)
+		return func(ctx *mux.Context) {
+			key := k(ctx)
 			if key != "" {
 				data := c.GetBytes(key)
 				if data != nil {
@@ -41,46 +41,46 @@ func New(c *cache.Cache, k KeyFunc, f FilterFunc, e ExpirationFunc) Func {
 					err := cache.GobEncoder.Decode(data, &response)
 					if err == nil {
 						ctx.SetServedFromCache(true)
-						header := w.Header()
+						header := ctx.Header()
 						for k, v := range response.Header {
 							header[k] = v
 						}
-						w.WriteHeader(response.StatusCode)
-						w.Write(response.Data)
+						ctx.WriteHeader(response.StatusCode)
+						ctx.Write(response.Data)
 						return
 					}
 				}
-				lw := &layerWriter{w, bytes.NewBuffer(nil), 0, nil}
+				lw := &layerWriter{ctx.ResponseWriter, bytes.NewBuffer(nil), 0, nil}
 				ctx.ResponseWriter = lw
-				fun(lw, r, ctx)
-				ctx.ResponseWriter = w
-				if f(r, lw.statusCode, lw.header, ctx) {
+				fun(ctx)
+				if f(ctx, lw.statusCode, lw.header) {
 					response := &cachedResponse{lw.header, lw.statusCode, lw.buf.Bytes()}
 					data, err := cache.GobEncoder.Encode(response)
 					if err == nil {
 						ctx.SetCached(true)
-						c.SetBytes(key, data, e(r, lw.statusCode, lw.header, ctx))
+						c.SetBytes(key, data, e(ctx, lw.statusCode, lw.header))
 					}
 				}
 			} else {
-				fun(w, r, ctx)
+				fun(ctx)
 			}
 		}
 	}
 }
 
-func DefaultKeyFunc(r *http.Request, ctx *mux.Context) string {
+func DefaultKeyFunc(ctx *mux.Context) string {
+	r := ctx.R
 	if r.Method == "GET" {
 		return util.Md5([]byte(r.URL.String()))
 	}
 	return ""
 }
 
-func DefaultFilterFunc(r *http.Request, code int, header http.Header, ctx *mux.Context) bool {
+func DefaultFilterFunc(ctx *mux.Context, code int, header http.Header) bool {
 	return code == http.StatusOK
 }
 
-func DefaultExpirationFunc(r *http.Request, code int, header http.Header, ctx *mux.Context) int {
+func DefaultExpirationFunc(ctx *mux.Context, code int, header http.Header) int {
 	return DefaultExpiration
 }
 

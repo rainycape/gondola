@@ -22,7 +22,7 @@ type RecoverHandler func(interface{}, *Context) interface{}
 // a handler and might alter the context in any way they see fit
 type ContextProcessor func(*Context) bool
 
-type Handler func(http.ResponseWriter, *http.Request, *Context)
+type Handler func(*Context)
 
 type handlerInfo struct {
 	host    string
@@ -167,8 +167,8 @@ func (mux *Mux) SetKeepRemotePort(k bool) {
 // will must be in the directory which contains the rest of the assets.
 func (mux *Mux) HandleStaticFiles(prefix string, dir string) {
 	filesHandler := files.StaticFilesHandler(prefix, dir)
-	handler := func(w http.ResponseWriter, r *http.Request, ctx *Context) {
-		filesHandler(w, r)
+	handler := func(ctx *Context) {
+		filesHandler(ctx, ctx.R)
 	}
 	mux.HandleFunc(prefix, handler)
 	mux.HandleFunc("^/favicon.ico$", handler)
@@ -302,7 +302,7 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ctx.submatches = submatches
 			ctx.params = params
 			ctx.handlerName = v.name
-			v.handler(w, r, ctx)
+			v.handler(ctx)
 			break
 		}
 	}

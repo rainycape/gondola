@@ -3,35 +3,41 @@ package serialize
 import (
 	"encoding/json"
 	"encoding/xml"
+	"io"
 	"net/http"
 	"strconv"
 )
 
-type Serializer int
+type SerializationFormat int
 
 const (
-	Json Serializer = iota
+	Json SerializationFormat = iota
 	Xml
 )
 
-func Write(w http.ResponseWriter, value interface{}, s Serializer) (int, error) {
+func Write(w io.Writer, value interface{}, f SerializationFormat) (int, error) {
 	var contentType string
 	var data []byte
 	var err error
-	if s == Json {
+	switch f {
+	case Json:
 		data, err = json.Marshal(value)
 		contentType = "application/json"
-	} else if s == Xml {
+	case Xml:
 		data, err = xml.Marshal(value)
 		contentType = "application/xml"
+	default:
+		panic("Invalid serialization format")
 	}
 	if err != nil {
 		return 0, err
 	}
 	total := len(data)
-	header := w.Header()
-	header.Set("Content-Type", contentType)
-	header.Set("Content-Length", strconv.Itoa(total))
+	if rw, ok := w.(http.ResponseWriter); ok {
+		header := rw.Header()
+		header.Set("Content-Type", contentType)
+		header.Set("Content-Length", strconv.Itoa(total))
+	}
 	for c := 0; c < total; {
 		n, err := w.Write(data)
 		c += n
@@ -40,4 +46,12 @@ func Write(w http.ResponseWriter, value interface{}, s Serializer) (int, error) 
 		}
 	}
 	return total, nil
+}
+
+func WriteJson(w io.Writer, value interface{}) (int, error) {
+	return Write(w, value, Json)
+}
+
+func WriteXml(w io.Writer, value interface{}) (int, error) {
+	return Write(w, value, Xml)
 }

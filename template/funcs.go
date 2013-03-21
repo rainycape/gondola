@@ -105,16 +105,22 @@ func makeContext(t *Template) func() interface{} {
 
 func makeReverse(t *Template) func(string, ...interface{}) string {
 	return func(name string, args ...interface{}) string {
-		val, err := t.context.Mux().Reverse(name, args...)
-		if err != nil {
-			panic(err)
+		if t.context != nil {
+			val, err := t.context.Mux().Reverse(name, args...)
+			if err != nil {
+				panic(err)
+			}
+			return val
 		}
-		return val
+		panic(fmt.Errorf("Can't reverse %s because the context is not available", name))
 	}
 }
 
 func makeRequest(t *Template) func() *http.Request {
 	return func() *http.Request {
-		return t.context.R
+		if t.context != nil {
+			return t.context.R
+		}
+		return nil
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"gondola/mux"
 	"gondola/template/config"
 	"html/template"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -96,8 +97,9 @@ func (t *Template) parseScripts(value string, st ScriptType) {
 	}
 }
 
-func (t *Template) Render(w http.ResponseWriter, ctx *mux.Context, data interface{}) error {
+func (t *Template) Render(w io.Writer, data interface{}) error {
 	var buf bytes.Buffer
+	ctx, _ := w.(*mux.Context)
 	t.mu.Lock()
 	t.context = ctx
 	err := t.ExecuteTemplate(&buf, t.root, data)
@@ -105,17 +107,21 @@ func (t *Template) Render(w http.ResponseWriter, ctx *mux.Context, data interfac
 	if err != nil {
 		return err
 	}
-	header := w.Header()
-	header.Set("Content-Type", "text/html; charset=utf-8")
-	header.Set("Content-Length", strconv.Itoa(buf.Len()))
-	w.Write(buf.Bytes())
+	if rw, ok := w.(http.ResponseWriter); ok {
+		header := rw.Header()
+		header.Set("Content-Type", "text/html; charset=utf-8")
+		header.Set("Content-Length", strconv.Itoa(buf.Len()))
+		rw.Write(buf.Bytes())
+	}
 	return nil
 }
 
-func (t *Template) MustRender(w http.ResponseWriter, ctx *mux.Context, data interface{}) {
-	err := t.Render(w, ctx, data)
+func (t *Template) MustRender(w io.Writer, data interface{}) {
+	err := t.Render(w, data)
 	if err != nil {
-		http.Error(w, "Error", http.StatusInternalServerError)
+		if rw, ok := w.(http.ResponseWriter); ok {
+			http.Error(rw, "Error", http.StatusInternalServerError)
+		}
 		log.Panicf("Error executing template: %s\n", err)
 	}
 }
@@ -237,16 +243,16 @@ func MustLoad(name string) *Template {
 	return t
 }
 
-func Render(name string, w http.ResponseWriter, ctx *mux.Context, data interface{}) error {
+func Render(name string, w io.Writer, data interface{}) error {
 	t, err := Load(name)
 	if err != nil {
 		return err
 	}
-	return t.Render(w, ctx, data)
+	return t.Render(w, data)
 }
 
-func MustRender(name string, w http.ResponseWriter, ctx *mux.Context, data interface{}) {
-	err := Render(name, w, ctx, data)
+func MustRender(name string, w io.Writer, data interface{}) {
+	err := Render(name, w, data)
 	if err != nil {
 		log.Panic(err)
 	}

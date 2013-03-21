@@ -51,7 +51,9 @@ func New(c *cache.Cache, k KeyFunc, f FilterFunc, e ExpirationFunc) Func {
 					}
 				}
 				lw := &layerWriter{w, bytes.NewBuffer(nil), 0, nil}
+				ctx.ResponseWriter = lw
 				fun(lw, r, ctx)
+				ctx.ResponseWriter = w
 				if f(r, lw.statusCode, lw.header, ctx) {
 					response := &cachedResponse{lw.header, lw.statusCode, lw.buf.Bytes()}
 					data, err := cache.GobEncoder.Encode(response)

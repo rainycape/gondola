@@ -24,7 +24,7 @@ type Context struct {
 	fromCache     bool
 	handlerName   string
 	mux           *Mux
-	statusCode int
+	statusCode    int
 	customContext interface{}
 	Data          interface{} /* Left to the user */
 }
@@ -119,7 +119,7 @@ func (c *Context) RequireParseFormValue(name string, arg interface{}) {
 // StatusCode returns the response status code. If the headers
 // haven't been written yet, it returns 0
 func (c *Context) StatusCode() int {
-    return c.statusCode
+	return c.statusCode
 }
 
 func (c *Context) funcName(depth int) string {
@@ -285,7 +285,7 @@ func (c *Context) WriteHeader(code int) {
 func (c *Context) Write(data []byte) (int, error) {
 	n, err := c.ResponseWriter.Write(data)
 	if c.statusCode == 0 {
-	    c.statusCode = http.StatusOK
+		c.statusCode = http.StatusOK
 	}
 	return n, err
 }

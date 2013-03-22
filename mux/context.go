@@ -24,6 +24,7 @@ type Context struct {
 	fromCache     bool
 	handlerName   string
 	mux           *Mux
+	statusCode int
 	customContext interface{}
 	Data          interface{} /* Left to the user */
 }
@@ -113,6 +114,12 @@ func (c *Context) RequireParseFormValue(name string, arg interface{}) {
 		}
 		errors.InvalidParameterType(name, t.String())
 	}
+}
+
+// StatusCode returns the response status code. If the headers
+// haven't been written yet, it returns 0
+func (c *Context) StatusCode() int {
+    return c.statusCode
 }
 
 func (c *Context) funcName(depth int) string {
@@ -266,4 +273,19 @@ func (c *Context) Close() {
 		c.c.Close()
 		c.c = nil
 	}
+}
+
+// Intercept http.ResponseWriter calls to find response
+// status code
+
+func (c *Context) WriteHeader(code int) {
+	c.ResponseWriter.WriteHeader(code)
+}
+
+func (c *Context) Write(data []byte) (int, error) {
+	n, err := c.ResponseWriter.Write(data)
+	if c.statusCode == 0 {
+	    c.statusCode = http.StatusOK
+	}
+	return n, err
 }

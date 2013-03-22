@@ -47,6 +47,10 @@ func (c *Cache) frontendKey(key string) string {
 	return key
 }
 
+// Set stores the given object in the cache associated with the
+// given key. Timeout is the number of seconds until the item
+// expires. If the timeout is 0, the item is never expired and
+// might be only purged from cache when running out of space
 func (c *Cache) Set(key string, object interface{}, timeout int) {
 	b, err := c.Codec.Encode(&object)
 	if err != nil {
@@ -56,6 +60,7 @@ func (c *Cache) Set(key string, object interface{}, timeout int) {
 	c.SetBytes(key, b, timeout)
 }
 
+// Get returns the item assocciated with the given key
 func (c *Cache) Get(key string) interface{} {
 	b := c.GetBytes(key)
 	if b != nil {
@@ -69,6 +74,8 @@ func (c *Cache) Get(key string) interface{} {
 	return nil
 }
 
+// GetMulti returns several objects as a map[string]interface{}
+// in only one roundtrip to the cache
 func (c *Cache) GetMulti(keys []string) map[string]interface{} {
 	if c.manipulatesKeys() {
 		k := make([]string, len(keys))
@@ -107,6 +114,9 @@ func (c *Cache) GetMulti(keys []string) map[string]interface{} {
 	return objects
 }
 
+// SetBytes stores the given byte array assocciated with
+// the given key. See the documentation for Set for an
+// explanation of the timeout parameter
 func (c *Cache) SetBytes(key string, b []byte, timeout int) {
 	log.Debugf("Setting key %s", c.backendKey(key))
 	err := c.Backend.Set(c.backendKey(key), b, timeout)
@@ -115,6 +125,7 @@ func (c *Cache) SetBytes(key string, b []byte, timeout int) {
 	}
 }
 
+// GetBytes returns the byte array assocciated with the given key
 func (c *Cache) GetBytes(key string) []byte {
 	b, err := c.Backend.Get(c.backendKey(key))
 	if err != nil {

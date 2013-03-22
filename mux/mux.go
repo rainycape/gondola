@@ -16,6 +16,11 @@ import (
 	"strings"
 )
 
+var (
+	replaceCapturesRe    = regexp.MustCompile(`\(([^\?]|\?P).+?\)`)
+	replaceNonCapturesRe = regexp.MustCompile(`\(\?(?:\w+:)?(.*?)\)`)
+)
+
 type RecoverHandler func(interface{}, *Context) interface{}
 
 // ContextProcessor functions run before the request is matched to
@@ -194,13 +199,13 @@ func (mux *Mux) Reverse(name string, args ...interface{}) (string, error) {
 			clean := strings.Trim(pattern, "^$")
 			/* Replace capturing groups with a format specifier */
 			/* e.g. (re) and (?P<name>re) */
-			format := regexp.MustCompile(`\(([^\?]|\?P).+?\)`).ReplaceAllString(clean, "%v")
+			format := replaceCapturesRe.ReplaceAllString(clean, "%v")
 			if len(args) != strings.Count(format, "%v") {
 				return "", fmt.Errorf("Handler \"%s\" requires %d arguments, %d received instead", name,
 					strings.Count(format, "%v"), len(args))
 			}
 			/* Replace non-capturing groups with their re */
-			format = regexp.MustCompile(`\(\?(?:\w+:)?(.*?)\)`).ReplaceAllString(format, "$1")
+			format = replaceNonCapturesRe.ReplaceAllString(format, "$1")
 			/* eg (?flags:re) */
 			reversed := fmt.Sprintf(format, args...)
 			if v.host != "" {

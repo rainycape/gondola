@@ -97,7 +97,7 @@ func (t *Template) parseScripts(value string, st ScriptType) {
 	}
 }
 
-func (t *Template) Render(w io.Writer, data interface{}) error {
+func (t *Template) Execute(w io.Writer, data interface{}) error {
 	var buf bytes.Buffer
 	ctx, _ := w.(*mux.Context)
 	t.mu.Lock()
@@ -116,8 +116,8 @@ func (t *Template) Render(w io.Writer, data interface{}) error {
 	return nil
 }
 
-func (t *Template) MustRender(w io.Writer, data interface{}) {
-	err := t.Render(w, data)
+func (t *Template) MustExecute(w io.Writer, data interface{}) {
+	err := t.Execute(w, data)
 	if err != nil {
 		if rw, ok := w.(http.ResponseWriter); ok {
 			http.Error(rw, "Error", http.StatusInternalServerError)
@@ -214,7 +214,7 @@ func load(name string, t *Template) error {
 	return nil
 }
 
-func Load(name string) (*Template, error) {
+func Parse(name string) (*Template, error) {
 	t := &Template{}
 	t.mu = &sync.Mutex{}
 	err := load(name, t)
@@ -235,24 +235,24 @@ func Load(name string) (*Template, error) {
 	return t, nil
 }
 
-func MustLoad(name string) *Template {
-	t, err := Load(name)
+func MustParse(name string) *Template {
+	t, err := Parse(name)
 	if err != nil {
 		log.Fatalf("Error loading template %s: %s\n", name, err)
 	}
 	return t
 }
 
-func Render(name string, w io.Writer, data interface{}) error {
-	t, err := Load(name)
+func Execute(name string, w io.Writer, data interface{}) error {
+	t, err := Parse(name)
 	if err != nil {
 		return err
 	}
-	return t.Render(w, data)
+	return t.Execute(w, data)
 }
 
-func MustRender(name string, w io.Writer, data interface{}) {
-	err := Render(name, w, data)
+func MustExecute(name string, w io.Writer, data interface{}) {
+	err := Execute(name, w, data)
 	if err != nil {
 		log.Panic(err)
 	}

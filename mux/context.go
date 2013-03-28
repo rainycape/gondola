@@ -202,6 +202,19 @@ func (c *Context) Cache() *cache.Cache {
 	return c.c
 }
 
+// Redirect sends an HTTP redirect to the client,
+// using the provided redirect, which may be either
+// absolute or relative. The permanent argument
+// indicates if the redirect should be sent as a
+// permanent or a temporary one.
+func (c *Context) Redirect(redir string, permanent bool) {
+	code := http.StatusFound
+	if permanent {
+		code = http.StatusMovedPermanently
+	}
+	http.Redirect(c, c.R, redir, code)
+}
+
 // SetCached is used internaly by cache layers.
 // Don't call this method
 func (c *Context) SetCached(b bool) {

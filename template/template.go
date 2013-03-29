@@ -142,24 +142,16 @@ func parseComment(value string, t *Template, name string) {
 			value := strings.TrimSpace(v[m[1]:])
 			if value != "" {
 				switch strings.ToLower(key) {
-				case "script":
-					fallthrough
-				case "scripts":
+				case "script", "scripts":
 					t.parseScripts(value, ScriptTypeStandard)
-				case "ascript":
-					fallthrough
-				case "ascripts":
+				case "ascript", "ascripts":
 					t.parseScripts(value, ScriptTypeAsync)
-				case "css":
-					fallthrough
-				case "styles":
+				case "css", "style", "styles":
 					for _, v := range strings.Split(value, ",") {
 						style := strings.TrimSpace(v)
 						t.styles = append(t.styles, style)
 					}
-				case "extend":
-					fallthrough
-				case "extends":
+				case "extend", "extends":
 					load(value, t)
 					extended = true
 				}

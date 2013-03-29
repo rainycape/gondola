@@ -215,6 +215,12 @@ func (c *Context) Redirect(redir string, permanent bool) {
 	http.Redirect(c, c.R, redir, code)
 }
 
+// Error replies to the request with the specified
+// message and HTTP code.
+func (c *Context) Error(error string, code int) {
+	http.Error(c, error, code)
+}
+
 // SetCached is used internaly by cache layers.
 // Don't call this method
 func (c *Context) SetCached(b bool) {

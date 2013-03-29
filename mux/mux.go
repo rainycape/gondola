@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	replaceCapturesRe    = regexp.MustCompile(`\(([^\?]|\?P).+?\)`)
-	replaceNonCapturesRe = regexp.MustCompile(`\(\?(?:\w+:)?(.*?)\)`)
+	capturesRe    = regexp.MustCompile(`\(([^\?]|\?P).+?\)`)
+	nonCapturesRe = regexp.MustCompile(`\(\?:?(?:\w+:)?(.*?)\)[\?\*]?`)
 )
 
 type RecoverHandler func(interface{}, *Context) interface{}
@@ -199,14 +199,33 @@ func (mux *Mux) Reverse(name string, args ...interface{}) (string, error) {
 			clean := strings.Trim(pattern, "^$")
 			/* Replace capturing groups with a format specifier */
 			/* e.g. (re) and (?P<name>re) */
-			format := replaceCapturesRe.ReplaceAllString(clean, "%v")
-			if len(args) != strings.Count(format, "%v") {
-				return "", fmt.Errorf("Handler \"%s\" requires %d arguments, %d received instead", name,
-					strings.Count(format, "%v"), len(args))
+			format := capturesRe.ReplaceAllString(clean, "%v")
+			maxArguments := strings.Count(format, "%v")
+			/* Find all non-capturing, which might contain optional arguments */
+			nonCaptures := nonCapturesRe.FindAllStringIndex(format, -1)
+			minArguments := maxArguments - len(nonCaptures)
+			arguments := len(args)
+			if arguments < minArguments || arguments > maxArguments {
+				if minArguments == maxArguments {
+					return "", fmt.Errorf("Handler \"%s\" requires exactly %d arguments, %d received instead",
+						name, maxArguments, arguments)
+				}
+				return "", fmt.Errorf("Handler \"%s\" requires at least %d arguments and at most %d arguments, %d received instead",
+					name, minArguments, maxArguments, arguments)
 			}
-			/* Replace non-capturing groups with their re */
-			format = replaceNonCapturesRe.ReplaceAllString(format, "$1")
-			/* eg (?flags:re) */
+			// Replace the required non-capturing groups with their re
+			// eg (?flags:re), to match the nummber of passed in
+			// arguments
+			l := len(nonCaptures)
+			for maxArguments > arguments && l > 0 {
+				// Grab the last group
+				capt := nonCaptures[l-1]
+				nonCaptures = nonCaptures[:l-1]
+				l--
+				maxArguments--
+				format = format[:capt[0]] + format[capt[1]:]
+			}
+			format = nonCapturesRe.ReplaceAllString(format, "$1")
 			reversed := fmt.Sprintf(format, args...)
 			if v.host != "" {
 				reversed = fmt.Sprintf("//%s%s", v.host, reversed)

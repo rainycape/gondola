@@ -28,6 +28,9 @@ const (
 var (
 	commentRe = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
 	keyRe     = regexp.MustCompile(`(?s:\s*([\w\-_])+:)`)
+	cache     = map[string]*Template{}
+	cacheLock = &sync.RWMutex{}
+	debug     = false
 )
 
 var stylesBoilerplate = `
@@ -70,6 +73,20 @@ func Path() string {
 // initialized to the directory tmpl relative to the executable
 func SetPath(p string) {
 	config.SetPath(p)
+}
+
+// Debug returns if the template is in debug mode
+// (i.e. templates are not cached).
+func Debug() bool {
+	return debug
+}
+
+// SetDebug sets the debug state for the templates.
+// When true, templates executed via template.Execute() or
+// template.MustExecute() are recompiled every time
+// they are executed. The default is false.
+func SetDebug(d bool) {
+	debug = d
 }
 
 type script struct {
@@ -236,9 +253,20 @@ func MustParse(name string) *Template {
 }
 
 func Execute(name string, w io.Writer, data interface{}) error {
-	t, err := Parse(name)
-	if err != nil {
-		return err
+	cacheLock.RLock()
+	t := cache[name]
+	cacheLock.RUnlock()
+	if t == nil {
+		var err error
+		t, err = Parse(name)
+		if err != nil {
+			return err
+		}
+		if !debug {
+			cacheLock.Lock()
+			cache[name] = t
+			cacheLock.Unlock()
+		}
 	}
 	return t.Execute(w, data)
 }

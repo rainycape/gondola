@@ -6,7 +6,7 @@ import (
 )
 
 type Error interface {
-	String() string
+	error
 	StatusCode() int
 }
 
@@ -18,7 +18,7 @@ func (n *NotFoundError) StatusCode() int {
 	return http.StatusNotFound
 }
 
-func (n *NotFoundError) String() string {
+func (n *NotFoundError) Error() string {
 	if n.Kind != "" {
 		fmt.Sprintf("%s not found", n.Kind)
 	}
@@ -33,15 +33,15 @@ func (m *MissingParameterError) StatusCode() int {
 	return http.StatusBadRequest
 }
 
-func (m *MissingParameterError) String() string {
+func (m *MissingParameterError) Error() string {
 	return fmt.Sprintf("Missing required parameter \"%s\"", m.ParameterName)
 }
 
 type InvalidParameterTypeError struct {
-    *MissingParameterError
-    ParameterType string
+	*MissingParameterError
+	ParameterType string
 }
 
-func (i *InvalidParameterTypeError) String() string {
-    return fmt.Sprintf("Required parameter \"%s\" must be of type %s", i.ParameterName, i.ParameterType)
+func (i *InvalidParameterTypeError) Error() string {
+	return fmt.Sprintf("Required parameter \"%s\" must be of type %s", i.ParameterName, i.ParameterType)
 }

@@ -23,5 +23,5 @@ func MissingParameter(name string) {
 // InvalidParameterType raises an InvalidParameterTypeError
 // error with the given parameter name and type name
 func InvalidParameterType(name string, ptype string) {
-    panic(&InvalidParameterTypeError{&MissingParameterError{name}, ptype})
+	panic(&InvalidParameterTypeError{&MissingParameterError{name}, ptype})
 }

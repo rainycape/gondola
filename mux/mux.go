@@ -29,6 +29,13 @@ type ContextProcessor func(*Context) bool
 
 type Handler func(*Context)
 
+// ErrorHandler is called before an error is sent
+// to the client. The parameters are the current context,
+// the error message and the error code. If the handler
+// returns true, the error is considered as handled and
+// no further data is sent to the client.
+type ErrorHandler func(*Context, string, int) bool
+
 type handlerInfo struct {
 	host    string
 	name    string
@@ -44,6 +51,7 @@ type Mux struct {
 	contextTransform  *reflect.Value
 	trustXHeaders     bool
 	keepRemotePort    bool
+	errorHandler      ErrorHandler
 }
 
 // HandleFunc adds an anonymous handler. Anonymous handlers can't be reversed.
@@ -161,6 +169,19 @@ func (mux *Mux) SetKeepRemotePort(k bool) {
 	mux.keepRemotePort = k
 }
 
+// ErrorHandler returns the error handler (if any)
+// associated with this mux
+func (mux *Mux) ErrorHandler() ErrorHandler {
+	return mux.errorHandler
+}
+
+// SetErrorHandler sets the error handler for this mux.
+// See the documentation on ErrorHandler for a more
+// detailed description.
+func (mux *Mux) SetErrorHandler(handler ErrorHandler) {
+	mux.errorHandler = handler
+}
+
 // HandleStaticFiles adds several handlers to the mux which handle
 // static files efficiently and allows the use of the "assset"
 // function from the templates. prefix might be a relative
@@ -267,6 +288,20 @@ func (mux *Mux) readXHeaders(r *http.Request) {
 	}
 }
 
+func (mux *Mux) handleHTTPError(ctx *Context, error string, int code) bool {
+	if mux.errorHandler == nil || !mux.errorHandler(c, error, code) {
+		http.Error(c, error, code)
+	}
+}
+
+func (mux *Mux) handleError(ctx *Context, err interface{}) bool {
+	if gerr, ok := err.(errors.Error); ok {
+		mux.handleHTTPError(ctx, gerr.Error(), gerr.StatusCode())
+		return true
+	}
+	return false
+}
+
 func (mux *Mux) recover(ctx *Context) {
 	if err := recover(); err != nil {
 		for _, v := range mux.RecoverHandlers {
@@ -275,14 +310,7 @@ func (mux *Mux) recover(ctx *Context) {
 				break
 			}
 		}
-		if err != nil {
-			if gerr, ok := err.(errors.Error); ok {
-				ctx.WriteHeader(gerr.StatusCode())
-				ctx.Write([]byte(gerr.String()))
-				err = nil
-			}
-		}
-		if err != nil {
+		if err != nil && !mux.handleError(ctx, err) {
 			panic(err)
 		}
 	}

@@ -221,7 +221,7 @@ func (c *Context) Redirect(redir string, permanent bool) {
 // given the opportunity to intercept the
 // error and provide its own response.
 func (c *Context) Error(error string, code int) {
-	http.Error(c, error, code)
+	c.mux.handleHTTPError(c, error, code)
 }
 
 // NotFound is equivalent to calling Error()

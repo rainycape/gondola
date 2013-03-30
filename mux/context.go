@@ -258,6 +258,30 @@ func (c *Context) Mux() *Mux {
 	return c.mux
 }
 
+// MustReverse calls MustReverse on the mux this context originated
+// from. See the documentation on Mux for details.
+func (c *Context) MustReverse(name string, args ...interface{}) string {
+	return c.mux.MustReverse(name, args...)
+}
+
+// Reverse calls Reverse on the mux this context originated
+// from. See the documentation on Mux for details.
+func (c *Context) Reverse(name string, args ...interface{}) (string, error) {
+	return c.mux.Reverse(name, args...)
+}
+
+// RedirectReverse calls Reverse to find the URL and then sends
+// the redirect to the client. See the documentation on Mux.Reverse
+// for further details.
+func (c *Context) RedirectReverse(permanent bool, name string, args ...interface{}) error {
+	rev, err := c.Reverse(name, args...)
+	if err != nil {
+		return err
+	}
+	c.Redirect(rev, permanent)
+	return nil
+}
+
 // C returns the custom type context wrapped in
 // an interface{}. Intended for use in templates
 // e.g. {{ Ctx.C.MyCustomMethod }}

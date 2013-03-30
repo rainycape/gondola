@@ -181,6 +181,16 @@ func (mux *Mux) HandleStaticFiles(prefix string, dir string) {
 	config.SetStaticFilesUrl(prefix)
 }
 
+// MustReverse calls Reverse and panics if it finds an error. See
+// Reverse for further details.
+func (mux *Mux) MustReverse(name string, args ...interface{}) string {
+	rev, err := mux.Reverse(name, args...)
+	if err != nil {
+		panic(err)
+	}
+	return rev
+}
+
 // Reverse obtains the url given a handler name and its arguments.
 // The number of arguments must be equal to the
 // number of captured parameters in the patttern for the handler

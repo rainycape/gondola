@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -314,7 +315,11 @@ func (mux *Mux) recover(ctx *Context) {
 			}
 		}
 		if err != nil && !mux.handleError(ctx, err) {
-			panic(err)
+			const size = 4096
+			buf := make([]byte, size)
+			buf = buf[:runtime.Stack(buf, false)]
+			log.Errorf("Panic serving %v %v %v: %v\n%s", ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr, err, buf)
+			mux.handleHTTPError(ctx, "Internal Server Error", http.StatusInternalServerError)
 		}
 	}
 }
@@ -384,7 +389,7 @@ func (mux *Mux) closeContext(ctx *Context) {
 	switch {
 	case ctx.statusCode >= 400 && ctx.statusCode < 500:
 		level = log.LWarning
-	case ctx.statusCode > 500:
+	case ctx.statusCode >= 500:
 		level = log.LError
 	}
 	mux.logger.Logf(level, "%s %s %s %d %s", ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr,

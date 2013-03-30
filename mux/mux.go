@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"gondola/errors"
 	"gondola/files"
+	"gondola/log"
 	"gondola/template/config"
 	"net/http"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -52,6 +54,7 @@ type Mux struct {
 	trustXHeaders     bool
 	keepRemotePort    bool
 	errorHandler      ErrorHandler
+	logger            *log.Logger
 }
 
 // HandleFunc adds an anonymous handler. Anonymous handlers can't be reversed.
@@ -288,9 +291,9 @@ func (mux *Mux) readXHeaders(r *http.Request) {
 	}
 }
 
-func (mux *Mux) handleHTTPError(ctx *Context, error string, int code) bool {
-	if mux.errorHandler == nil || !mux.errorHandler(c, error, code) {
-		http.Error(c, error, code)
+func (mux *Mux) handleHTTPError(ctx *Context, error string, code int) {
+	if mux.errorHandler == nil || !mux.errorHandler(ctx, error, code) {
+		http.Error(ctx, error, code)
 	}
 }
 
@@ -319,7 +322,7 @@ func (mux *Mux) recover(ctx *Context) {
 // ServeHTTP is called from the net/http system. You shouldn't need
 // to call this function
 func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := &Context{ResponseWriter: w, R: r, mux: mux}
+	ctx := &Context{ResponseWriter: w, R: r, mux: mux, started: time.Now()}
 	defer mux.closeContext(ctx)
 	defer mux.recover(ctx)
 	if mux.trustXHeaders {
@@ -349,7 +352,7 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	/* Mux handlers first */
+	/* Mux handlers */
 	for _, v := range mux.handlers {
 		if v.host != "" && v.host != r.Host {
 			continue
@@ -365,10 +368,11 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ctx.params = params
 			ctx.handlerName = v.name
 			v.handler(ctx)
-			break
+			return
 		}
 	}
 	/* Not found */
+	mux.handleHTTPError(ctx, "Not Found", http.StatusNotFound)
 }
 
 func (mux *Mux) closeContext(ctx *Context) {
@@ -376,9 +380,18 @@ func (mux *Mux) closeContext(ctx *Context) {
 		v(ctx)
 	}
 	ctx.Close()
+	level := log.LInfo
+	switch {
+	case ctx.statusCode >= 400 && ctx.statusCode < 500:
+		level = log.LWarning
+	case ctx.statusCode > 500:
+		level = log.LError
+	}
+	mux.logger.Logf(level, "%s %s %s %d %s", ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr,
+		ctx.statusCode, time.Now().Sub(ctx.started))
 }
 
 // Returns a new Mux initialized with the default values
 func New() *Mux {
-	return &Mux{}
+	return &Mux{logger: log.Std}
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"hash/adler32"
 	"io/ioutil"
-	"log"
+	"gondola/log"
 	"net/http"
 	"os"
 	"path"
@@ -40,7 +40,7 @@ func watchDir(dir string, f func(string, *fsnotify.FileEvent)) {
 			case ev := <-watcher.Event:
 				f(dir, ev)
 			case err := <-watcher.Error:
-				log.Printf("Error watching %s: %s", dir, err)
+				log.Warningf("Error watching %s: %s", dir, err)
 			}
 		}
 	}()
@@ -78,13 +78,13 @@ func StaticFilesHandler(prefix string, dir string) func(http.ResponseWriter, *ht
 		}
 		f, err := os.Open(filepath.Join(dir, filepath.FromSlash(path.Clean("/"+p))))
 		if err != nil {
-			log.Printf("Error serving %s: %s\n", p, err)
+			log.Warningf("Error serving %s: %s", p, err)
 			return
 		}
 		defer f.Close()
 		d, err := f.Stat()
 		if err != nil {
-			log.Printf("Error serving %s: %s\n", p, err)
+			log.Warningf("Error serving %s: %s", p, err)
 			return
 		}
 		if r.URL.RawQuery != "" {

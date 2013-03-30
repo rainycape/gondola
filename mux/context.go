@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type ContextFinalizer func(*Context)
@@ -26,6 +27,7 @@ type Context struct {
 	mux           *Mux
 	statusCode    int
 	customContext interface{}
+	started       time.Time
 	Data          interface{} /* Left to the user */
 }
 
@@ -343,6 +345,7 @@ func (c *Context) Close() {
 // status code
 
 func (c *Context) WriteHeader(code int) {
+	c.statusCode = code
 	c.ResponseWriter.WriteHeader(code)
 }
 

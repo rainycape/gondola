@@ -1,7 +1,6 @@
 package util
 
 import (
-	"github.com/fiam/gounidecode/unidecode"
 	"regexp"
 	"strings"
 )
@@ -16,7 +15,7 @@ var (
 // whitespaces with '-' and converting to lowercase. Very useful
 // for making arbitrary strings, like a post title, part of URLs.
 func Slug(s string) string {
-	decoded := unidecode.Unidecode(s)
+	decoded := Unidecode(s)
 	spaceless := slugRegexp.ReplaceAllString(decoded, "-")
 	return strings.ToLower(strings.Trim(spaceless, "-"))
 }

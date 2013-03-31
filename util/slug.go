@@ -19,3 +19,14 @@ func Slug(s string) string {
 	spaceless := slugRegexp.ReplaceAllString(decoded, "-")
 	return strings.ToLower(strings.Trim(spaceless, "-"))
 }
+
+// SlugN works like Slug, but returns at string with, at
+// most n characters. If n is <= 0, it works exactly
+// like Slug.
+func SlugN(s string, n int) string {
+	slug := Slug(s)
+	if n > 0 && len(slug) > n {
+		slug = strings.Trim(slug[:n], "-")
+	}
+	return slug
+}

@@ -1,7 +1,7 @@
 package cache
 
 import (
-	log "logging"
+	"gondola/log"
 	"net/url"
 )
 

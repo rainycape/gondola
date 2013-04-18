@@ -12,6 +12,7 @@ import (
 	"gondola/log"
 	"gondola/template/config"
 	"net/http"
+	"net/http/httputil"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -368,10 +369,24 @@ func (mux *Mux) recover(ctx *Context) {
 			}
 		}
 		if err != nil && !mux.handleError(ctx, err) {
+			stack := ""
 			const size = 4096
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
-			log.Errorf("Panic serving %v %v %v: %v\n%s", ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr, err, buf)
+			// Remove lines 1 and 2, since they correspond
+			// to this very function and don't add any
+			// useful information
+			lines := strings.Split(string(buf), "\n")
+			if len(lines) > 2 {
+				lines = append(lines[:1], lines[3:]...)
+				stack = strings.Join(lines, "\n")
+			}
+			req := ""
+			dump, derr := httputil.DumpRequest(ctx.R, true)
+			if derr == nil {
+				req = string(dump)
+			}
+			log.Errorf("Panic serving %v %v %v: %v\n\nStack:\n%s\nRequest:\n%s", ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr, err, stack, req)
 			mux.handleHTTPError(ctx, "Internal Server Error", http.StatusInternalServerError)
 		}
 	}

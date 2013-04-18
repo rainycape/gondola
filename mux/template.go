@@ -6,17 +6,22 @@ import (
 	"gondola/template"
 	"net/http"
 	"sync"
+	"io"
 )
 
-type Template struct {
+type Template interface {
+    Execute(w io.Writer, data interface{}) error
+}
+
+type tmpl struct {
 	*template.Template
 	mutex   sync.Mutex
 	mux     *Mux
 	context *Context
 }
 
-func newTemplate() *Template {
-	t := &Template{}
+func newTemplate() *tmpl {
+	t := &tmpl{}
 	t.Template = template.New()
 	t.Template.Funcs(template.FuncMap{
 		"context": makeContext(t),
@@ -27,11 +32,11 @@ func newTemplate() *Template {
 	return t
 }
 
-func (t *Template) Execute(ctx *Context, data interface{}) error {
+func (t *tmpl) Execute(w io.Writer, data interface{}) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-	t.context = ctx
-	return t.Template.Execute(ctx, data)
+	t.context, _ = w.(*Context)
+	return t.Template.Execute(w, data)
 }
 
 // Other functions which are defined depending on the template
@@ -41,13 +46,13 @@ func (t *Template) Execute(ctx *Context, data interface{}) error {
 // request
 // asset
 
-func makeContext(t *Template) func() interface{} {
+func makeContext(t *tmpl) func() interface{} {
 	return func() interface{} {
 		return t.context
 	}
 }
 
-func makeReverse(t *Template) func(string, ...interface{}) (string, error) {
+func makeReverse(t *tmpl) func(string, ...interface{}) (string, error) {
 	return func(name string, args ...interface{}) (string, error) {
 		if t.mux != nil {
 			return t.mux.Reverse(name, args...)
@@ -56,7 +61,7 @@ func makeReverse(t *Template) func(string, ...interface{}) (string, error) {
 	}
 }
 
-func makeRequest(t *Template) func() *http.Request {
+func makeRequest(t *tmpl) func() *http.Request {
 	return func() *http.Request {
 		if t.context != nil {
 			return t.context.R
@@ -65,7 +70,7 @@ func makeRequest(t *Template) func() *http.Request {
 	}
 }
 
-func makeAsset(t *Template) func(string) string {
+func makeAsset(t *tmpl) func(string) string {
 	return func(asset string) string {
 		return files.StaticFileUrl(t.mux.staticFilesPrefix, asset)
 	}

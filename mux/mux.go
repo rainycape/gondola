@@ -275,7 +275,7 @@ func (mux *Mux) SetTemplatesDir(dir string) {
 // LoadTemplate loads a template from TemplateDir()
 // and configures them to work with this mux
 // (so functions like asset, etc... work correctly)
-func (mux *Mux) LoadTemplate(file string) (*Template, error) {
+func (mux *Mux) LoadTemplate(file string) (Template, error) {
 	p := path.Join(mux.templatesDir, file)
 	tmpl := newTemplate()
 	tmpl.mux = mux

@@ -2,8 +2,6 @@ package template
 
 import (
 	"bytes"
-	"gondola/mux"
-	"gondola/template/config"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -13,8 +11,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 )
+
+type FuncMap map[string]interface{}
 
 type ScriptType int
 
@@ -28,19 +27,16 @@ const (
 var (
 	commentRe = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
 	keyRe     = regexp.MustCompile(`(?s:\s*([\w\-_])+:)`)
-	cache     = map[string]*Template{}
-	cacheLock = &sync.RWMutex{}
-	debug     = false
 )
 
 var stylesBoilerplate = `
-  {{ range _getstyles }}
+  {{ range __getstyles }}
     <link rel="stylesheet" type="text/css" href="{{ asset . }}">
   {{ end }}
 `
 
 var scriptsBoilerplate = `
-  {{ range _getscripts }}
+  {{ range __getscripts }}
     {{ if .IsAsync }}
       <script type="text/javascript">
         (function() {
@@ -55,40 +51,6 @@ var scriptsBoilerplate = `
   {{ end }}
 `
 
-func StaticFilesUrl() string {
-	return config.StaticFilesUrl()
-}
-
-// Sets the base url for static assets. Might be
-// relative (e.g. /static/) or absolute (e.g. http://static.example.com/)
-func SetStaticFilesUrl(url string) {
-	config.SetStaticFilesUrl(url)
-}
-
-func Path() string {
-	return config.Path()
-}
-
-// Sets the path for the template files. By default, it's
-// initialized to the directory tmpl relative to the executable
-func SetPath(p string) {
-	config.SetPath(p)
-}
-
-// Debug returns if the template is in debug mode
-// (i.e. templates are not cached).
-func Debug() bool {
-	return debug
-}
-
-// SetDebug sets the debug state for the templates.
-// When true, templates executed via template.Execute() or
-// template.MustExecute() are recompiled every time
-// they are executed. The default is false.
-func SetDebug(d bool) {
-	debug = d
-}
-
 type script struct {
 	Name string
 	Type ScriptType
@@ -100,11 +62,10 @@ func (s *script) IsAsync() bool {
 
 type Template struct {
 	*template.Template
+	funcMap FuncMap
 	root    string
 	scripts []*script
 	styles  []string
-	mu      *sync.Mutex
-	context *mux.Context
 }
 
 func (t *Template) parseScripts(value string, st ScriptType) {
@@ -114,41 +75,8 @@ func (t *Template) parseScripts(value string, st ScriptType) {
 	}
 }
 
-func (t *Template) Execute(w io.Writer, data interface{}) error {
-	var buf bytes.Buffer
-	ctx, _ := w.(*mux.Context)
-	t.mu.Lock()
-	t.context = ctx
-	err := t.ExecuteTemplate(&buf, t.root, data)
-	t.mu.Unlock()
-	if err != nil {
-		return err
-	}
-	if rw, ok := w.(http.ResponseWriter); ok {
-		header := rw.Header()
-		header.Set("Content-Type", "text/html; charset=utf-8")
-		header.Set("Content-Length", strconv.Itoa(buf.Len()))
-		rw.Write(buf.Bytes())
-	}
-	return nil
-}
-
-func (t *Template) MustExecute(w io.Writer, data interface{}) {
-	err := t.Execute(w, data)
-	if err != nil {
-		if rw, ok := w.(http.ResponseWriter); ok {
-			http.Error(rw, "Error", http.StatusInternalServerError)
-		}
-		log.Panicf("Error executing template: %s\n", err)
-	}
-}
-
-func AddFunc(name string, f interface{}) {
-	templateFuncs[name] = f
-}
-
-func parseComment(value string, t *Template, name string) {
-	lines := strings.Split(value, "\n")
+func (t *Template) parseComment(comment string, file string) error {
+	lines := strings.Split(comment, "\n")
 	extended := false
 	for _, v := range lines {
 		m := keyRe.FindStringSubmatchIndex(v)
@@ -169,24 +97,24 @@ func parseComment(value string, t *Template, name string) {
 						t.styles = append(t.styles, style)
 					}
 				case "extend", "extends":
-					load(value, t)
+					extendedFile := path.Join(path.Dir(file), value)
+					err := t.load(extendedFile)
+					if err != nil {
+						return err
+					}
 					extended = true
 				}
 			}
 		}
 	}
 	if !extended {
-		t.root = name
+		t.root = file
 	}
+	return nil
 }
 
-func getTemplatePath(name string) string {
-	return path.Join(config.Path(), name)
-}
-
-func load(name string, t *Template) error {
-	f := getTemplatePath(name)
-	b, err := ioutil.ReadFile(f)
+func (t *Template) load(file string) error {
+	b, err := ioutil.ReadFile(file)
 	if err != nil {
 		return err
 	}
@@ -196,7 +124,10 @@ func load(name string, t *Template) error {
 	if matches != nil && len(matches) > 0 {
 		comment = matches[1]
 	}
-	parseComment(comment, t, name)
+	err = t.parseComment(comment, file)
+	if err != nil {
+		return err
+	}
 	if idx := strings.Index(s, "</head>"); idx >= 0 {
 		s = s[:idx] + "{{ template \"__styles\" }}" + s[idx:]
 	}
@@ -205,75 +136,89 @@ func load(name string, t *Template) error {
 	}
 	var tmpl *template.Template
 	if t.Template == nil {
-		t.Template = template.New(name)
+		t.Template = template.New(file)
 		tmpl = t.Template
 	} else {
-		tmpl = t.Template.New(name)
+		tmpl = t.Template.New(file)
 	}
-	tmpl = tmpl.Funcs(templateFuncs)
-	tmpl = tmpl.Funcs(template.FuncMap{
-		"Ctx":     makeContext(t),
-		"reverse": makeReverse(t),
-		"request": makeRequest(t),
-	})
-	tmpl, err = tmpl.Parse(s)
+	tmpl, err = tmpl.Funcs(templateFuncs).Funcs(template.FuncMap(t.funcMap)).Parse(s)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func Parse(name string) (*Template, error) {
-	t := &Template{}
-	t.mu = &sync.Mutex{}
-	err := load(name, t)
+func (t *Template) Funcs(funcs FuncMap) {
+	if t.funcMap == nil {
+		t.funcMap = make(FuncMap)
+	}
+	for k, v := range funcs {
+		t.funcMap[k] = v
+	}
+}
+
+func (t *Template) Parse(file string) error {
+	err := t.load(file)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	/* Add styles and scripts */
 	styles := t.Template.New("__styles")
 	styles.Funcs(template.FuncMap{
-		"_getstyles": func() []string { return t.styles },
+		"__getstyles": func() []string { return t.styles },
 	})
 	styles.Parse(stylesBoilerplate)
 	scripts := t.Template.New("__scripts")
 	scripts.Funcs(template.FuncMap{
-		"_getscripts": func() []*script { return t.scripts },
+		"__getscripts": func() []*script { return t.scripts },
 	})
 	scripts.Parse(scriptsBoilerplate)
+	return nil
+}
+
+func (t *Template) Execute(w io.Writer, data interface{}) error {
+	var buf bytes.Buffer
+	err := t.ExecuteTemplate(&buf, t.root, data)
+	if err != nil {
+		return err
+	}
+	if rw, ok := w.(http.ResponseWriter); ok {
+		header := rw.Header()
+		header.Set("Content-Type", "text/html; charset=utf-8")
+		header.Set("Content-Length", strconv.Itoa(buf.Len()))
+		rw.Write(buf.Bytes())
+	}
+	return nil
+}
+
+func (t *Template) MustExecute(w io.Writer, data interface{}) {
+	err := t.Execute(w, data)
+	if err != nil {
+		log.Panicf("Error executing template: %s\n", err)
+	}
+}
+
+func AddFunc(name string, f interface{}) {
+	templateFuncs[name] = f
+}
+
+func New() *Template {
+	return &Template{}
+}
+
+func Parse(file string) (*Template, error) {
+	t := New()
+	err := t.Parse(file)
+	if err != nil {
+		return nil, err
+	}
 	return t, nil
 }
 
-func MustParse(name string) *Template {
-	t, err := Parse(name)
+func MustParse(file string) *Template {
+	t, err := Parse(file)
 	if err != nil {
-		log.Fatalf("Error loading template %s: %s\n", name, err)
+		log.Fatalf("Error loading template %s: %s\n", file, err)
 	}
 	return t
-}
-
-func Execute(name string, w io.Writer, data interface{}) error {
-	cacheLock.RLock()
-	t := cache[name]
-	cacheLock.RUnlock()
-	if t == nil {
-		var err error
-		t, err = Parse(name)
-		if err != nil {
-			return err
-		}
-		if !debug {
-			cacheLock.Lock()
-			cache[name] = t
-			cacheLock.Unlock()
-		}
-	}
-	return t.Execute(w, data)
-}
-
-func MustExecute(name string, w io.Writer, data interface{}) {
-	err := Execute(name, w, data)
-	if err != nil {
-		log.Panic(err)
-	}
 }

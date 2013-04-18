@@ -10,9 +10,10 @@ import (
 	"gondola/errors"
 	"gondola/files"
 	"gondola/log"
-	"gondola/template/config"
+	"gondola/util"
 	"net/http"
 	"net/http/httputil"
+	"path"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -60,6 +61,10 @@ type Mux struct {
 	secret               string
 	encryptionKey        string
 	defaultCookieOptions *cookies.Options
+	staticFilesPrefix    string
+	staticFilesDir       string
+	templatesDir         string
+	debug                bool
 	logger               *log.Logger
 }
 
@@ -232,6 +237,69 @@ func (mux *Mux) SetErrorHandler(handler ErrorHandler) {
 	mux.errorHandler = handler
 }
 
+// StaticFilesPrefix returns the prefix for static assets
+func (mux *Mux) StaticFilesPrefix() string {
+	return mux.staticFilesPrefix
+}
+
+// SetStaticFilesPrefix sets the prefix for static assets. Might be
+// relative (e.g. /static/) or absolute (e.g. http://static.example.com/)
+func (mux *Mux) SetStaticFilesPrefix(prefix string) {
+	mux.staticFilesPrefix = prefix
+}
+
+// StaticFilesDir returns the directory for the static assets
+func (mux *Mux) StaticFilesDir() string {
+	return mux.staticFilesDir
+}
+
+// Sets the directory for static assets. You might want to use
+// gondola/util/RelativePath to initialize this to a value relative
+// to the application binary.
+func (mux *Mux) SetStaticFilesDir(dir string) {
+	mux.staticFilesDir = dir
+}
+
+// TemplatesDir returns the root directory for the template files
+func (mux *Mux) TemplatesDir() string {
+	return mux.templatesDir
+}
+
+// SetTemplatesDir sets the root directory for the template files.
+// By default, it's  initialized to the directory tmpl relative to
+// the executable.
+func (mux *Mux) SetTemplatesDir(dir string) {
+	mux.templatesDir = dir
+}
+
+// LoadTemplate loads a template from TemplateDir()
+// and configures them to work with this mux
+// (so functions like asset, etc... work correctly)
+func (mux *Mux) LoadTemplate(file string) (*Template, error) {
+	p := path.Join(mux.templatesDir, file)
+	tmpl := newTemplate()
+	tmpl.mux = mux
+	err := tmpl.Parse(p)
+	if err != nil {
+		return nil, err
+	}
+	return tmpl, nil
+}
+
+// Debug returns if the mux is in debug mode
+// (i.e. templates are not cached).
+func (mux *Mux) Debug() bool {
+	return mux.debug
+}
+
+// SetDebug sets the debug state for the mux.
+// When true, templates executed via Context.Execute or
+// Context.MustExecute() are recompiled every time
+// they are executed. The default is false.
+func (mux *Mux) SetDebug(debug bool) {
+	mux.debug = debug
+}
+
 // HandleStaticFiles adds several handlers to the mux which handle
 // static files efficiently and allows the use of the "assset"
 // function from the templates. prefix might be a relative
@@ -242,14 +310,15 @@ func (mux *Mux) SetErrorHandler(handler ErrorHandler) {
 // that /favicon.ico and /robots.txt will be handled too, but they
 // will must be in the directory which contains the rest of the assets.
 func (mux *Mux) HandleStaticFiles(prefix string, dir string) {
+	mux.staticFilesPrefix = prefix
+	mux.staticFilesDir = dir
 	filesHandler := files.StaticFilesHandler(prefix, dir)
 	handler := func(ctx *Context) {
 		filesHandler(ctx, ctx.R)
 	}
-	mux.HandleFunc(prefix, handler)
+	mux.HandleFunc("^"+prefix, handler)
 	mux.HandleFunc("^/favicon.ico$", handler)
 	mux.HandleFunc("^/robots.txt$", handler)
-	config.SetStaticFilesUrl(prefix)
 }
 
 // MustReverse calls Reverse and panics if it finds an error. See
@@ -466,5 +535,8 @@ func (mux *Mux) closeContext(ctx *Context) {
 
 // Returns a new Mux initialized with the default values
 func New() *Mux {
-	return &Mux{logger: log.Std}
+	return &Mux{
+		logger:       log.Std,
+		templatesDir: util.RelativePath("tmpl"),
+	}
 }

@@ -3,9 +3,9 @@ package files
 import (
 	"code.google.com/p/go.exp/fsnotify"
 	"fmt"
+	"gondola/log"
 	"hash/adler32"
 	"io/ioutil"
-	"gondola/log"
 	"net/http"
 	"os"
 	"path"
@@ -78,13 +78,13 @@ func StaticFilesHandler(prefix string, dir string) func(http.ResponseWriter, *ht
 		}
 		f, err := os.Open(filepath.Join(dir, filepath.FromSlash(path.Clean("/"+p))))
 		if err != nil {
-			log.Warningf("Error serving %s: %s", p, err)
+			log.Warningf("Error opening %s: %s", p, err)
 			return
 		}
 		defer f.Close()
 		d, err := f.Stat()
 		if err != nil {
-			log.Warningf("Error serving %s: %s", p, err)
+			log.Warningf("Error stating %s: %s", p, err)
 			return
 		}
 		if r.URL.RawQuery != "" {

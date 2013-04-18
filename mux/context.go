@@ -307,6 +307,9 @@ func (c *Context) RedirectReverse(permanent bool, name string, args ...interface
 	return nil
 }
 
+// Cookies returns a coookies.Cookies object which
+// can be used to set and delete cookies. See the documentation
+// on gondola/cookies for more information.
 func (c *Context) Cookies() *cookies.Cookies {
 	if c.cookies == nil {
 		mux := c.Mux()
@@ -316,20 +319,40 @@ func (c *Context) Cookies() *cookies.Cookies {
 	return c.cookies
 }
 
-// C returns the custom type context wrapped in
+// Execute loads the template with the given filename (relative
+// to the mux TemplatesDir()) and executes it with the
+// data argument.
+func (c *Context) Execute(file string, data interface{}) error {
+	tmpl, err := c.mux.LoadTemplate(file)
+	if err != nil {
+		return err
+	}
+	return tmpl.Execute(c, data)
+}
+
+// MustExecute works like Execute, but panics if there's an error
+func (c *Context) MustExecute(file string, data interface{}) {
+	err := c.Execute(file, data)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// Custom returns the custom type context wrapped in
 // an interface{}. Intended for use in templates
-// e.g. {{ Ctx.C.MyCustomMethod }}
+// e.g. {{ context.Custom.MyCustomMethod }}
 //
 // For use in code it's better to use the function
 // you previously defined as the context transformation for
 // the mux e.g.
 // function in your own code to avoid type assertions
+// type mycontext mux.Context
 // func Context(ctx *mux.Context) *mycontext {
 //	return (*mycontext)(ctx)
 // }
 // ...
 // mymux.SetContextTransform(Context)
-func (c *Context) C() interface{} {
+func (c *Context) Custom() interface{} {
 	if c.customContext == nil {
 		if c.mux.contextTransform != nil {
 			result := c.mux.contextTransform.Call([]reflect.Value{reflect.ValueOf(c)})

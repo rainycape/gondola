@@ -5,18 +5,10 @@ package template
 import (
 	"encoding/json"
 	"fmt"
-	"gondola/files"
-	"gondola/template/config"
 	"html/template"
-	"net/http"
 	"reflect"
 	"strings"
 )
-
-func asset(name ...string) string {
-	n := strings.Join(name, "")
-	return files.StaticFileUrl(config.StaticFilesUrl(), n)
-}
 
 func eq(args ...interface{}) bool {
 	if len(args) == 0 {
@@ -59,9 +51,9 @@ func _json(arg interface{}) string {
 func nz(x interface{}) bool {
 	switch x := x.(type) {
 	case int, uint, int64, uint64, byte, float32, float64:
-		if x != 0 {
-			return true
-		}
+		return x != 0
+	case string:
+		return len(x) > 0
 	}
 	return false
 }
@@ -82,45 +74,10 @@ func join(x []string, sep string) string {
 }
 
 var templateFuncs template.FuncMap = template.FuncMap{
-	"asset": asset,
 	"eq":    eq,
 	"neq":   neq,
 	"json":  _json,
 	"nz":    nz,
 	"lower": lower,
 	"join":  join,
-}
-
-// Other functions which are defined depending on the template
-// (because they require access to the context or the mux)
-// Ctx
-// reverse
-// request
-
-func makeContext(t *Template) func() interface{} {
-	return func() interface{} {
-		return t.context
-	}
-}
-
-func makeReverse(t *Template) func(string, ...interface{}) string {
-	return func(name string, args ...interface{}) string {
-		if t.context != nil {
-			val, err := t.context.Mux().Reverse(name, args...)
-			if err != nil {
-				panic(err)
-			}
-			return val
-		}
-		panic(fmt.Errorf("Can't reverse %s because the context is not available", name))
-	}
-}
-
-func makeRequest(t *Template) func() *http.Request {
-	return func() *http.Request {
-		if t.context != nil {
-			return t.context.R
-		}
-		return nil
-	}
 }

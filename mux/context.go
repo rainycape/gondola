@@ -310,7 +310,8 @@ func (c *Context) RedirectReverse(permanent bool, name string, args ...interface
 func (c *Context) Cookies() *cookies.Cookies {
 	if c.cookies == nil {
 		mux := c.Mux()
-		c.cookies = cookies.New(c.R, c, mux.Secret(), mux.DefaultCookieOptions())
+		c.cookies = cookies.New(c.R, c, mux.Secret(),
+			mux.EncryptionKey(), mux.DefaultCookieOptions())
 	}
 	return c.cookies
 }

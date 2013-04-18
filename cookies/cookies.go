@@ -2,6 +2,8 @@ package cookies
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/sha1"
 	"crypto/subtle"
@@ -9,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"gondola/base64"
+	"gondola/util"
 	"net/http"
 	"strings"
 	"time"
@@ -19,11 +22,13 @@ const (
 )
 
 var (
-	ErrNoSecret     = errors.New("No secret specified. Please, use mux.SetSecret().")
-	ErrTampered     = errors.New("The cookie value has been altered by the client")
-	ErrCookieTooBig = errors.New("This cookie is too big. Maximum size is 4096 bytes.")
-	Permanent       = time.Unix(2147483647, 0).UTC()
-	deleteExpires   = time.Unix(0, 0).UTC()
+	ErrNoSecret        = errors.New("No secret specified. Please, use Mux.SetSecret().")
+	ErrNoEncryptionKey = errors.New("No encryption key specified. Please, use Mux.SetEncryptionKey()")
+	ErrCouldNotDecrypt = errors.New("Could not decrypt value")
+	ErrTampered        = errors.New("The cookie value has been altered by the client")
+	ErrCookieTooBig    = errors.New("This cookie is too big. Maximum size is 4096 bytes.")
+	Permanent          = time.Unix(2147483647, 0).UTC()
+	deleteExpires      = time.Unix(0, 0).UTC()
 )
 
 type Options struct {
@@ -36,17 +41,20 @@ type Options struct {
 }
 
 type Cookies struct {
-	r        *http.Request
-	w        http.ResponseWriter
-	secret   string
-	defaults *Options
+	r             *http.Request
+	w             http.ResponseWriter
+	secret        string
+	encryptionKey string
+	defaults      *Options
 }
 
-func New(r *http.Request, w http.ResponseWriter, secret string, defaults *Options) *Cookies {
+type transformer func([]byte) ([]byte, error)
+
+func New(r *http.Request, w http.ResponseWriter, secret string, encryptionKey string, defaults *Options) *Cookies {
 	if defaults == nil {
 		defaults = Defaults()
 	}
-	return &Cookies{r, w, secret, defaults}
+	return &Cookies{r, w, secret, encryptionKey, defaults}
 }
 
 // Defaults returns the default coookie options, which are:
@@ -60,20 +68,33 @@ func Defaults() *Options {
 	}
 }
 
-func (c *Cookies) encode(value interface{}) (string, error) {
+func (c *Cookies) encode(value interface{}, t transformer) (string, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
 	err := encoder.Encode(value)
 	if err != nil {
 		return "", err
 	}
-	return base64.Encode(buf.Bytes()), nil
+	encoded := buf.Bytes()
+	if t != nil {
+		encoded, err = t(encoded)
+		if err != nil {
+			return "", err
+		}
+	}
+	return base64.Encode(encoded), nil
 }
 
-func (c *Cookies) decode(data string, arg interface{}) error {
+func (c *Cookies) decode(data string, arg interface{}, t transformer) error {
 	b, err := base64.Decode(data)
 	if err != nil {
 		return err
+	}
+	if t != nil {
+		b, err = t(b)
+		if err != nil {
+			return err
+		}
 	}
 	buf := bytes.NewBuffer(b)
 	decoder := gob.NewDecoder(buf)
@@ -104,6 +125,7 @@ func (c *Cookies) set(name, value string, o *Options) error {
 	return nil
 }
 
+// sign signs the given value using HMAC-SHA1
 func (c *Cookies) sign(value string) (string, error) {
 	if c.secret == "" {
 		return "", ErrNoSecret
@@ -114,6 +136,75 @@ func (c *Cookies) sign(value string) (string, error) {
 	// hex saves ~25% (hex has a 2x overhead while
 	// base64 has a 4/3x)
 	return base64.Encode(hm.Sum(nil)), nil
+}
+
+// checkSignature splits the given value into the encoded
+// and signature parts and verifies, in constant time, that
+// the signature is correct.
+func (c *Cookies) checkSignature(value string) (string, error) {
+	parts := strings.Split(value, ":")
+	if len(parts) != 3 || parts[1] != "sha1" {
+		return "", ErrTampered
+	}
+	encoded, signature := parts[0], parts[2]
+	s, err := c.sign(encoded)
+	if err != nil {
+		return "", err
+	}
+	if len(s) != len(signature) || subtle.ConstantTimeCompare([]byte(s), []byte(signature)) != 1 {
+		return "", ErrTampered
+	}
+	return encoded, nil
+}
+
+// setSigned sets a signed cookie, which should have been previously
+// encoded
+func (c *Cookies) setSigned(name string, value string, o *Options) error {
+	signature, err := c.sign(value)
+	if err != nil {
+		return err
+	}
+	// Only support sha1 for now, but store that in the cookie
+	// to allow us to change the hashing algorithm in the future
+	// if required (or even let the user choose it)
+	return c.set(name, fmt.Sprintf("%s:sha1:%s", value, signature), o)
+}
+
+func (c *Cookies) cipher() (cipher.Block, error) {
+	if c.encryptionKey == "" {
+		return nil, ErrNoEncryptionKey
+	}
+	return aes.NewCipher([]byte(c.encryptionKey))
+}
+
+func (c *Cookies) encrypter() (transformer, error) {
+	ci, err := c.cipher()
+	if err != nil {
+		return nil, err
+	}
+	iv := []byte(util.RandomString(ci.BlockSize()))
+	stream := cipher.NewCTR(ci, iv)
+	return func(src []byte) ([]byte, error) {
+		stream.XORKeyStream(src, src)
+		return append(iv, src...), nil
+	}, nil
+}
+
+func (c *Cookies) decrypter() (transformer, error) {
+	ci, err := c.cipher()
+	if err != nil {
+		return nil, err
+	}
+	return func(src []byte) ([]byte, error) {
+		bs := ci.BlockSize()
+		if len(src) <= bs {
+			return nil, ErrCouldNotDecrypt
+		}
+		iv, value := src[:bs], src[bs:]
+		stream := cipher.NewCTR(ci, iv)
+		stream.XORKeyStream(value, value)
+		return value, nil
+	}, nil
 }
 
 // GetCookie returns the raw *http.Coookie with
@@ -136,7 +227,7 @@ func (c *Cookies) Get(name string, arg interface{}) error {
 	if err != nil {
 		return err
 	}
-	return c.decode(cookie.Value, arg)
+	return c.decode(cookie.Value, arg, nil)
 }
 
 // Set sets the cookie with the given name and encodes
@@ -150,7 +241,7 @@ func (c *Cookies) Set(name string, value interface{}) error {
 
 // SetOpts works like Set(), but accepts an Options parameter.
 func (c *Cookies) SetOpts(name string, value interface{}, o *Options) error {
-	encoded, err := c.encode(value)
+	encoded, err := c.encode(value, nil)
 	if err != nil {
 		return err
 	}
@@ -165,45 +256,78 @@ func (c *Cookies) GetSecure(name string, arg interface{}) error {
 	if err != nil {
 		return err
 	}
-	parts := strings.Split(cookie.Value, ":")
-	if len(parts) != 3 || parts[1] != "sha1" {
-		return ErrTampered
-	}
-	encoded, signature := parts[0], parts[2]
-	s, err := c.sign(encoded)
+	value, err := c.checkSignature(cookie.Value)
 	if err != nil {
 		return err
 	}
-	if len(s) != len(signature) || subtle.ConstantTimeCompare([]byte(s), []byte(signature)) != 1 {
-		return ErrTampered
-	}
-	return c.decode(encoded, arg)
+	return c.decode(value, arg, nil)
 }
 
 // SetSecure sets a tamper-proof cookie, using the mux
-// secret to sign its value with HMAC-SHA1. If you
-// haven't set a secret (via mux.SetSecret()), this
-// function will return ErrNoSecret.
+// secret to sign its value with HMAC-SHA1. The user may
+// find the value of the cookie, but he will not be able
+// to manipulate it. If you also require the value to be
+// protected from being revealed to the user, use
+// SetEncrypted().
+// If you haven't set a secret (via mux.SetSecret()),
+// this function will return ErrNoSecret.
 // The options used for the cookie are the mux defaults. If
-// you need to use different options, use SetOpts().
+// you need to use different options, use SetSecureOpts().
 func (c *Cookies) SetSecure(name string, value interface{}) error {
 	return c.SetSecureOpts(name, value, nil)
 }
 
 // SetSecureOpts works like SetSecure(), but accepts an Options parameter.
 func (c *Cookies) SetSecureOpts(name string, value interface{}, o *Options) error {
-	encoded, err := c.encode(value)
+	encoded, err := c.encode(value, nil)
 	if err != nil {
 		return err
 	}
-	signature, err := c.sign(encoded)
+	return c.setSigned(name, encoded, o)
+}
+
+// GetEncrypted works like Get, but for cookies set with SetEncrypted().
+// See SetEncrypted() for the guarantees made about the cookie value.
+func (c *Cookies) GetEncrypted(name string, arg interface{}) error {
+	cookie, err := c.GetCookie(name)
 	if err != nil {
 		return err
 	}
-	// Only support sha1 for now, but store that in the cookie
-	// to allow us to change the hashing algorighm in the future
-	// if required (or even let the user choose it)
-	return c.set(name, fmt.Sprintf("%s:sha1:%s", encoded, signature), o)
+	value, err := c.checkSignature(cookie.Value)
+	if err != nil {
+		return err
+	}
+	decrypter, err := c.decrypter()
+	if err != nil {
+		return err
+	}
+	return c.decode(value, arg, decrypter)
+}
+
+// SetEncrypted sets a tamper-proof and encrypted cookie. The value is first
+// encrypted using AES and the signed using HMAC-SHA1. The user will not
+// be able to tamper with the cookie value nor reveal its contents.
+// If you haven't set a secret (via mux.SetSecret()),
+// this function will return ErrNoSecret.
+// If you haven't set an encryption key (via mux.SetEncryptionKey()),
+// this function will return ErrNoEncryptionKey.
+// The options used for the cookie are the mux defaults. If
+// you need to use different options, use SetEncryptedOpts().
+func (c *Cookies) SetEncrypted(name string, value interface{}) error {
+	return c.SetEncryptedOpts(name, value, nil)
+}
+
+// SetEncryptedOpts works like SetEncrypted(), but accepts and Options parameter
+func (c *Cookies) SetEncryptedOpts(name string, value interface{}, o *Options) error {
+	encrypter, err := c.encrypter()
+	if err != nil {
+		return err
+	}
+	encoded, err := c.encode(value, encrypter)
+	if err != nil {
+		return err
+	}
+	return c.setSigned(name, encoded, o)
 }
 
 // Delete deletes with cookie with the given name

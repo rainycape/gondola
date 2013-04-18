@@ -57,6 +57,7 @@ type Mux struct {
 	keepRemotePort       bool
 	errorHandler         ErrorHandler
 	secret               string
+	encryptionKey        string
 	defaultCookieOptions *cookies.Options
 	logger               *log.Logger
 }
@@ -176,7 +177,7 @@ func (mux *Mux) SetKeepRemotePort(k bool) {
 	mux.keepRemotePort = k
 }
 
-// Secret returns the secret for the mux. See
+// Secret returns the secret for this mux. See
 // SetSecret() for further details.
 func (mux *Mux) Secret() string {
 	return mux.secret
@@ -187,6 +188,19 @@ func (mux *Mux) Secret() string {
 // random string with at least 32 characters.
 func (mux *Mux) SetSecret(secret string) {
 	mux.secret = secret
+}
+
+// EncryptionKey returns the encryption key for this
+// mux. See SetEncryptionKey() for details.
+func (mux *Mux) EncryptionKey() string {
+	return mux.encryptionKey
+}
+
+// SetEncriptionKey sets the encryption key for this
+// mux, which is used by encrypted cookies. It should
+// be a random string of 16, 24 or 32 characters.
+func (mux *Mux) SetEncryptionKey(key string) {
+	mux.encryptionKey = key
 }
 
 // DefaultCookieOptions returns the default options

@@ -325,15 +325,23 @@ func (mux *Mux) ListenAndServe(port int) error {
 }
 
 func (mux *Mux) readXHeaders(r *http.Request) {
-	/* TODO: Handle scheme */
 	realIp := r.Header.Get("X-Real-IP")
 	if realIp != "" {
 		r.RemoteAddr = realIp
-		return
+	} else {
+		forwardedFor := r.Header.Get("X-Forwarded-For")
+		if forwardedFor != "" {
+			r.RemoteAddr = forwardedFor
+		}
 	}
-	forwardedFor := r.Header.Get("X-Forwarded-For")
-	if forwardedFor != "" {
-		r.RemoteAddr = forwardedFor
+	xScheme := r.Header.Get("X-Scheme")
+	if xScheme != "" {
+		r.URL.Scheme = xScheme
+	} else {
+		xForwardedProto := r.Header.Get("X-Forwarded-Proto")
+		if xForwardedProto != "" {
+			r.URL.Scheme = xForwardedProto
+		}
 	}
 }
 

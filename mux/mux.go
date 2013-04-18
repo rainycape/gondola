@@ -6,6 +6,7 @@ package mux
 
 import (
 	"fmt"
+	"gondola/cookies"
 	"gondola/errors"
 	"gondola/files"
 	"gondola/log"
@@ -47,15 +48,17 @@ type handlerInfo struct {
 }
 
 type Mux struct {
-	ContextProcessors []ContextProcessor
-	ContextFinalizers []ContextFinalizer
-	RecoverHandlers   []RecoverHandler
-	handlers          []*handlerInfo
-	contextTransform  *reflect.Value
-	trustXHeaders     bool
-	keepRemotePort    bool
-	errorHandler      ErrorHandler
-	logger            *log.Logger
+	ContextProcessors    []ContextProcessor
+	ContextFinalizers    []ContextFinalizer
+	RecoverHandlers      []RecoverHandler
+	handlers             []*handlerInfo
+	contextTransform     *reflect.Value
+	trustXHeaders        bool
+	keepRemotePort       bool
+	errorHandler         ErrorHandler
+	secret               string
+	defaultCookieOptions *cookies.Options
+	logger               *log.Logger
 }
 
 // HandleFunc adds an anonymous handler. Anonymous handlers can't be reversed.
@@ -171,6 +174,34 @@ func (mux *Mux) KeepsRemotePort() bool {
 // will only contain an address
 func (mux *Mux) SetKeepRemotePort(k bool) {
 	mux.keepRemotePort = k
+}
+
+// Secret returns the secret for the mux. See
+// SetSecret() for further details.
+func (mux *Mux) Secret() string {
+	return mux.secret
+}
+
+// SetSecret sets the secret associated with this mux,
+// which is used for signed cookies. It should be a
+// random string with at least 32 characters.
+func (mux *Mux) SetSecret(secret string) {
+	mux.secret = secret
+}
+
+// DefaultCookieOptions returns the default options
+// used for cookies. This is initialized to the value
+// returned by cookies.Defaults(). See gondola/cookies
+// documentation for more details.
+func (mux *Mux) DefaultCookieOptions() *cookies.Options {
+	return mux.defaultCookieOptions
+}
+
+// SetDefaultCookieOptions sets the default cookie options
+// for this mux. See gondola/cookies documentation for more
+// details.
+func (mux *Mux) SetDefaultCookieOptions(o *cookies.Options) {
+	mux.defaultCookieOptions = o
 }
 
 // ErrorHandler returns the error handler (if any)

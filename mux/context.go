@@ -3,6 +3,7 @@ package mux
 import (
 	"fmt"
 	"gondola/cache"
+	"gondola/cookies"
 	"gondola/errors"
 	"math"
 	"net/http"
@@ -28,6 +29,7 @@ type Context struct {
 	statusCode    int
 	customContext interface{}
 	started       time.Time
+	cookies       *cookies.Cookies
 	Data          interface{} /* Left to the user */
 }
 
@@ -303,6 +305,14 @@ func (c *Context) RedirectReverse(permanent bool, name string, args ...interface
 	}
 	c.Redirect(rev, permanent)
 	return nil
+}
+
+func (c *Context) Cookies() *cookies.Cookies {
+	if c.cookies == nil {
+		mux := c.Mux()
+		c.cookies = cookies.New(c.R, c, mux.Secret(), mux.DefaultCookieOptions())
+	}
+	return c.cookies
 }
 
 // C returns the custom type context wrapped in

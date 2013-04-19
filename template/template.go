@@ -2,6 +2,7 @@ package template
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -30,6 +31,7 @@ const (
 	rightDelim      = "}}"
 	stylesTmplName  = "__styles"
 	scriptsTmplName = "__scripts"
+	dataKey         = "Data"
 )
 
 var stylesBoilerplate = `
@@ -57,6 +59,7 @@ var scriptsBoilerplate = `
 var (
 	commentRe   = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
 	keyRe       = regexp.MustCompile(`(?s:\s*([\w\-_])+:)`)
+	defineRe    = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
 	stylesTree  = compileTree(stylesTmplName, stylesBoilerplate)
 	scriptsTree = compileTree(scriptsTmplName, scriptsBoilerplate)
 )
@@ -77,6 +80,7 @@ type Template struct {
 	root    string
 	scripts []*script
 	styles  []string
+	vars    []string
 }
 
 func (t *Template) parseScripts(value string, st ScriptType) {
@@ -86,7 +90,7 @@ func (t *Template) parseScripts(value string, st ScriptType) {
 	}
 }
 
-func (t *Template) parseComment(comment string, file string) error {
+func (t *Template) parseComment(comment string, file string, prepend string) error {
 	lines := strings.Split(comment, "\n")
 	extended := false
 	for _, v := range lines {
@@ -109,7 +113,7 @@ func (t *Template) parseComment(comment string, file string) error {
 					}
 				case "extend", "extends":
 					extendedFile := path.Join(path.Dir(file), value)
-					err := t.load(extendedFile)
+					err := t.load(extendedFile, prepend)
 					if err != nil {
 						return err
 					}
@@ -124,7 +128,7 @@ func (t *Template) parseComment(comment string, file string) error {
 	return nil
 }
 
-func (t *Template) load(file string) error {
+func (t *Template) load(file string, prepend string) error {
 	b, err := ioutil.ReadFile(file)
 	if err != nil {
 		return err
@@ -135,7 +139,7 @@ func (t *Template) load(file string) error {
 	if matches != nil && len(matches) > 0 {
 		comment = matches[1]
 	}
-	err = t.parseComment(comment, file)
+	err = t.parseComment(comment, file, prepend)
 	if err != nil {
 		return err
 	}
@@ -144,6 +148,10 @@ func (t *Template) load(file string) error {
 	}
 	if idx := strings.Index(s, "</body>"); idx >= 0 {
 		s = s[:idx] + "{{ template \"__scripts\" }}" + s[idx:]
+	}
+	if prepend != "" {
+		// Prepend to the template and to any define nodes found
+		s = prepend + defineRe.ReplaceAllString(s, "$0"+strings.Replace(prepend, "$", "$$", -1))
 	}
 	treeMap, err := parse.Parse(file, s, leftDelim, rightDelim, templateFuncs, t.funcMap)
 	if err != nil {
@@ -158,45 +166,45 @@ func (t *Template) load(file string) error {
 	return nil
 }
 
-func (t *Template) walkNode(f func(parse.Node), node parse.Node) {
+func (t *Template) walkNode(node parse.Node, nt parse.NodeType, f func(parse.Node)) {
 	if node == nil {
 		return
 	}
-	f(node)
+	if node.Type() == nt {
+		f(node)
+	}
 	switch x := node.(type) {
 	case *parse.ListNode:
 		for _, v := range x.Nodes {
-			t.walkNode(f, v)
+			t.walkNode(v, nt, f)
 		}
 	case *parse.IfNode:
 		if x.List != nil {
-			t.walkNode(f, x.List)
+			t.walkNode(x.List, nt, f)
 		}
 		if x.ElseList != nil {
-			t.walkNode(f, x.ElseList)
+			t.walkNode(x.ElseList, nt, f)
 		}
 	case *parse.WithNode:
 		if x.List != nil {
-			t.walkNode(f, x.List)
+			t.walkNode(x.List, nt, f)
 		}
 		if x.ElseList != nil {
-			t.walkNode(f, x.ElseList)
+			t.walkNode(x.ElseList, nt, f)
 		}
 	}
 }
 
-func (t *Template) walkTrees(f func(parse.Node)) {
+func (t *Template) walkTrees(nt parse.NodeType, f func(parse.Node)) {
 	for _, v := range t.Trees {
-		t.walkNode(f, v.Root)
+		t.walkNode(v.Root, nt, f)
 	}
 }
 
 func (t *Template) referencedTemplates() []string {
 	var templates []string
-	t.walkTrees(func(n parse.Node) {
-		if n.Type() == parse.NodeTemplate {
-			templates = append(templates, n.(*parse.TemplateNode).Name)
-		}
+	t.walkTrees(parse.NodeTemplate, func(n parse.Node) {
+		templates = append(templates, n.(*parse.TemplateNode).Name)
 	})
 	return templates
 }
@@ -212,7 +220,24 @@ func (t *Template) Funcs(funcs FuncMap) {
 }
 
 func (t *Template) Parse(file string) error {
-	err := t.load(file)
+	return t.ParseVars(file, nil)
+}
+
+func (t *Template) ParseVars(file string, vars []string) error {
+	prepend := ""
+	if len(vars) > 0 {
+		t.vars = vars
+		// The variable definitions must be present at parse
+		// time, because otherwise the parser will throw an
+		// error when it finds a variable which wasn't
+		// previously defined
+		var p []string
+		for _, v := range vars {
+			p = append(p, fmt.Sprintf("{{ $%s := .%s }}", v, v))
+		}
+		prepend = strings.Join(p, "")
+	}
+	err := t.load(file, prepend)
 	if err != nil {
 		return err
 	}
@@ -233,6 +258,79 @@ func (t *Template) Parse(file string) error {
 			t.AddParseTree(v, tree)
 		}
 	}
+	// Modify the parse trees to always define vars
+	if n := len(vars); n > 0 {
+		for _, tr := range t.Trees {
+			// Skip the first n nodes, since they set the variables.
+			// Then wrap the rest of template in a WithNode, which sets
+			// the dot to .Data
+			field := &parse.FieldNode{
+				NodeType: parse.NodeField,
+				Ident:    []string{dataKey},
+			}
+			command := &parse.CommandNode{
+				NodeType: parse.NodeCommand,
+				Args:     []parse.Node{field},
+			}
+			pipe := &parse.PipeNode{
+				NodeType: parse.NodePipe,
+				Cmds:     []*parse.CommandNode{command},
+			}
+			var nodes []parse.Node
+			nodes = append(nodes, tr.Root.Nodes[:n]...)
+			root := tr.Root.Nodes[n:]
+			newRoot := &parse.ListNode{
+				NodeType: parse.NodeList,
+				Nodes:    root,
+			}
+			// The list needs to be copied, otherwise the
+			// html/template escaper complains that the
+			// node is shared between templates
+			with := &parse.WithNode{
+				parse.BranchNode{
+					NodeType: parse.NodeWith,
+					Pipe:     pipe,
+					List:     newRoot,
+					ElseList: newRoot.CopyList(),
+				},
+			}
+			nodes = append(nodes, with)
+			tr.Root = &parse.ListNode{
+				NodeType: parse.NodeList,
+				Nodes:    nodes,
+			}
+		}
+		// Rewrite any template nodes to pass also the variables, since
+		// they are not inherited
+		commonArgs := []parse.Node{parse.NewIdentifier("map")}
+		for _, v := range vars {
+			commonArgs = append(commonArgs, &parse.StringNode{
+				NodeType: parse.NodeString,
+				Quoted:   fmt.Sprintf("\"%s\"", v),
+				Text:     v,
+			})
+			commonArgs = append(commonArgs, &parse.VariableNode{
+				NodeType: parse.NodeVariable,
+				Ident:    []string{fmt.Sprintf("$%s", v)},
+			})
+		}
+		commonArgs = append(commonArgs, &parse.StringNode{
+			NodeType: parse.NodeString,
+			Quoted:   fmt.Sprintf("\"%s\"", dataKey),
+			Text:     dataKey,
+		})
+		t.walkTrees(parse.NodeTemplate, func(n parse.Node) {
+			node := n.(*parse.TemplateNode)
+			pipe := node.Pipe
+			if pipe != nil && len(pipe.Cmds) > 0 {
+				command := pipe.Cmds[0]
+				var args []parse.Node
+				args = append(args, commonArgs...)
+				args = append(args, command.Args...)
+				command.Args = args
+			}
+		})
+	}
 	return nil
 }
 
@@ -246,8 +344,24 @@ func (t *Template) AddParseTree(name string, tree *parse.Tree) error {
 }
 
 func (t *Template) Execute(w io.Writer, data interface{}) error {
+	return t.ExecuteVars(w, data, nil)
+}
+
+func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars map[string]interface{}) error {
+	// TODO: Make sure vars is the same as the vars that were compiled in
 	var buf bytes.Buffer
-	err := t.ExecuteTemplate(&buf, t.root, data)
+	var templateData interface{}
+	if len(vars) > 0 {
+		combined := make(map[string]interface{})
+		for k, v := range vars {
+			combined[k] = v
+		}
+		combined[dataKey] = data
+		templateData = combined
+	} else {
+		templateData = data
+	}
+	err := t.ExecuteTemplate(&buf, t.root, templateData)
 	if err != nil {
 		return err
 	}

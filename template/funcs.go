@@ -73,6 +73,23 @@ func join(x []string, sep string) string {
 	return ""
 }
 
+func _map(args ...interface{}) (map[string]interface{}, error) {
+	var key string
+	m := make(map[string]interface{})
+	for ii, v := range args {
+		if ii%2 == 0 {
+			if s, ok := v.(string); ok {
+				key = s
+			} else {
+				return nil, fmt.Errorf("Invalid argument to map at index %d, %t instead of string", ii, v)
+			}
+		} else {
+			m[key] = v
+		}
+	}
+	return m, nil
+}
+
 var templateFuncs template.FuncMap = template.FuncMap{
 	"eq":    eq,
 	"neq":   neq,
@@ -80,4 +97,5 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"nz":    nz,
 	"lower": lower,
 	"join":  join,
+	"map":   _map,
 }

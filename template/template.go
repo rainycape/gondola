@@ -72,6 +72,7 @@ func (s *script) IsAsync() bool {
 
 type Template struct {
 	*template.Template
+	Trees   map[string]*parse.Tree
 	funcMap FuncMap
 	root    string
 	scripts []*script
@@ -144,17 +145,15 @@ func (t *Template) load(file string) error {
 	if idx := strings.Index(s, "</body>"); idx >= 0 {
 		s = s[:idx] + "{{ template \"__scripts\" }}" + s[idx:]
 	}
-	var tmpl *template.Template
-	if t.Template == nil {
-		t.Template = template.New(file)
-		tmpl = t.Template
-	} else {
-		tmpl = t.Template.New(file)
-	}
-	tmpl.Funcs(templateFuncs).Funcs(template.FuncMap(t.funcMap))
-	tmpl, err = tmpl.Parse(s)
+	treeMap, err := parse.Parse(file, s, leftDelim, rightDelim, templateFuncs, t.funcMap)
 	if err != nil {
 		return err
+	}
+	for k, v := range treeMap {
+		err := t.AddParseTree(k, v)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -166,6 +165,7 @@ func (t *Template) Funcs(funcs FuncMap) {
 	for k, v := range funcs {
 		t.funcMap[k] = v
 	}
+	t.Template.Funcs(template.FuncMap(t.funcMap))
 }
 
 func (t *Template) Parse(file string) error {
@@ -174,14 +174,23 @@ func (t *Template) Parse(file string) error {
 		return err
 	}
 	/* Add styles and scripts */
-	_, err = t.AddParseTree(stylesTmplName, stylesTree)
+	err = t.AddParseTree(stylesTmplName, stylesTree)
 	if err != nil {
 		return err
 	}
-	_, err = t.AddParseTree(scriptsTmplName, scriptsTree)
+	err = t.AddParseTree(scriptsTmplName, scriptsTree)
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (t *Template) AddParseTree(name string, tree *parse.Tree) error {
+	_, err := t.Template.AddParseTree(name, tree)
+	if err != nil {
+		return err
+	}
+	t.Trees[name] = tree
 	return nil
 }
 
@@ -212,11 +221,19 @@ func AddFunc(name string, f interface{}) {
 }
 
 func New() *Template {
-	t := &Template{}
-	t.Funcs(FuncMap{
+	t := &Template{
+		Template: template.New(""),
+		Trees:    make(map[string]*parse.Tree),
+	}
+	// This is required so text/template calls t.init()
+	// and initializes the common data structure
+	t.Template.New("")
+	funcs := FuncMap{
 		"__getstyles":  func() []string { return t.styles },
 		"__getscripts": func() []*script { return t.scripts },
-	})
+	}
+	t.Funcs(funcs)
+	t.Template.Funcs(template.FuncMap(funcs)).Funcs(templateFuncs)
 	return t
 }
 

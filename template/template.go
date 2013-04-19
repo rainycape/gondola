@@ -81,6 +81,7 @@ type Template struct {
 	scripts []*script
 	styles  []string
 	vars    []string
+	renames map[string]string
 }
 
 func (t *Template) parseScripts(value string, st ScriptType) {
@@ -158,6 +159,23 @@ func (t *Template) load(file string, prepend string) error {
 		return err
 	}
 	for k, v := range treeMap {
+		if _, contains := t.Trees[k]; contains {
+			// Redefinition of a template, which is allowed
+			// by gondola templates. Just rename this
+			// template and change update any template
+			// nodes referring to it in the final sweep
+			if t.renames == nil {
+				t.renames = make(map[string]string)
+			}
+			fk := k
+			for {
+				k += "_"
+				if len(t.renames[fk]) < len(k) {
+					t.renames[fk] = k
+					break
+				}
+			}
+		}
 		err := t.AddParseTree(k, v)
 		if err != nil {
 			return err
@@ -258,8 +276,9 @@ func (t *Template) ParseVars(file string, vars []string) error {
 			t.AddParseTree(v, tree)
 		}
 	}
-	// Modify the parse trees to always define vars
+	var templateArgs []parse.Node
 	if n := len(vars); n > 0 {
+		// Modify the parse trees to always define vars
 		for _, tr := range t.Trees {
 			// Skip the first n nodes, since they set the variables.
 			// Then wrap the rest of template in a WithNode, which sets
@@ -302,32 +321,39 @@ func (t *Template) ParseVars(file string, vars []string) error {
 		}
 		// Rewrite any template nodes to pass also the variables, since
 		// they are not inherited
-		commonArgs := []parse.Node{parse.NewIdentifier("map")}
+		templateArgs = []parse.Node{parse.NewIdentifier("map")}
 		for _, v := range vars {
-			commonArgs = append(commonArgs, &parse.StringNode{
+			templateArgs = append(templateArgs, &parse.StringNode{
 				NodeType: parse.NodeString,
 				Quoted:   fmt.Sprintf("\"%s\"", v),
 				Text:     v,
 			})
-			commonArgs = append(commonArgs, &parse.VariableNode{
+			templateArgs = append(templateArgs, &parse.VariableNode{
 				NodeType: parse.NodeVariable,
 				Ident:    []string{fmt.Sprintf("$%s", v)},
 			})
 		}
-		commonArgs = append(commonArgs, &parse.StringNode{
+		templateArgs = append(templateArgs, &parse.StringNode{
 			NodeType: parse.NodeString,
 			Quoted:   fmt.Sprintf("\"%s\"", dataKey),
 			Text:     dataKey,
 		})
+	}
+
+	if len(t.renames) > 0 || len(templateArgs) > 0 {
 		t.walkTrees(parse.NodeTemplate, func(n parse.Node) {
 			node := n.(*parse.TemplateNode)
-			pipe := node.Pipe
-			if pipe != nil && len(pipe.Cmds) > 0 {
-				command := pipe.Cmds[0]
-				var args []parse.Node
-				args = append(args, commonArgs...)
-				args = append(args, command.Args...)
-				command.Args = args
+			if rename, ok := t.renames[node.Name]; ok {
+				node.Name = rename
+			}
+			if templateArgs != nil {
+				pipe := node.Pipe
+				if pipe != nil && len(pipe.Cmds) > 0 {
+					command := pipe.Cmds[0]
+					args := make([]parse.Node, len(templateArgs))
+					copy(args, templateArgs)
+					command.Args = append(args, command.Args...)
+				}
 			}
 		})
 	}

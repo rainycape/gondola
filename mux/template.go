@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"gondola/files"
 	"gondola/template"
+	"io"
 	"net/http"
 	"sync"
-	"io"
 )
 
 type Template interface {
-    Execute(w io.Writer, data interface{}) error
+	Execute(w io.Writer, data interface{}) error
 }
 
 type tmpl struct {
@@ -57,7 +57,7 @@ func makeReverse(t *tmpl) func(string, ...interface{}) (string, error) {
 		if t.mux != nil {
 			return t.mux.Reverse(name, args...)
 		}
-		panic(fmt.Errorf("Can't reverse %s because the mux is not available", name))
+		return "", fmt.Errorf("Can't reverse %s because the mux is not available", name)
 	}
 }
 

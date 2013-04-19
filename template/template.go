@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"text/template/parse"
 )
 
 type FuncMap map[string]interface{}
@@ -24,9 +25,11 @@ const (
 	ScriptTypeOnload
 )
 
-var (
-	commentRe = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
-	keyRe     = regexp.MustCompile(`(?s:\s*([\w\-_])+:)`)
+const (
+	leftDelim       = "{{"
+	rightDelim      = "}}"
+	stylesTmplName  = "__styles"
+	scriptsTmplName = "__scripts"
 )
 
 var stylesBoilerplate = `
@@ -50,6 +53,13 @@ var scriptsBoilerplate = `
     {{ end }}
   {{ end }}
 `
+
+var (
+	commentRe   = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
+	keyRe       = regexp.MustCompile(`(?s:\s*([\w\-_])+:)`)
+	stylesTree  = compileTree(stylesTmplName, stylesBoilerplate)
+	scriptsTree = compileTree(scriptsTmplName, scriptsBoilerplate)
+)
 
 type script struct {
 	Name string
@@ -141,7 +151,8 @@ func (t *Template) load(file string) error {
 	} else {
 		tmpl = t.Template.New(file)
 	}
-	tmpl, err = tmpl.Funcs(templateFuncs).Funcs(template.FuncMap(t.funcMap)).Parse(s)
+	tmpl.Funcs(templateFuncs).Funcs(template.FuncMap(t.funcMap))
+	tmpl, err = tmpl.Parse(s)
 	if err != nil {
 		return err
 	}
@@ -163,16 +174,14 @@ func (t *Template) Parse(file string) error {
 		return err
 	}
 	/* Add styles and scripts */
-	styles := t.Template.New("__styles")
-	styles.Funcs(template.FuncMap{
-		"__getstyles": func() []string { return t.styles },
-	})
-	styles.Parse(stylesBoilerplate)
-	scripts := t.Template.New("__scripts")
-	scripts.Funcs(template.FuncMap{
-		"__getscripts": func() []*script { return t.scripts },
-	})
-	scripts.Parse(scriptsBoilerplate)
+	_, err = t.AddParseTree(stylesTmplName, stylesTree)
+	if err != nil {
+		return err
+	}
+	_, err = t.AddParseTree(scriptsTmplName, scriptsTree)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -203,7 +212,12 @@ func AddFunc(name string, f interface{}) {
 }
 
 func New() *Template {
-	return &Template{}
+	t := &Template{}
+	t.Funcs(FuncMap{
+		"__getstyles":  func() []string { return t.styles },
+		"__getscripts": func() []*script { return t.scripts },
+	})
+	return t
 }
 
 func Parse(file string) (*Template, error) {
@@ -221,4 +235,17 @@ func MustParse(file string) *Template {
 		log.Fatalf("Error loading template %s: %s\n", file, err)
 	}
 	return t
+}
+
+func compileTree(name, text string) *parse.Tree {
+	funcs := map[string]interface{}{
+		"__getstyles":  func() {},
+		"__getscripts": func() {},
+		"asset":        func() {},
+	}
+	treeMap, err := parse.Parse(name, text, leftDelim, rightDelim, funcs)
+	if err != nil {
+		panic(err)
+	}
+	return treeMap[name]
 }

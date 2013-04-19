@@ -158,6 +158,49 @@ func (t *Template) load(file string) error {
 	return nil
 }
 
+func (t *Template) walkNode(f func(parse.Node), node parse.Node) {
+	if node == nil {
+		return
+	}
+	f(node)
+	switch x := node.(type) {
+	case *parse.ListNode:
+		for _, v := range x.Nodes {
+			t.walkNode(f, v)
+		}
+	case *parse.IfNode:
+		if x.List != nil {
+			t.walkNode(f, x.List)
+		}
+		if x.ElseList != nil {
+			t.walkNode(f, x.ElseList)
+		}
+	case *parse.WithNode:
+		if x.List != nil {
+			t.walkNode(f, x.List)
+		}
+		if x.ElseList != nil {
+			t.walkNode(f, x.ElseList)
+		}
+	}
+}
+
+func (t *Template) walkTrees(f func(parse.Node)) {
+	for _, v := range t.Trees {
+		t.walkNode(f, v.Root)
+	}
+}
+
+func (t *Template) referencedTemplates() []string {
+	var templates []string
+	t.walkTrees(func(n parse.Node) {
+		if n.Type() == parse.NodeTemplate {
+			templates = append(templates, n.(*parse.TemplateNode).Name)
+		}
+	})
+	return templates
+}
+
 func (t *Template) Funcs(funcs FuncMap) {
 	if t.funcMap == nil {
 		t.funcMap = make(FuncMap)
@@ -181,6 +224,14 @@ func (t *Template) Parse(file string) error {
 	err = t.AddParseTree(scriptsTmplName, scriptsTree)
 	if err != nil {
 		return err
+	}
+	// Fill any empty templates, so we allow templates
+	// to be left undefined
+	for _, v := range t.referencedTemplates() {
+		if _, ok := t.Trees[v]; !ok {
+			tree := compileTree(v, "")
+			t.AddParseTree(v, tree)
+		}
 	}
 	return nil
 }

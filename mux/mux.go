@@ -19,6 +19,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -64,6 +65,8 @@ type Mux struct {
 	staticFilesPrefix    string
 	staticFilesDir       string
 	templatesDir         string
+	templatesMutex       sync.RWMutex
+	templatesCache       map[string]Template
 	debug                bool
 	logger               *log.Logger
 }
@@ -277,11 +280,22 @@ func (mux *Mux) SetTemplatesDir(dir string) {
 // (so functions like asset, etc... work correctly)
 func (mux *Mux) LoadTemplate(file string) (Template, error) {
 	p := path.Join(mux.templatesDir, file)
-	tmpl := newTemplate()
-	tmpl.mux = mux
-	err := tmpl.Parse(p)
-	if err != nil {
-		return nil, err
+	mux.templatesMutex.RLock()
+	tmpl := mux.templatesCache[p]
+	mux.templatesMutex.RUnlock()
+	if tmpl == nil {
+		t := newTemplate()
+		t.mux = mux
+		err := t.Parse(p)
+		if err != nil {
+			return nil, err
+		}
+		tmpl = t
+		if !mux.debug {
+			mux.templatesMutex.Lock()
+			mux.templatesCache[p] = tmpl
+			mux.templatesMutex.Unlock()
+		}
 	}
 	return tmpl, nil
 }
@@ -536,7 +550,8 @@ func (mux *Mux) closeContext(ctx *Context) {
 // Returns a new Mux initialized with the default values
 func New() *Mux {
 	return &Mux{
-		logger:       log.Std,
-		templatesDir: util.RelativePath("tmpl"),
+		logger:         log.Std,
+		templatesDir:   util.RelativePath("tmpl"),
+		templatesCache: make(map[string]Template),
 	}
 }

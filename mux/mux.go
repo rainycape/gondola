@@ -405,7 +405,17 @@ func (mux *Mux) Reverse(name string, args ...interface{}) (string, error) {
 // e.g.
 // http.ListenAndServe("127.0.0.1:8000", mymux)
 func (mux *Mux) ListenAndServe(port int) error {
+	log.Infof("Listening on port %d", port)
 	return http.ListenAndServe(":"+strconv.Itoa(port), mux)
+}
+
+// MustListenAndServe works like ListenAndServe, but panics if
+// there's an error
+func (mux *Mux) MustListenAndServe(port int) {
+	err := mux.ListenAndServe(port)
+	if err != nil {
+		log.Panicf("Error listening on port %d: %s", port, err)
+	}
 }
 
 func (mux *Mux) readXHeaders(r *http.Request) {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -90,6 +91,31 @@ func _map(args ...interface{}) (map[string]interface{}, error) {
 	return m, nil
 }
 
+func mult(args ...interface{}) (float64, error) {
+	val := 1.0
+	for ii, v := range args {
+		value := reflect.ValueOf(v)
+		switch value.Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			val *= float64(value.Int())
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			val *= float64(value.Uint())
+		case reflect.Float32, reflect.Float64:
+			val *= value.Float()
+		case reflect.String:
+			v, err := strconv.ParseFloat(value.String(), 64)
+			if err != nil {
+				return 0, fmt.Errorf("Error parsing string passed to mult at index %d: %s", ii, err)
+			}
+			val *= v
+		default:
+			return 0, fmt.Errorf("Invalid argument of type %t passed to mult at index %d", v, ii)
+		}
+	}
+	return val, nil
+
+}
+
 var templateFuncs template.FuncMap = template.FuncMap{
 	"eq":    eq,
 	"neq":   neq,
@@ -98,4 +124,5 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"lower": lower,
 	"join":  join,
 	"map":   _map,
+	"mult":  mult,
 }

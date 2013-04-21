@@ -37,15 +37,16 @@ type Context struct {
 // Count returns the number of elements captured
 // by the pattern which matched the handler.
 func (c *Context) Count() int {
-	return len(c.submatches)
+	return len(c.submatches) - 1
 }
 
 // IndexValue returns the captured parameter
 // at the given index or an empty string if no
-// such parameter exists.
+// such parameter exists. Pass -1 to obtain
+// the whole match.
 func (c *Context) IndexValue(idx int) string {
-	if idx < len(c.submatches) {
-		return c.submatches[idx]
+	if idx >= -1 && idx < len(c.submatches)-1 {
+		return c.submatches[idx+1]
 	}
 	return ""
 }

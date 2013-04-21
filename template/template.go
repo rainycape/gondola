@@ -127,8 +127,7 @@ func (t *Template) parseComment(comment string, file string, prepend string, inc
 			}
 		}
 	}
-	if !extended  && !included {
-		fmt.Println("ROOT", file)
+	if !extended && !included {
 		t.root = file
 	}
 	return nil

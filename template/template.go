@@ -293,6 +293,10 @@ func (t *Template) ParseVars(file string, vars []string) error {
 	if n := len(vars); n > 0 {
 		// Modify the parse trees to always define vars
 		for _, tr := range t.Trees {
+			if len(tr.Root.Nodes) < n {
+			    /* Empty template */
+			    continue
+			}
 			// Skip the first n nodes, since they set the variables.
 			// Then wrap the rest of template in a WithNode, which sets
 			// the dot to .Data

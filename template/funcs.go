@@ -109,7 +109,7 @@ func mult(args ...interface{}) (float64, error) {
 			}
 			val *= v
 		default:
-			return 0, fmt.Errorf("Invalid argument of type %t passed to mult at index %d", v, ii)
+			return 0, fmt.Errorf("Invalid argument of type %T passed to mult at index %d", v, ii)
 		}
 	}
 	return val, nil

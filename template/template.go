@@ -293,8 +293,8 @@ func (t *Template) ParseVars(file string, vars []string) error {
 		// Modify the parse trees to always define vars
 		for _, tr := range t.Trees {
 			if len(tr.Root.Nodes) < n {
-			    /* Empty template */
-			    continue
+				/* Empty template */
+				continue
 			}
 			// Skip the first n nodes, since they set the variables.
 			// Then wrap the rest of template in a WithNode, which sets
@@ -363,12 +363,28 @@ func (t *Template) ParseVars(file string, vars []string) error {
 				node.Name = rename
 			}
 			if templateArgs != nil {
-				pipe := node.Pipe
-				if pipe != nil && len(pipe.Cmds) > 0 {
-					command := pipe.Cmds[0]
+				if node.Pipe == nil {
+					// No data, just pass variables
+					command := &parse.CommandNode{
+						NodeType: parse.NodeCommand,
+						Args:     templateArgs[:len(templateArgs)-1],
+					}
+					node.Pipe = &parse.PipeNode{
+						NodeType: parse.NodePipe,
+						Cmds:     []*parse.CommandNode{command},
+					}
+				} else {
+					newPipe := &parse.PipeNode{
+						NodeType: parse.NodePipe,
+						Cmds:     node.Pipe.Cmds,
+					}
 					args := make([]parse.Node, len(templateArgs))
 					copy(args, templateArgs)
-					command.Args = append(args, command.Args...)
+					command := &parse.CommandNode{
+						NodeType: parse.NodeCommand,
+						Args:     append(args, newPipe),
+					}
+					node.Pipe.Cmds = []*parse.CommandNode{command}
 				}
 			}
 		})

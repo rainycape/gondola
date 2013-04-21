@@ -216,6 +216,13 @@ func (t *Template) walkNode(node parse.Node, nt parse.NodeType, f func(parse.Nod
 		if x.ElseList != nil {
 			t.walkNode(x.ElseList, nt, f)
 		}
+	case *parse.RangeNode:
+		if x.List != nil {
+			t.walkNode(x.List, nt, f)
+		}
+		if x.ElseList != nil {
+			t.walkNode(x.ElseList, nt, f)
+		}
 	}
 }
 

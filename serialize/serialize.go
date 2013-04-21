@@ -22,15 +22,19 @@ const (
 // headers too. Returns the number of bytes written and any error that might
 // occur while serializing or writing the serialized data.
 func Write(w io.Writer, value interface{}, f SerializationFormat) (int, error) {
+	data, _ := value.([]byte)
 	var contentType string
-	var data []byte
 	var err error
 	switch f {
 	case Json:
-		data, err = json.Marshal(value)
+		if data == nil {
+			data, err = json.Marshal(value)
+		}
 		contentType = "application/json"
 	case Xml:
-		data, err = xml.Marshal(value)
+		if data == nil {
+			data, err = xml.Marshal(value)
+		}
 		contentType = "application/xml"
 	default:
 		panic("Invalid serialization format")

@@ -91,7 +91,7 @@ func (t *Template) parseScripts(value string, st ScriptType) {
 	}
 }
 
-func (t *Template) parseComment(comment string, file string, prepend string) error {
+func (t *Template) parseComment(comment string, file string, prepend string, included bool) error {
 	lines := strings.Split(comment, "\n")
 	extended := false
 	for _, v := range lines {
@@ -101,6 +101,7 @@ func (t *Template) parseComment(comment string, file string, prepend string) err
 			end := start + m[2]
 			key := strings.TrimSpace(v[start:end])
 			value := strings.TrimSpace(v[m[1]:])
+			inc := true
 			if value != "" {
 				switch strings.ToLower(key) {
 				case "script", "scripts":
@@ -113,23 +114,28 @@ func (t *Template) parseComment(comment string, file string, prepend string) err
 						t.styles = append(t.styles, style)
 					}
 				case "extend", "extends":
-					extendedFile := path.Join(path.Dir(file), value)
-					err := t.load(extendedFile, prepend)
+					extended = true
+					inc = false
+					fallthrough
+				case "include", "includes":
+					includedFile := path.Join(path.Dir(file), value)
+					err := t.load(includedFile, prepend, inc)
 					if err != nil {
 						return err
 					}
-					extended = true
 				}
 			}
 		}
 	}
-	if !extended {
+	if !extended  && !included {
+		fmt.Println("ROOT", file)
 		t.root = file
 	}
 	return nil
 }
 
-func (t *Template) load(file string, prepend string) error {
+func (t *Template) load(file string, prepend string, included bool) error {
+	// TODO: Detect circular dependencies
 	b, err := ioutil.ReadFile(file)
 	if err != nil {
 		return err
@@ -140,7 +146,7 @@ func (t *Template) load(file string, prepend string) error {
 	if matches != nil && len(matches) > 0 {
 		comment = matches[1]
 	}
-	err = t.parseComment(comment, file, prepend)
+	err = t.parseComment(comment, file, prepend, included)
 	if err != nil {
 		return err
 	}
@@ -255,7 +261,7 @@ func (t *Template) ParseVars(file string, vars []string) error {
 		}
 		prepend = strings.Join(p, "")
 	}
-	err := t.load(file, prepend)
+	err := t.load(file, prepend, false)
 	if err != nil {
 		return err
 	}

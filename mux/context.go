@@ -5,6 +5,7 @@ import (
 	"gondola/cache"
 	"gondola/cookies"
 	"gondola/errors"
+	"gondola/serialize"
 	"math"
 	"net/http"
 	"reflect"
@@ -336,6 +337,16 @@ func (c *Context) MustExecute(file string, data interface{}) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+// WriteJson is equivalent to serialize.WriteJson(ctx, data)
+func (c *Context) WriteJson(data interface{}) (int, error) {
+	return serialize.WriteJson(c, data)
+}
+
+// WriteXml is equivalent to serialize.WriteXml(ctx, data)
+func (c *Context) WriteXml(data interface{}) (int, error) {
+	return serialize.WriteXml(c, data)
 }
 
 // Custom returns the custom type context wrapped in

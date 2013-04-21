@@ -58,6 +58,7 @@ type Mux struct {
 	contextTransform     *reflect.Value
 	trustXHeaders        bool
 	keepRemotePort       bool
+	appendSlash          bool
 	errorHandler         ErrorHandler
 	secret               string
 	encryptionKey        string
@@ -186,6 +187,21 @@ func (mux *Mux) KeepsRemotePort() bool {
 // will only contain an address
 func (mux *Mux) SetKeepRemotePort(k bool) {
 	mux.keepRemotePort = k
+}
+
+// AppendSlash returns if the mux will automatically append
+// a slash when appropriate. See SetAppendSlash for a more
+// detailed description.
+func (mux *Mux) AppendsSlash() bool {
+	return mux.appendSlash
+}
+
+// SetAppendSlash enables or disables automatic slash appending.
+// When enabled, GET and HEAD requests for /foo will be
+// redirected to /foo/ if there's a valid handler for that URL,
+// rather than returning a 404. The default is true.
+func (mux *Mux) SetAppendSlash(b bool) {
+	mux.appendSlash = b
 }
 
 // Secret returns the secret for this mux. See
@@ -570,7 +586,26 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	/* Mux handlers */
+	if h := mux.matchHandler(r, ctx); h != nil {
+		h.handler(ctx)
+		return
+	}
+
+	mux.appendSlash = true
+	if mux.appendSlash && (r.Method == "GET" || r.Method == "HEAD") && !strings.HasSuffix(r.URL.Path, "/") {
+		c := *r
+		c.URL.Path += "/"
+		if mux.matchHandler(r, ctx) != nil {
+			ctx.Redirect(c.URL.String(), true)
+			return
+		}
+	}
+
+	/* Not found */
+	mux.handleHTTPError(ctx, "Not Found", http.StatusNotFound)
+}
+
+func (mux *Mux) matchHandler(r *http.Request, ctx *Context) *handlerInfo {
 	for _, v := range mux.handlers {
 		if v.host != "" && v.host != r.Host {
 			continue
@@ -585,12 +620,10 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ctx.submatches = submatches
 			ctx.params = params
 			ctx.handlerName = v.name
-			v.handler(ctx)
-			return
+			return v
 		}
 	}
-	/* Not found */
-	mux.handleHTTPError(ctx, "Not Found", http.StatusNotFound)
+	return nil
 }
 
 func (mux *Mux) closeContext(ctx *Context) {
@@ -622,6 +655,7 @@ func (mux *Mux) isReservedVariable(va string) bool {
 func New() *Mux {
 	return &Mux{
 		logger:         log.Std,
+		appendSlash:    true,
 		templatesDir:   util.RelativePath("tmpl"),
 		templatesCache: make(map[string]Template),
 	}

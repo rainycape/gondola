@@ -67,6 +67,8 @@ type Mux struct {
 	templatesDir         string
 	templatesMutex       sync.RWMutex
 	templatesCache       map[string]Template
+	templateVars         map[string]interface{}
+	templateVarFuncs     map[string]reflect.Value
 	debug                bool
 	logger               *log.Logger
 }
@@ -275,6 +277,46 @@ func (mux *Mux) SetTemplatesDir(dir string) {
 	mux.templatesDir = dir
 }
 
+// AddTemplateVars adds additional variables which will be passed
+// to the templates executed by this mux. The values in the map might
+// either be values or functions which receive a *Context instance and return
+// either one or two values (the second one must be an error), in which case
+// they will be called with the current context to obtain the variable
+// that will be passed to the template. You must call this
+// function before any templates have been compiled. The value for
+// each variable in the map is its default value, and it can
+// be overriden by using ExecuteVars() rather than Execute() when
+// executing the template.
+func (mux *Mux) AddTemplateVars(vars map[string]interface{}) {
+	if mux.templateVars == nil {
+		mux.templateVars = make(map[string]interface{})
+		mux.templateVarFuncs = make(map[string]reflect.Value)
+	}
+	for k, v := range vars {
+		if mux.isReservedVariable(k) {
+			panic(fmt.Errorf("Variable %s is reserved", k))
+		}
+		if t := reflect.TypeOf(v); t.Kind() == reflect.Func {
+			inType := reflect.TypeOf(&Context{})
+			if t.NumIn() != 1 || t.In(0) != inType {
+				panic(fmt.Errorf("Template variable functions must receive a single %s argument", inType))
+			}
+			if t.NumOut() > 2 {
+				panic(fmt.Errorf("Template variable functions must return at most 2 arguments"))
+			}
+			if t.NumOut() == 2 {
+				o := t.Out(1)
+				if o.Kind() != reflect.Interface || o.Name() != "error" {
+					panic(fmt.Errorf("Template variable functions must return an error as their second argument"))
+				}
+			}
+			mux.templateVarFuncs[k] = reflect.ValueOf(v)
+		} else {
+			mux.templateVars[k] = v
+		}
+	}
+}
+
 // LoadTemplate loads a template from TemplateDir()
 // and configures them to work with this mux
 // (so functions like asset, etc... work correctly)
@@ -286,7 +328,17 @@ func (mux *Mux) LoadTemplate(file string) (Template, error) {
 	if tmpl == nil {
 		t := newTemplate()
 		t.mux = mux
-		err := t.Parse(p)
+		vars := make([]string, len(mux.templateVars)+len(mux.templateVarFuncs))
+		ii := 0
+		for k, _ := range mux.templateVars {
+			vars[ii] = k
+			ii++
+		}
+		for k, _ := range mux.templateVarFuncs {
+			vars[ii] = k
+			ii++
+		}
+		err := t.ParseVars(p, vars)
 		if err != nil {
 			return nil, err
 		}
@@ -555,6 +607,15 @@ func (mux *Mux) closeContext(ctx *Context) {
 	}
 	mux.logger.Logf(level, "%s %s %s %d %s", ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr,
 		ctx.statusCode, time.Now().Sub(ctx.started))
+}
+
+func (mux *Mux) isReservedVariable(va string) bool {
+	for _, v := range reservedVariables {
+		if v == va {
+			return true
+		}
+	}
+	return false
 }
 
 // Returns a new Mux initialized with the default values

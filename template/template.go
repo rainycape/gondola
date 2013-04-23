@@ -19,6 +19,7 @@ import (
 )
 
 type FuncMap map[string]interface{}
+type VarMap map[string]interface{}
 
 const (
 	leftDelim               = "{{"
@@ -48,7 +49,7 @@ type Template struct {
 	root          string
 	topAssets     []assets.Asset
 	bottomAssets  []assets.Asset
-	vars          []string
+	vars          VarMap
 	renames       map[string]string
 }
 
@@ -291,11 +292,17 @@ func (t *Template) Funcs(funcs FuncMap) {
 	t.Template.Funcs(template.FuncMap(t.funcMap))
 }
 
+// Parse parses the template starting with the given
+// template name (and following any extends/includes
+// directives declared in it).
 func (t *Template) Parse(name string) error {
 	return t.ParseVars(name, nil)
 }
 
-func (t *Template) ParseVars(name string, vars []string) error {
+// ParseVars works like Parse, but it also inserts predefined
+// variables in the template. The values in vars will be the
+// defaults and may be overriden by using ExecuteVars.
+func (t *Template) ParseVars(name string, vars VarMap) error {
 	prepend := ""
 	if len(vars) > 0 {
 		t.vars = vars
@@ -304,8 +311,8 @@ func (t *Template) ParseVars(name string, vars []string) error {
 		// error when it finds a variable which wasn't
 		// previously defined
 		var p []string
-		for _, v := range vars {
-			p = append(p, fmt.Sprintf("{{ $%s := .%s }}", v, v))
+		for k, _ := range vars {
+			p = append(p, fmt.Sprintf("{{ $%s := .%s }}", k, k))
 		}
 		prepend = strings.Join(p, "")
 	}
@@ -380,15 +387,15 @@ func (t *Template) ParseVars(name string, vars []string) error {
 		// Rewrite any template nodes to pass also the variables, since
 		// they are not inherited
 		templateArgs = []parse.Node{parse.NewIdentifier("map")}
-		for _, v := range vars {
+		for k, _ := range vars {
 			templateArgs = append(templateArgs, &parse.StringNode{
 				NodeType: parse.NodeString,
-				Quoted:   fmt.Sprintf("\"%s\"", v),
-				Text:     v,
+				Quoted:   fmt.Sprintf("\"%s\"", k),
+				Text:     k,
 			})
 			templateArgs = append(templateArgs, &parse.VariableNode{
 				NodeType: parse.NodeVariable,
-				Ident:    []string{fmt.Sprintf("$%s", v)},
+				Ident:    []string{fmt.Sprintf("$%s", k)},
 			})
 		}
 		templateArgs = append(templateArgs, &parse.StringNode{
@@ -447,14 +454,18 @@ func (t *Template) Execute(w io.Writer, data interface{}) error {
 	return t.ExecuteVars(w, data, nil)
 }
 
-func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars map[string]interface{}) error {
+func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error {
 	// TODO: Make sure vars is the same as the vars that were compiled in
 	var buf bytes.Buffer
 	var templateData interface{}
 	if len(vars) > 0 {
-		combined := make(map[string]interface{})
-		for k, v := range vars {
-			combined[k] = v
+		combined := make(map[string]interface{}, len(t.vars))
+		for k, v := range t.vars {
+			if iv, ok := vars[k]; ok {
+				combined[k] = iv
+			} else {
+				combined[k] = v
+			}
 		}
 		combined[dataKey] = data
 		templateData = combined

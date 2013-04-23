@@ -11,6 +11,7 @@ import (
 	"gondola/errors"
 	"gondola/loaders"
 	"gondola/log"
+	"gondola/template"
 	"net/http"
 	"net/http/httputil"
 	"reflect"
@@ -291,9 +292,9 @@ func (mux *Mux) SetTemplatesDir(loader loaders.Loader) {
 // each variable in the map is its default value, and it can
 // be overriden by using ExecuteVars() rather than Execute() when
 // executing the template.
-func (mux *Mux) AddTemplateVars(vars map[string]interface{}) {
+func (mux *Mux) AddTemplateVars(vars template.VarMap) {
 	if mux.templateVars == nil {
-		mux.templateVars = make(map[string]interface{})
+		mux.templateVars = make(template.VarMap)
 		mux.templateVarFuncs = make(map[string]reflect.Value)
 	}
 	for k, v := range vars {
@@ -321,33 +322,30 @@ func (mux *Mux) AddTemplateVars(vars map[string]interface{}) {
 	}
 }
 
-// LoadTemplate loads a template from TemplateDir()
-// and configures them to work with this mux
-// (so functions like asset, etc... work correctly)
-func (mux *Mux) LoadTemplate(file string) (Template, error) {
+// LoadTemplate loads a template using the template
+// loader and the asset manager assocciated with
+// this mux
+func (mux *Mux) LoadTemplate(name string) (Template, error) {
 	mux.templatesMutex.RLock()
-	tmpl := mux.templatesCache[file]
+	tmpl := mux.templatesCache[name]
 	mux.templatesMutex.RUnlock()
 	if tmpl == nil {
 		t := newTemplate(mux)
-		vars := make([]string, len(mux.templateVars)+len(mux.templateVarFuncs))
-		ii := 0
-		for k, _ := range mux.templateVars {
-			vars[ii] = k
-			ii++
+		vars := make(template.VarMap, len(mux.templateVars)+len(mux.templateVarFuncs))
+		for k, v := range mux.templateVars {
+			vars[k] = v
 		}
 		for k, _ := range mux.templateVarFuncs {
-			vars[ii] = k
-			ii++
+			vars[k] = nil
 		}
-		err := t.ParseVars(file, vars)
+		err := t.ParseVars(name, vars)
 		if err != nil {
 			return nil, err
 		}
 		tmpl = t
 		if !mux.debug {
 			mux.templatesMutex.Lock()
-			mux.templatesCache[file] = tmpl
+			mux.templatesCache[name] = tmpl
 			mux.templatesMutex.Unlock()
 		}
 	}

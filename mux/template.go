@@ -30,11 +30,14 @@ func newTemplate(mux *Mux) *tmpl {
 	return t
 }
 
-func (t *tmpl) ParseVars(file string, vars []string) error {
-	return t.Template.ParseVars(file, append(vars, reservedVariables...))
+func (t *tmpl) ParseVars(file string, vars template.VarMap) error {
+	for _, k := range reservedVariables {
+		vars[k] = nil
+	}
+	return t.Template.ParseVars(file, vars)
 }
 
-func (t *tmpl) execute(w io.Writer, data interface{}, vars map[string]interface{}) error {
+func (t *tmpl) execute(w io.Writer, data interface{}, vars template.VarMap) error {
 	var context *Context
 	var request *http.Request
 	if context, _ = w.(*Context); context != nil {

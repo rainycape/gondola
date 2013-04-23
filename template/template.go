@@ -50,6 +50,7 @@ type Template struct {
 	topAssets     []assets.Asset
 	bottomAssets  []assets.Asset
 	vars          VarMap
+	prepend       string
 	renames       map[string]string
 }
 
@@ -118,7 +119,7 @@ func (t *Template) parseOptions(idx int, line string, remainder string) (options
 	return
 }
 
-func (t *Template) parseComment(comment string, file string, prepend string, included bool) error {
+func (t *Template) parseComment(comment string, file string, included bool) error {
 	// Escaped newlines
 	comment = strings.Replace(comment, "\\\n", " ", -1)
 	lines := strings.Split(comment, "\n")
@@ -141,7 +142,7 @@ func (t *Template) parseComment(comment string, file string, prepend string, inc
 					inc = false
 					fallthrough
 				case "include", "includes":
-					err := t.load(value, prepend, inc)
+					err := t.load(value, inc)
 					if err != nil {
 						return err
 					}
@@ -171,7 +172,7 @@ func (t *Template) parseComment(comment string, file string, prepend string, inc
 	return nil
 }
 
-func (t *Template) load(name string, prepend string, included bool) error {
+func (t *Template) load(name string, included bool) error {
 	// TODO: Detect circular dependencies
 	f, _, err := t.Loader.Load(name)
 	if err != nil {
@@ -188,7 +189,7 @@ func (t *Template) load(name string, prepend string, included bool) error {
 	if matches != nil && len(matches) > 0 {
 		comment = matches[1]
 	}
-	err = t.parseComment(comment, name, prepend, included)
+	err = t.parseComment(comment, name, included)
 	if err != nil {
 		return err
 	}
@@ -198,9 +199,9 @@ func (t *Template) load(name string, prepend string, included bool) error {
 	if idx := strings.Index(s, "</body>"); idx >= 0 {
 		s = s[:idx] + fmt.Sprintf("{{ template \"%s\" }}", BottomAssetsTmplName) + s[idx:]
 	}
-	if prepend != "" {
+	if t.prepend != "" {
 		// Prepend to the template and to any define nodes found
-		s = prepend + defineRe.ReplaceAllString(s, "$0"+strings.Replace(prepend, "$", "$$", -1))
+		s = t.prepend + defineRe.ReplaceAllString(s, "$0"+strings.Replace(t.prepend, "$", "$$", -1))
 	}
 	treeMap, err := parse.Parse(name, s, leftDelim, rightDelim, templateFuncs, t.funcMap)
 	if err != nil {
@@ -292,6 +293,20 @@ func (t *Template) Funcs(funcs FuncMap) {
 	t.Template.Funcs(template.FuncMap(t.funcMap))
 }
 
+func (t *Template) Include(name string) error {
+	err := t.load(name, true)
+	if err != nil {
+		return err
+	}
+	t.walkTrees(parse.NodeTemplate, func(n parse.Node) {
+		node := n.(*parse.TemplateNode)
+		if rename, ok := t.renames[node.Name]; ok {
+			node.Name = rename
+		}
+	})
+	return nil
+}
+
 // Parse parses the template starting with the given
 // template name (and following any extends/includes
 // directives declared in it).
@@ -303,7 +318,6 @@ func (t *Template) Parse(name string) error {
 // variables in the template. The values in vars will be the
 // defaults and may be overriden by using ExecuteVars.
 func (t *Template) ParseVars(name string, vars VarMap) error {
-	prepend := ""
 	if len(vars) > 0 {
 		t.vars = vars
 		// The variable definitions must be present at parse
@@ -314,9 +328,9 @@ func (t *Template) ParseVars(name string, vars VarMap) error {
 		for k, _ := range vars {
 			p = append(p, fmt.Sprintf("{{ $%s := .%s }}", k, k))
 		}
-		prepend = strings.Join(p, "")
+		t.prepend = strings.Join(p, "")
 	}
-	err := t.load(name, prepend, false)
+	err := t.load(name, false)
 	if err != nil {
 		return err
 	}

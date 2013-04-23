@@ -168,7 +168,7 @@ func New(cacheUrl string) *Cache {
 	u, err := url.Parse(cacheUrl)
 	if err != nil {
 		if err != nil && cacheUrl != "" {
-			log.Errorf("Invalid cache URL '%s': %s\n", cacheUrl, err)
+			log.Errorf("Invalid cache URL %q: %s\n", cacheUrl, err)
 		}
 	} else {
 		query = u.Query()
@@ -180,7 +180,7 @@ func New(cacheUrl string) *Cache {
 			if c, ok := codecs[codecName]; ok {
 				codec = c
 			} else {
-				log.Errorf("Unknown cache codec name '%s'\n", codecName)
+				log.Errorf("Unknown cache codec name %q\n", codecName)
 			}
 		}
 		cache.Prefix = query.Get("prefix")
@@ -192,8 +192,8 @@ func New(cacheUrl string) *Cache {
 	var backendInitializer BackendInitializer
 	if u != nil {
 		backendInitializer = backends[u.Scheme]
-		if backendInitializer == nil {
-			log.Errorf("Unknown cache backend type '%s'\n", u.Scheme)
+		if backendInitializer == nil && cacheUrl != "" {
+			log.Errorf("Unknown cache backend type %q\n", u.Scheme)
 		}
 	}
 	if backendInitializer == nil {

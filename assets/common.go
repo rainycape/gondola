@@ -17,7 +17,7 @@ func (a Attributes) String() string {
 }
 
 type CommonAsset struct {
-	Dir              string
+	Manager          Manager
 	Name             string
 	TagName          string
 	MustClose        bool
@@ -47,7 +47,7 @@ func (c *CommonAsset) HTML() template.HTML {
 	return Conditional(c.Condition, c.ConditionVersion, html)
 }
 
-func ParseCommonAssets(dir string, names []string, options map[string]string) ([]*CommonAsset, error) {
+func ParseCommonAssets(m Manager, names []string, options map[string]string) ([]*CommonAsset, error) {
 	cond := ConditionNone
 	vers := 0
 	if ifopt := options["if"]; ifopt != "" {
@@ -61,7 +61,7 @@ func ParseCommonAssets(dir string, names []string, options map[string]string) ([
 	common := make([]*CommonAsset, len(names))
 	for ii, v := range names {
 		common[ii] = &CommonAsset{
-			Dir:              dir,
+			Manager:          m,
 			Name:             v,
 			Condition:        cond,
 			ConditionVersion: vers,

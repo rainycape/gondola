@@ -6,11 +6,11 @@ package mux
 
 import (
 	"fmt"
+	"gondola/assets"
 	"gondola/cookies"
 	"gondola/errors"
-	"gondola/files"
+	"gondola/loaders"
 	"gondola/log"
-	"gondola/util"
 	"net/http"
 	"net/http/httputil"
 	"reflect"
@@ -62,9 +62,8 @@ type Mux struct {
 	secret               string
 	encryptionKey        string
 	defaultCookieOptions *cookies.Options
-	staticAssetsPrefix   string
-	staticAssetsDir      string
-	templatesDir         string
+	assetsManager        assets.Manager
+	templatesLoader      loaders.Loader
 	templatesMutex       sync.RWMutex
 	templatesCache       map[string]Template
 	templateVars         map[string]interface{}
@@ -257,39 +256,29 @@ func (mux *Mux) SetErrorHandler(handler ErrorHandler) {
 	mux.errorHandler = handler
 }
 
-// StaticAssetsPrefix returns the prefix for static assets
-func (mux *Mux) StaticAssetsPrefix() string {
-	return mux.staticAssetsPrefix
+// AssetsManager returns the manager for static assets
+func (mux *Mux) AssetsManager() assets.Manager {
+	return mux.assetsManager
 }
 
-// SetStaticAssetsPrefix sets the prefix for static assets. Might be
-// relative (e.g. /static/) or absolute (e.g. http://static.example.com/)
-func (mux *Mux) SetStaticAssetsPrefix(prefix string) {
-	mux.staticAssetsPrefix = prefix
+// SetAssetsManager sets the static assets manager for the mux. See
+// the documention on gondola/assets/Manager for further information.
+func (mux *Mux) SetStaticAssetManager(manager assets.Manager) {
+	mux.assetsManager = manager
 }
 
-// StaticAssetsDir returns the directory for the static assets
-func (mux *Mux) StaticAssetsDir() string {
-	return mux.staticAssetsDir
+// TemplatesLoader returns the loader for the templates assocciated
+// with this mux. By default, templates will be loaded from the
+// tmpl directory relative to the application binary.
+func (mux *Mux) TemplatesLoader() loaders.Loader {
+	return mux.templatesLoader
 }
 
-// Sets the directory for static assets. You might want to use
-// gondola/util/RelativePath to initialize this to a value relative
-// to the application binary.
-func (mux *Mux) SetStaticAssetsDir(dir string) {
-	mux.staticAssetsDir = dir
-}
-
-// TemplatesDir returns the root directory for the template files
-func (mux *Mux) TemplatesDir() string {
-	return mux.templatesDir
-}
-
-// SetTemplatesDir sets the root directory for the template files.
-// By default, it's  initialized to the directory tmpl relative to
-// the executable.
-func (mux *Mux) SetTemplatesDir(dir string) {
-	mux.templatesDir = dir
+// SetTemplatesLoader sets the loader used to load the templates
+// associated with this mux. By default, templates will be loaded from the
+// tmpl directory relative to the application binary.
+func (mux *Mux) SetTemplatesDir(loader loaders.Loader) {
+	mux.templatesLoader = loader
 }
 
 // AddTemplateVars adds additional variables which will be passed
@@ -380,8 +369,9 @@ func (mux *Mux) SetDebug(debug bool) {
 }
 
 // HandleStaticAssets adds several handlers to the mux which handle
-// static files efficiently and allows the use of the "assset"
-// function from the templates. prefix might be a relative
+// static asset efficiently and allows the use of the "assset"
+// function from the templates. This function will also modify the
+// asset loader associated with this mux. prefix might be a relative
 // (e.g. /static/) or absolute (e.g. http://static.example.com/) url
 // while dir should be the path to the directory where the static
 // assets reside. You probably want to use RelativePath() in gondola/util
@@ -389,11 +379,11 @@ func (mux *Mux) SetDebug(debug bool) {
 // that /favicon.ico and /robots.txt will be handled too, but they
 // will must be in the directory which contains the rest of the assets.
 func (mux *Mux) HandleStaticAssets(prefix string, dir string) {
-	mux.staticAssetsPrefix = prefix
-	mux.staticAssetsDir = dir
-	filesHandler := files.StaticFilesHandler(prefix, dir)
+	loader := loaders.NewFSLoader(dir)
+	mux.assetsManager = assets.NewAssetsManager(loader, prefix)
+	assetsHandler := assets.Handler(mux.assetsManager)
 	handler := func(ctx *Context) {
-		filesHandler(ctx, ctx.R)
+		assetsHandler(ctx, ctx.R)
 	}
 	mux.HandleFunc("^"+prefix, handler)
 	mux.HandleFunc("^/favicon.ico$", handler)
@@ -653,7 +643,6 @@ func New() *Mux {
 	return &Mux{
 		logger:         log.Std,
 		appendSlash:    true,
-		templatesDir:   util.RelativePath("tmpl"),
 		templatesCache: make(map[string]Template),
 	}
 }

@@ -2,15 +2,16 @@ package template
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"gondola/assets"
-	"gondola/files"
+	"gondola/loaders"
+	"gondola/util"
 	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -30,24 +31,25 @@ const (
 )
 
 var (
-	commentRe  = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
-	keyRe      = regexp.MustCompile(`(?s:\s*([\w\-_])+?(:|/))`)
-	defineRe   = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
-	topTree    = compileTree(TopAssetsTmplName, topAssetsBoilerplate)
-	bottomTree = compileTree(BottomAssetsTmplName, bottomAssetsBoilerplate)
+	ErrNoAssetsManager = errors.New("Template does not have an assets manager")
+	commentRe          = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
+	keyRe              = regexp.MustCompile(`(?s:\s*([\w\-_])+?(:|/))`)
+	defineRe           = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
+	topTree            = compileTree(TopAssetsTmplName, topAssetsBoilerplate)
+	bottomTree         = compileTree(BottomAssetsTmplName, bottomAssetsBoilerplate)
 )
 
 type Template struct {
 	*template.Template
-	Dir          string
-	AssetsPrefix string
-	Trees        map[string]*parse.Tree
-	funcMap      FuncMap
-	root         string
-	topAssets    []assets.Asset
-	bottomAssets []assets.Asset
-	vars         []string
-	renames      map[string]string
+	Loader        loaders.Loader
+	AssetsManager assets.Manager
+	Trees         map[string]*parse.Tree
+	funcMap       FuncMap
+	root          string
+	topAssets     []assets.Asset
+	bottomAssets  []assets.Asset
+	vars          []string
+	renames       map[string]string
 }
 
 func (t *Template) readString(idx *int, s string, stopchars string) (string, error) {
@@ -147,7 +149,7 @@ func (t *Template) parseComment(comment string, file string, prepend string, inc
 					for _, n := range strings.Split(value, ",") {
 						names = append(names, strings.TrimSpace(n))
 					}
-					ass, err := assets.Parse(t.AssetsPrefix, key, options, names)
+					ass, err := assets.Parse(t.AssetsManager, key, options, names)
 					if err != nil {
 						return err
 					}
@@ -168,9 +170,14 @@ func (t *Template) parseComment(comment string, file string, prepend string, inc
 	return nil
 }
 
-func (t *Template) load(file string, prepend string, included bool) error {
+func (t *Template) load(name string, prepend string, included bool) error {
 	// TODO: Detect circular dependencies
-	b, err := ioutil.ReadFile(path.Join(t.Dir, file))
+	f, _, err := t.Loader.Load(name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	b, err := ioutil.ReadAll(f)
 	if err != nil {
 		return err
 	}
@@ -180,7 +187,7 @@ func (t *Template) load(file string, prepend string, included bool) error {
 	if matches != nil && len(matches) > 0 {
 		comment = matches[1]
 	}
-	err = t.parseComment(comment, file, prepend, included)
+	err = t.parseComment(comment, name, prepend, included)
 	if err != nil {
 		return err
 	}
@@ -194,7 +201,7 @@ func (t *Template) load(file string, prepend string, included bool) error {
 		// Prepend to the template and to any define nodes found
 		s = prepend + defineRe.ReplaceAllString(s, "$0"+strings.Replace(prepend, "$", "$$", -1))
 	}
-	treeMap, err := parse.Parse(file, s, leftDelim, rightDelim, templateFuncs, t.funcMap)
+	treeMap, err := parse.Parse(name, s, leftDelim, rightDelim, templateFuncs, t.funcMap)
 	if err != nil {
 		return err
 	}
@@ -284,11 +291,11 @@ func (t *Template) Funcs(funcs FuncMap) {
 	t.Template.Funcs(template.FuncMap(t.funcMap))
 }
 
-func (t *Template) Parse(file string) error {
-	return t.ParseVars(file, nil)
+func (t *Template) Parse(name string) error {
+	return t.ParseVars(name, nil)
 }
 
-func (t *Template) ParseVars(file string, vars []string) error {
+func (t *Template) ParseVars(name string, vars []string) error {
 	prepend := ""
 	if len(vars) > 0 {
 		t.vars = vars
@@ -302,7 +309,7 @@ func (t *Template) ParseVars(file string, vars []string) error {
 		}
 		prepend = strings.Join(p, "")
 	}
-	err := t.load(file, prepend, false)
+	err := t.load(name, prepend, false)
 	if err != nil {
 		return err
 	}
@@ -467,6 +474,7 @@ func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars map[string]in
 	return nil
 }
 
+// MustExecute works like Execute, but panics if there's an error
 func (t *Template) MustExecute(w io.Writer, data interface{}) {
 	err := t.Execute(w, data)
 	if err != nil {
@@ -474,16 +482,36 @@ func (t *Template) MustExecute(w io.Writer, data interface{}) {
 	}
 }
 
-func AddFunc(name string, f interface{}) {
-	templateFuncs[name] = f
+// AddFuncs registers new functions which will be available to
+// the templates. Please, note that you must register the functions
+// before compiling a template that uses them, otherwise the template
+// parser will return an error.
+func AddFuncs(f FuncMap) {
+	for k, v := range f {
+		templateFuncs[k] = v
+	}
 }
 
-func New(dir string, assetsPrefix string) *Template {
+// Returns a loader which loads templates from
+// the tmpl directory, relative to the application
+// binary.
+func DefaultTemplateLoader() loaders.Loader {
+	return loaders.NewFSLoader(util.RelativePath("tmpl"))
+}
+
+// New returns a new template with the given loader and assets
+// manager. Please, refer to the documention in gondola/loaders
+// and gondola/asssets for further information in those types.
+// If the loader is nil, DefaultTemplateLoader() will be used.
+func New(loader loaders.Loader, manager assets.Manager) *Template {
+	if loader == nil {
+		loader = DefaultTemplateLoader()
+	}
 	t := &Template{
-		Template:     template.New(""),
-		Dir:          dir,
-		AssetsPrefix: assetsPrefix,
-		Trees:        make(map[string]*parse.Tree),
+		Template:      template.New(""),
+		Loader:        loader,
+		AssetsManager: manager,
+		Trees:         make(map[string]*parse.Tree),
 	}
 	// This is required so text/template calls t.init()
 	// and initializes the common data structure
@@ -491,26 +519,34 @@ func New(dir string, assetsPrefix string) *Template {
 	funcs := FuncMap{
 		"__topAssets":    func() []assets.Asset { return t.topAssets },
 		"__bottomAssets": func() []assets.Asset { return t.bottomAssets },
-		"asset":          func(arg string) string { return files.StaticFileUrl(t.AssetsPrefix, arg) },
+		"asset": func(arg string) (string, error) {
+			if t.AssetsManager != nil {
+				return t.AssetsManager.URL(arg), nil
+			}
+			return "", ErrNoAssetsManager
+		},
 	}
 	t.Funcs(funcs)
 	t.Template.Funcs(template.FuncMap(funcs)).Funcs(templateFuncs)
 	return t
 }
 
-func Parse(dir string, assetsDir string, file string) (*Template, error) {
-	t := New(dir, assetsDir)
-	err := t.Parse(file)
+// Parse creates a new template using the given loader and manager and then
+// parses the template with the given name.
+func Parse(loader loaders.Loader, manager assets.Manager, name string) (*Template, error) {
+	t := New(loader, manager)
+	err := t.Parse(name)
 	if err != nil {
 		return nil, err
 	}
 	return t, nil
 }
 
-func MustParse(dir string, assetsDir string, file string) *Template {
-	t, err := Parse(dir, assetsDir, file)
+// MustParse works like parse, but panics if there's an error
+func MustParse(loader loaders.Loader, manager assets.Manager, name string) *Template {
+	t, err := Parse(loader, manager, name)
 	if err != nil {
-		log.Fatalf("Error loading template %s: %s\n", file, err)
+		log.Fatalf("Error loading template %s: %s\n", name, err)
 	}
 	return t
 }

@@ -23,7 +23,7 @@ type tmpl struct {
 func newTemplate(mux *Mux) *tmpl {
 	t := &tmpl{}
 	t.mux = mux
-	t.Template = template.New(mux.templatesDir, mux.staticAssetsPrefix)
+	t.Template = template.New(mux.templatesLoader, mux.assetsManager)
 	t.Template.Funcs(template.FuncMap{
 		"reverse": makeReverse(t),
 	})

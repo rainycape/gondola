@@ -321,11 +321,10 @@ func (c *Context) Cookies() *cookies.Cookies {
 	return c.cookies
 }
 
-// Execute loads the template with the given filename (relative
-// to the mux TemplatesDir()) and executes it with the
-// data argument.
-func (c *Context) Execute(file string, data interface{}) error {
-	tmpl, err := c.mux.LoadTemplate(file)
+// Execute loads the template with the given name using the
+// mux template loader and executes it with the data argument.
+func (c *Context) Execute(name string, data interface{}) error {
+	tmpl, err := c.mux.LoadTemplate(name)
 	if err != nil {
 		return err
 	}
@@ -333,8 +332,8 @@ func (c *Context) Execute(file string, data interface{}) error {
 }
 
 // MustExecute works like Execute, but panics if there's an error
-func (c *Context) MustExecute(file string, data interface{}) {
-	err := c.Execute(file, data)
+func (c *Context) MustExecute(name string, data interface{}) {
+	err := c.Execute(name, data)
 	if err != nil {
 		panic(err)
 	}

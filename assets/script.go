@@ -1,9 +1,5 @@
 package assets
 
-import (
-	"gondola/files"
-)
-
 type ScriptAsset struct {
 	*CommonAsset
 }
@@ -12,8 +8,8 @@ func (c *ScriptAsset) Position() Position {
 	return Bottom
 }
 
-func ScriptParser(dir string, names []string, options map[string]string) ([]Asset, error) {
-	common, err := ParseCommonAssets(dir, names, options)
+func ScriptParser(m Manager, names []string, options map[string]string) ([]Asset, error) {
+	common, err := ParseCommonAssets(m, names, options)
 	if err != nil {
 		return nil, err
 	}
@@ -21,7 +17,7 @@ func ScriptParser(dir string, names []string, options map[string]string) ([]Asse
 	for ii, v := range common {
 		v.TagName = "script"
 		v.MustClose = true
-		v.Attributes = Attributes{"type": "text/javascript", "src": files.StaticFileUrl(dir, v.Name)}
+		v.Attributes = Attributes{"type": "text/javascript", "src": m.URL(v.Name)}
 		assets[ii] = &ScriptAsset{
 			CommonAsset: v,
 		}

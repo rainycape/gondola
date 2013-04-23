@@ -24,7 +24,7 @@ var (
 	parsers = map[string]AssetParser{}
 )
 
-type AssetParser func(dir string, names []string, options map[string]string) ([]Asset, error)
+type AssetParser func(m Manager, names []string, options map[string]string) ([]Asset, error)
 
 type Asset interface {
 	Position() Position
@@ -37,12 +37,12 @@ type CodeAsset interface {
 	Code() string
 }
 
-func Parse(dir string, name string, options map[string]string, names []string) ([]Asset, error) {
+func Parse(m Manager, name string, options map[string]string, names []string) ([]Asset, error) {
 	parser := parsers[name]
 	if parser == nil {
 		return nil, fmt.Errorf("Unknown asset type %s", name)
 	}
-	return parser(dir, names, options)
+	return parser(m, names, options)
 }
 
 func Register(name string, parser AssetParser) {

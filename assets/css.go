@@ -2,7 +2,6 @@ package assets
 
 import (
 	"fmt"
-	"gondola/files"
 )
 
 type CssAsset struct {
@@ -13,8 +12,8 @@ func (c *CssAsset) Position() Position {
 	return Top
 }
 
-func CssParser(dir string, names []string, options map[string]string) ([]Asset, error) {
-	common, err := ParseCommonAssets(dir, names, options)
+func CssParser(m Manager, names []string, options map[string]string) ([]Asset, error) {
+	common, err := ParseCommonAssets(m, names, options)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +32,7 @@ func CssParser(dir string, names []string, options map[string]string) ([]Asset, 
 		for ak, av := range attrs {
 			v.Attributes[ak] = av
 		}
-		v.Attributes["href"] = files.StaticFileUrl(dir, v.Name)
+		v.Attributes["href"] = m.URL(v.Name)
 		assets[ii] = &CssAsset{
 			CommonAsset: v,
 		}

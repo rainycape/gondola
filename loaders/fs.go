@@ -7,12 +7,17 @@ import (
 	"time"
 )
 
-type FSLoader struct {
-	Dir string
+type FSLoader interface {
+	Loader
+	Dir() string
 }
 
-func (f *FSLoader) Load(name string) (ReadSeekerCloser, time.Time, error) {
-	p := filepath.FromSlash(path.Join(f.Dir, name))
+type fsloader struct {
+	dir string
+}
+
+func (f *fsloader) Load(name string) (ReadSeekerCloser, time.Time, error) {
+	p := filepath.FromSlash(path.Join(f.dir, name))
 	fd, err := os.Open(p)
 	if err != nil {
 		return nil, time.Time{}, err
@@ -26,5 +31,5 @@ func (f *FSLoader) Load(name string) (ReadSeekerCloser, time.Time, error) {
 }
 
 func NewFSLoader(dir string) Loader {
-	return &FSLoader{Dir: dir}
+	return &fsloader{dir: dir}
 }

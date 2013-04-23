@@ -1,13 +1,17 @@
 package assets
 
 import (
+	"fmt"
 	"gondola/loaders"
+	"gondola/log"
 	"gondola/util"
 	"io/ioutil"
 	"net/url"
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,20 +22,59 @@ type Manager interface {
 }
 
 type AssetsManager struct {
+	watcher      *Watcher
 	Loader       loaders.Loader
 	prefix       string
 	prefixLength int
+	cache        map[string]string
+	mutex        sync.RWMutex
 }
 
 func NewAssetsManager(loader loaders.Loader, prefix string) Manager {
 	m := new(AssetsManager)
+	m.cache = make(map[string]string)
 	m.Loader = loader
 	m.prefix = prefix
 	m.prefixLength = len(prefix)
 	runtime.SetFinalizer(m, func(manager *AssetsManager) {
 		manager.Close()
 	})
+	m.watch()
 	return m
+}
+
+func (m *AssetsManager) watch() {
+	if fsloader, ok := m.Loader.(loaders.FSLoader); ok {
+		watcher, err := NewWatcher(fsloader.Dir(), func(name string, deleted bool) {
+			m.mutex.RLock()
+			_, ok := m.cache[name]
+			m.mutex.RUnlock()
+			if ok {
+				m.mutex.Lock()
+				if deleted {
+					delete(m.cache, name)
+				} else {
+					h, err := m.hash(name)
+					if err == nil {
+						m.cache[name] = h
+					} else {
+						delete(m.cache, name)
+					}
+				}
+				m.mutex.Unlock()
+			}
+		})
+		if err != nil {
+			log.Warningf("Error creating watcher for %s: %s", fsloader.Dir, err)
+		} else if watcher != nil {
+			if err := watcher.Watch(); err == nil {
+				m.watcher = watcher
+			} else {
+				log.Warningf("Error watching %s: %s", fsloader.Dir, err)
+				watcher.Close()
+			}
+		}
+	}
 }
 
 func (m *AssetsManager) hash(name string) (string, error) {
@@ -61,14 +104,30 @@ func (m *AssetsManager) LoadURL(u *url.URL) (ReadSeekerCloser, time.Time, error)
 }
 
 func (m *AssetsManager) URL(name string) string {
-	suffix := ""
-	h, _ := m.hash(name)
-	if h != "" {
-		suffix = "?v=" + h
+	if strings.HasPrefix(name, "//") || strings.Contains(name, "://") {
+		return name
 	}
-	return path.Clean(path.Join(m.prefix, name)) + suffix
+	m.mutex.RLock()
+	h, ok := m.cache[name]
+	m.mutex.RUnlock()
+	if !ok {
+		h, _ := m.hash(name)
+		m.mutex.Lock()
+		m.cache[name] = h
+		m.mutex.Unlock()
+	}
+	clean := path.Clean(path.Join(m.prefix, name))
+	if h != "" {
+		return fmt.Sprintf("%s?v=%s", clean, h)
+	}
+	return clean
 }
 
 func (m *AssetsManager) Close() error {
+	if m.watcher != nil {
+		err := m.watcher.Close()
+		m.watcher = nil
+		return err
+	}
 	return nil
 }

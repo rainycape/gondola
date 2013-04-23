@@ -15,6 +15,8 @@ type Template interface {
 	ExecuteVars(w io.Writer, data interface{}, vars map[string]interface{}) error
 }
 
+type TemplateProcessor func(*template.Template) (*template.Template, error)
+
 type tmpl struct {
 	*template.Template
 	mux *Mux

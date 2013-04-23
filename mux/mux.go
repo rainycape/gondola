@@ -67,6 +67,7 @@ type Mux struct {
 	templatesLoader      loaders.Loader
 	templatesMutex       sync.RWMutex
 	templatesCache       map[string]Template
+	templateProcessors   []TemplateProcessor
 	templateVars         map[string]interface{}
 	templateVarFuncs     map[string]reflect.Value
 	debug                bool
@@ -278,8 +279,14 @@ func (mux *Mux) TemplatesLoader() loaders.Loader {
 // SetTemplatesLoader sets the loader used to load the templates
 // associated with this mux. By default, templates will be loaded from the
 // tmpl directory relative to the application binary.
-func (mux *Mux) SetTemplatesDir(loader loaders.Loader) {
+func (mux *Mux) SetTemplatesLoader(loader loaders.Loader) {
 	mux.templatesLoader = loader
+}
+
+// AddTemplateProcessor adds a new template processor. Template processors
+// may modify a template after it's been loaded.
+func (mux *Mux) AddTemplateProcessor(processor TemplateProcessor) {
+	mux.templateProcessors = append(mux.templateProcessors, processor)
 }
 
 // AddTemplateVars adds additional variables which will be passed
@@ -341,6 +348,12 @@ func (mux *Mux) LoadTemplate(name string) (Template, error) {
 		err := t.ParseVars(name, vars)
 		if err != nil {
 			return nil, err
+		}
+		for _, v := range mux.templateProcessors {
+			t.Template, err = v(t.Template)
+			if err != nil {
+				return nil, err
+			}
 		}
 		tmpl = t
 		if !mux.debug {

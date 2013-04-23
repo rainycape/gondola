@@ -13,7 +13,6 @@ import (
 	"gondola/util"
 	"net/http"
 	"net/http/httputil"
-	"path"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -63,8 +62,8 @@ type Mux struct {
 	secret               string
 	encryptionKey        string
 	defaultCookieOptions *cookies.Options
-	staticFilesPrefix    string
-	staticFilesDir       string
+	staticAssetsPrefix   string
+	staticAssetsDir      string
 	templatesDir         string
 	templatesMutex       sync.RWMutex
 	templatesCache       map[string]Template
@@ -258,27 +257,27 @@ func (mux *Mux) SetErrorHandler(handler ErrorHandler) {
 	mux.errorHandler = handler
 }
 
-// StaticFilesPrefix returns the prefix for static assets
-func (mux *Mux) StaticFilesPrefix() string {
-	return mux.staticFilesPrefix
+// StaticAssetsPrefix returns the prefix for static assets
+func (mux *Mux) StaticAssetsPrefix() string {
+	return mux.staticAssetsPrefix
 }
 
-// SetStaticFilesPrefix sets the prefix for static assets. Might be
+// SetStaticAssetsPrefix sets the prefix for static assets. Might be
 // relative (e.g. /static/) or absolute (e.g. http://static.example.com/)
-func (mux *Mux) SetStaticFilesPrefix(prefix string) {
-	mux.staticFilesPrefix = prefix
+func (mux *Mux) SetStaticAssetsPrefix(prefix string) {
+	mux.staticAssetsPrefix = prefix
 }
 
-// StaticFilesDir returns the directory for the static assets
-func (mux *Mux) StaticFilesDir() string {
-	return mux.staticFilesDir
+// StaticAssetsDir returns the directory for the static assets
+func (mux *Mux) StaticAssetsDir() string {
+	return mux.staticAssetsDir
 }
 
 // Sets the directory for static assets. You might want to use
 // gondola/util/RelativePath to initialize this to a value relative
 // to the application binary.
-func (mux *Mux) SetStaticFilesDir(dir string) {
-	mux.staticFilesDir = dir
+func (mux *Mux) SetStaticAssetsDir(dir string) {
+	mux.staticAssetsDir = dir
 }
 
 // TemplatesDir returns the root directory for the template files
@@ -337,13 +336,11 @@ func (mux *Mux) AddTemplateVars(vars map[string]interface{}) {
 // and configures them to work with this mux
 // (so functions like asset, etc... work correctly)
 func (mux *Mux) LoadTemplate(file string) (Template, error) {
-	p := path.Join(mux.templatesDir, file)
 	mux.templatesMutex.RLock()
-	tmpl := mux.templatesCache[p]
+	tmpl := mux.templatesCache[file]
 	mux.templatesMutex.RUnlock()
 	if tmpl == nil {
-		t := newTemplate()
-		t.mux = mux
+		t := newTemplate(mux)
 		vars := make([]string, len(mux.templateVars)+len(mux.templateVarFuncs))
 		ii := 0
 		for k, _ := range mux.templateVars {
@@ -354,14 +351,14 @@ func (mux *Mux) LoadTemplate(file string) (Template, error) {
 			vars[ii] = k
 			ii++
 		}
-		err := t.ParseVars(p, vars)
+		err := t.ParseVars(file, vars)
 		if err != nil {
 			return nil, err
 		}
 		tmpl = t
 		if !mux.debug {
 			mux.templatesMutex.Lock()
-			mux.templatesCache[p] = tmpl
+			mux.templatesCache[file] = tmpl
 			mux.templatesMutex.Unlock()
 		}
 	}
@@ -382,7 +379,7 @@ func (mux *Mux) SetDebug(debug bool) {
 	mux.debug = debug
 }
 
-// HandleStaticFiles adds several handlers to the mux which handle
+// HandleStaticAssets adds several handlers to the mux which handle
 // static files efficiently and allows the use of the "assset"
 // function from the templates. prefix might be a relative
 // (e.g. /static/) or absolute (e.g. http://static.example.com/) url
@@ -391,9 +388,9 @@ func (mux *Mux) SetDebug(debug bool) {
 // to define the directory relative to the application binary. Note
 // that /favicon.ico and /robots.txt will be handled too, but they
 // will must be in the directory which contains the rest of the assets.
-func (mux *Mux) HandleStaticFiles(prefix string, dir string) {
-	mux.staticFilesPrefix = prefix
-	mux.staticFilesDir = dir
+func (mux *Mux) HandleStaticAssets(prefix string, dir string) {
+	mux.staticAssetsPrefix = prefix
+	mux.staticAssetsDir = dir
 	filesHandler := files.StaticFilesHandler(prefix, dir)
 	handler := func(ctx *Context) {
 		filesHandler(ctx, ctx.R)

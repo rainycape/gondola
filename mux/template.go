@@ -2,7 +2,6 @@ package mux
 
 import (
 	"fmt"
-	"gondola/files"
 	"gondola/template"
 	"io"
 	"net/http"
@@ -21,12 +20,12 @@ type tmpl struct {
 	mux *Mux
 }
 
-func newTemplate() *tmpl {
+func newTemplate(mux *Mux) *tmpl {
 	t := &tmpl{}
-	t.Template = template.New()
+	t.mux = mux
+	t.Template = template.New(mux.templatesDir, mux.staticAssetsPrefix)
 	t.Template.Funcs(template.FuncMap{
 		"reverse": makeReverse(t),
-		"asset":   makeAsset(t),
 	})
 	return t
 }
@@ -77,7 +76,6 @@ func (t *tmpl) ExecuteVars(w io.Writer, data interface{}, vars map[string]interf
 // Other functions which are defined depending on the template
 // (because they require access to the context or the mux)
 // reverse
-// asset
 
 func makeReverse(t *tmpl) func(string, ...interface{}) (string, error) {
 	return func(name string, args ...interface{}) (string, error) {
@@ -85,11 +83,5 @@ func makeReverse(t *tmpl) func(string, ...interface{}) (string, error) {
 			return t.mux.Reverse(name, args...)
 		}
 		return "", fmt.Errorf("Can't reverse %s because the mux is not available", name)
-	}
-}
-
-func makeAsset(t *tmpl) func(string) string {
-	return func(asset string) string {
-		return files.StaticFileUrl(t.mux.staticFilesPrefix, asset)
 	}
 }

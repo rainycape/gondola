@@ -3,6 +3,8 @@ package template
 import (
 	"bytes"
 	"fmt"
+	"gondola/assets"
+	"gondola/files"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -17,111 +19,144 @@ import (
 
 type FuncMap map[string]interface{}
 
-type ScriptType int
-
 const (
-	_ ScriptType = iota
-	ScriptTypeStandard
-	ScriptTypeAsync
-	ScriptTypeOnload
+	leftDelim               = "{{"
+	rightDelim              = "}}"
+	TopAssetsTmplName       = "TopAssets"
+	BottomAssetsTmplName    = "BottomAssets"
+	dataKey                 = "Data"
+	topAssetsBoilerplate    = "{{ range __topAssets }}\n{{ .HTML }}{{ end }}"
+	bottomAssetsBoilerplate = "{{ range __bottomAssets }}\n{{ .HTML }}{{ end }}"
 )
-
-const (
-	leftDelim       = "{{"
-	rightDelim      = "}}"
-	stylesTmplName  = "__styles"
-	scriptsTmplName = "__scripts"
-	dataKey         = "Data"
-)
-
-var stylesBoilerplate = `
-  {{ range __getstyles }}
-    <link rel="stylesheet" type="text/css" href="{{ asset . }}">
-  {{ end }}
-`
-
-var scriptsBoilerplate = `
-  {{ range __getscripts }}
-    {{ if .IsAsync }}
-      <script type="text/javascript">
-        (function() {
-          var li = document.createElement('script'); li.type = 'text/javascript'; li.async = true;
-          li.src = "{{ asset .Name }}";
-          var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(li, s);
-        })();
-      </script>
-    {{ else }}
-      <script type="text/javascript" src="{{ asset .Name }}"></script>
-    {{ end }}
-  {{ end }}
-`
 
 var (
-	commentRe   = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
-	keyRe       = regexp.MustCompile(`(?s:\s*([\w\-_])+:)`)
-	defineRe    = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
-	stylesTree  = compileTree(stylesTmplName, stylesBoilerplate)
-	scriptsTree = compileTree(scriptsTmplName, scriptsBoilerplate)
+	commentRe  = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
+	keyRe      = regexp.MustCompile(`(?s:\s*([\w\-_])+?(:|/))`)
+	defineRe   = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
+	topTree    = compileTree(TopAssetsTmplName, topAssetsBoilerplate)
+	bottomTree = compileTree(BottomAssetsTmplName, bottomAssetsBoilerplate)
 )
-
-type script struct {
-	Name string
-	Type ScriptType
-}
-
-func (s *script) IsAsync() bool {
-	return s.Type == ScriptTypeAsync
-}
 
 type Template struct {
 	*template.Template
-	Trees   map[string]*parse.Tree
-	funcMap FuncMap
-	root    string
-	scripts []*script
-	styles  []string
-	vars    []string
-	renames map[string]string
+	Dir          string
+	AssetsPrefix string
+	Trees        map[string]*parse.Tree
+	funcMap      FuncMap
+	root         string
+	topAssets    []assets.Asset
+	bottomAssets []assets.Asset
+	vars         []string
+	renames      map[string]string
 }
 
-func (t *Template) parseScripts(value string, st ScriptType) {
-	for _, v := range strings.Split(value, ",") {
-		name := strings.TrimSpace(v)
-		t.scripts = append(t.scripts, &script{name, st})
+func (t *Template) readString(idx *int, s string, stopchars string) (string, error) {
+	var value string
+	start := *idx
+	if s[*idx] == '"' {
+		(*idx)++
+		for ; *idx < len(s); (*idx)++ {
+			if s[*idx] == '"' && s[((*idx)-1)] != '\\' {
+				value = s[start+1 : *idx]
+				break
+			}
+		}
+	} else {
+		for ; *idx < len(s); (*idx)++ {
+			if strings.Contains(stopchars, string(s[*idx])) {
+				value = s[start:*idx]
+				(*idx)--
+				break
+			}
+		}
 	}
+	if value == "" {
+		value = s[start:]
+	}
+	return value, nil
+}
+
+func (t *Template) parseOptions(idx int, line string, remainder string) (options map[string]string, value string, err error) {
+	options = make(map[string]string)
+	if len(remainder) == 0 || (remainder[0] != ':' && remainder[0] != '/') {
+		err = fmt.Errorf("Malformed asset line %d %q", idx, line)
+		return
+	}
+	var key string
+	for ii := 0; ii < len(remainder); ii++ {
+		ch := remainder[ii]
+		if ch == ':' {
+			value = strings.TrimSpace(remainder[ii+1:])
+			break
+		} else if ch == '/' || ch == ',' {
+			continue
+		} else {
+			if key == "" {
+				key, err = t.readString(&ii, remainder, "=,:")
+				if err != nil {
+					return
+				}
+			} else {
+				var val string
+				if ch == '=' {
+					ii++
+					if ii < len(remainder) {
+						val, err = t.readString(&ii, remainder, ",:")
+						if err != nil {
+							return
+						}
+					}
+				}
+				options[key] = val
+				key = ""
+			}
+		}
+	}
+	return
 }
 
 func (t *Template) parseComment(comment string, file string, prepend string, included bool) error {
+	// Escaped newlines
+	comment = strings.Replace(comment, "\\\n", " ", -1)
 	lines := strings.Split(comment, "\n")
 	extended := false
-	for _, v := range lines {
+	for ii, v := range lines {
 		m := keyRe.FindStringSubmatchIndex(v)
-		if m != nil && m[0] == 0 && len(m) == 4 {
+		if m != nil && m[0] == 0 && len(m) > 3 {
 			start := m[1] - m[3]
 			end := start + m[2]
-			key := strings.TrimSpace(v[start:end])
-			value := strings.TrimSpace(v[m[1]:])
+			key := strings.ToLower(strings.TrimSpace(v[start:end]))
+			options, value, err := t.parseOptions(ii, v, v[m[2]+1:])
+			if err != nil {
+				return err
+			}
 			inc := true
 			if value != "" {
-				switch strings.ToLower(key) {
-				case "script", "scripts":
-					t.parseScripts(value, ScriptTypeStandard)
-				case "ascript", "ascripts":
-					t.parseScripts(value, ScriptTypeAsync)
-				case "css", "style", "styles":
-					for _, v := range strings.Split(value, ",") {
-						style := strings.TrimSpace(v)
-						t.styles = append(t.styles, style)
-					}
+				switch key {
 				case "extend", "extends":
 					extended = true
 					inc = false
 					fallthrough
 				case "include", "includes":
-					includedFile := path.Join(path.Dir(file), value)
-					err := t.load(includedFile, prepend, inc)
+					err := t.load(value, prepend, inc)
 					if err != nil {
 						return err
+					}
+				default:
+					var names []string
+					for _, n := range strings.Split(value, ",") {
+						names = append(names, strings.TrimSpace(n))
+					}
+					ass, err := assets.Parse(t.AssetsPrefix, key, options, names)
+					if err != nil {
+						return err
+					}
+					for _, a := range ass {
+						if a.Position() == assets.Top {
+							t.topAssets = append(t.topAssets, a)
+						} else {
+							t.bottomAssets = append(t.bottomAssets, a)
+						}
 					}
 				}
 			}
@@ -135,7 +170,7 @@ func (t *Template) parseComment(comment string, file string, prepend string, inc
 
 func (t *Template) load(file string, prepend string, included bool) error {
 	// TODO: Detect circular dependencies
-	b, err := ioutil.ReadFile(file)
+	b, err := ioutil.ReadFile(path.Join(t.Dir, file))
 	if err != nil {
 		return err
 	}
@@ -150,10 +185,10 @@ func (t *Template) load(file string, prepend string, included bool) error {
 		return err
 	}
 	if idx := strings.Index(s, "</head>"); idx >= 0 {
-		s = s[:idx] + "{{ template \"__styles\" }}" + s[idx:]
+		s = s[:idx] + fmt.Sprintf("{{ template \"%s\" }}", TopAssetsTmplName) + s[idx:]
 	}
 	if idx := strings.Index(s, "</body>"); idx >= 0 {
-		s = s[:idx] + "{{ template \"__scripts\" }}" + s[idx:]
+		s = s[:idx] + fmt.Sprintf("{{ template \"%s\" }}", BottomAssetsTmplName) + s[idx:]
 	}
 	if prepend != "" {
 		// Prepend to the template and to any define nodes found
@@ -271,12 +306,12 @@ func (t *Template) ParseVars(file string, vars []string) error {
 	if err != nil {
 		return err
 	}
-	/* Add styles and scripts */
-	err = t.AddParseTree(stylesTmplName, stylesTree)
+	/* Add assets */
+	err = t.AddParseTree(TopAssetsTmplName, topTree)
 	if err != nil {
 		return err
 	}
-	err = t.AddParseTree(scriptsTmplName, scriptsTree)
+	err = t.AddParseTree(BottomAssetsTmplName, bottomTree)
 	if err != nil {
 		return err
 	}
@@ -443,25 +478,28 @@ func AddFunc(name string, f interface{}) {
 	templateFuncs[name] = f
 }
 
-func New() *Template {
+func New(dir string, assetsPrefix string) *Template {
 	t := &Template{
-		Template: template.New(""),
-		Trees:    make(map[string]*parse.Tree),
+		Template:     template.New(""),
+		Dir:          dir,
+		AssetsPrefix: assetsPrefix,
+		Trees:        make(map[string]*parse.Tree),
 	}
 	// This is required so text/template calls t.init()
 	// and initializes the common data structure
 	t.Template.New("")
 	funcs := FuncMap{
-		"__getstyles":  func() []string { return t.styles },
-		"__getscripts": func() []*script { return t.scripts },
+		"__topAssets":    func() []assets.Asset { return t.topAssets },
+		"__bottomAssets": func() []assets.Asset { return t.bottomAssets },
+		"asset":          func(arg string) string { return files.StaticFileUrl(t.AssetsPrefix, arg) },
 	}
 	t.Funcs(funcs)
 	t.Template.Funcs(template.FuncMap(funcs)).Funcs(templateFuncs)
 	return t
 }
 
-func Parse(file string) (*Template, error) {
-	t := New()
+func Parse(dir string, assetsDir string, file string) (*Template, error) {
+	t := New(dir, assetsDir)
 	err := t.Parse(file)
 	if err != nil {
 		return nil, err
@@ -469,8 +507,8 @@ func Parse(file string) (*Template, error) {
 	return t, nil
 }
 
-func MustParse(file string) *Template {
-	t, err := Parse(file)
+func MustParse(dir string, assetsDir string, file string) *Template {
+	t, err := Parse(dir, assetsDir, file)
 	if err != nil {
 		log.Fatalf("Error loading template %s: %s\n", file, err)
 	}
@@ -479,9 +517,9 @@ func MustParse(file string) *Template {
 
 func compileTree(name, text string) *parse.Tree {
 	funcs := map[string]interface{}{
-		"__getstyles":  func() {},
-		"__getscripts": func() {},
-		"asset":        func() {},
+		"__topAssets":    func() {},
+		"__bottomAssets": func() {},
+		"asset":          func() {},
 	}
 	treeMap, err := parse.Parse(name, text, leftDelim, rightDelim, funcs)
 	if err != nil {

@@ -66,18 +66,30 @@ func (c *Cache) Set(key string, object interface{}, timeout int) {
 	c.SetBytes(key, b, timeout)
 }
 
-// Get returns the item assocciated with the given key
+// Get returns the item assocciated with the given key, wrapped
+// in an interface{}
 func (c *Cache) Get(key string) interface{} {
-	b := c.GetBytes(key)
-	if b != nil {
-		var object interface{}
-		err := c.Codec.Decode(b, &object)
-		if err != nil {
-			log.Errorf("Error decoding object for key %s: %s", key, err)
-		}
-		return object
+	var obj interface{}
+	if c.GetObject(key, &obj) {
+		return obj
 	}
 	return nil
+}
+
+// GetObject returns the item associated with the given key
+// using the passed in interface{} (which should be a pointer to
+// the same struct type that was stored with Set). Returns true
+// if the object could be succesfully decoded.
+func (c *Cache) GetObject(key string, obj interface{}) bool {
+	b := c.GetBytes(key)
+	if b != nil {
+		err := c.Codec.Decode(b, obj)
+		if err == nil {
+			return true
+		}
+		log.Errorf("Error decoding object for key %s: %s", key, err)
+	}
+	return false
 }
 
 // GetMulti returns several objects as a map[string]interface{}

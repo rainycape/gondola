@@ -168,13 +168,13 @@ func (c *Cache) GetBytes(key string) []byte {
 		return nil
 	}
 	if c.MinCompressLength >= 0 && len(b) > 0 {
-		log.Debugf("Decompressing key %s", key)
 		r, err := zlib.NewReader(bytes.NewBuffer(b))
 		if err == nil {
 			var buf bytes.Buffer
 			_, err = io.Copy(&buf, r)
 			if err == nil {
 				if r.Close() == nil {
+					log.Debugf("Decompressed key %s", key)
 					b = buf.Bytes()
 				}
 			} else {

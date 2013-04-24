@@ -19,11 +19,14 @@ type Manager interface {
 	Load(name string) (ReadSeekerCloser, time.Time, error)
 	LoadURL(u *url.URL) (ReadSeekerCloser, time.Time, error)
 	URL(name string) string
+	Debug() bool
+	SetDebug(debug bool)
 }
 
 type AssetsManager struct {
 	watcher      *Watcher
 	Loader       loaders.Loader
+	debug        bool
 	prefix       string
 	prefixLength int
 	cache        map[string]string
@@ -121,6 +124,14 @@ func (m *AssetsManager) URL(name string) string {
 		return fmt.Sprintf("%s?v=%s", clean, h)
 	}
 	return clean
+}
+
+func (m *AssetsManager) Debug() bool {
+	return m.debug
+}
+
+func (m *AssetsManager) SetDebug(debug bool) {
+	m.debug = debug
 }
 
 func (m *AssetsManager) Close() error {

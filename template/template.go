@@ -42,6 +42,7 @@ var (
 
 type Template struct {
 	*template.Template
+	Debug         bool
 	Loader        loaders.Loader
 	AssetsManager assets.Manager
 	Trees         map[string]*parse.Tree

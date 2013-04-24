@@ -265,7 +265,8 @@ func (mux *Mux) AssetsManager() assets.Manager {
 
 // SetAssetsManager sets the static assets manager for the mux. See
 // the documention on gondola/assets/Manager for further information.
-func (mux *Mux) SetStaticAssetManager(manager assets.Manager) {
+func (mux *Mux) SetAssetsManager(manager assets.Manager) {
+	manager.SetDebug(mux.Debug())
 	mux.assetsManager = manager
 }
 
@@ -391,7 +392,7 @@ func (mux *Mux) SetDebug(debug bool) {
 // will must be in the directory which contains the rest of the assets.
 func (mux *Mux) HandleStaticAssets(prefix string, dir string) {
 	loader := loaders.NewFSLoader(dir)
-	mux.assetsManager = assets.NewAssetsManager(loader, prefix)
+	mux.SetAssetsManager(assets.NewAssetsManager(loader, prefix))
 	assetsHandler := assets.Handler(mux.assetsManager)
 	handler := func(ctx *Context) {
 		assetsHandler(ctx, ctx.R)

@@ -20,7 +20,9 @@ func testReverse(t *testing.T, expected string, m *Mux, name string, args ...int
 		}
 	}
 	if rev != expected {
-		t.Errorf("Error reversing %s with arguments %v, expected %s, got %s", name, args, expected, rev)
+		t.Errorf("Error reversing %q with arguments %v, expected %q, got %q", name, args, expected, rev)
+	} else {
+		t.Logf("Reversed %q with %v to %q", name, args, rev)
 	}
 }
 
@@ -30,7 +32,8 @@ func TestReverse(t *testing.T) {
 	m.HandleNamedFunc("^/program/(\\d+)/version/(\\d+)/$", helloHandler, "programversion")
 	m.HandleNamedFunc("^/program/(?P<pid>\\d+)/version/(?P<vers>\\d+)/$", helloHandler, "programversionnamed")
 	m.HandleNamedFunc("^/program/(\\d+)/(?:version/(\\d+)/)?$", helloHandler, "programoptversion")
-	m.HandleNamedFunc("^/program/(\\d+)/(?:version/(\\d+)/)(?:revision/(\\d+)/)?$", helloHandler, "programrevision")
+	m.HandleNamedFunc("^/program/(\\d+)/(?:version/(\\d+)/)?(?:revision/(\\d+)/)?$", helloHandler, "programrevision")
+	m.HandleNamedFunc("^/archive/(\\d+)?$", helloHandler, "archive")
 	m.HandleNamedFunc("^/image/(\\w+)\\.(\\w+)$", helloHandler, "image")
 	m.HandleNamedFunc("^/image/(\\w+)\\-(\\w+)$", helloHandler, "imagedash")
 	m.HandleNamedFunc("^/image/(\\w+)\\\\(\\w+)$", helloHandler, "imageslash")
@@ -43,6 +46,9 @@ func TestReverse(t *testing.T) {
 	testReverse(t, "/program/1/", m, "programrevision", 1)
 	testReverse(t, "/program/1/version/2/", m, "programrevision", 1, 2)
 	testReverse(t, "/program/1/version/2/revision/3/", m, "programrevision", 1, 2, 3)
+
+	testReverse(t, "/archive/19700101", m, "archive", "19700101")
+	testReverse(t, "/archive/", m, "archive")
 
 	// Test invalid reverses
 	testReverse(t, "", m, "program")

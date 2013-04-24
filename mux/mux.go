@@ -23,11 +23,6 @@ import (
 	"time"
 )
 
-var (
-	capturesRe    = regexp.MustCompile(`\(([^\?]|\?P).+?\)`)
-	nonCapturesRe = regexp.MustCompile(`\(\?:?(?:\w+:)?(.*?)\)[\?\*]?`)
-)
-
 type RecoverHandler func(interface{}, *Context) interface{}
 
 // ContextProcessor functions run before the request is matched to
@@ -426,49 +421,25 @@ func (mux *Mux) Reverse(name string, args ...interface{}) (string, error) {
 	}
 	for _, v := range mux.handlers {
 		if v.name == name {
-			pattern := v.re.String()
-			clean := strings.Trim(pattern, "^$")
-			/* Replace escaped dots, dashes and slashes */
-			clean = strings.Replace(clean, "\\.", ".", -1)
-			clean = strings.Replace(clean, "\\-", "-", -1)
-			clean = strings.Replace(clean, "\\\\", "\\", -1)
-			/* Replace capturing groups with a format specifier */
-			/* e.g. (re) and (?P<name>re) */
-			format := capturesRe.ReplaceAllString(clean, "%v")
-			maxArguments := strings.Count(format, "%v")
-			/* Find all non-capturing, which might contain optional arguments */
-			nonCaptures := nonCapturesRe.FindAllStringIndex(format, -1)
-			minArguments := maxArguments - len(nonCaptures)
-			arguments := len(args)
-			if arguments < minArguments || arguments > maxArguments {
-				if minArguments == maxArguments {
-					return "", fmt.Errorf("Handler \"%s\" requires exactly %d arguments, %d received instead",
-						name, maxArguments, arguments)
+			reversed, err := FormatRegexp(v.re, args...)
+			if err != nil {
+				if acerr, ok := err.(*ArgumentCountError); ok {
+					if acerr.MinArguments == acerr.MaxArguments {
+						return "", fmt.Errorf("Handler %q requires exactly %d arguments, %d received instead",
+							name, acerr.MinArguments, len(args))
+					}
+					return "", fmt.Errorf("Handler %q requires at least %d arguments and at most %d arguments, %d received instead",
+						name, acerr.MinArguments, acerr.MaxArguments, len(args))
 				}
-				return "", fmt.Errorf("Handler \"%s\" requires at least %d arguments and at most %d arguments, %d received instead",
-					name, minArguments, maxArguments, arguments)
+				return "", err
 			}
-			// Replace the required non-capturing groups with their re
-			// eg (?flags:re), to match the nummber of passed in
-			// arguments
-			l := len(nonCaptures)
-			for maxArguments > arguments && l > 0 {
-				// Grab the last group
-				capt := nonCaptures[l-1]
-				nonCaptures = nonCaptures[:l-1]
-				l--
-				maxArguments--
-				format = format[:capt[0]] + format[capt[1]:]
-			}
-			format = nonCapturesRe.ReplaceAllString(format, "$1")
-			reversed := fmt.Sprintf(format, args...)
 			if v.host != "" {
 				reversed = fmt.Sprintf("//%s%s", v.host, reversed)
 			}
 			return reversed, nil
 		}
 	}
-	return "", fmt.Errorf("No handler named \"%s\"", name)
+	return "", fmt.Errorf("No handler named %q", name)
 }
 
 // ListenAndServe Starts listening on all the interfaces on the given port.

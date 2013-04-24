@@ -27,8 +27,8 @@ const (
 	TopAssetsTmplName       = "TopAssets"
 	BottomAssetsTmplName    = "BottomAssets"
 	dataKey                 = "Data"
-	topAssetsBoilerplate    = "{{ range __topAssets }}\n{{ render . }}{{ end }}"
-	bottomAssetsBoilerplate = "{{ range __bottomAssets }}\n{{ render . }}{{ end }}"
+	topAssetsBoilerplate    = "{{ range __topAssets }}{{ render . }}\n{{ end }}"
+	bottomAssetsBoilerplate = "{{ range __bottomAssets }}{{ render . }}\n{{ end }}"
 )
 
 var (

@@ -309,6 +309,15 @@ func (c *Context) RedirectReverse(permanent bool, name string, args ...interface
 	return nil
 }
 
+// MustRedirectReverse works like RedirectReverse, but panics if
+// there's an error.
+func (c *Context) MustRedirectReverse(permanent bool, name string, args ...interface{}) {
+	err := c.RedirectReverse(permanent, name, args...)
+	if err != nil {
+		panic(err)
+	}
+}
+
 // Cookies returns a coookies.Cookies object which
 // can be used to set and delete cookies. See the documentation
 // on gondola/cookies for more information.

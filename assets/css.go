@@ -1,15 +1,28 @@
 package assets
 
-import (
-	"fmt"
-)
-
 type CssAsset struct {
 	*CommonAsset
+	attributes Attributes
+}
+
+func (c *CssAsset) Tag() string {
+	return "link"
+}
+
+func (c *CssAsset) Closed() bool {
+	return false
 }
 
 func (c *CssAsset) Position() Position {
 	return Top
+}
+
+func (c *CssAsset) Attributes() Attributes {
+	return c.attributes
+}
+
+func (c *CssAsset) HTML() string {
+	return ""
 }
 
 func CssParser(m Manager, names []string, options Options) ([]Asset, error) {
@@ -21,20 +34,18 @@ func CssParser(m Manager, names []string, options Options) ([]Asset, error) {
 	for k, v := range options {
 		if k == "media" {
 			attrs[k] = v
-		} else {
-			return nil, fmt.Errorf("Unknown CSS option %q", k)
 		}
 	}
 	assets := make([]Asset, len(common))
 	for ii, v := range common {
-		v.TagName = "link"
-		v.Attributes = make(Attributes, len(attrs)+1)
+		attributes := make(Attributes, len(attrs)+1)
 		for ak, av := range attrs {
-			v.Attributes[ak] = av
+			attributes[ak] = av
 		}
-		v.Attributes["href"] = m.URL(v.Name)
+		attributes["href"] = m.URL(v.Name())
 		assets[ii] = &CssAsset{
 			CommonAsset: v,
+			attributes:  attributes,
 		}
 	}
 	return assets, nil

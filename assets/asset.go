@@ -2,7 +2,6 @@ package assets
 
 import (
 	"fmt"
-	"html/template"
 )
 
 type Position int
@@ -10,14 +9,6 @@ type Position int
 const (
 	Top Position = 1 + iota
 	Bottom
-)
-
-type CodeType int
-
-const (
-	CodeTypeNone CodeType = iota
-	CodeTypeCss
-	CodeTypeJavascript
 )
 
 type Options map[string]string
@@ -46,14 +37,14 @@ var (
 type AssetParser func(m Manager, names []string, options Options) ([]Asset, error)
 
 type Asset interface {
+	Name() string
 	Position() Position
-	HTML() template.HTML
-}
-
-type CodeAsset interface {
-	Asset
-	CodeType() CodeType
-	Code() string
+	Condition() Condition
+	ConditionVersion() int
+	Tag() string
+	Closed() bool
+	Attributes() Attributes
+	HTML() string
 }
 
 func Parse(m Manager, name string, names []string, o Options) ([]Asset, error) {
@@ -65,7 +56,11 @@ func Parse(m Manager, name string, names []string, o Options) ([]Asset, error) {
 	if (m.Debug() && o.NoDebug()) || (!m.Debug() && o.Debug()) {
 		return nil, nil
 	}
-	return parser(m, names, o)
+	assets, err := parser(m, names, o)
+	if err != nil {
+		return nil, err
+	}
+	return assets, nil
 }
 
 func Register(name string, parser AssetParser) {

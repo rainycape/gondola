@@ -2,7 +2,6 @@ package assets
 
 import (
 	"fmt"
-	"html/template"
 	"strings"
 )
 
@@ -18,33 +17,21 @@ func (a Attributes) String() string {
 
 type CommonAsset struct {
 	Manager          Manager
-	Name             string
-	TagName          string
-	MustClose        bool
-	Attributes       Attributes
-	Type             CodeType
-	Condition        Condition
-	ConditionVersion int
+	name             string
+	condition        Condition
+	conditionVersion int
 }
 
-func (c *CommonAsset) CodeType() CodeType {
-	return c.Type
+func (c *CommonAsset) Name() string {
+	return c.name
 }
 
-func (c *CommonAsset) HTML() template.HTML {
-	html := ""
-	if c.TagName != "" {
-		attributes := ""
-		if c.Attributes != nil {
-			attributes = c.Attributes.String()
-		}
-		if c.MustClose {
-			html = fmt.Sprintf("<%s %s></%s>", c.TagName, attributes, c.TagName)
-		} else {
-			html = fmt.Sprintf("<%s %s>", c.TagName, attributes)
-		}
-	}
-	return Conditional(c.Condition, c.ConditionVersion, html)
+func (c *CommonAsset) Condition() Condition {
+	return c.condition
+}
+
+func (c *CommonAsset) ConditionVersion() int {
+	return c.conditionVersion
 }
 
 func ParseCommonAssets(m Manager, names []string, options Options) ([]*CommonAsset, error) {
@@ -62,9 +49,9 @@ func ParseCommonAssets(m Manager, names []string, options Options) ([]*CommonAss
 	for ii, v := range names {
 		common[ii] = &CommonAsset{
 			Manager:          m,
-			Name:             v,
-			Condition:        cond,
-			ConditionVersion: vers,
+			name:             v,
+			condition:        cond,
+			conditionVersion: vers,
 		}
 	}
 	return common, nil

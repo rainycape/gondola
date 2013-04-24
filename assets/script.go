@@ -2,10 +2,27 @@ package assets
 
 type ScriptAsset struct {
 	*CommonAsset
+	attributes Attributes
 }
 
-func (c *ScriptAsset) Position() Position {
+func (s *ScriptAsset) Tag() string {
+	return "script"
+}
+
+func (s *ScriptAsset) Closed() bool {
+	return true
+}
+
+func (s *ScriptAsset) Position() Position {
 	return Bottom
+}
+
+func (s *ScriptAsset) Attributes() Attributes {
+	return s.attributes
+}
+
+func (s *ScriptAsset) HTML() string {
+	return ""
 }
 
 func ScriptParser(m Manager, names []string, options Options) ([]Asset, error) {
@@ -15,11 +32,9 @@ func ScriptParser(m Manager, names []string, options Options) ([]Asset, error) {
 	}
 	assets := make([]Asset, len(common))
 	for ii, v := range common {
-		v.TagName = "script"
-		v.MustClose = true
-		v.Attributes = Attributes{"type": "text/javascript", "src": m.URL(v.Name)}
 		assets[ii] = &ScriptAsset{
 			CommonAsset: v,
+			attributes:  Attributes{"type": "text/javascript", "src": m.URL(v.Name())},
 		}
 	}
 	return assets, nil

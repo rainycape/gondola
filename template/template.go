@@ -27,8 +27,8 @@ const (
 	TopAssetsTmplName       = "TopAssets"
 	BottomAssetsTmplName    = "BottomAssets"
 	dataKey                 = "Data"
-	topAssetsBoilerplate    = "{{ range __topAssets }}\n{{ .HTML }}{{ end }}"
-	bottomAssetsBoilerplate = "{{ range __bottomAssets }}\n{{ .HTML }}{{ end }}"
+	topAssetsBoilerplate    = "{{ range __topAssets }}\n{{ render . }}{{ end }}"
+	bottomAssetsBoilerplate = "{{ range __bottomAssets }}\n{{ render . }}{{ end }}"
 )
 
 var (
@@ -582,6 +582,7 @@ func compileTree(name, text string) *parse.Tree {
 		"__topAssets":    func() {},
 		"__bottomAssets": func() {},
 		"asset":          func() {},
+		"render":         func() {},
 	}
 	treeMap, err := parse.Parse(name, text, leftDelim, rightDelim, funcs)
 	if err != nil {

@@ -5,6 +5,7 @@ package template
 import (
 	"encoding/json"
 	"fmt"
+	"gondola/assets"
 	"html/template"
 	"reflect"
 	"strconv"
@@ -117,12 +118,13 @@ func mult(args ...interface{}) (float64, error) {
 }
 
 var templateFuncs template.FuncMap = template.FuncMap{
-	"eq":    eq,
-	"neq":   neq,
-	"json":  _json,
-	"nz":    nz,
-	"lower": lower,
-	"join":  join,
-	"map":   _map,
-	"mult":  mult,
+	"eq":     eq,
+	"neq":    neq,
+	"json":   _json,
+	"nz":     nz,
+	"lower":  lower,
+	"join":   join,
+	"map":    _map,
+	"mult":   mult,
+	"render": assets.Render,
 }

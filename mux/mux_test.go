@@ -52,6 +52,7 @@ func TestReverse(t *testing.T) {
 
 	// Test invalid reverses
 	testReverse(t, "", m, "program")
+	testReverse(t, "", m, "program", "foo")
 	testReverse(t, "", m, "program", 1, 2)
 	testReverse(t, "", m, "programrevision", 1, 2, 3, 4)
 

@@ -421,7 +421,7 @@ func (mux *Mux) Reverse(name string, args ...interface{}) (string, error) {
 	}
 	for _, v := range mux.handlers {
 		if v.name == name {
-			reversed, err := FormatRegexp(v.re, args...)
+			reversed, err := FormatRegexp(v.re, true, args...)
 			if err != nil {
 				if acerr, ok := err.(*ArgumentCountError); ok {
 					if acerr.MinArguments == acerr.MaxArguments {
@@ -431,7 +431,7 @@ func (mux *Mux) Reverse(name string, args ...interface{}) (string, error) {
 					return "", fmt.Errorf("Handler %q requires at least %d arguments and at most %d arguments, %d received instead",
 						name, acerr.MinArguments, acerr.MaxArguments, len(args))
 				}
-				return "", err
+				return "", fmt.Errorf("Error reversing handler %q: %s", name, err)
 			}
 			if v.host != "" {
 				reversed = fmt.Sprintf("//%s%s", v.host, reversed)

@@ -43,7 +43,7 @@ func walk(r *syntax.Regexp, f func(*syntax.Regexp) bool) bool {
 	return stop
 }
 
-func FormatRegexp(r *regexp.Regexp, args ...interface{}) (string, error) {
+func FormatRegexp(r *regexp.Regexp, strict bool, args ...interface{}) (string, error) {
 	re, _ := syntax.Parse(r.String(), syntax.Perl)
 	max := re.MaxCap()
 	min := minCap(re)
@@ -65,8 +65,15 @@ func FormatRegexp(r *regexp.Regexp, args ...interface{}) (string, error) {
 				return true
 			}
 			c := r.Cap
-			// TODO: Check if arguments match pattern?
-			formatted = append(formatted, fmt.Sprintf("%v", args[c-1]))
+			cur := fmt.Sprintf("%v", args[c-1])
+			if strict {
+				patt := r.String()
+				if matched, _ := regexp.MatchString(patt, cur); !matched {
+					err = fmt.Errorf("Invalid replacement at index %d. Format is %q, replacement is %q.", c-1, patt, cur)
+					return true
+				}
+			}
+			formatted = append(formatted, cur)
 			if c == l {
 				stop = true
 			}

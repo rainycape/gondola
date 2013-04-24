@@ -2,6 +2,7 @@ package assets
 
 import (
 	"fmt"
+	"gondola/log"
 )
 
 type Position int
@@ -10,25 +11,6 @@ const (
 	Top Position = 1 + iota
 	Bottom
 )
-
-type Options map[string]string
-
-func (o Options) BoolOpt(key string) bool {
-	_, ok := o[key]
-	return ok
-}
-
-func (o Options) StringOpt(key string) string {
-	return o[key]
-}
-
-func (o Options) Debug() bool {
-	return o.BoolOpt("debug")
-}
-
-func (o Options) NoDebug() bool {
-	return o.BoolOpt("!debug")
-}
 
 var (
 	parsers = map[string]AssetParser{}
@@ -59,6 +41,14 @@ func Parse(m Manager, name string, names []string, o Options) ([]Asset, error) {
 	assets, err := parser(m, names, o)
 	if err != nil {
 		return nil, err
+	}
+	if o.BoolOpt("compile", m) {
+		cassets, err := Compile(m, assets, o)
+		if err == nil {
+			assets = cassets
+		} else {
+			log.Errorf("Error compiling assets %s:%s: %s. Using uncompiled.", name, names, err)
+		}
 	}
 	return assets, nil
 }

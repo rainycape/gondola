@@ -25,6 +25,10 @@ func (c *CssAsset) HTML() string {
 	return ""
 }
 
+func (c *CssAsset) CodeType() int {
+	return CodeTypeCss
+}
+
 func CssParser(m Manager, names []string, options Options) ([]Asset, error) {
 	common, err := ParseCommonAssets(m, names, options)
 	if err != nil {

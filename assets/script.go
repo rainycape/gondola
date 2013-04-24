@@ -25,6 +25,10 @@ func (s *ScriptAsset) HTML() string {
 	return ""
 }
 
+func (s *ScriptAsset) CodeType() int {
+	return CodeTypeJavascript
+}
+
 func ScriptParser(m Manager, names []string, options Options) ([]Asset, error) {
 	common, err := ParseCommonAssets(m, names, options)
 	if err != nil {

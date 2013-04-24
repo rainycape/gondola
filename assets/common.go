@@ -2,6 +2,7 @@ package assets
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strings"
 )
 
@@ -33,6 +34,18 @@ func (c *CommonAsset) Condition() Condition {
 func (c *CommonAsset) ConditionVersion() int {
 	return c.conditionVersion
 }
+func (c *CommonAsset) Code() (string, error) {
+	f, _, err := c.Manager.Load(c.Name())
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	data, err := ioutil.ReadAll(f)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
 
 func ParseCommonAssets(m Manager, names []string, options Options) ([]*CommonAsset, error) {
 	cond := ConditionNone
@@ -43,7 +56,6 @@ func ParseCommonAssets(m Manager, names []string, options Options) ([]*CommonAss
 		if err != nil {
 			return nil, err
 		}
-		delete(options, "if")
 	}
 	common := make([]*CommonAsset, len(names))
 	for ii, v := range names {

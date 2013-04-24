@@ -5,6 +5,7 @@ import (
 	"gondola/loaders"
 	"gondola/log"
 	"gondola/util"
+	"io"
 	"io/ioutil"
 	"net/url"
 	"path"
@@ -18,6 +19,8 @@ import (
 type Manager interface {
 	Load(name string) (ReadSeekerCloser, time.Time, error)
 	LoadURL(u *url.URL) (ReadSeekerCloser, time.Time, error)
+	MkTemp(prefix, ext string) (io.WriteCloser, string, error)
+	Create(name string) (io.WriteCloser, error)
 	URL(name string) string
 	Debug() bool
 	SetDebug(debug bool)
@@ -106,6 +109,14 @@ func (m *AssetsManager) LoadURL(u *url.URL) (ReadSeekerCloser, time.Time, error)
 	return m.Load(p)
 }
 
+func (m *AssetsManager) MkTemp(prefix, ext string) (io.WriteCloser, string, error) {
+	return m.Loader.MkTemp(prefix, ext)
+}
+
+func (m *AssetsManager) Create(name string) (io.WriteCloser, error) {
+	return m.Loader.Create(name)
+}
+
 func (m *AssetsManager) URL(name string) string {
 	if strings.HasPrefix(name, "//") || strings.Contains(name, "://") {
 		return name
@@ -114,7 +125,7 @@ func (m *AssetsManager) URL(name string) string {
 	h, ok := m.cache[name]
 	m.mutex.RUnlock()
 	if !ok {
-		h, _ := m.hash(name)
+		h, _ = m.hash(name)
 		m.mutex.Lock()
 		m.cache[name] = h
 		m.mutex.Unlock()

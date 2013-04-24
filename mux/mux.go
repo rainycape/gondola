@@ -595,10 +595,11 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	mux.appendSlash = true
 	if mux.appendSlash && (r.Method == "GET" || r.Method == "HEAD") && !strings.HasSuffix(r.URL.Path, "/") {
-		c := *r
-		c.URL.Path += "/"
-		if mux.matchHandler(r, ctx) != nil {
-			ctx.Redirect(c.URL.String(), true)
+		r.URL.Path += "/"
+		match := mux.matchHandler(r, ctx)
+		r.URL.Path = r.URL.Path[:len(r.URL.Path)-1]
+		if match != nil {
+			ctx.Redirect(r.URL.String(), true)
 			return
 		}
 	}

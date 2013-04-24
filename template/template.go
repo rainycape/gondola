@@ -91,9 +91,17 @@ func (t *Template) parseOptions(idx int, line string, remainder string) (options
 	for ii := 0; ii < len(remainder); ii++ {
 		ch := remainder[ii]
 		if ch == ':' {
+			if key != "" {
+				options[key] = ""
+				key = ""
+			}
 			value = strings.TrimSpace(remainder[ii+1:])
 			break
 		} else if ch == '/' || ch == ',' {
+			if key != "" {
+				options[key] = ""
+				key = ""
+			}
 			continue
 		} else {
 			if key == "" {

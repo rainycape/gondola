@@ -427,6 +427,10 @@ func (mux *Mux) Reverse(name string, args ...interface{}) (string, error) {
 		if v.name == name {
 			pattern := v.re.String()
 			clean := strings.Trim(pattern, "^$")
+			/* Replace escaped dots, dashes and slashes */
+			clean = strings.Replace(clean, "\\.", ".", -1)
+			clean = strings.Replace(clean, "\\-", "-", -1)
+			clean = strings.Replace(clean, "\\\\", "\\", -1)
 			/* Replace capturing groups with a format specifier */
 			/* e.g. (re) and (?P<name>re) */
 			format := capturesRe.ReplaceAllString(clean, "%v")

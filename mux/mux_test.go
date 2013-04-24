@@ -31,6 +31,9 @@ func TestReverse(t *testing.T) {
 	m.HandleNamedFunc("^/program/(?P<pid>\\d+)/version/(?P<vers>\\d+)/$", helloHandler, "programversionnamed")
 	m.HandleNamedFunc("^/program/(\\d+)/(?:version/(\\d+)/)?$", helloHandler, "programoptversion")
 	m.HandleNamedFunc("^/program/(\\d+)/(?:version/(\\d+)/)(?:revision/(\\d+)/)?$", helloHandler, "programrevision")
+	m.HandleNamedFunc("^/image/(\\w+)\\.(\\w+)$", helloHandler, "image")
+	m.HandleNamedFunc("^/image/(\\w+)\\-(\\w+)$", helloHandler, "imagedash")
+	m.HandleNamedFunc("^/image/(\\w+)\\\\(\\w+)$", helloHandler, "imageslash")
 
 	testReverse(t, "/program/1/", m, "program", 1)
 	testReverse(t, "/program/1/version/2/", m, "programversion", 1, 2)
@@ -45,4 +48,9 @@ func TestReverse(t *testing.T) {
 	testReverse(t, "", m, "program")
 	testReverse(t, "", m, "program", 1, 2)
 	testReverse(t, "", m, "programrevision", 1, 2, 3, 4)
+
+	// Dot, dash and slash
+	testReverse(t, "/image/test.png", m, "image", "test", "png")
+	testReverse(t, "/image/test-png", m, "imagedash", "test", "png")
+	testReverse(t, "/image/test\\png", m, "imageslash", "test", "png")
 }

@@ -12,7 +12,7 @@ func (c *CssAsset) Position() Position {
 	return Top
 }
 
-func CssParser(m Manager, names []string, options map[string]string) ([]Asset, error) {
+func CssParser(m Manager, names []string, options Options) ([]Asset, error) {
 	common, err := ParseCommonAssets(m, names, options)
 	if err != nil {
 		return nil, err

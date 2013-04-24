@@ -81,8 +81,8 @@ func (t *Template) readString(idx *int, s string, stopchars string) (string, err
 	return value, nil
 }
 
-func (t *Template) parseOptions(idx int, line string, remainder string) (options map[string]string, value string, err error) {
-	options = make(map[string]string)
+func (t *Template) parseOptions(idx int, line string, remainder string) (options assets.Options, value string, err error) {
+	options = make(assets.Options)
 	if len(remainder) == 0 || (remainder[0] != ':' && remainder[0] != '/') {
 		err = fmt.Errorf("Malformed asset line %d %q", idx, line)
 		return
@@ -152,7 +152,7 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 					for _, n := range strings.Split(value, ",") {
 						names = append(names, strings.TrimSpace(n))
 					}
-					ass, err := assets.Parse(t.AssetsManager, key, options, names)
+					ass, err := assets.Parse(t.AssetsManager, key, names, options)
 					if err != nil {
 						return err
 					}

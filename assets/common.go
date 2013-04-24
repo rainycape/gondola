@@ -47,7 +47,7 @@ func (c *CommonAsset) HTML() template.HTML {
 	return Conditional(c.Condition, c.ConditionVersion, html)
 }
 
-func ParseCommonAssets(m Manager, names []string, options map[string]string) ([]*CommonAsset, error) {
+func ParseCommonAssets(m Manager, names []string, options Options) ([]*CommonAsset, error) {
 	cond := ConditionNone
 	vers := 0
 	if ifopt := options["if"]; ifopt != "" {

@@ -50,6 +50,14 @@ func TestReverse(t *testing.T) {
 	testReverse(t, "/archive/19700101", m, "archive", "19700101")
 	testReverse(t, "/archive/", m, "archive")
 
+	// TODO: These don't work
+	/*
+		m.HandleNamedFunc("^/section/(sub/(\\d+)/subsub(\\d+))?$", helloHandler, "section")
+		testReverse(t, "/section/", m, "section")
+		testReverse(t, "/section/sub/1/subsub/2", m, "section", 1, 2)
+		testReverse(t, "/section/sub/1", m, "section", 1)
+	*/
+
 	// Test invalid reverses
 	testReverse(t, "", m, "program")
 	testReverse(t, "", m, "program", "foo")

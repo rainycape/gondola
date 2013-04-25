@@ -117,6 +117,14 @@ func mult(args ...interface{}) (float64, error) {
 
 }
 
+func concat(args ...interface{}) string {
+	var s []string
+	for _, v := range args {
+		s = append(s, fmt.Sprintf("%v", v))
+	}
+	return strings.Join(s, "")
+}
+
 var templateFuncs template.FuncMap = template.FuncMap{
 	"eq":     eq,
 	"neq":    neq,
@@ -127,4 +135,5 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"map":    _map,
 	"mult":   mult,
 	"render": assets.Render,
+	"concat": concat,
 }

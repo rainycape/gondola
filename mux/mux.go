@@ -470,6 +470,13 @@ func (mux *Mux) readXHeaders(r *http.Request) {
 			r.RemoteAddr = forwardedFor
 		}
 	}
+/*
+	Don't set the scheme, because net/http does not set the
+	Host portion of the URL, this by setting the Scheme but
+	not the Host .String() ends up returning and invalid URL.
+	This needs further investigation until a proper solution
+	can be found (ignore scheme headers or also set the Host
+	property in the URL?)
 	xScheme := r.Header.Get("X-Scheme")
 	if xScheme != "" {
 		r.URL.Scheme = xScheme
@@ -479,6 +486,7 @@ func (mux *Mux) readXHeaders(r *http.Request) {
 			r.URL.Scheme = xForwardedProto
 		}
 	}
+*/
 }
 
 func (mux *Mux) handleHTTPError(ctx *Context, error string, code int) {

@@ -569,11 +569,12 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if mux.appendSlash && (r.Method == "GET" || r.Method == "HEAD") && !strings.HasSuffix(r.URL.Path, "/") {
 		r.URL.Path += "/"
 		match := mux.matchHandler(r, ctx)
-		r.URL.Path = r.URL.Path[:len(r.URL.Path)-1]
 		if match != nil {
 			ctx.Redirect(r.URL.String(), true)
+			r.URL.Path = r.URL.Path[:len(r.URL.Path)-1]
 			return
 		}
+		r.URL.Path = r.URL.Path[:len(r.URL.Path)-1]
 	}
 
 	/* Not found */

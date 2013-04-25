@@ -34,7 +34,7 @@ func CssParser(m Manager, names []string, options Options) ([]Asset, error) {
 	if err != nil {
 		return nil, err
 	}
-	attrs := Attributes{"rel": "stylesheet"}
+	attrs := Attributes{"rel": "stylesheet", "type": "text/css"}
 	for k, v := range options {
 		if k == "media" {
 			attrs[k] = v

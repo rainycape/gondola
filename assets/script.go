@@ -1,5 +1,9 @@
 package assets
 
+import (
+	"gondola/log"
+)
+
 type ScriptAsset struct {
 	*CommonAsset
 	attributes Attributes
@@ -35,10 +39,25 @@ func ScriptParser(m Manager, names []string, options Options) ([]Asset, error) {
 		return nil, err
 	}
 	assets := make([]Asset, len(common))
+	cdn := options.BoolOpt("cdn", m)
 	for ii, v := range common {
+		var src string
+		name := v.Name()
+		if cdn {
+			var err error
+			src, err = Cdn(name)
+			if err != nil {
+				log.Warning("Error finding CDN URL for %q: %s. Using original.", name, err)
+			} else {
+				log.Debugf("Using CDN URL %q for %q", src, name)
+			}
+		}
+		if src == "" {
+			src = m.URL(name)
+		}
 		assets[ii] = &ScriptAsset{
 			CommonAsset: v,
-			attributes:  Attributes{"type": "text/javascript", "src": m.URL(v.Name())},
+			attributes:  Attributes{"type": "text/javascript", "src": src},
 		}
 	}
 	return assets, nil

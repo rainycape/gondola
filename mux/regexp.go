@@ -53,33 +53,41 @@ func FormatRegexp(r *regexp.Regexp, strict bool, args ...interface{}) (string, e
 	}
 	var formatted []string
 	var err error
-	stop := false
-	walk(re, func(r *syntax.Regexp) bool {
-		if r.Op == syntax.OpLiteral {
-			formatted = append(formatted, string(r.Rune))
-			if stop {
+	if l == 0 {
+		walk(re, func(r *syntax.Regexp) bool {
+			switch r.Op {
+			case syntax.OpLiteral:
+				formatted = append(formatted, string(r.Rune))
+			case syntax.OpCapture:
 				return true
 			}
-		} else if r.Op == syntax.OpCapture {
-			if l == 0 {
-				return true
-			}
-			c := r.Cap
-			cur := fmt.Sprintf("%v", args[c-1])
-			if strict {
-				patt := r.String()
-				if matched, _ := regexp.MatchString(patt, cur); !matched {
-					err = fmt.Errorf("Invalid replacement at index %d. Format is %q, replacement is %q.", c-1, patt, cur)
+			return false
+		})
+	} else {
+		stop := false
+		walk(re, func(r *syntax.Regexp) bool {
+			switch r.Op {
+			case syntax.OpLiteral:
+				formatted = append(formatted, string(r.Rune))
+				if stop {
 					return true
 				}
+			case syntax.OpCapture:
+				c := r.Cap
+				cur := fmt.Sprintf("%v", args[c-1])
+				if strict {
+					patt := r.String()
+					if matched, _ := regexp.MatchString(patt, cur); !matched {
+						err = fmt.Errorf("Invalid replacement at index %d. Format is %q, replacement is %q.", c-1, patt, cur)
+						return true
+					}
+				}
+				formatted = append(formatted, cur)
+				stop = c == l
 			}
-			formatted = append(formatted, cur)
-			if c == l {
-				stop = true
-			}
-		}
-		return false
-	})
+			return false
+		})
+	}
 	if err != nil {
 		return "", err
 	}

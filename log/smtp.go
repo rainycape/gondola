@@ -13,6 +13,10 @@ type SmtpWriter struct {
 	to     string
 }
 
+func (w *SmtpWriter) Level() LLevel {
+	return w.level
+}
+
 func (w *SmtpWriter) Write(level LLevel, flags int, b []byte) (int, error) {
 	if w.server == "" || w.from == "" || w.to == "" {
 		return 0, nil

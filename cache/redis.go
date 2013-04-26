@@ -50,6 +50,10 @@ func (r *RedisBackend) Delete(key string) error {
 	return req.Err()
 }
 
+func (r *RedisBackend) Connection() interface{} {
+	return r.Client
+}
+
 func init() {
 	RegisterBackend("redis", func(cacheUrl *url.URL) Backend {
 		client := redis.NewTCPClient(cacheUrl.Host, "", -1)

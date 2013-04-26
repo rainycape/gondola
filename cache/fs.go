@@ -87,6 +87,10 @@ func (f *FileSystemBackend) Close() error {
 	return nil
 }
 
+func (f *FileSystemBackend) Connection() interface{} {
+	return nil
+}
+
 func init() {
 	RegisterBackend("file", func(cacheUrl *url.URL) Backend {
 		var root string

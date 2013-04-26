@@ -23,6 +23,7 @@ type Backend interface {
 	GetMulti(keys []string) (map[string][]byte, error)
 	Delete(key string) error
 	Close() error
+	Connection() interface{}
 }
 
 type Codec struct {
@@ -185,6 +186,7 @@ func (c *Cache) GetBytes(key string) []byte {
 	return b
 }
 
+// Delete removes the key from the cache
 func (c *Cache) Delete(key string) {
 	err := c.Backend.Delete(c.backendKey(key))
 	if err != nil {
@@ -192,8 +194,17 @@ func (c *Cache) Delete(key string) {
 	}
 }
 
+// Close closes the cache connection. If you're using a cache
+// using mux.Context helper methods, the cache will be closed
+// for you.
 func (c *Cache) Close() {
 	c.Backend.Close()
+}
+
+// Connection returns a interface{} wrapping the native connection
+// type for the cache client (e.g. a memcache or redis connection)
+func (c *Cache) Connection() interface{} {
+	return c.Backend.Connection()
 }
 
 func RegisterBackend(scheme string, f BackendInitializer) {

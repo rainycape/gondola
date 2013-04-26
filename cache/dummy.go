@@ -27,6 +27,10 @@ func (c *DummyBackend) Close() error {
 	return nil
 }
 
+func (c *DummyBackend) Connection() interface{} {
+	return nil
+}
+
 func InitializeDummyBackend(cacheUrl *url.URL) Backend {
 	return &DummyBackend{}
 }

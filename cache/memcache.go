@@ -50,6 +50,10 @@ func (c *MemcacheBackend) Close() error {
 	return nil
 }
 
+func (c *MemcacheBackend) Connection() interface{} {
+	return c.Client
+}
+
 func init() {
 	RegisterBackend("memcache", func(cacheUrl *url.URL) Backend {
 		hosts := strings.Split(cacheUrl.Host, ",")

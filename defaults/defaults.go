@@ -8,6 +8,7 @@ package defaults
 
 import (
 	"gondola/log"
+	"gondola/mail"
 )
 
 var (
@@ -15,6 +16,7 @@ var (
 	debug         = false
 	secret        = ""
 	encryptionKey = ""
+	mailServer = "localhost:25"
 )
 
 // Port returns the default port used by Mux.
@@ -79,4 +81,21 @@ func EncryptionKey() string {
 // it will only affect muxes created after the change.
 func SetEncryptionKey(k string) {
 	encryptionKey = k
+}
+
+// MailServer returns the default mail server URL.
+func MailServer() string {
+    return mailServer
+}
+
+// SetMailServer sets the default mail server URL.
+// See the documentation on gondola/mail/SendVia()
+// for further information (authentication, etc...).
+// The default value is localhost:25.
+func SetMailServer(s string) {
+    if s == "" {
+	s = "localhost:25"
+    }
+    mailServer = s
+    mail.SetDefaultServer(mailServer)
 }

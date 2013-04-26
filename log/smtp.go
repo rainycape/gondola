@@ -2,7 +2,7 @@ package log
 
 import (
 	"fmt"
-	"gondola/util"
+	"gondola/mail"
 	"os"
 )
 
@@ -24,7 +24,7 @@ func (w *SmtpWriter) Write(level LLevel, flags int, b []byte) (int, error) {
 
 	hostname, _ := os.Hostname()
 	subject := fmt.Sprintf("%s message on %s", level.String(), hostname)
-	err := util.SendMail(w.server, w.from, w.to, string(b), map[string]string{"Subject": subject})
+	err := mail.SendVia(w.server, w.from, w.to, string(b), map[string]string{"Subject": subject})
 	if err != nil {
 		return 0, err
 	}

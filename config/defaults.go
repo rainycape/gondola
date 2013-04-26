@@ -41,4 +41,7 @@ func setDefaults(fields fieldMap) {
 	if encryptionKey, ok := fields["EncryptionKey"]; ok && isNonEmptyString(encryptionKey) {
 		defaults.SetEncryptionKey(encryptionKey.Value.String())
 	}
+	if mailServer, ok := fields["MailServer"]; ok && isNonEmptyString(mailServer) {
+		defaults.SetMailServer(mailServer.Value.String())
+	}
 }

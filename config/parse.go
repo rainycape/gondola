@@ -24,9 +24,9 @@ type fieldValue struct {
 	Tag   reflect.StructTag
 }
 
-type FieldMap map[string]*fieldValue
+type fieldMap map[string]*fieldValue
 
-func (f FieldMap) Append(name string, value reflect.Value, tag reflect.StructTag) error {
+func (f fieldMap) Append(name string, value reflect.Value, tag reflect.StructTag) error {
 	if _, ok := f[name]; ok {
 		return fmt.Errorf("Duplicate field name %q", name)
 	}
@@ -34,7 +34,7 @@ func (f FieldMap) Append(name string, value reflect.Value, tag reflect.StructTag
 	return nil
 }
 
-type VarMap map[string]interface{}
+type varMap map[string]interface{}
 
 func SetDefaultFilename(name string) {
 	defaultFilename = name
@@ -107,7 +107,7 @@ func parseValue(v reflect.Value, raw string) error {
 	return nil
 }
 
-func parseConfigFile(r io.Reader, fields FieldMap) error {
+func parseConfigFile(r io.Reader, fields fieldMap) error {
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
@@ -138,8 +138,8 @@ func parseConfigFile(r io.Reader, fields FieldMap) error {
 	return nil
 }
 
-func setupFlags(fields FieldMap) (VarMap, error) {
-	m := make(VarMap)
+func setupFlags(fields fieldMap) (varMap, error) {
+	m := make(varMap)
 	for k, v := range fields {
 		name := flagParameterName(k)
 		help := v.Tag.Get("help")
@@ -168,7 +168,7 @@ func setupFlags(fields FieldMap) (VarMap, error) {
 	return m, nil
 }
 
-func copyFlagValues(fields FieldMap, values VarMap) error {
+func copyFlagValues(fields fieldMap, values varMap) error {
 	/* Copy only flags which have been set */
 	setFlags := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) {
@@ -209,8 +209,8 @@ func copyFlagValues(fields FieldMap, values VarMap) error {
 	return nil
 }
 
-func configFields(value reflect.Value) (FieldMap, error) {
-	fields := make(FieldMap)
+func configFields(value reflect.Value) (fieldMap, error) {
+	fields := make(fieldMap)
 	valueType := value.Type()
 	for ii := 0; ii < value.NumField(); ii++ {
 		field := value.Field(ii)
@@ -280,6 +280,7 @@ func Parse(config interface{}) error {
 	if err != nil {
 		return err
 	}
+	setDefaults(fields)
 	return nil
 }
 

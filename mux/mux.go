@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"gondola/assets"
 	"gondola/cookies"
+	"gondola/defaults"
 	"gondola/errors"
 	"gondola/loaders"
 	"gondola/log"
@@ -207,7 +208,10 @@ func (mux *Mux) Secret() string {
 
 // SetSecret sets the secret associated with this mux,
 // which is used for signed cookies. It should be a
-// random string with at least 32 characters.
+// random string with at least 32 characters. When the
+// mux is initialized, this value is set to the value
+// returned by defaults.Secret() (which can be controlled
+// from the config).
 func (mux *Mux) SetSecret(secret string) {
 	mux.secret = secret
 }
@@ -370,7 +374,10 @@ func (mux *Mux) Debug() bool {
 // SetDebug sets the debug state for the mux.
 // When true, templates executed via Context.Execute or
 // Context.MustExecute() are recompiled every time
-// they are executed. The default is false.
+// they are executed. The default is the value
+// returned by defaults.Debug() when the mux is
+// constructed. See the documentation on gondola/defaults
+// for further information.
 func (mux *Mux) SetDebug(debug bool) {
 	mux.debug = debug
 }
@@ -443,10 +450,14 @@ func (mux *Mux) Reverse(name string, args ...interface{}) (string, error) {
 }
 
 // ListenAndServe Starts listening on all the interfaces on the given port.
+// If port is <= 0, defaults.Port() will be used instead
 // If you need more granularity you can use http.ListenAndServe() directly
 // e.g.
 // http.ListenAndServe("127.0.0.1:8000", mymux)
 func (mux *Mux) ListenAndServe(port int) error {
+	if port <= 0 {
+		port = defaults.Port()
+	}
 	log.Infof("Listening on port %d", port)
 	return http.ListenAndServe(":"+strconv.Itoa(port), mux)
 }
@@ -635,11 +646,15 @@ func (mux *Mux) isReservedVariable(va string) bool {
 	return false
 }
 
-// Returns a new Mux initialized with the default values
+// Returns a new Mux initialized with the current default values.
+// See gondola/defaults for further information.
 func New() *Mux {
 	return &Mux{
-		logger:         log.Std,
+		debug:          defaults.Debug(),
+		secret:         defaults.Secret(),
+		encryptionKey:  defaults.EncryptionKey(),
 		appendSlash:    true,
 		templatesCache: make(map[string]Template),
+		logger:         log.Std,
 	}
 }

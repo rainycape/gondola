@@ -382,8 +382,8 @@ func (mux *Mux) SetDebug(debug bool) {
 	mux.debug = debug
 }
 
-// HandleStaticAssets adds several handlers to the mux which handle
-// static asset efficiently and allows the use of the "assset"
+// HandleAssets adds several handlers to the mux which handle
+// assets efficiently and allows the use of the "assset"
 // function from the templates. This function will also modify the
 // asset loader associated with this mux. prefix might be a relative
 // (e.g. /static/) or absolute (e.g. http://static.example.com/) url

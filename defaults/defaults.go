@@ -12,11 +12,12 @@ import (
 )
 
 var (
-	port          = 8888
-	debug         = false
-	secret        = ""
-	encryptionKey = ""
-	mailServer = "localhost:25"
+	port                = 8888
+	debug               = false
+	secret              = ""
+	encryptionKey       = ""
+	adminEmail          = ""
+	errorLoggingEnabled = false
 )
 
 // Port returns the default port used by Mux.
@@ -83,19 +84,56 @@ func SetEncryptionKey(k string) {
 	encryptionKey = k
 }
 
-// MailServer returns the default mail server URL.
+// MailServer returns the default mail server URL. Note
+// that this function returns gondola/mail/DefaultServer(),
+// so both functions return the same.
 func MailServer() string {
-    return mailServer
+	return mail.DefaultServer()
 }
 
 // SetMailServer sets the default mail server URL.
-// See the documentation on gondola/mail/SendVia()
-// for further information (authentication, etc...).
-// The default value is localhost:25.
+// See the documentation on gondola/mail/SetDefaultServer()
+// for further details.
 func SetMailServer(s string) {
-    if s == "" {
-	s = "localhost:25"
-    }
-    mailServer = s
-    mail.SetDefaultServer(mailServer)
+	mail.SetDefaultServer(s)
+	enableMailErrorLogging()
+}
+
+// FromEmail returns the default From address used
+// in outgoing emails. Note that this function returns
+// gondola/mail/DefaultFrom(), so both functions
+// return the same.
+func FromEmail() string {
+	return mail.DefaultFrom()
+}
+
+// SetFromEmail sets the default From address used in
+// outgoing emails.
+func SetFromEmail(f string) {
+	mail.SetDefaultFrom(f)
+	enableMailErrorLogging()
+}
+
+// AdminEmail returns the administrator's email.
+func AdminEmail() string {
+	return adminEmail
+}
+
+// SetAdminEmail sets the administrator email. If this value
+// is set to a non-empty address, DefaultFrom() is non-empty
+// and Debug() is false, email error reporting will be enabled
+// by sending any logged error message (including unhandled panics) to
+// the provided address.
+func SetAdminEmail(email string) {
+	adminEmail = email
+	enableMailErrorLogging()
+}
+
+func enableMailErrorLogging() {
+	if !errorLoggingEnabled && !Debug() && MailServer() != "" && FromEmail() != "" && AdminEmail() != "" {
+		errorLoggingEnabled = true
+		log.Infof("Enabling email error logging to %q via %q", AdminEmail(), MailServer())
+		writer := log.NewSmtpWriter(log.LError, MailServer(), FromEmail(), AdminEmail())
+		log.Std.AddWriter(writer)
+	}
 }

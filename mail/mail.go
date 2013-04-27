@@ -1,5 +1,5 @@
-// Package mail provides a conviency interface over net/smtp, to
-// facilitate the most common tasks.
+// Package mail provides a conveniency interface over net/smtp, to
+// facilitate the most common tasks when sending emails.
 package mail
 
 import (
@@ -9,7 +9,10 @@ import (
 	"strings"
 )
 
-var defaultServer = "localhost:25"
+var (
+	defaultServer = "localhost:25"
+	defaultFrom   = ""
+)
 
 // SendVia sends an email using the specified server from the specified address
 // to the given addresses (separated by commmas). Addittional headers might
@@ -17,10 +20,14 @@ var defaultServer = "localhost:25"
 // embed it into the server address (e.g. user@gmail.com:patata@smtp.gmail.com).
 // If you want to use CRAM authentication, prefix the username with cram?
 // (e.g. cram?pepe:12345@example.com), otherwise PLAIN is used.
-// If server is empty, it defaults to localhost:25
+// If server is empty, it defaults to localhost:25. If from is empty, DefaultFrom()
+// is used in its place.
 func SendVia(server, from, to, message string, headers map[string]string) error {
 	if server == "" {
 		server = "localhost:25"
+	}
+	if from == "" {
+		from = defaultFrom
 	}
 	var auth smtp.Auth
 	cram, username, password, server := parseServer(server)
@@ -41,16 +48,37 @@ func SendVia(server, from, to, message string, headers map[string]string) error 
 }
 
 // Send works like SendVia(), but uses the mail server
-// specified by gondola/defaults/MailServer.
+// specified by DefaultServer()
 func Send(from, to, message string, headers map[string]string) error {
 	return SendVia(defaultServer, from, to, message, headers)
 }
 
-// SetDefaultServer sets the default mail server. This function
-// exists only to avoid an import cycle and you should not call it.
-// Instead, use gondola/defaults/SetMailServer
+// DefaultServer returns the default mail server URL.
+func DefaultServer() string {
+	return defaultServer
+}
+
+// SetDefaultServer sets the default mail server URL.
+// See the documentation on SendVia()
+// for further information (authentication, etc...).
+// The default value is localhost:25.
 func SetDefaultServer(s string) {
+	if s == "" {
+		s = "localhost:25"
+	}
 	defaultServer = s
+}
+
+// DefaultFrom returns the default From address used
+// in outgoing emails.
+func DefaultFrom() string {
+	return defaultFrom
+}
+
+// SetDefaultFrom sets the default From address used
+// in outgoing emails.
+func SetDefaultFrom(f string) {
+	defaultFrom = f
 }
 
 func parseServer(server string) (bool, string, string, string) {

@@ -44,4 +44,10 @@ func setDefaults(fields fieldMap) {
 	if mailServer, ok := fields["MailServer"]; ok && isNonEmptyString(mailServer) {
 		defaults.SetMailServer(mailServer.Value.String())
 	}
+	if fromEmail, ok := fields["FromEmail"]; ok && isNonEmptyString(fromEmail) {
+		defaults.SetFromEmail(fromEmail.Value.String())
+	}
+	if adminEmail, ok := fields["AdminEmail"]; ok && isNonEmptyString(adminEmail) {
+		defaults.SetAdminEmail(adminEmail.Value.String())
+	}
 }

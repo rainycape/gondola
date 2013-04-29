@@ -4,7 +4,11 @@ package mail
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
+	"gondola/util"
+	"io"
+	"io/ioutil"
 	"net/smtp"
 	"strings"
 )
@@ -14,15 +18,41 @@ var (
 	defaultFrom   = ""
 )
 
+type Headers map[string]string
+
+type Attachment struct {
+	name        string
+	contentType string
+	data        []byte
+}
+
+// NewAttachment returns a new attachment which can be passed
+// to Send() and SendVia(). If contentType is empty, it defaults
+// to application/octet-stream
+func NewAttachment(name, contentType string, r io.Reader) (*Attachment, error) {
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	if name == "" {
+		name = "file"
+	}
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	return &Attachment{name, contentType, data}, nil
+}
+
 // SendVia sends an email using the specified server from the specified address
-// to the given addresses (separated by commmas). Addittional headers might
-// be specified, like Subject or Reply-To. To include authentication info,
+// to the given addresses (separated by commmas). Attachments and addittional
+// headers might be specified, like Subject or Reply-To. To include authentication info,
 // embed it into the server address (e.g. user@gmail.com:patata@smtp.gmail.com).
 // If you want to use CRAM authentication, prefix the username with cram?
 // (e.g. cram?pepe:12345@example.com), otherwise PLAIN is used.
 // If server is empty, it defaults to localhost:25. If from is empty, DefaultFrom()
 // is used in its place.
-func SendVia(server, from, to, message string, headers map[string]string) error {
+func SendVia(server, from, to, message string, headers Headers, attachments []*Attachment) error {
 	if server == "" {
 		server = "localhost:25"
 	}
@@ -39,18 +69,43 @@ func SendVia(server, from, to, message string, headers map[string]string) error 
 		}
 	}
 	buf := bytes.NewBuffer(nil)
-	for k, v := range headers {
-		buf.Write([]byte(fmt.Sprintf("%s: %s\r\n", k, v)))
+	if headers == nil {
+	    headers = make(Headers)
+	    headers["To"] = to
 	}
-	buf.Write([]byte{'\r', '\n'})
-	buf.Write([]byte(message))
+	for k, v := range headers {
+		buf.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
+	}
+	if len(attachments) > 0 {
+		boundary := "Gondola-Boundary-" + util.RandomString(16)
+		buf.WriteString("MIME-Version: 1.0\r\n")
+		buf.WriteString("Content-Type: multipart/mixed; boundary=" + boundary + "\r\n")
+		buf.WriteString("--" + boundary + "\n")
+		buf.WriteString("Content-Type: text/plain; charset=utf-8\r\n")
+		buf.WriteString(message)
+		for _, v := range attachments {
+			buf.WriteString("\r\n\r\n--" + boundary + "\r\n")
+			buf.WriteString(fmt.Sprintf("Content-Type: %s\r\n", v.contentType))
+			buf.WriteString("Content-Transfer-Encoding: base64\r\n")
+			buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=%q\r\n\r\n", v.name))
+
+			b := make([]byte, base64.StdEncoding.EncodedLen(len(v.data)))
+			base64.StdEncoding.Encode(b, v.data)
+			buf.Write(b)
+			buf.WriteString("\r\n--" + boundary)
+		}
+		buf.WriteString("--")
+	} else {
+		buf.Write([]byte{'\r', '\n'})
+		buf.WriteString(message)
+	}
 	return smtp.SendMail(server, auth, from, strings.Split(to, ","), buf.Bytes())
 }
 
 // Send works like SendVia(), but uses the mail server
 // specified by DefaultServer()
-func Send(from, to, message string, headers map[string]string) error {
-	return SendVia(defaultServer, from, to, message, headers)
+func Send(from, to, message string, headers Headers, attachments []*Attachment) error {
+	return SendVia(defaultServer, from, to, message, headers, attachments)
 }
 
 // DefaultServer returns the default mail server URL.

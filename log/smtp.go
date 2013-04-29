@@ -24,7 +24,7 @@ func (w *SmtpWriter) Write(level LLevel, flags int, b []byte) (int, error) {
 
 	hostname, _ := os.Hostname()
 	subject := fmt.Sprintf("%s message on %s", level.String(), hostname)
-	err := mail.SendVia(w.server, w.from, w.to, string(b), map[string]string{"Subject": subject})
+	err := mail.SendVia(w.server, w.from, w.to, string(b), mail.Headers{"Subject": subject}, nil)
 	if err != nil {
 		return 0, err
 	}

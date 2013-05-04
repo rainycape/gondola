@@ -11,7 +11,9 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"mime"
 	"net/http"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -42,6 +44,7 @@ var (
 
 type Template struct {
 	*template.Template
+	Name          string
 	Debug         bool
 	Loader        loaders.Loader
 	AssetsManager assets.Manager
@@ -327,6 +330,7 @@ func (t *Template) Parse(name string) error {
 // variables in the template. The values in vars will be the
 // defaults and may be overriden by using ExecuteVars.
 func (t *Template) ParseVars(name string, vars VarMap) error {
+	t.Name = name
 	if len(vars) > 0 {
 		t.vars = vars
 		// The variable definitions must be present at parse
@@ -501,7 +505,11 @@ func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error
 	}
 	if rw, ok := w.(http.ResponseWriter); ok {
 		header := rw.Header()
-		header.Set("Content-Type", "text/html; charset=utf-8")
+		mimeType := mime.TypeByExtension(path.Ext(t.Name))
+		if mimeType == "" {
+			mimeType = "text/html"
+		}
+		header.Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", mimeType))
 		header.Set("Content-Length", strconv.Itoa(buf.Len()))
 		rw.Write(buf.Bytes())
 	}

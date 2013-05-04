@@ -51,7 +51,7 @@ type Mux struct {
 	ContextFinalizers    []ContextFinalizer
 	RecoverHandlers      []RecoverHandler
 	handlers             []*handlerInfo
-	contextTransform     *reflect.Value
+	customContextType    *reflect.Type
 	trustXHeaders        bool
 	keepRemotePort       bool
 	appendSlash          bool
@@ -127,29 +127,20 @@ func (mux *Mux) AddRecoverHandler(rh RecoverHandler) {
 	mux.RecoverHandlers = append(mux.RecoverHandlers, rh)
 }
 
-// ContextTransform sets the function which transforms a *mux.Context
-// into your own context type before passing it to the template
-// rendering system, so you can call
-// your own custom methods from the templates. See the documentation
-// on mux.Context to learn how to create your own custom context methods.
-func (mux *Mux) SetContextTransform(f interface{}) {
-	t := reflect.TypeOf(f)
-	if t.Kind() != reflect.Func {
-		panic(fmt.Errorf("Context transform must be a function, instead it's %t", f))
-	}
-	if t.IsVariadic() {
-		panic(fmt.Errorf("Context transform can't be a variadic function"))
+// SetCustomContextType sets the context type returned by mux/Context.Custom()
+// which must be convertible to mux.Context.
+// See the documentation on mux/Context.Custom() for further information.
+func (mux *Mux) SetCustomContextType(ctx interface{}) {
+	t := reflect.TypeOf(ctx)
+	if t.Kind() == reflect.Struct {
+		t = reflect.PtrTo(t)
 	}
 	contextType := reflect.TypeOf(&Context{})
-	if t.NumIn() != 1 || t.In(0) != contextType {
-		panic(fmt.Errorf("Context transform must receive only 1 %s argument", contextType))
-	}
-	if t.NumOut() != 1 || t.Out(0).Kind() != reflect.Ptr || t.Out(0).Elem().Kind() != reflect.Struct {
-		panic(fmt.Errorf("Context transform must return just 1 argument which must be a pointer to a struct"))
+	if !t.ConvertibleTo(contextType) {
+		panic(fmt.Errorf("Custom context type must convertible to %v", contextType))
 	}
 	/* All checks passed */
-	val := reflect.ValueOf(f)
-	mux.contextTransform = &val
+	mux.customContextType = &t
 }
 
 // TrustsXHeaders returns if the mux uses X headers

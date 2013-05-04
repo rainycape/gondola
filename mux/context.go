@@ -382,24 +382,21 @@ func (c *Context) WriteXml(data interface{}) (int, error) {
 }
 
 // Custom returns the custom type context wrapped in
-// an interface{}. Intended for use in templates
-// e.g. {{ context.Custom.MyCustomMethod }}
+// an interface{}. It's intended for use in templates
+// e.g. {{ $Context.Custom.MyCustomMethod }}
 //
-// For use in code it's better to use the function
-// you previously defined as the context transformation for
-// the mux e.g.
-// function in your own code to avoid type assertions
-// type mycontext mux.Context
-// func Context(ctx *mux.Context) *mycontext {
-//	return (*mycontext)(ctx)
-// }
-// ...
-// mymux.SetContextTransform(Context)
+// For use in code it's better to use the a conveniency function
+// to transform the type without any type assertions e.g.
+//
+//	type mycontext mux.Context
+//	func Context(ctx *mux.Context) *mycontext {
+//	    return (*mycontext)(ctx)
+//	}
+//	mymux.SetCustomContextType(&mycontext{})
 func (c *Context) Custom() interface{} {
 	if c.customContext == nil {
-		if c.mux.contextTransform != nil {
-			result := c.mux.contextTransform.Call([]reflect.Value{reflect.ValueOf(c)})
-			c.customContext = result[0].Interface()
+		if c.mux.customContextType != nil {
+			c.customContext = reflect.ValueOf(c).Convert(*c.mux.customContextType).Interface()
 		} else {
 			c.customContext = c
 		}

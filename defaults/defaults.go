@@ -7,8 +7,10 @@
 package defaults
 
 import (
+	"fmt"
 	"gondola/log"
 	"gondola/mail"
+	"strings"
 )
 
 var (
@@ -18,6 +20,8 @@ var (
 	encryptionKey       = ""
 	adminEmail          = ""
 	errorLoggingEnabled = false
+	databaseDriver      = ""
+	databaseSource      = ""
 )
 
 // Port returns the default port used by Mux.
@@ -127,6 +131,32 @@ func AdminEmail() string {
 func SetAdminEmail(email string) {
 	adminEmail = email
 	enableMailErrorLogging()
+}
+
+// Database returns the default database
+func Database() string {
+	if databaseDriver != "" {
+		return fmt.Sprintf("%s:%s", databaseDriver, databaseSource)
+	}
+	return ""
+}
+
+// DatabaseParameters returns the driver
+// name and the data source as separate
+// strings.
+func DatabaseParameters() (string, string) {
+	return databaseDriver, databaseSource
+}
+
+// SetDatabase sets the default database. The format of this string
+// is driverName:dataSourceName (e.g. postgres:user=foo dbname=bar).
+// If the string does not have this format, it will panic.
+func SetDatabase(d string) {
+	p := strings.SplitN(d, ":", 2)
+	if len(p) != 2 {
+		panic(fmt.Errorf("Invalid default database: %s", d))
+	}
+	databaseDriver, databaseSource = p[0], p[1]
 }
 
 func enableMailErrorLogging() {

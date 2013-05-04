@@ -22,6 +22,12 @@ func isNonEmptyString(v *fieldValue) bool {
 	return false
 }
 
+func setStringDefault(fields fieldMap, name string, f func(string)) {
+	if value, ok := fields[name]; ok && isNonEmptyString(value) {
+		f(value.Value.String())
+	}
+}
+
 func setDefaults(fields fieldMap) {
 	if debug, ok := fields["Debug"]; ok && debug.Value.Type().Kind() == reflect.Bool {
 		defaults.SetDebug(debug.Value.Bool())
@@ -35,19 +41,16 @@ func setDefaults(fields fieldMap) {
 		}
 		defaults.SetPort(p)
 	}
-	if secret, ok := fields["Secret"]; ok && isNonEmptyString(secret) {
-		defaults.SetSecret(secret.Value.String())
+
+	stringDefaults := map[string]func(string){
+		"Database":      defaults.SetDatabase,
+		"Secret":        defaults.SetSecret,
+		"EncryptionKey": defaults.SetEncryptionKey,
+		"MailServer":    defaults.SetMailServer,
+		"FromEmail":     defaults.SetFromEmail,
+		"AdminEmail":    defaults.SetAdminEmail,
 	}
-	if encryptionKey, ok := fields["EncryptionKey"]; ok && isNonEmptyString(encryptionKey) {
-		defaults.SetEncryptionKey(encryptionKey.Value.String())
-	}
-	if mailServer, ok := fields["MailServer"]; ok && isNonEmptyString(mailServer) {
-		defaults.SetMailServer(mailServer.Value.String())
-	}
-	if fromEmail, ok := fields["FromEmail"]; ok && isNonEmptyString(fromEmail) {
-		defaults.SetFromEmail(fromEmail.Value.String())
-	}
-	if adminEmail, ok := fields["AdminEmail"]; ok && isNonEmptyString(adminEmail) {
-		defaults.SetAdminEmail(adminEmail.Value.String())
+	for k, v := range stringDefaults {
+		setStringDefault(fields, k, v)
 	}
 }

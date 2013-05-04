@@ -1,10 +1,13 @@
 package mux
 
 import (
+	"database/sql"
 	"fmt"
 	"gondola/cache"
 	"gondola/cookies"
+	"gondola/defaults"
 	"gondola/errors"
+	"gondola/log"
 	"gondola/serialize"
 	"math"
 	"net/http"
@@ -31,6 +34,7 @@ type Context struct {
 	customContext interface{}
 	started       time.Time
 	cookies       *cookies.Cookies
+	db            *sql.DB
 	Data          interface{} /* Left to the user */
 }
 
@@ -330,6 +334,25 @@ func (c *Context) Cookies() *cookies.Cookies {
 	return c.cookies
 }
 
+// DB returns a connection to the default database and panics
+// if there's an error. See the the documentation on
+// gondola/defaults/SetDatabase for further information.
+func (c *Context) DB() *sql.DB {
+	if c.db == nil {
+		driver, source := defaults.DatabaseParameters()
+		if driver == "" {
+			panic(fmt.Errorf("Default database is not set"))
+		}
+		log.Debugf("Opening DB connection %s:%s", driver, source)
+		db, err := sql.Open(driver, source)
+		if err != nil {
+			panic(err)
+		}
+		c.db = db
+	}
+	return c.db
+}
+
 // Execute loads the template with the given name using the
 // mux template loader and executes it with the data argument.
 func (c *Context) Execute(name string, data interface{}) error {
@@ -392,6 +415,11 @@ func (c *Context) Close() {
 	if c.c != nil {
 		c.c.Close()
 		c.c = nil
+	}
+	if c.db != nil {
+		log.Debug("Closing DB connection")
+		c.db.Close()
+		c.db = nil
 	}
 }
 

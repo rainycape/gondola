@@ -6,6 +6,7 @@ import (
 
 type ScriptAsset struct {
 	*CommonAsset
+	position   Position
 	attributes Attributes
 }
 
@@ -18,7 +19,7 @@ func (s *ScriptAsset) Closed() bool {
 }
 
 func (s *ScriptAsset) Position() Position {
-	return Bottom
+	return s.position
 }
 
 func (s *ScriptAsset) Attributes() Attributes {
@@ -40,6 +41,10 @@ func ScriptParser(m Manager, names []string, options Options) ([]Asset, error) {
 	}
 	assets := make([]Asset, len(common))
 	cdn := options.BoolOpt("cdn", m)
+	position := Bottom
+	if options.BoolOpt("top", m) {
+		position = Top
+	}
 	for ii, v := range common {
 		var src string
 		name := v.Name()
@@ -57,6 +62,7 @@ func ScriptParser(m Manager, names []string, options Options) ([]Asset, error) {
 		}
 		assets[ii] = &ScriptAsset{
 			CommonAsset: v,
+			position:    position,
 			attributes:  Attributes{"type": "text/javascript", "src": src},
 		}
 	}

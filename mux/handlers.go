@@ -5,3 +5,9 @@ func TemplateHandler(name string) Handler {
 		ctx.MustExecute(name, nil)
 	}
 }
+
+func RedirectHandler(destination string, permanent bool) Handler {
+	return func(ctx *Context) {
+		ctx.Redirect(destination, permanent)
+	}
+}

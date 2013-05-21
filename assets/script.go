@@ -45,6 +45,7 @@ func ScriptParser(m Manager, names []string, options Options) ([]Asset, error) {
 	if options.BoolOpt("top", m) {
 		position = Top
 	}
+	async := options.BoolOpt("async", m)
 	for ii, v := range common {
 		var src string
 		name := v.Name()
@@ -60,10 +61,14 @@ func ScriptParser(m Manager, names []string, options Options) ([]Asset, error) {
 		if src == "" {
 			src = m.URL(name)
 		}
+		attrs := Attributes{"type": "text/javascript", "src": src}
+		if async {
+		    attrs["async"] = "async"
+		}
 		assets[ii] = &ScriptAsset{
 			CommonAsset: v,
 			position:    position,
-			attributes:  Attributes{"type": "text/javascript", "src": src},
+			attributes:  attrs,
 		}
 	}
 	return assets, nil

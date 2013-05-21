@@ -284,6 +284,15 @@ func (l *Logger) Panicln(v ...interface{}) {
 	panic(s)
 }
 
+// Nil does nothing if the argument is nil. Otherwise, it's equivalent to Panic().
+func (l *Logger) Nil(v interface{}) {
+	if v != nil {
+		s := fmt.Sprint(v)
+		l.Write(LFatal, 3, s)
+		panic(s)
+	}
+}
+
 // Flags returns the output flags for the logger.
 func (l *Logger) Flags() int {
 	return l.flags
@@ -412,6 +421,15 @@ func Panicln(v ...interface{}) {
 	s := fmt.Sprintln(v...)
 	Std.Write(LPanic, 3, s)
 	panic(s)
+}
+
+// Nil does nothing if the argument is nil. Otherwise, it's equivalent to Panic().
+func Nil(v interface{}) {
+	if v != nil {
+		s := fmt.Sprint(v)
+		Std.Write(LPanic, 3, s)
+		panic(s)
+	}
 }
 
 // Print calls Output to print to the standard logger.

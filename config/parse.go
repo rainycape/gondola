@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"unicode"
 )
 
 var (
@@ -51,26 +50,12 @@ func Filename() string {
 	return *configName
 }
 
-func mangleName(n string, sep string) string {
-	name := ""
-	for ii, c := range n {
-		if unicode.IsUpper(c) {
-			c = unicode.ToLower(c)
-			if ii != 0 {
-				name += sep
-			}
-		}
-		name += string(c)
-	}
-	return name
-}
-
 func fileParameterName(name string) string {
-	return mangleName(name, "_")
+	return util.UnCamelCase(name, "_")
 }
 
 func flagParameterName(name string) string {
-	return mangleName(name, "-")
+	return util.UnCamelCase(name, "-")
 }
 
 func parseValue(v reflect.Value, raw string) error {

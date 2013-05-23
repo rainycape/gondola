@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-type RecoverHandler func(interface{}, *Context) interface{}
+type RecoverHandler func(*Context, interface{}) interface{}
 
 // ContextProcessor functions run before the request is matched to
 // a handler and might alter the context in any way they see fit
@@ -508,7 +508,7 @@ func (mux *Mux) handleError(ctx *Context, err interface{}) bool {
 func (mux *Mux) recover(ctx *Context) {
 	if err := recover(); err != nil {
 		for _, v := range mux.RecoverHandlers {
-			err = v(err, ctx)
+			err = v(ctx, err)
 			if err == nil {
 				break
 			}
@@ -540,8 +540,10 @@ func (mux *Mux) recover(ctx *Context) {
 // ServeHTTP is called from the net/http system. You shouldn't need
 // to call this function
 func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := &Context{ResponseWriter: w, R: r, mux: mux, started: time.Now()}
-	defer mux.closeContext(ctx)
+	ctx := mux.NewContext(nil)
+	ctx.ResponseWriter = w
+	ctx.R = r
+	defer mux.CloseContext(ctx)
 	defer mux.recover(ctx)
 	if mux.trustXHeaders {
 		mux.readXHeaders(r)
@@ -597,14 +599,8 @@ func (mux *Mux) matchHandler(r *http.Request, ctx *Context) *handlerInfo {
 			continue
 		}
 		if submatches := v.re.FindStringSubmatch(r.URL.Path); submatches != nil {
-			params := map[string]string{}
-			for ii, n := range v.re.SubexpNames() {
-				if n != "" {
-					params[n] = submatches[ii]
-				}
-			}
-			ctx.submatches = submatches
-			ctx.params = params
+			ctx.arguments = submatches
+			ctx.re = v.re
 			ctx.handlerName = v.name
 			return v
 		}
@@ -612,7 +608,18 @@ func (mux *Mux) matchHandler(r *http.Request, ctx *Context) *handlerInfo {
 	return nil
 }
 
-func (mux *Mux) closeContext(ctx *Context) {
+// NewContext initializes and returns a new context
+// asssocciated with this mux.
+func (mux *Mux) NewContext(args []string) *Context {
+	return &Context{arguments: args, mux: mux, started: time.Now()}
+}
+
+// CloseContext closes the passed context, which should have been
+// created via NewContext(). Keep in mind that this function is
+// called for you most of the time. As a rule of thumb, if you
+// don't call NewContext() yourself, you don't need to call
+// CloseContext().
+func (mux *Mux) CloseContext(ctx *Context) {
 	for _, v := range mux.ContextFinalizers {
 		v(ctx)
 	}
@@ -624,8 +631,10 @@ func (mux *Mux) closeContext(ctx *Context) {
 	case ctx.statusCode >= 500:
 		level = log.LError
 	}
-	mux.logger.Logf(level, "%s %s %s %d %s", ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr,
-		ctx.statusCode, time.Now().Sub(ctx.started))
+	if ctx.R != nil {
+		mux.logger.Logf(level, "%s %s %s %d %s", ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr,
+			ctx.statusCode, time.Now().Sub(ctx.started))
+	}
 }
 
 func (mux *Mux) isReservedVariable(va string) bool {

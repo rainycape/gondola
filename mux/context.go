@@ -12,6 +12,7 @@ import (
 	"math"
 	"net/http"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -23,8 +24,9 @@ type ContextFinalizer func(*Context)
 type Context struct {
 	http.ResponseWriter
 	R             *http.Request
-	submatches    []string
+	arguments     []string
 	params        map[string]string
+	re            *regexp.Regexp
 	c             *cache.Cache
 	cached        bool
 	fromCache     bool
@@ -41,7 +43,7 @@ type Context struct {
 // Count returns the number of elements captured
 // by the pattern which matched the handler.
 func (c *Context) Count() int {
-	return len(c.submatches) - 1
+	return len(c.arguments) - 1
 }
 
 // IndexValue returns the captured parameter
@@ -49,10 +51,21 @@ func (c *Context) Count() int {
 // such parameter exists. Pass -1 to obtain
 // the whole match.
 func (c *Context) IndexValue(idx int) string {
-	if idx >= -1 && idx < len(c.submatches)-1 {
-		return c.submatches[idx+1]
+	if idx >= -1 && idx < len(c.arguments)-1 {
+		return c.arguments[idx+1]
 	}
 	return ""
+}
+
+// RequireIndexValue works like IndexValue, but raises
+// a MissingParameter error if the value is not present
+// or empty.
+func (c *Context) RequireIndexValue(idx int) string {
+	val := c.IndexValue(idx)
+	if val == "" {
+		errors.MissingParameter(fmt.Sprintf("at index %d", idx))
+	}
+	return val
 }
 
 // ParseIndexValue uses the captured parameter
@@ -64,10 +77,31 @@ func (c *Context) ParseIndexValue(idx int, arg interface{}) bool {
 	return c.parseTypedValue(val, arg)
 }
 
+// MustParseIndexValue works like ParseIndexValue but raises a
+// MissingParameterError if the parameter is missing or an
+// InvalidParameterTypeError if the parameter does not have the
+// required type
+func (c *Context) MustParseIndexValue(idx int, arg interface{}) {
+	val := c.RequireIndexValue(idx)
+	c.mustParseValue("", idx, val, arg)
+}
+
 // ParamValue returns the named captured parameter
 // with the given name or an empty string if it
 // does not exist.
 func (c *Context) ParamValue(name string) string {
+	if c.params == nil {
+		if c.re == nil {
+			return ""
+		}
+		params := map[string]string{}
+		for ii, n := range c.re.SubexpNames() {
+			if n != "" {
+				params[n] = c.arguments[ii]
+			}
+		}
+		c.params = params
+	}
 	return c.params[name]
 }
 
@@ -85,7 +119,10 @@ func (c *Context) ParseParamValue(name string, arg interface{}) bool {
 // any whitespaces on both sides. See the
 // documentation for net/http for more details.
 func (c *Context) FormValue(name string) string {
-	return strings.TrimSpace(c.R.FormValue(name))
+	if c.R != nil {
+		return strings.TrimSpace(c.R.FormValue(name))
+	}
+	return ""
 }
 
 // RequireFormValue works like FormValue, but raises
@@ -111,16 +148,23 @@ func (c *Context) ParseFormValue(name string, arg interface{}) bool {
 	return c.parseTypedValue(val, arg)
 }
 
-// RequireParseFormValue works like ParseFormValue but raises a
+// MustParseFormValue works like ParseFormValue but raises a
 // MissingParameterError if the parameter is missing or an
 // InvalidParameterTypeError if the parameter does not have the
 // required type
-func (c *Context) RequireParseFormValue(name string, arg interface{}) {
+func (c *Context) MustParseFormValue(name string, arg interface{}) {
 	val := c.RequireFormValue(name)
+	c.mustParseValue(name, -1, val, arg)
+}
+
+func (c *Context) mustParseValue(name string, idx int, val string, arg interface{}) {
 	if !c.parseTypedValue(val, arg) {
 		t := reflect.TypeOf(arg)
 		for t.Kind() == reflect.Ptr {
 			t = t.Elem()
+		}
+		if name == "" {
+			name = fmt.Sprintf("at index %d", idx)
 		}
 		errors.InvalidParameterType(name, t.String())
 	}

@@ -114,6 +114,7 @@ func benchmarkDirect(b *testing.B, nolog bool) {
 	if err != nil {
 		b.Fatal(err)
 	}
+	b.ResetTimer()
 	for ii := 0; ii < b.N; ii++ {
 		mux.ServeHTTP(nil, req)
 	}

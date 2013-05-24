@@ -74,16 +74,23 @@ func TestReverse(t *testing.T) {
 	testReverse(t, "/image/test\\png", m, "imageslash", "test", "png")
 }
 
-func benchmarkServe(b *testing.B, nolog bool) {
-	mux := New()
-	mux.HandleFunc("^/$", func(ctx *Context) {})
-	go func() {
-		mux.ListenAndServe(-1)
-	}()
-	url := fmt.Sprintf("http://localhost:%d/", defaults.Port())
+func testMux(nolog bool) (*Mux, string) {
 	if nolog {
 		log.SetLevel(log.LNone)
+	} else {
+		log.SetLevel(log.LInfo)
 	}
+	mux := New()
+	mux.HandleFunc("^/$", func(ctx *Context) {})
+	url := fmt.Sprintf("http://localhost:%d/", defaults.Port())
+	return mux, url
+}
+
+func benchmarkServe(b *testing.B, nolog bool) {
+	m, url := testMux(nolog)
+	go func() {
+		m.ListenAndServe(-1)
+	}()
 	b.ResetTimer()
 	for ii := 0; ii < b.N; ii++ {
 		_, err := http.Get(url)
@@ -99,4 +106,23 @@ func BenchmarkServe(b *testing.B) {
 
 func BenchmarkServeNoLog(b *testing.B) {
 	benchmarkServe(b, true)
+}
+
+func benchmarkDirect(b *testing.B, nolog bool) {
+	mux, url := testMux(nolog)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+	for ii := 0; ii < b.N; ii++ {
+		mux.ServeHTTP(nil, req)
+	}
+}
+
+func BenchmarkDirect(b *testing.B) {
+	benchmarkDirect(b, false)
+}
+
+func BenchmarkDirectNoLog(b *testing.B) {
+	benchmarkDirect(b, true)
 }

@@ -1,6 +1,10 @@
 package mux
 
 import (
+	"fmt"
+	"gondola/defaults"
+	"gondola/log"
+	"net/http"
 	"testing"
 )
 
@@ -68,4 +72,31 @@ func TestReverse(t *testing.T) {
 	testReverse(t, "/image/test.png", m, "image", "test", "png")
 	testReverse(t, "/image/test-png", m, "imagedash", "test", "png")
 	testReverse(t, "/image/test\\png", m, "imageslash", "test", "png")
+}
+
+func benchmarkServe(b *testing.B, nolog bool) {
+	mux := New()
+	mux.HandleFunc("^/$", func(ctx *Context) {})
+	go func() {
+		mux.ListenAndServe(-1)
+	}()
+	url := fmt.Sprintf("http://localhost:%d/", defaults.Port())
+	if nolog {
+		log.SetLevel(log.LNone)
+	}
+	b.ResetTimer()
+	for ii := 0; ii < b.N; ii++ {
+		_, err := http.Get(url)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkServe(b *testing.B) {
+	benchmarkServe(b, false)
+}
+
+func BenchmarkServeNoLog(b *testing.B) {
+	benchmarkServe(b, true)
 }

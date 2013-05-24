@@ -289,7 +289,7 @@ func (l *Logger) Nil(v interface{}) {
 	if v != nil {
 		s := fmt.Sprint(v)
 		l.Write(LFatal, 3, s)
-		panic(s)
+		panic(v)
 	}
 }
 
@@ -428,7 +428,7 @@ func Nil(v interface{}) {
 	if v != nil {
 		s := fmt.Sprint(v)
 		Std.Write(LPanic, 3, s)
-		panic(s)
+		panic(v)
 	}
 }
 

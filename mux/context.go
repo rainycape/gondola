@@ -40,6 +40,21 @@ type Context struct {
 	Data          interface{} /* Left to the user */
 }
 
+func (c *Context) reset(args []string) {
+	c.ResponseWriter = nil
+	c.R = nil
+	c.arguments = args
+	c.params = nil
+	c.re = nil
+	c.cached = false
+	c.fromCache = false
+	c.statusCode = 0
+	c.customContext = nil
+	c.started = time.Now()
+	c.cookies = nil
+	c.Data = nil
+}
+
 // Count returns the number of elements captured
 // by the pattern which matched the handler.
 func (c *Context) Count() int {

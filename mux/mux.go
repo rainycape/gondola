@@ -68,6 +68,7 @@ type Mux struct {
 	templateVarFuncs     map[string]reflect.Value
 	debug                bool
 	logger               *log.Logger
+	contextPool          chan *Context
 }
 
 // HandleFunc adds an anonymous handler. Anonymous handlers can't be reversed.
@@ -611,7 +612,13 @@ func (mux *Mux) matchHandler(r *http.Request, ctx *Context) *handlerInfo {
 // NewContext initializes and returns a new context
 // asssocciated with this mux.
 func (mux *Mux) NewContext(args []string) *Context {
-	return &Context{arguments: args, mux: mux, started: time.Now()}
+	select {
+	case ctx := <-mux.contextPool:
+		ctx.reset(args)
+		return ctx
+	default:
+		return &Context{arguments: args, mux: mux, started: time.Now()}
+	}
 }
 
 // CloseContext closes the passed context, which should have been
@@ -635,6 +642,11 @@ func (mux *Mux) CloseContext(ctx *Context) {
 		mux.logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.URL.Path, ctx.R.RemoteAddr,
 			strconv.Itoa(ctx.statusCode), time.Now().Sub(ctx.started).String()}, " "))
 	}
+	select {
+	case mux.contextPool <- ctx:
+	default:
+	}
+
 }
 
 func (mux *Mux) isReservedVariable(va string) bool {
@@ -656,5 +668,6 @@ func New() *Mux {
 		appendSlash:    true,
 		templatesCache: make(map[string]Template),
 		logger:         log.Std,
+		contextPool:    make(chan *Context, 16),
 	}
 }

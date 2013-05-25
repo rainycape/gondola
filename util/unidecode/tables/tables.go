@@ -1,4 +1,10 @@
-package util
+// +build none
+package main
+
+import (
+	"fmt"
+	"strings"
+)
 
 var transliterations = map[rune]string{
 	/* x000 */
@@ -46732,4 +46738,51 @@ var transliterations = map[rune]string{
 	0xfffd: "",
 	0xfffe: "",
 	0xffff: "",
+}
+
+type Sequence struct {
+	First rune
+	Val   []rune
+	Count int
+}
+
+func main() {
+	m := make(map[string]*Sequence)
+	for k, v := range transliterations {
+		c := m[v]
+		if c != nil {
+			if k < c.First {
+				c.First = k
+			}
+			c.Count += 1
+		} else {
+			m[v] = &Sequence{
+				First: k,
+				Val:   []rune(v),
+				Count: 1,
+			}
+		}
+	}
+	fmt.Printf("package unidecode\n")
+	fmt.Printf("var (\n")
+	for _, v := range m {
+		var s []string
+		for _, r := range v.Val {
+			s = append(s, fmt.Sprintf("'\\x%02x'", r))
+		}
+		fmt.Printf("\tseq%x = []rune{%s}\n", v.First, strings.Join(s, ","))
+
+	}
+	fmt.Printf(")\n\n")
+	fmt.Printf("var transliterations = map[rune][]rune{\n")
+	var ii rune
+	for ii = 0; ii <= 0xffff; ii++ {
+		trans := transliterations[ii]
+		if trans != "" {
+			c := m[trans]
+			val := fmt.Sprintf("seq%x", c.First)
+			fmt.Printf("0x%x: %s,\n", ii, val)
+		}
+	}
+	fmt.Printf("}\n")
 }

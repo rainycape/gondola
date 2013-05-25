@@ -632,8 +632,8 @@ func (mux *Mux) CloseContext(ctx *Context) {
 		level = log.LError
 	}
 	if ctx.R != nil {
-		mux.logger.Logf(level, "%s %s %s %d %s", ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr,
-			ctx.statusCode, time.Now().Sub(ctx.started))
+		mux.logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.URL.Path, ctx.R.RemoteAddr,
+			strconv.Itoa(ctx.statusCode), time.Now().Sub(ctx.started).String()}, " "))
 	}
 }
 

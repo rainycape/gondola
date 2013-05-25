@@ -26,3 +26,16 @@ func TestBeiJing(t *testing.T) {
 	d := "Bei Jing "
 	testTransliteration(o, d, t)
 }
+
+func BenchmarkUnidecode(b *testing.B) {
+	cases := []string{
+		"ABCDEF",
+		"Κνωσός",
+		"\u5317\u4EB0",
+	}
+	for ii := 0; ii < b.N; ii++ {
+		for _, v := range cases {
+			_ = Unidecode(v)
+		}
+	}
+}

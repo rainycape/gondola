@@ -67,8 +67,12 @@ type Mux struct {
 	templateVars         map[string]interface{}
 	templateVarFuncs     map[string]reflect.Value
 	debug                bool
-	logger               *log.Logger
-	contextPool          chan *Context
+
+	// Logger to use when logging requests. By default, it's
+	// gondola/log/Std, but you can set it to nil to avoid
+	// logging at all and gain a bit more of performance.
+	Logger      *log.Logger
+	contextPool chan *Context
 }
 
 // HandleFunc adds an anonymous handler. Anonymous handlers can't be reversed.
@@ -638,8 +642,8 @@ func (mux *Mux) CloseContext(ctx *Context) {
 	case ctx.statusCode >= 500:
 		level = log.LError
 	}
-	if ctx.R != nil {
-		mux.logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.URL.Path, ctx.R.RemoteAddr,
+	if mux.Logger != nil && ctx.R != nil {
+		mux.Logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.URL.Path, ctx.R.RemoteAddr,
 			strconv.Itoa(ctx.statusCode), time.Now().Sub(ctx.started).String()}, " "))
 	}
 	select {
@@ -667,7 +671,7 @@ func New() *Mux {
 		encryptionKey:  defaults.EncryptionKey(),
 		appendSlash:    true,
 		templatesCache: make(map[string]Template),
-		logger:         log.Std,
+		Logger:         log.Std,
 		contextPool:    make(chan *Context, 16),
 	}
 }

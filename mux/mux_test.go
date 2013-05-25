@@ -3,7 +3,6 @@ package mux
 import (
 	"fmt"
 	"gondola/defaults"
-	"gondola/log"
 	"net/http"
 	"testing"
 )
@@ -75,12 +74,10 @@ func TestReverse(t *testing.T) {
 }
 
 func testMux(nolog bool) (*Mux, string) {
-	if nolog {
-		log.SetLevel(log.LNone)
-	} else {
-		log.SetLevel(log.LInfo)
-	}
 	mux := New()
+	if nolog {
+		mux.Logger = nil
+	}
 	mux.HandleFunc("^/$", func(ctx *Context) {})
 	url := fmt.Sprintf("http://localhost:%d/", defaults.Port())
 	return mux, url

@@ -40,10 +40,14 @@ type Context struct {
 	Data          interface{} /* Left to the user */
 }
 
-func (c *Context) reset(args []string) {
+func (c *Context) reset(argcap int) {
 	c.ResponseWriter = nil
 	c.R = nil
-	c.arguments = args
+	if cap(c.arguments) == argcap {
+		c.arguments = c.arguments[:0]
+	} else {
+		c.arguments = make([]string, 0, argcap)
+	}
 	c.params = nil
 	c.re = nil
 	c.cached = false

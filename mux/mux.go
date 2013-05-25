@@ -46,6 +46,10 @@ type handlerInfo struct {
 	handler Handler
 }
 
+const (
+	poolSize = 16
+)
+
 type Mux struct {
 	ContextProcessors    []ContextProcessor
 	ContextFinalizers    []ContextFinalizer
@@ -71,8 +75,9 @@ type Mux struct {
 	// Logger to use when logging requests. By default, it's
 	// gondola/log/Std, but you can set it to nil to avoid
 	// logging at all and gain a bit more of performance.
-	Logger      *log.Logger
-	contextPool chan *Context
+	Logger       *log.Logger
+	contextPool  chan *Context
+	maxArguments int
 }
 
 // HandleFunc adds an anonymous handler. Anonymous handlers can't be reversed.
@@ -100,6 +105,9 @@ func (mux *Mux) HandleHostNamedFunc(pattern string, handler Handler, host string
 		handler: handler,
 	}
 	mux.handlers = append(mux.handlers, info)
+	if m := info.re.NumSubexp() + 1; m > mux.maxArguments {
+		mux.maxArguments = m
+	}
 }
 
 // AddContextProcessor adds context processor to the Mux.
@@ -599,12 +607,20 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (mux *Mux) matchHandler(r *http.Request, ctx *Context) *handlerInfo {
+	p := r.URL.Path
 	for _, v := range mux.handlers {
 		if v.host != "" && v.host != r.Host {
 			continue
 		}
-		if submatches := v.re.FindStringSubmatch(r.URL.Path); submatches != nil {
-			ctx.arguments = submatches
+		// Use FindStringSubmatchIndex, since this way we can
+		// reuse the slices used to store context arguments
+		if m := v.re.FindStringSubmatchIndex(p); m != nil {
+			n := v.re.NumSubexp() + 1
+			for ii := 0; ii < n; ii++ {
+				if x := 2 * ii; x < len(m) && m[x] >= 0 {
+					ctx.arguments = append(ctx.arguments, p[m[x]:m[x+1]])
+				}
+			}
 			ctx.re = v.re
 			ctx.handlerName = v.name
 			return v
@@ -616,13 +632,16 @@ func (mux *Mux) matchHandler(r *http.Request, ctx *Context) *handlerInfo {
 // NewContext initializes and returns a new context
 // asssocciated with this mux.
 func (mux *Mux) NewContext(args []string) *Context {
+	var ctx *Context
 	select {
-	case ctx := <-mux.contextPool:
-		ctx.reset(args)
-		return ctx
+	case ctx = <-mux.contextPool:
+		ctx.reset(mux.maxArguments)
 	default:
-		return &Context{arguments: args, mux: mux, started: time.Now()}
+		arguments := make([]string, 0, mux.maxArguments)
+		ctx = &Context{arguments: arguments, mux: mux, started: time.Now()}
 	}
+	ctx.arguments = append(ctx.arguments, args...)
+	return ctx
 }
 
 // CloseContext closes the passed context, which should have been
@@ -672,6 +691,6 @@ func New() *Mux {
 		appendSlash:    true,
 		templatesCache: make(map[string]Template),
 		Logger:         log.Std,
-		contextPool:    make(chan *Context, 16),
+		contextPool:    make(chan *Context, poolSize),
 	}
 }

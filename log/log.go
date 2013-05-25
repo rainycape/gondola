@@ -22,10 +22,12 @@ const (
 	Lshortlevel                                            // preprend the abbreviated message level (overrides Llevel)
 	Lcolored                                               // uses colors around the level name
 	LstdFlags     = Ldate | Ltime | Lshortlevel | Lcolored // initial values for the standard logger
+	maxPoolCap    = 512
 )
 
 var (
-	Std = New(NewIOWriter(os.Stderr, LDebug), LstdFlags, LDefault)
+	Std  = New(NewIOWriter(os.Stderr, LDebug), LstdFlags, LDefault)
+	pool = make(chan []byte, 8)
 )
 
 // A Logger represents an active logging object that generates lines of
@@ -133,6 +135,12 @@ func (l *Logger) FormatMessage(level LLevel, calldepth int, s string) []byte {
 		}
 	}
 	var buf []byte
+	select {
+	case buf = <-pool:
+		buf = buf[:0]
+	default:
+		buf = make([]byte, 0, maxPoolCap)
+	}
 	l.formatHeader(level, &buf, now, file, line)
 	buf = append(buf, s...)
 	return buf
@@ -157,6 +165,12 @@ func (l *Logger) Write(level LLevel, calldepth int, v ...interface{}) {
 		for _, w := range l.writers {
 			if level >= w.Level() {
 				w.Write(level, l.flags, msg)
+			}
+		}
+		if cap(msg) <= maxPoolCap {
+			select {
+			case pool <- msg:
+			default:
 			}
 		}
 	}

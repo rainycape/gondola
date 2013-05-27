@@ -40,7 +40,6 @@ func ParseConfig(config string) (*Config, error) {
 	drv, value := config[:p], config[p+3:]
 	options := driver.Options{}
 	if q := strings.Index(value, "?"); q >= 0 {
-		value = value[:q]
 		val, err := url.ParseQuery(value[q+1:])
 		if err != nil {
 			return nil, err
@@ -48,6 +47,7 @@ func ParseConfig(config string) (*Config, error) {
 		for k := range val {
 			options[k] = val.Get(k)
 		}
+		value = value[:q]
 	}
 	return &Config{
 		Driver:  drv,

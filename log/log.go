@@ -349,6 +349,17 @@ func SetLevel(level LLevel) {
 }
 
 // These functions write to the standard logger.
+func Log(level LLevel, v ...interface{}) {
+	Std.Write(level, 3, v...)
+}
+
+func Logf(level LLevel, format string, v ...interface{}) {
+	Std.Writef(level, 3, format, v...)
+}
+
+func Logln(level LLevel, v ...interface{}) {
+	Std.Writeln(level, 3, v...)
+}
 
 func Debug(v ...interface{}) {
 	Std.Write(LDebug, 3, v...)

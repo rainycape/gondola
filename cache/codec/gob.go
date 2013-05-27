@@ -1,4 +1,4 @@
-package cache
+package codec
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	GobEncoder = Codec{Encode: gobMarshal, Decode: gobUnmarshal}
+	GobCodec = &Codec{Encode: gobMarshal, Decode: gobUnmarshal}
 )
 
 func gobMarshal(v interface{}) ([]byte, error) {
@@ -22,5 +22,5 @@ func gobUnmarshal(data []byte, v interface{}) error {
 }
 
 func init() {
-	RegisterCodec("gob", &GobEncoder)
+	Register("gob", GobCodec)
 }

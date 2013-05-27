@@ -1,27 +1,26 @@
-package cache
+package driver
 
 import (
 	"encoding/binary"
 	"gondola/util"
 	"io/ioutil"
-	"net/url"
 	"os"
-	"path"
+	"path/filepath"
 	"time"
 )
 
-type FileSystemBackend struct {
+type FileSystemDriver struct {
 	Root string
 }
 
-func (f *FileSystemBackend) keyPath(key string) string {
+func (f *FileSystemDriver) keyPath(key string) string {
 	fileKey := util.Md5([]byte(key))
-	return path.Join(f.Root, fileKey[:2], fileKey[2:4], fileKey[4:])
+	return filepath.Join(f.Root, fileKey[:2], fileKey[2:4], fileKey[4:])
 }
 
-func (f *FileSystemBackend) Set(key string, b []byte, timeout int) error {
+func (f *FileSystemDriver) Set(key string, b []byte, timeout int) error {
 	p := f.keyPath(key)
-	err := os.MkdirAll(path.Dir(p), 0755)
+	err := os.MkdirAll(filepath.Dir(p), 0755)
 	if err != nil {
 		return err
 	}
@@ -47,7 +46,7 @@ func (f *FileSystemBackend) Set(key string, b []byte, timeout int) error {
 	return nil
 }
 
-func (f *FileSystemBackend) Get(key string) ([]byte, error) {
+func (f *FileSystemDriver) Get(key string) ([]byte, error) {
 	fd, err := os.Open(f.keyPath(key))
 	if err != nil {
 		/* Cache miss */
@@ -67,7 +66,7 @@ func (f *FileSystemBackend) Get(key string) ([]byte, error) {
 	return data, nil
 }
 
-func (f *FileSystemBackend) GetMulti(keys []string) (map[string][]byte, error) {
+func (f *FileSystemDriver) GetMulti(keys []string) (map[string][]byte, error) {
 	value := make(map[string][]byte, len(keys))
 	for _, k := range keys {
 		result, err := f.Get(k)
@@ -78,28 +77,24 @@ func (f *FileSystemBackend) GetMulti(keys []string) (map[string][]byte, error) {
 	return value, nil
 }
 
-func (f *FileSystemBackend) Delete(key string) error {
+func (f *FileSystemDriver) Delete(key string) error {
 	err := os.Remove(f.keyPath(key))
 	return err
 }
 
-func (f *FileSystemBackend) Close() error {
+func (f *FileSystemDriver) Close() error {
 	return nil
 }
 
-func (f *FileSystemBackend) Connection() interface{} {
+func (f *FileSystemDriver) Connection() interface{} {
 	return nil
 }
 
 func init() {
-	RegisterBackend("file", func(cacheUrl *url.URL) Backend {
-		var root string
-		if cacheUrl.Host == "" {
-			/* Absolute path */
-			root = path.Join("/", cacheUrl.Path)
-		} else {
-			root = util.RelativePath(cacheUrl.Host)
+	Register("file", func(value string, o Options) Driver {
+		if !filepath.IsAbs(value) {
+			value = util.RelativePath(value)
 		}
-		return &FileSystemBackend{Root: root}
+		return &FileSystemDriver{Root: value}
 	})
 }

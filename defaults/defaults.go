@@ -8,6 +8,7 @@ package defaults
 
 import (
 	"fmt"
+	"gondola/cache"
 	"gondola/log"
 	"gondola/mail"
 	"strings"
@@ -157,6 +158,17 @@ func SetDatabase(d string) {
 		panic(fmt.Errorf("Invalid default database: %s", d))
 	}
 	databaseDriver, databaseSource = p[0], p[1]
+}
+
+// Cache returns the default cache
+func Cache() string {
+	return cache.Default()
+}
+
+// SetCache sets the default cache. See the documentation on
+// gondola/cache for details about the string format.
+func SetCache(value string) {
+	cache.SetDefault(value)
 }
 
 func enableMailErrorLogging() {

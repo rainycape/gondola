@@ -44,6 +44,7 @@ func setDefaults(fields fieldMap) {
 
 	stringDefaults := map[string]func(string){
 		"Database":      defaults.SetDatabase,
+		"Cache":         defaults.SetCache,
 		"Secret":        defaults.SetSecret,
 		"EncryptionKey": defaults.SetEncryptionKey,
 		"MailServer":    defaults.SetMailServer,

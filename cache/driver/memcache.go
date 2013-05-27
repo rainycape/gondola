@@ -1,21 +1,20 @@
-package cache
+package driver
 
 import (
 	"github.com/bradfitz/gomemcache/memcache"
-	"net/url"
 	"strings"
 )
 
-type MemcacheBackend struct {
+type MemcacheDriver struct {
 	*memcache.Client
 }
 
-func (c *MemcacheBackend) Set(key string, b []byte, timeout int) error {
+func (c *MemcacheDriver) Set(key string, b []byte, timeout int) error {
 	item := memcache.Item{Key: key, Value: b, Expiration: int32(timeout)}
 	return c.Client.Set(&item)
 }
 
-func (c *MemcacheBackend) Get(key string) ([]byte, error) {
+func (c *MemcacheDriver) Get(key string) ([]byte, error) {
 	item, err := c.Client.Get(key)
 	if err != nil && err != memcache.ErrCacheMiss {
 		return nil, err
@@ -26,7 +25,7 @@ func (c *MemcacheBackend) Get(key string) ([]byte, error) {
 	return nil, nil
 }
 
-func (c *MemcacheBackend) GetMulti(keys []string) (map[string][]byte, error) {
+func (c *MemcacheDriver) GetMulti(keys []string) (map[string][]byte, error) {
 	results, err := c.Client.GetMulti(keys)
 	if err != nil && err != memcache.ErrCacheMiss {
 		return nil, err
@@ -38,7 +37,7 @@ func (c *MemcacheBackend) GetMulti(keys []string) (map[string][]byte, error) {
 	return value, nil
 }
 
-func (c *MemcacheBackend) Delete(key string) error {
+func (c *MemcacheDriver) Delete(key string) error {
 	err := c.Client.Delete(key)
 	if err != nil && err != memcache.ErrCacheMiss {
 		return err
@@ -46,18 +45,22 @@ func (c *MemcacheBackend) Delete(key string) error {
 	return nil
 }
 
-func (c *MemcacheBackend) Close() error {
+func (c *MemcacheDriver) Close() error {
 	return nil
 }
 
-func (c *MemcacheBackend) Connection() interface{} {
+func (c *MemcacheDriver) Connection() interface{} {
 	return c.Client
 }
 
 func init() {
-	RegisterBackend("memcache", func(cacheUrl *url.URL) Backend {
-		hosts := strings.Split(cacheUrl.Host, ",")
-		client := memcache.New(hosts...)
-		return &MemcacheBackend{Client: client}
+	Register("memcache", func(value string, o Options) Driver {
+		hosts := strings.Split(value, ",")
+		conns := make([]string, len(hosts))
+		for ii, v := range hosts {
+			conns[ii] = DefaultPort(v, 11211)
+		}
+		client := memcache.New(conns...)
+		return &MemcacheDriver{Client: client}
 	})
 }

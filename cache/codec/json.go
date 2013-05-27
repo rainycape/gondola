@@ -1,4 +1,4 @@
-package cache
+package codec
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	JsonEncoder = Codec{Encode: jsonMarshal, Decode: jsonUnmarshal}
+	JsonCodec = &Codec{Encode: jsonMarshal, Decode: jsonUnmarshal}
 )
 
 func jsonMarshal(v interface{}) ([]byte, error) {
@@ -22,5 +22,5 @@ func jsonUnmarshal(data []byte, v interface{}) error {
 }
 
 func init() {
-	RegisterCodec("json", &JsonEncoder)
+	Register("json", JsonCodec)
 }

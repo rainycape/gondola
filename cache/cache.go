@@ -3,38 +3,17 @@ package cache
 import (
 	"bytes"
 	"compress/zlib"
+	"gondola/cache/codec"
+	"gondola/cache/driver"
 	"gondola/log"
 	"io"
-	"net/url"
 	"strconv"
 )
 
-type BackendInitializer func(*url.URL) Backend
-
-var (
-	defaultCacheUrl string
-	backends        = map[string]BackendInitializer{}
-	codecs          = map[string]*Codec{}
-)
-
-type Backend interface {
-	Set(key string, b []byte, timeout int) error
-	Get(key string) ([]byte, error)
-	GetMulti(keys []string) (map[string][]byte, error)
-	Delete(key string) error
-	Close() error
-	Connection() interface{}
-}
-
-type Codec struct {
-	Encode func(v interface{}) ([]byte, error)
-	Decode func(data []byte, v interface{}) error
-}
-
 type Cache struct {
 	Prefix            string
-	Backend           Backend
-	Codec             *Codec
+	Driver            driver.Driver
+	Codec             *codec.Codec
 	MinCompressLength int
 	CompressLevel     int
 }
@@ -58,13 +37,13 @@ func (c *Cache) frontendKey(key string) string {
 // given key. Timeout is the number of seconds until the item
 // expires. If the timeout is 0, the item is never expired and
 // might be only purged from cache when running out of space
-func (c *Cache) Set(key string, object interface{}, timeout int) {
+func (c *Cache) Set(key string, object interface{}, timeout int) error {
 	b, err := c.Codec.Encode(&object)
 	if err != nil {
-		log.Errorf("Error encoding object for key %s: %s", key, err)
-		return
+		log.Logf(c.errLevel(err), "Error encoding object for key %s: %s", key, err)
+		return err
 	}
-	c.SetBytes(key, b, timeout)
+	return c.SetBytes(key, b, timeout)
 }
 
 // Get returns the item assocciated with the given key, wrapped
@@ -88,7 +67,7 @@ func (c *Cache) GetObject(key string, obj interface{}) bool {
 		if err == nil {
 			return true
 		}
-		log.Errorf("Error decoding object for key %s: %s", key, err)
+		log.Logf(c.errLevel(err), "Error decoding object for key %s: %s", key, err)
 	}
 	return false
 }
@@ -103,9 +82,9 @@ func (c *Cache) GetMulti(keys []string) map[string]interface{} {
 		}
 		keys = k
 	}
-	data, err := c.Backend.GetMulti(keys)
+	data, err := c.Driver.GetMulti(keys)
 	if err != nil {
-		log.Errorf("Error querying cache for keys %v: %v", keys, err)
+		log.Logf(c.errLevel(err), "Error querying cache for keys %v: %v", keys, err)
 		return nil
 	}
 	objects := make(map[string]interface{}, len(data))
@@ -114,7 +93,7 @@ func (c *Cache) GetMulti(keys []string) map[string]interface{} {
 			var object interface{}
 			err := c.Codec.Decode(v, &object)
 			if err != nil {
-				log.Errorf("Error decoding object for key %s: %s", k, err)
+				log.Logf(c.errLevel(err), "Error decoding object for key %s: %s", k, err)
 				continue
 			}
 			objects[c.frontendKey(k)] = object
@@ -124,7 +103,7 @@ func (c *Cache) GetMulti(keys []string) map[string]interface{} {
 			var object interface{}
 			err := c.Codec.Decode(v, &object)
 			if err != nil {
-				log.Errorf("Error decoding object for key %s: %s", k, err)
+				log.Logf(c.errLevel(err), "Error decoding object for key %s: %s", k, err)
 				continue
 			}
 			objects[k] = object
@@ -136,7 +115,7 @@ func (c *Cache) GetMulti(keys []string) map[string]interface{} {
 // SetBytes stores the given byte array assocciated with
 // the given key. See the documentation for Set for an
 // explanation of the timeout parameter
-func (c *Cache) SetBytes(key string, b []byte, timeout int) {
+func (c *Cache) SetBytes(key string, b []byte, timeout int) error {
 	if c.MinCompressLength >= 0 {
 		if l := len(b); l > c.MinCompressLength {
 			var buf bytes.Buffer
@@ -155,15 +134,16 @@ func (c *Cache) SetBytes(key string, b []byte, timeout int) {
 		}
 	}
 	log.Debugf("Setting key %s (%d bytes)", c.backendKey(key), len(b))
-	err := c.Backend.Set(c.backendKey(key), b, timeout)
+	err := c.Driver.Set(c.backendKey(key), b, timeout)
 	if err != nil {
-		log.Errorf("Error setting cache key %s: %s", key, err)
+		log.Logf(c.errLevel(err), "Error setting cache key %s: %s", key, err)
 	}
+	return err
 }
 
 // GetBytes returns the byte array assocciated with the given key
 func (c *Cache) GetBytes(key string) []byte {
-	b, err := c.Backend.Get(c.backendKey(key))
+	b, err := c.Driver.Get(c.backendKey(key))
 	if err != nil {
 		log.Errorf("Error getting cache key %s: %s", key, err)
 		return nil
@@ -187,107 +167,98 @@ func (c *Cache) GetBytes(key string) []byte {
 }
 
 // Delete removes the key from the cache
-func (c *Cache) Delete(key string) {
-	err := c.Backend.Delete(c.backendKey(key))
+func (c *Cache) Delete(key string) error {
+	err := c.Driver.Delete(c.backendKey(key))
 	if err != nil {
-		log.Errorf("Error deleting cache key %s: %s", key, err)
+		log.Logf(c.errLevel(err), "Error deleting cache key %s: %s", key, err)
 	}
+	return err
 }
 
 // Close closes the cache connection. If you're using a cache
 // using mux.Context helper methods, the cache will be closed
 // for you.
 func (c *Cache) Close() {
-	c.Backend.Close()
+	c.Driver.Close()
 }
 
 // Connection returns a interface{} wrapping the native connection
 // type for the cache client (e.g. a memcache or redis connection)
 func (c *Cache) Connection() interface{} {
-	return c.Backend.Connection()
+	return c.Driver.Connection()
 }
 
-func RegisterBackend(scheme string, f BackendInitializer) {
-	backends[scheme] = f
+func (c *Cache) errLevel(err interface{}) log.LLevel {
+	type temporarier interface {
+		Temporary() bool
+	}
+	if terr, ok := err.(temporarier); ok && terr.Temporary() {
+		return log.LWarning
+	}
+	return log.LError
 }
 
-func RegisterCodec(name string, codec *Codec) {
-	codecs[name] = codec
-}
-
-func SetDefaultUrl(url string) {
-	defaultCacheUrl = url
-}
-
-func DefaultUrl() string {
-	return defaultCacheUrl
-}
-
-func New(cacheUrl string) *Cache {
+func NewConfig(config *Config) *Cache {
+	if config.Options == nil {
+		config.Options = driver.Options{}
+	}
 	cache := &Cache{
 		MinCompressLength: -1,
 		CompressLevel:     zlib.DefaultCompression,
 	}
-	var query url.Values
-	u, err := url.Parse(cacheUrl)
-	if err != nil {
-		if err != nil && cacheUrl != "" {
-			log.Errorf("Invalid cache URL %q: %s\n", cacheUrl, err)
+	var c *codec.Codec
+	if codecName := config.Get("codec"); codecName != "" {
+		c = codec.Get(codecName)
+		if c == nil {
+			log.Warningf("Unknown cache codec name %q, using gob\n", codecName)
 		}
-	} else {
-		query = u.Query()
 	}
-	var codec *Codec = nil
-	if query != nil {
-		codecName := query.Get("codec")
-		if codecName != "" {
-			if c, ok := codecs[codecName]; ok {
-				codec = c
+	cache.Prefix = config.Get("prefix")
+	if mcl := config.Get("min_compress"); mcl != "" {
+		val, err := strconv.Atoi(mcl)
+		if err == nil {
+			cache.MinCompressLength = val
+		} else {
+			log.Warningf("Invalid min_compress value %q (must be integer)", mcl)
+		}
+	}
+
+	if cl := config.Get("compress_level"); cl != "" {
+		val, err := strconv.Atoi(cl)
+		if err == nil {
+			if val >= zlib.NoCompression && val <= zlib.BestCompression {
+				cache.CompressLevel = val
 			} else {
-				log.Errorf("Unknown cache codec name %q\n", codecName)
+				log.Warningf("Invalid compress_level value %d (must be between %d and %d)",
+					val, zlib.NoCompression, zlib.BestCompression)
 			}
-		}
-		cache.Prefix = query.Get("prefix")
-		if mcl := query.Get("min_compress"); mcl != "" {
-			val, err := strconv.Atoi(mcl)
-			if err == nil {
-				cache.MinCompressLength = val
-			} else {
-				log.Warningf("Invalid min_compress value %q (must be integer)", mcl)
-			}
-		}
-		if cl := query.Get("compress_level"); cl != "" {
-			val, err := strconv.Atoi(cl)
-			if err == nil {
-				if val >= zlib.NoCompression && val <= zlib.BestCompression {
-					cache.CompressLevel = val
-				} else {
-					log.Warningf("Invalid compress_level value %d (must be between %d and %d)",
-						val, zlib.NoCompression, zlib.BestCompression)
-				}
-			} else {
-				log.Warningf("Invalid compress_level value %q (must be integer)", cl)
-			}
+		} else {
+			log.Warningf("Invalid compress_level value %q (must be integer)", cl)
 		}
 	}
-	if codec == nil {
-		codec = &GobEncoder
+	if c == nil {
+		c = codec.GobCodec
 	}
-	cache.Codec = codec
-	var backendInitializer BackendInitializer
-	if u != nil {
-		backendInitializer = backends[u.Scheme]
-		if backendInitializer == nil && cacheUrl != "" {
-			log.Errorf("Unknown cache backend type %q\n", u.Scheme)
+	cache.Codec = c
+	opener := driver.Get(config.Driver)
+	if opener == nil {
+		opener = driver.OpenDummyDriver
+		if config.Driver != "" {
+			log.Warningf("Unknown cache driver %q, using dummy.", config.Driver)
 		}
 	}
-	if backendInitializer == nil {
-		backendInitializer = InitializeDummyBackend
-	}
-	cache.Backend = backendInitializer(u)
+	cache.Driver = opener(config.Value, config.Options)
 	return cache
 }
 
 func NewDefault() *Cache {
-	return New(defaultCacheUrl)
+	return NewConfig(&defaultCache)
+}
+
+func New(config string) (*Cache, error) {
+	cfg, err := ParseConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return NewConfig(cfg), nil
 }

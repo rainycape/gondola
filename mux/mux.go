@@ -662,7 +662,7 @@ func (mux *Mux) CloseContext(ctx *Context) {
 		level = log.LError
 	}
 	if mux.Logger != nil && ctx.R != nil {
-		mux.Logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.URL.Path, ctx.R.RemoteAddr,
+		mux.Logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.RequestURI, ctx.R.RemoteAddr,
 			strconv.Itoa(ctx.statusCode), time.Now().Sub(ctx.started).String()}, " "))
 	}
 	select {

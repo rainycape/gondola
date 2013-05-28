@@ -63,7 +63,7 @@ func ScriptParser(m Manager, names []string, options Options) ([]Asset, error) {
 		}
 		attrs := Attributes{"type": "text/javascript", "src": src}
 		if async {
-		    attrs["async"] = "async"
+			attrs["async"] = "async"
 		}
 		assets[ii] = &ScriptAsset{
 			CommonAsset: v,

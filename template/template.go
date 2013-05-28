@@ -84,6 +84,16 @@ func (t *Template) readString(idx *int, s string, stopchars string) (string, err
 	return value, nil
 }
 
+func (t *Template) readAssetNames(value string) []string {
+	value = strings.TrimSpace(value)
+	var names []string
+	for ii := 0; ii < len(value); ii += 2 {
+		name, _ := t.readString(&ii, value, ",")
+		names = append(names, strings.TrimSpace(name))
+	}
+	return names
+}
+
 func (t *Template) parseOptions(idx int, line string, remainder string) (options assets.Options, value string, err error) {
 	options = make(assets.Options)
 	if len(remainder) == 0 || (remainder[0] != ':' && remainder[0] != '/') {
@@ -160,7 +170,7 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 					}
 				default:
 					var names []string
-					for _, n := range strings.Split(value, ",") {
+					for _, n := range t.readAssetNames(value) {
 						names = append(names, strings.TrimSpace(n))
 					}
 					ass, err := assets.Parse(t.AssetsManager, key, names, options)

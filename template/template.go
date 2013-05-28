@@ -169,6 +169,9 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 						return err
 					}
 				default:
+					if t.AssetsManager == nil {
+						return ErrNoAssetsManager
+					}
 					var names []string
 					for _, n := range t.readAssetNames(value) {
 						names = append(names, strings.TrimSpace(n))

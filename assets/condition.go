@@ -26,10 +26,10 @@ const (
 
 var conditions = map[Condition]string{
 	ConditionIfEqual:              "",
-	ConditionIfLessThan:           "lt",
-	ConditionIfLessThanOrEqual:    "lte",
-	ConditionIfGreaterThan:        "gt",
-	ConditionIfGreaterThanOrEqual: "gte",
+	ConditionIfLessThan:           "lt ",
+	ConditionIfLessThanOrEqual:    "lte ",
+	ConditionIfGreaterThan:        "gt ",
+	ConditionIfGreaterThanOrEqual: "gte ",
 }
 
 func ParseCondition(val string) (Condition, int, error) {
@@ -79,10 +79,12 @@ func Conditional(cond Condition, version int, html string) template.HTML {
 		conditional = fmt.Sprintf("<!--[if !IE]> -->%s<!-- <![endif]-->", html)
 	default:
 		cmp = conditions[cond]
-		vers = strconv.Itoa(version)
+		if version != 0 {
+			vers = fmt.Sprintf(" %d", version)
+		}
 		fallthrough
 	case ConditionIf:
-		conditional = fmt.Sprintf("<!--[if %s IE %s]>%s<![endif]-->", cmp, vers, html)
+		conditional = fmt.Sprintf("<!--[if %sIE%s]>%s<![endif]-->", cmp, vers, html)
 	}
 	return template.HTML(conditional)
 }

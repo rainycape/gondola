@@ -294,6 +294,7 @@ func (c *Context) Redirect(redir string, permanent bool) {
 // given the opportunity to intercept the
 // error and provide its own response.
 func (c *Context) Error(error string, code int) {
+	c.statusCode = -code
 	c.mux.handleHTTPError(c, error, code)
 }
 
@@ -487,14 +488,19 @@ func (c *Context) Close() {
 // status code
 
 func (c *Context) WriteHeader(code int) {
+	if c.statusCode < 0 {
+		code = -c.statusCode
+	}
 	c.statusCode = code
 	c.ResponseWriter.WriteHeader(code)
 }
 
 func (c *Context) Write(data []byte) (int, error) {
-	n, err := c.ResponseWriter.Write(data)
 	if c.statusCode == 0 {
 		c.statusCode = http.StatusOK
+	} else if c.statusCode < 0 {
+		// code will be overriden
+		c.WriteHeader(0)
 	}
-	return n, err
+	return c.ResponseWriter.Write(data)
 }

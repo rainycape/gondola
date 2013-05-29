@@ -115,6 +115,9 @@ func (c *Context) ParamValue(name string) string {
 		}
 		params := map[string]string{}
 		for ii, n := range c.re.SubexpNames() {
+			if ii == len(c.arguments) {
+				break
+			}
 			if n != "" {
 				params[n] = c.arguments[ii]
 			}

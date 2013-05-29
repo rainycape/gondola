@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"gondola/cache"
+	"gondola/cache/codec"
 	"gondola/mux"
 	"gondola/util"
 	"net/http"
@@ -38,7 +39,7 @@ func New(c *cache.Cache, k KeyFunc, f FilterFunc, e ExpirationFunc) Func {
 				data := c.GetBytes(key)
 				if data != nil {
 					var response *cachedResponse
-					err := cache.GobEncoder.Decode(data, &response)
+					err := codec.GobCodec.Decode(data, &response)
 					if err == nil {
 						ctx.SetServedFromCache(true)
 						header := ctx.Header()
@@ -57,7 +58,7 @@ func New(c *cache.Cache, k KeyFunc, f FilterFunc, e ExpirationFunc) Func {
 				ctx.ResponseWriter = rw
 				if f(ctx, lw.statusCode, lw.header) {
 					response := &cachedResponse{lw.header, lw.statusCode, lw.buf.Bytes()}
-					data, err := cache.GobEncoder.Encode(response)
+					data, err := codec.GobCodec.Encode(response)
 					if err == nil {
 						ctx.SetCached(true)
 						c.SetBytes(key, data, e(ctx, lw.statusCode, lw.header))

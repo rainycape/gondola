@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"gondola/assets"
 	"gondola/loaders"
+	"gondola/log"
 	"gondola/util"
 	"html/template"
 	"io"
 	"io/ioutil"
-	"log"
 	"mime"
 	"net/http"
 	"path"
@@ -234,9 +234,10 @@ func (t *Template) load(name string, included bool) error {
 	}
 	for k, v := range treeMap {
 		if _, contains := t.Trees[k]; contains {
+			log.Debugf("Template %s redefined", k)
 			// Redefinition of a template, which is allowed
 			// by gondola templates. Just rename this
-			// template and change update any template
+			// template and change any template
 			// nodes referring to it in the final sweep
 			if t.renames == nil {
 				t.renames = make(map[string]string)
@@ -533,7 +534,7 @@ func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error
 func (t *Template) MustExecute(w io.Writer, data interface{}) {
 	err := t.Execute(w, data)
 	if err != nil {
-		log.Panicf("Error executing template: %s\n", err)
+		log.Fatalf("Error executing template: %s\n", err)
 	}
 }
 

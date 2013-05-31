@@ -525,8 +525,8 @@ func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error
 		}
 		header.Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", mimeType))
 		header.Set("Content-Length", strconv.Itoa(buf.Len()))
-		rw.Write(buf.Bytes())
 	}
+	w.Write(buf.Bytes())
 	return nil
 }
 

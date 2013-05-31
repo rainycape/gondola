@@ -207,6 +207,14 @@ func (c *Cookies) decrypter() (transformer, error) {
 	}, nil
 }
 
+// Has returns true if a cookie with the given name exists
+func (c *Cookies) Has(name string) bool {
+    // TODO(hierro): This currently generates a *http.Cookie object
+    // which is thrown away. Avoid that unnecessary allocation.
+    cookie, _ := c.GetCookie(name)
+    return cookie != nil
+}
+
 // GetCookie returns the raw *http.Coookie with
 // the given name
 func (c *Cookies) GetCookie(name string) (*http.Cookie, error) {

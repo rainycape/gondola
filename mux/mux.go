@@ -32,6 +32,8 @@ type ContextProcessor func(*Context) bool
 
 type Handler func(*Context)
 
+type Transformer func(Handler) Handler
+
 // ErrorHandler is called before an error is sent
 // to the client. The parameters are the current context,
 // the error message and the error code. If the handler

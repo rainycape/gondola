@@ -11,6 +11,4 @@ type Model interface {
 	FieldNames() []string
 	FieldType(string) reflect.Type
 	FieldTag(string) Tag
-	Values(interface{}) ([]interface{}, error)
-	Insert(interface{}) (reflect.Value, []string, []interface{}, error)
 }

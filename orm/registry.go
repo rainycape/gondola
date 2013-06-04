@@ -77,15 +77,16 @@ func (o *Orm) fields(typ reflect.Type) (*driver.Fields, error) {
 	fields := &driver.Fields{
 		Types:      make(map[string]reflect.Type),
 		Tags:       make(map[string]driver.Tag),
+		NameMap:    make(map[string]string),
 		PrimaryKey: -1,
 	}
-	if err := o._fields(typ, fields, "", nil); err != nil {
+	if err := o._fields(typ, fields, "", "", nil); err != nil {
 		return nil, err
 	}
 	return fields, nil
 }
 
-func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix string, index []int) error {
+func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix string, index []int) error {
 	n := typ.NumField()
 	for ii := 0; ii < n; ii++ {
 		field := typ.Field(ii)
@@ -114,7 +115,7 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix string, in
 			// Default name
 			name = util.UnCamelCase(field.Name, "_")
 		}
-		name = prefix + name
+		name = dbPrefix + name
 		if _, ok := fields.Tags[name]; ok {
 			return fmt.Errorf("duplicate field %q in struct %v", name, typ)
 		}
@@ -133,7 +134,7 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix string, in
 			copy(idx, index)
 			idx = append(idx, field.Index[0])
 			if t.Name() != "Time" || t.PkgPath() != "time" {
-				err := o._fields(t, fields, name+"_", idx)
+				err := o._fields(t, fields, prefix+field.Name+".", dbPrefix+name+"_", idx)
 				if err != nil {
 					return err
 				}
@@ -145,10 +146,12 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix string, in
 		idx = append(idx, field.Index[0])
 		dt := driver.Tag(tag)
 		fields.Names = append(fields.Names, name)
-		fields.OmitNil = append(fields.OmitNil, dt.Has("omitnil") || (dt.Has("auto_increment") && !dt.Has("notomitnil")))
+		fields.OmitZero = append(fields.OmitZero, dt.Has("omitzero") || (dt.Has("auto_increment") && !dt.Has("notomitzero")))
+		fields.NullZero = append(fields.NullZero, dt.Has("nullzero"))
 		fields.Indexes = append(fields.Indexes, idx)
 		fields.Tags[name] = dt
 		fields.Types[name] = t
+		fields.NameMap[prefix+field.Name] = name
 		if dt.Has("primary_key") {
 			if fields.PrimaryKey >= 0 {
 				return fmt.Errorf("duplicate primary_key in struct %v (%s and %s)", typ, fields.Names[fields.PrimaryKey], name)

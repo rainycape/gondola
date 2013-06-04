@@ -13,13 +13,15 @@ type Orm struct {
 
 func (o *Orm) Query(m *Model, q query.Q) *Query {
 	return &Query{
-		orm:   o,
-		model: m,
-		q:     q,
+		orm:    o,
+		model:  m,
+		q:      q,
+		limit:  -1,
+		offset: -1,
 	}
 }
 
-func (o *Orm) One(q query.Q, out interface{}) error {
+func (o *Orm) One(out interface{}, q query.Q) error {
 	model, err := o.model(out)
 	if err != nil {
 		return err
@@ -50,6 +52,10 @@ func (o *Orm) MustInsert(obj interface{}) Result {
 	return res
 }
 
+func (o *Orm) Delete(m *Model, q query.Q) (Result, error) {
+	return o.driver.Delete(m, q)
+}
+
 func (o *Orm) Close() error {
 	if o.driver != nil {
 		err := o.driver.Close()
@@ -57,6 +63,10 @@ func (o *Orm) Close() error {
 		return err
 	}
 	return nil
+}
+
+func (o *Orm) Driver() driver.Driver {
+	return o.driver
 }
 
 func (o *Orm) model(obj interface{}) (*Model, error) {

@@ -6,9 +6,15 @@ import (
 	"gondola/orm/driver"
 	"gondola/orm/drivers/sql"
 	"reflect"
+	"time"
 )
 
-var sqliteBackend = &Backend{}
+var (
+	sqliteBackend    = &Backend{}
+	transformedTypes = map[reflect.Type]reflect.Type{
+		reflect.TypeOf(time.Time{}): reflect.TypeOf(int64(0)),
+	}
+)
 
 type Backend struct {
 }
@@ -53,6 +59,27 @@ func (b *Backend) FieldOptions(typ reflect.Type, tag driver.Tag) ([]string, erro
 		opts = append(opts, fmt.Sprintf("DEFAULT %s", def))
 	}
 	return opts, nil
+}
+
+func (b *Backend) Transforms() map[reflect.Type]reflect.Type {
+	return transformedTypes
+}
+
+func (b *Backend) TransformInValue(dbVal reflect.Value, goVal reflect.Value) error {
+	goVal.Set(reflect.ValueOf(time.Unix(dbVal.Int(), 0)))
+	return nil
+}
+
+func (b *Backend) TransformOutValue(val reflect.Value) (interface{}, error) {
+	var t int64
+	// can only be time.time
+	switch x := val.Interface().(type) {
+	case time.Time:
+		t = x.Unix()
+	case *time.Time:
+		t = x.Unix()
+	}
+	return t, nil
 }
 
 func sqliteOpener(params string) (driver.Driver, error) {

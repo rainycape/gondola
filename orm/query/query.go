@@ -32,14 +32,14 @@ type Gte struct {
 	Field
 }
 
-type Multiple struct {
+type Combinator struct {
 	Conditions []Q
 }
 
 type And struct {
-	Multiple
+	Combinator
 }
 
 type Or struct {
-	Multiple
+	Combinator
 }

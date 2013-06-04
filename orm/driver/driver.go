@@ -10,7 +10,7 @@ type Opener func(params string) (Driver, error)
 
 type Driver interface {
 	MakeModels(m []Model) error
-	Query(m Model, q query.Q) Iter
+	Query(m Model, q query.Q, limit int, offset int) Iter
 	Insert(m Model, data interface{}) (Result, error)
 	Update(m Model, data interface{}, q query.Q) (Result, error)
 	Delete(m Model, q query.Q) (Result, error)

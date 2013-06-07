@@ -84,7 +84,8 @@ func testOrm(t *testing.T, o *Orm) {
 	if obj3.Id != obj1.Id {
 		t.Errorf("invalid ID %v, expected %v.", obj3.Id, obj1.Id)
 	}
-	if !obj3.Timestamp.Equal(obj1.Timestamp) {
+	// Compare seconds, since some backends (like sqlite) loss subsecond precission
+	if !obj3.Timestamp.Truncate(time.Second).Equal(obj1.Timestamp.Truncate(time.Second)) {
 		t.Errorf("invalid timestamp %v, expected %v.", obj3.Timestamp, obj1.Timestamp)
 	}
 	t.Logf("OBJ1 from DB %+v", obj3)

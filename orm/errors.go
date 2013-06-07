@@ -6,4 +6,5 @@ import (
 
 var (
 	ErrNotFound = errors.New("no results found")
+	ErrNoSql    = errors.New("driver is not using database/sql")
 )

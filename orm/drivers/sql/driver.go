@@ -1,19 +1,20 @@
 package sql
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	"gondola/log"
 	"gondola/orm/driver"
 	"gondola/orm/query"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
-const placeholders = "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?"
-
 type Driver struct {
 	db         *sql.DB
+	logger     *log.Logger
 	backend    Backend
 	transforms map[reflect.Type]reflect.Type
 }
@@ -29,7 +30,7 @@ func (d *Driver) MakeModels(ms []driver.Model) error {
 			continue
 		}
 		sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n%s\n);", v.Collection(), strings.Join(tableFields, ",\n"))
-		fmt.Println(sql)
+		d.debugq(sql, nil)
 		_, err = d.db.Exec(sql)
 		if err != nil {
 			return err
@@ -39,18 +40,33 @@ func (d *Driver) MakeModels(ms []driver.Model) error {
 }
 
 func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int) driver.Iter {
-	where, params, err := d.where(m, q)
+	where, params, err := d.where(m, q, 0)
 	if err != nil {
 		return &Iter{err: err}
 	}
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s", strings.Join(m.FieldNames(), ","), m.Collection(), where)
+	var buf bytes.Buffer
+	buf.WriteString("SELECT ")
+	for _, v := range m.FieldNames() {
+		buf.WriteString(v)
+		buf.WriteByte(',')
+	}
+	buf.Truncate(buf.Len() - 1)
+	buf.WriteString(" FROM ")
+	buf.WriteString(m.Collection())
+	if where != "" {
+		buf.WriteString(" WHERE ")
+		buf.WriteString(where)
+	}
 	if limit >= 0 {
-		query += fmt.Sprintf(" LIMIT %d", limit)
+		buf.WriteString(" LIMIT ")
+		buf.WriteString(strconv.Itoa(limit))
 	}
 	if offset >= 0 {
-		query += fmt.Sprintf(" OFFSET %d", offset)
+		buf.WriteString(" OFFSET ")
+		buf.WriteString(strconv.Itoa(offset))
 	}
-	fmt.Println(query, params)
+	query := buf.String()
+	d.debugq(query, params)
 	rows, err := d.db.Query(query, params...)
 	if err != nil {
 		return &Iter{err: err}
@@ -59,41 +75,77 @@ func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int) driver.
 }
 
 func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error) {
-	value, fields, values, err := d.insertParameters(m, data)
+	_, fields, values, err := d.saveParameters(m, data)
 	if err != nil {
 		return nil, err
 	}
-	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", m.Collection(), strings.Join(fields, ","), d.placeholders(len(fields)))
-	res, err := d.db.Exec(query, values...)
-	if err == nil {
-		fields := m.Fields()
-		if pk := fields.PrimaryKey; pk >= 0 {
-			id, err := res.LastInsertId()
-			if err == nil && id != 0 {
-				f := value.FieldByIndex(fields.Indexes[pk])
-				if !f.CanSet() {
-					t := value.Type()
-					return nil, fmt.Errorf("can't set primary key field %q. Please, insert a %v rather than a %v",
-						t.FieldByIndex(fields.Indexes[pk]).Name, reflect.PtrTo(t), t)
-				}
-				f.SetInt(id)
-			}
-		}
+	var buf bytes.Buffer
+	buf.WriteString("INSERT INTO ")
+	buf.WriteString(m.Collection())
+	buf.WriteString(" (")
+	for _, v := range fields {
+		buf.WriteString(v)
+		buf.WriteByte(',')
 	}
-	return res, err
+	buf.Truncate(buf.Len() - 1)
+	buf.WriteString(") VALUES (")
+	buf.WriteString(d.backend.Placeholders(len(fields)))
+	buf.WriteByte(')')
+	q := buf.String()
+	d.debugq(q, values)
+	return d.backend.Insert(d.db, m, q, values...)
 }
 
 func (d *Driver) Update(m driver.Model, data interface{}, q query.Q) (driver.Result, error) {
+	_, fields, values, err := d.saveParameters(m, data)
+	if err != nil {
+		return nil, err
+	}
+	where, qParams, err := d.where(m, q, len(values))
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	buf.WriteString("UPDATE ")
+	buf.WriteString(m.Collection())
+	buf.WriteString(" SET ")
+	for ii, v := range fields {
+		buf.WriteString(v)
+		buf.WriteByte('=')
+		buf.WriteString(d.backend.Placeholder(ii + 1))
+		buf.WriteByte(',')
+	}
+	// remove last ,
+	buf.Truncate(buf.Len() - 1)
+	if where != "" {
+		buf.WriteString(" WHERE ")
+		buf.WriteString(where)
+	}
+	params := append(values, qParams...)
+	query := buf.String()
+	d.debugq(query, params)
+	return d.db.Exec(query, params...)
+}
+
+func (d *Driver) Upsert(m driver.Model, data interface{}, q query.Q) (driver.Result, error) {
+	// TODO: MySql might be able to provide upserts
 	return nil, nil
 }
 
 func (d *Driver) Delete(m driver.Model, q query.Q) (driver.Result, error) {
-	where, params, err := d.where(m, q)
+	where, params, err := d.where(m, q, 0)
 	if err != nil {
 		return nil, err
 	}
-	query := fmt.Sprintf("DELETE FROM %s WHERE %s", m.Collection(), where)
-	fmt.Println(query, params)
+	var buf bytes.Buffer
+	buf.WriteString("DELETE FROM ")
+	buf.WriteString(m.Collection())
+	if where != "" {
+		buf.WriteString(" WHERE ")
+		buf.WriteString(where)
+	}
+	query := buf.String()
+	d.debugq(query, params)
 	return d.db.Exec(query, params...)
 }
 
@@ -101,19 +153,33 @@ func (d *Driver) Close() error {
 	return d.db.Close()
 }
 
+func (d *Driver) Upserts() bool {
+	return false
+}
+
 func (d *Driver) Tag() string {
 	return "sql"
 }
 
-func (d *Driver) placeholders(n int) string {
-	p := placeholders
-	if n > 32 {
-		p = strings.Repeat("?,", n)
-	}
-	return p[:2*n-1]
+func (d *Driver) DB() *sql.DB {
+	return d.db
 }
 
-func (d *Driver) insertParameters(m driver.Model, data interface{}) (reflect.Value, []string, []interface{}, error) {
+func (d *Driver) DBBackend() Backend {
+	return d.backend
+}
+
+func (d *Driver) SetLogger(logger *log.Logger) {
+	d.logger = logger
+}
+
+func (d *Driver) debugq(sql string, args interface{}) {
+	if d.logger != nil {
+		d.logger.Debugf("SQL %q with arguments %v", sql, args)
+	}
+}
+
+func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value, []string, []interface{}, error) {
 	// data is guaranteed to be of m.Type()
 	val := reflect.ValueOf(data)
 	for val.Type().Kind() == reflect.Ptr {
@@ -159,8 +225,8 @@ func (d *Driver) insertParameters(m driver.Model, data interface{}) (reflect.Val
 	return val, names, values, nil
 }
 
-func (d *Driver) outValues(m driver.Model, out interface{}) ([]*transform, []interface{}, error) {
-	var transforms []*transform
+func (d *Driver) outValues(m driver.Model, out interface{}) ([]Transform, []interface{}, error) {
+	var transforms []Transform
 	val := reflect.ValueOf(out)
 	vt := val.Type()
 	if vt.Kind() != reflect.Ptr {
@@ -182,23 +248,45 @@ func (d *Driver) outValues(m driver.Model, out interface{}) ([]*transform, []int
 	}
 	fields := m.Fields()
 	values := make([]interface{}, len(fields.Indexes))
+	// database/sql doesn't map NULL string fields to *string,
+	// so we have to do that manually
+	// TODO: Make the same with all types. Detect nullable columns
+	// and pass a transform.
 	if d.transforms != nil {
 		for ii, v := range fields.Indexes {
 			field := val.FieldByIndex(v)
-			if dbT, ok := d.transforms[field.Type()]; ok {
-				dbVar := reflect.New(dbT)
-				transforms = append(transforms, &transform{
-					In:  dbVar.Elem(),
-					Out: field,
-				})
-				values[ii] = dbVar.Interface()
+			if _, ok := d.transforms[field.Type()]; ok {
+				t := &transform{Out: field, Backend: d.backend}
+				transforms = append(transforms, t)
+				values[ii] = &t.In
 			} else {
-				values[ii] = field.Addr().Interface()
+				if field.Type().Kind() == reflect.String {
+					t := &stringTransform{Out: field}
+					transforms = append(transforms, t)
+					values[ii] = &t.In
+				} else {
+					values[ii] = field.Addr().Interface()
+				}
 			}
 		}
 	} else {
 		for ii, v := range fields.Indexes {
-			values[ii] = val.FieldByIndex(v).Addr().Interface()
+			field := val.FieldByIndex(v)
+			if field.Type().Kind() == reflect.String {
+				t := &stringTransform{Out: field}
+				transforms = append(transforms, t)
+				values[ii] = &t.In
+			} else {
+				values[ii] = field.Addr().Interface()
+			}
+		}
+	}
+	for ii, v := range values {
+		switch x := v.(type) {
+		case *int64:
+			fmt.Printf("VAR %d INT64 %d\n", ii, *x)
+		case *interface{}:
+			fmt.Printf("VAR %d IFACE %v %t\n", ii, *x, *x)
 		}
 	}
 	return transforms, values, nil
@@ -223,54 +311,80 @@ func (d *Driver) tableFields(m driver.Model) ([]string, error) {
 	return fields, nil
 }
 
-func (d *Driver) where(m driver.Model, q query.Q) (string, []interface{}, error) {
+func (d *Driver) where(m driver.Model, q query.Q, begin int) (string, []interface{}, error) {
 	var params []interface{}
-	nmap := m.Fields().NameMap
-	clause, err := d.condition(nmap, q, &params)
+	clause, err := d.condition(m.Fields(), q, &params, begin)
 	return clause, params, err
 }
 
-func (d *Driver) condition(nmap map[string]string, q query.Q, params *[]interface{}) (string, error) {
+func (d *Driver) condition(fields *driver.Fields, q query.Q, params *[]interface{}, begin int) (string, error) {
 	var clause string
 	var err error
 	switch x := q.(type) {
 	case *query.Eq:
-		clause, err = d.clause(nmap, "%s = ?", &x.Field, params)
+		if isNil(x.Value) {
+			x.Value = nil
+			clause, err = d.clause(fields, "%s IS NULL", &x.Field, params, begin)
+		} else {
+			clause, err = d.clause(fields, "%s = %s", &x.Field, params, begin)
+		}
 	case *query.Neq:
-		clause, err = d.clause(nmap, "%s != ?", &x.Field, params)
+		if isNil(x.Value) {
+			x.Value = nil
+			clause, err = d.clause(fields, "%s IS NOT NULL", &x.Field, params, begin)
+		} else {
+			clause, err = d.clause(fields, "%s != %s", &x.Field, params, begin)
+		}
 	case *query.Lt:
-		clause, err = d.clause(nmap, "%s < ?", &x.Field, params)
+		clause, err = d.clause(fields, "%s < %s", &x.Field, params, begin)
 	case *query.Lte:
-		clause, err = d.clause(nmap, "%s <= ?", &x.Field, params)
+		clause, err = d.clause(fields, "%s <= %s", &x.Field, params, begin)
 	case *query.Gt:
-		clause, err = d.clause(nmap, "%s > ?", &x.Field, params)
+		clause, err = d.clause(fields, "%s > %s", &x.Field, params, begin)
 	case *query.Gte:
-		clause, err = d.clause(nmap, "%s >= ?", &x.Field, params)
+		clause, err = d.clause(fields, "%s >= %s", &x.Field, params, begin)
+	case *query.In:
+		value := reflect.ValueOf(x.Value)
+		if value.Type().Kind() != reflect.Slice {
+			return "", fmt.Errorf("argument for IN must be a slice (field %s)", x.Field.Field)
+		}
+		dbName, _, err := fields.Map(x.Field.Field)
+		if err != nil {
+			return "", err
+		}
+		vLen := value.Len()
+		placeholders := make([]string, vLen)
+		jj := len(*params) + begin + 1
+		for ii := 0; ii < vLen; ii++ {
+			*params = append(*params, value.Index(ii).Interface())
+			placeholders[ii] = d.backend.Placeholder(jj)
+			jj++
+		}
+		clause = fmt.Sprintf("%s IN (%s)", dbName, strings.Join(placeholders, ","))
 	case *query.And:
-		clause, err = d.conditions(nmap, x.Conditions, " AND ", params)
+		clause, err = d.conditions(fields, x.Conditions, " AND ", params, begin)
 	case *query.Or:
-		clause, err = d.conditions(nmap, x.Conditions, " OR ", params)
-	}
-	if clause == "" {
-		clause = "1"
+		clause, err = d.conditions(fields, x.Conditions, " OR ", params, begin)
 	}
 	return clause, err
 }
 
-func (d *Driver) clause(nmap map[string]string, format string, f *query.Field, params *[]interface{}) (string, error) {
-	n := f.Field
-	dbName, ok := nmap[n]
-	if !ok {
-		return "", fmt.Errorf("can't map field %q to database name", n)
+func (d *Driver) clause(fields *driver.Fields, format string, f *query.Field, params *[]interface{}, begin int) (string, error) {
+	dbName, _, err := fields.Map(f.Field)
+	if err != nil {
+		return "", err
 	}
-	*params = append(*params, f.Value)
+	if f.Value != nil {
+		*params = append(*params, f.Value)
+		return fmt.Sprintf(format, dbName, d.backend.Placeholder(len(*params)+begin)), nil
+	}
 	return fmt.Sprintf(format, dbName), nil
 }
 
-func (d *Driver) conditions(nmap map[string]string, q []query.Q, sep string, params *[]interface{}) (string, error) {
+func (d *Driver) conditions(fields *driver.Fields, q []query.Q, sep string, params *[]interface{}, begin int) (string, error) {
 	clauses := make([]string, len(q))
 	for ii, v := range q {
-		c, err := d.condition(nmap, v, params)
+		c, err := d.condition(fields, v, params, begin)
 		if err != nil {
 			return "", err
 		}

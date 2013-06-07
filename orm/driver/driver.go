@@ -13,8 +13,10 @@ type Driver interface {
 	Query(m Model, q query.Q, limit int, offset int) Iter
 	Insert(m Model, data interface{}) (Result, error)
 	Update(m Model, data interface{}, q query.Q) (Result, error)
+	Upsert(m Model, data interface{}, q query.Q) (Result, error)
 	Delete(m Model, q query.Q) (Result, error)
 	Close() error
+	Upserts() bool
 	Tag() string
 }
 

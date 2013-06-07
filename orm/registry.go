@@ -47,7 +47,7 @@ func (o *Orm) Register(t interface{}, opt *Options) (*Model, error) {
 	}
 	nameRegistry[name] = model
 	typeRegistry[typ] = model
-	log.Infof("Registered model %v (%q) %+v, fields %+v", typ, name, model, fields)
+	log.Debugf("Registered model %v (%q)", typ, name)
 	return model, nil
 }
 
@@ -119,6 +119,7 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix 
 		if _, ok := fields.Tags[name]; ok {
 			return fmt.Errorf("duplicate field %q in struct %v", name, typ)
 		}
+		qname := prefix + field.Name
 		// Check type
 		t := field.Type
 		for t.Kind() == reflect.Ptr {
@@ -126,7 +127,7 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix 
 		}
 		k := t.Kind()
 		switch k {
-		case reflect.Array, reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Slice:
+		case reflect.Array, reflect.Chan, reflect.Func, reflect.Interface, reflect.Map:
 			return fmt.Errorf("field %q in struct %v has invalid type %v", field.Name, typ, k)
 		case reflect.Struct:
 			// Inner struct
@@ -134,7 +135,7 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix 
 			copy(idx, index)
 			idx = append(idx, field.Index[0])
 			if t.Name() != "Time" || t.PkgPath() != "time" {
-				err := o._fields(t, fields, prefix+field.Name+".", dbPrefix+name+"_", idx)
+				err := o._fields(t, fields, qname+".", dbPrefix+name+"_", idx)
 				if err != nil {
 					return err
 				}
@@ -146,17 +147,21 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix 
 		idx = append(idx, field.Index[0])
 		dt := driver.Tag(tag)
 		fields.Names = append(fields.Names, name)
+		fields.QualifiedNames = append(fields.QualifiedNames, qname)
 		fields.OmitZero = append(fields.OmitZero, dt.Has("omitzero") || (dt.Has("auto_increment") && !dt.Has("notomitzero")))
 		fields.NullZero = append(fields.NullZero, dt.Has("nullzero"))
 		fields.Indexes = append(fields.Indexes, idx)
 		fields.Tags[name] = dt
 		fields.Types[name] = t
-		fields.NameMap[prefix+field.Name] = name
+		fields.NameMap[qname] = name
 		if dt.Has("primary_key") {
 			if fields.PrimaryKey >= 0 {
 				return fmt.Errorf("duplicate primary_key in struct %v (%s and %s)", typ, fields.Names[fields.PrimaryKey], name)
 			}
 			fields.PrimaryKey = len(fields.Names) - 1
+			if dt.Has("auto_increment") && (k == reflect.Int || k == reflect.Int8 || k == reflect.Int16 || k == reflect.Int32 || k == reflect.Int64) {
+				fields.IntegerAutoincrementPk = true
+			}
 		}
 	}
 	return nil

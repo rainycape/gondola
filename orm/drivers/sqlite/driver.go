@@ -1,13 +1,17 @@
 package sqlite
 
 import (
+	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"gondola/orm/driver"
-	"gondola/orm/drivers/sql"
+	ormsql "gondola/orm/drivers/sql"
 	"reflect"
+	"strings"
 	"time"
 )
+
+const placeholders = "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?"
 
 var (
 	sqliteBackend    = &Backend{}
@@ -21,6 +25,22 @@ type Backend struct {
 
 func (b *Backend) Name() string {
 	return "sqlite3"
+}
+
+func (b *Backend) Placeholder(n int) string {
+	return "?"
+}
+
+func (b *Backend) Placeholders(n int) string {
+	p := placeholders
+	if n > 32 {
+		p = strings.Repeat("?,", n)
+	}
+	return p[:2*n-1]
+}
+
+func (b *Backend) Insert(db *sql.DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
+	return db.Exec(query, args...)
 }
 
 func (b *Backend) FieldType(typ reflect.Type, tag driver.Tag) (string, error) {
@@ -65,8 +85,9 @@ func (b *Backend) Transforms() map[reflect.Type]reflect.Type {
 	return transformedTypes
 }
 
-func (b *Backend) TransformInValue(dbVal reflect.Value, goVal reflect.Value) error {
-	goVal.Set(reflect.ValueOf(time.Unix(dbVal.Int(), 0)))
+func (b *Backend) TransformInValue(dbVal interface{}, goVal reflect.Value) error {
+	fmt.Printf("Converting %v %v\n", dbVal, dbVal)
+//	goVal.Set(reflect.ValueOf(time.Unix(dbVal.Int(), 0)))
 	return nil
 }
 
@@ -83,7 +104,7 @@ func (b *Backend) TransformOutValue(val reflect.Value) (interface{}, error) {
 }
 
 func sqliteOpener(params string) (driver.Driver, error) {
-	return sql.NewDriver(sqliteBackend, params)
+	return ormsql.NewDriver(sqliteBackend, params)
 }
 
 func init() {

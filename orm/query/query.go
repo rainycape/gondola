@@ -32,6 +32,10 @@ type Gte struct {
 	Field
 }
 
+type In struct {
+	Field
+}
+
 type Combinator struct {
 	Conditions []Q
 }

@@ -2,11 +2,11 @@ package postgres
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
 	_ "github.com/lib/pq"
 	"gondola/orm/driver"
 	ormsql "gondola/orm/drivers/sql"
-	"database/sql"
 	"reflect"
 	"strconv"
 	"strings"
@@ -17,8 +17,8 @@ const placeholders = "$1 ,$2 ,$3 ,$4 ,$5 ,$6 ,$7 ,$8 ,$9 ,$10,$11,$12,$13,$14,$1
 
 var (
 	postgresBackend  = &Backend{}
-	transformedTypes = map[reflect.Type]reflect.Type{
-		reflect.TypeOf(time.Time{}): reflect.TypeOf(int64(0)),
+	transformedTypes = []reflect.Type{
+		reflect.TypeOf((*time.Time)(nil)),
 	}
 )
 
@@ -139,25 +139,37 @@ func (b *Backend) FieldOptions(typ reflect.Type, tag driver.Tag) ([]string, erro
 	return opts, nil
 }
 
-func (b *Backend) Transforms() map[reflect.Type]reflect.Type {
-	return nil
+func (b *Backend) Transforms() []reflect.Type {
 	return transformedTypes
 }
 
-func (b *Backend) TransformInValue(dbVal interface{}, goVal reflect.Value) error {
+func (b *Backend) ScanInt(val int64, goVal *reflect.Value) error {
+	return nil
+}
+
+func (b *Backend) ScanFloat(val float64, goVal *reflect.Value) error {
+	return nil
+}
+
+func (b *Backend) ScanBool(val bool, goVal *reflect.Value) error {
+	return nil
+}
+
+func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value) error {
+	return nil
+}
+
+func (b *Backend) ScanString(val string, goVal *reflect.Value) error {
+	return nil
+}
+
+func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value) error {
+	goVal.Set(reflect.ValueOf(val.UTC()))
 	return nil
 }
 
 func (b *Backend) TransformOutValue(val reflect.Value) (interface{}, error) {
-	var t int64
-	// can only be time.time
-	switch x := val.Interface().(type) {
-	case time.Time:
-		t = x.Unix()
-	case *time.Time:
-		t = x.Unix()
-	}
-	return t, nil
+	return val.Interface().(time.Time).UTC(), nil
 }
 
 func (b *Backend) makeplaceholders(n int) string {

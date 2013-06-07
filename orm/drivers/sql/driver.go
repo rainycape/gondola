@@ -16,7 +16,7 @@ type Driver struct {
 	db         *sql.DB
 	logger     *log.Logger
 	backend    Backend
-	transforms map[reflect.Type]reflect.Type
+	transforms map[reflect.Type]struct{}
 }
 
 func (d *Driver) MakeModels(ms []driver.Model) error {
@@ -225,12 +225,11 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 	return val, names, values, nil
 }
 
-func (d *Driver) outValues(m driver.Model, out interface{}) ([]Transform, []interface{}, error) {
-	var transforms []Transform
+func (d *Driver) outValues(m driver.Model, out interface{}) ([]interface{}, []scanner, error) {
 	val := reflect.ValueOf(out)
 	vt := val.Type()
 	if vt.Kind() != reflect.Ptr {
-		return nil, nil, fmt.Errorf("can't set object of type %t. Please, pass a %v rather than a %v", out, reflect.PtrTo(val.Type()), val.Type())
+		return nil, nil, fmt.Errorf("can't set object of type %t. Please, pass a %v rather than a %v", out, reflect.PtrTo(vt), vt)
 	}
 	if vt.Elem().Kind() == reflect.Ptr && vt.Elem().Elem().Kind() == reflect.Struct {
 		// Received a pointer to pointer
@@ -248,48 +247,19 @@ func (d *Driver) outValues(m driver.Model, out interface{}) ([]Transform, []inte
 	}
 	fields := m.Fields()
 	values := make([]interface{}, len(fields.Indexes))
-	// database/sql doesn't map NULL string fields to *string,
-	// so we have to do that manually
-	// TODO: Make the same with all types. Detect nullable columns
-	// and pass a transform.
-	if d.transforms != nil {
-		for ii, v := range fields.Indexes {
-			field := val.FieldByIndex(v)
-			if _, ok := d.transforms[field.Type()]; ok {
-				t := &transform{Out: field, Backend: d.backend}
-				transforms = append(transforms, t)
-				values[ii] = &t.In
-			} else {
-				if field.Type().Kind() == reflect.String {
-					t := &stringTransform{Out: field}
-					transforms = append(transforms, t)
-					values[ii] = &t.In
-				} else {
-					values[ii] = field.Addr().Interface()
-				}
-			}
+	scanners := make([]scanner, len(fields.Indexes))
+	for ii, v := range fields.Indexes {
+		field := val.FieldByIndex(v)
+		var s scanner
+		if _, ok := d.transforms[field.Type()]; ok {
+			s = BackendScanner(&field, d.backend)
+		} else {
+			s = Scanner(&field)
 		}
-	} else {
-		for ii, v := range fields.Indexes {
-			field := val.FieldByIndex(v)
-			if field.Type().Kind() == reflect.String {
-				t := &stringTransform{Out: field}
-				transforms = append(transforms, t)
-				values[ii] = &t.In
-			} else {
-				values[ii] = field.Addr().Interface()
-			}
-		}
+		scanners[ii] = s
+		values[ii] = s
 	}
-	for ii, v := range values {
-		switch x := v.(type) {
-		case *int64:
-			fmt.Printf("VAR %d INT64 %d\n", ii, *x)
-		case *interface{}:
-			fmt.Printf("VAR %d IFACE %v %t\n", ii, *x, *x)
-		}
-	}
-	return transforms, values, nil
+	return values, scanners, nil
 }
 
 func (d *Driver) tableFields(m driver.Model) ([]string, error) {
@@ -398,12 +368,12 @@ func NewDriver(b Backend, params string) (*Driver, error) {
 	if err != nil {
 		return nil, err
 	}
-	var transforms map[reflect.Type]reflect.Type
+	var transforms map[reflect.Type]struct{}
 	if tt := b.Transforms(); len(tt) > 0 {
-		transforms = make(map[reflect.Type]reflect.Type, len(tt)*2)
-		for k, v := range tt {
-			transforms[k] = v
-			transforms[reflect.PtrTo(k)] = v
+		transforms = make(map[reflect.Type]struct{}, len(tt)*2)
+		for _, v := range tt {
+			transforms[v] = struct{}{}
+			transforms[v.Elem()] = struct{}{}
 		}
 	}
 	return &Driver{db: db, backend: b, transforms: transforms}, nil

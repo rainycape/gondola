@@ -15,8 +15,9 @@ const placeholders = "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
 
 var (
 	sqliteBackend    = &Backend{}
-	transformedTypes = map[reflect.Type]reflect.Type{
-		reflect.TypeOf(time.Time{}): reflect.TypeOf(int64(0)),
+	transformedTypes = []reflect.Type{
+		reflect.TypeOf((*time.Time)(nil)),
+		reflect.TypeOf((*bool)(nil)),
 	}
 )
 
@@ -74,33 +75,64 @@ func (b *Backend) FieldOptions(typ reflect.Type, tag driver.Tag) ([]string, erro
 	}
 	if def := tag.Value("default"); def != "" {
 		if typ.Kind() == reflect.String {
-			def = "\"" + def + "\""
+			def = "'" + def + "'"
 		}
 		opts = append(opts, fmt.Sprintf("DEFAULT %s", def))
 	}
 	return opts, nil
 }
 
-func (b *Backend) Transforms() map[reflect.Type]reflect.Type {
+func (b *Backend) Transforms() []reflect.Type {
 	return transformedTypes
 }
 
-func (b *Backend) TransformInValue(dbVal interface{}, goVal reflect.Value) error {
-	fmt.Printf("Converting %v %v\n", dbVal, dbVal)
-//	goVal.Set(reflect.ValueOf(time.Unix(dbVal.Int(), 0)))
+func (b *Backend) ScanInt(val int64, goVal *reflect.Value) error {
+	switch goVal.Type().Kind() {
+	case reflect.Struct:
+		goVal.Set(reflect.ValueOf(time.Unix(val, 0).UTC()))
+	case reflect.Bool:
+		goVal.SetBool(val != 0)
+	}
+	return nil
+}
+
+func (b *Backend) ScanFloat(val float64, goVal *reflect.Value) error {
+	return nil
+}
+
+func (b *Backend) ScanBool(val bool, goVal *reflect.Value) error {
+	return nil
+}
+
+func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value) error {
+	return nil
+}
+
+func (b *Backend) ScanString(val string, goVal *reflect.Value) error {
+	return nil
+}
+
+func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value) error {
 	return nil
 }
 
 func (b *Backend) TransformOutValue(val reflect.Value) (interface{}, error) {
-	var t int64
-	// can only be time.time
+	for val.Type().Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
 	switch x := val.Interface().(type) {
 	case time.Time:
-		t = x.Unix()
-	case *time.Time:
-		t = x.Unix()
+		if x.IsZero() {
+			return nil, nil
+		}
+		return x.Unix(), nil
+	case bool:
+		if x {
+			return 1, nil
+		}
+		return 0, nil
 	}
-	return t, nil
+	return nil, fmt.Errorf("can't transform type %v", val.Type())
 }
 
 func sqliteOpener(params string) (driver.Driver, error) {

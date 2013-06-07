@@ -2,7 +2,6 @@ package sql
 
 import (
 	"database/sql"
-	"fmt"
 	"gondola/orm/driver"
 )
 
@@ -16,21 +15,13 @@ type Iter struct {
 func (i *Iter) Next(out interface{}) bool {
 	if i.err == nil && i.rows != nil && i.rows.Next() {
 		var values []interface{}
-		var transforms []Transform
-		transforms, values, i.err = i.driver.outValues(i.model, out)
+		var scanners []scanner
+		values, scanners, i.err = i.driver.outValues(i.model, out)
 		if i.err == nil {
 			i.err = i.rows.Scan(values...)
-			for _, v := range transforms {
-				i.err = v.Transform()
-			}
 		}
-		for ii, v := range values {
-			switch x := v.(type) {
-			case *int64:
-				fmt.Printf("VAR %d INT64 %d\n", ii, *x)
-			case *interface{}:
-				fmt.Printf("VAR %d IFACE %v %T\n", ii, *x, *x)
-			}
+		for _, v := range scanners {
+			v.Put()
 		}
 		return i.err == nil
 	}

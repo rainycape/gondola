@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"gondola/orm/driver"
 	"reflect"
+	"time"
 )
 
 // Backend is the interface implemented by drivers
@@ -22,10 +23,15 @@ type Backend interface {
 	FieldType(reflect.Type, driver.Tag) (string, error)
 	// Returns the db options for the given field (.e.g PRIMARY KEY AUTOINCREMENT)
 	FieldOptions(reflect.Type, driver.Tag) ([]string, error)
-	// Types that need to be transformed (e.g. sqlite transforms time.Time to integers)
-	Transforms() map[reflect.Type]reflect.Type
-	// Transform a value from the database to Go
-	TransformInValue(dbVal interface{}, goVal reflect.Value) error
+	// Types that need to be transformed (e.g. sqlite transforms time.Time and bool to integer)
+	Transforms() []reflect.Type
+	// Transform an int64 from the db to Go
+	ScanInt(val int64, goVal *reflect.Value) error
+	ScanFloat(val float64, goVal *reflect.Value) error
+	ScanBool(val bool, goVal *reflect.Value) error
+	ScanByteSlice(val []byte, goVal *reflect.Value) error
+	ScanString(val string, goVal *reflect.Value) error
+	ScanTime(val *time.Time, goVal *reflect.Value) error
 	// Transform a value from Go to the database
 	TransformOutValue(reflect.Value) (interface{}, error)
 }

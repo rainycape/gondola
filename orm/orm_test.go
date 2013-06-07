@@ -43,11 +43,12 @@ func testOrm(t *testing.T, o *Orm) {
 	o.SetLogger(log.Std)
 
 	TestModel := o.MustRegister(&Test{}, nil)
+	now := time.Now()
 	o.MustCommitModels()
 	obj1 := &Test{
 		Name:      "Test1",
 		Value:     "Test1",
-		Timestamp: time.Now(),
+		Timestamp: now,
 	}
 	o.MustInsert(obj1)
 	if obj1.Id != 1 {
@@ -82,6 +83,9 @@ func testOrm(t *testing.T, o *Orm) {
 	}
 	if obj3.Id != obj1.Id {
 		t.Errorf("invalid ID %v, expected %v.", obj3.Id, obj1.Id)
+	}
+	if !obj3.Timestamp.Equal(obj1.Timestamp) {
+		t.Errorf("invalid timestamp %v, expected %v.", obj3.Timestamp, obj1.Timestamp)
 	}
 	t.Logf("OBJ1 from DB %+v", obj3)
 	var obj4 *Test

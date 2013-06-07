@@ -21,3 +21,19 @@ func TestSlug(t *testing.T) {
 	testSlug(t, "el-bng-pide-el-cese-de-feijoo-y-el-resto-de-la-oposicion-explicaciones", "El BNG pide el cese de Feijóo y el resto de la oposición, explicaciones", -1)
 	testSlug(t, "el-papa-pide-una-solucion-politica-para-el-conflicto-en-siria", "El papa pide una “solución política” para el conflicto en Siria", -1)
 }
+
+func TestUnCamelCase(t *testing.T) {
+	cases := map[string]string{
+		"FooBarBaz": "foo_bar_baz",
+		"FOOBarBaz": "foo_bar_baz",
+		"TEST":      "test",
+		"":          "",
+		"T":         "t",
+		"t":         "t",
+	}
+	for k, v := range cases {
+		if u := UnCamelCase(k, "_"); u != v {
+			t.Errorf("Error uncamelcasing %q. Want %q, got %q.", k, v, u)
+		}
+	}
+}

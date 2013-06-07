@@ -1,9 +1,9 @@
 package util
 
 import (
+	"gondola/util/unidecode"
 	"regexp"
 	"strings"
-	"gondola/util/unidecode"
 )
 
 var (

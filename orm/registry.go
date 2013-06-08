@@ -158,7 +158,7 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix 
 		fields.Names = append(fields.Names, name)
 		fields.QNames = append(fields.QNames, qname)
 		fields.OmitZero = append(fields.OmitZero, dt.Has("omitzero") || (dt.Has("auto_increment") && !dt.Has("notomitzero")))
-		fields.NullZero = append(fields.NullZero, dt.Has("nullzero"))
+		fields.NullZero = append(fields.NullZero, dt.Has("nullzero") || (k == reflect.Slice && !dt.Has("notnullzero")))
 		fields.Indexes = append(fields.Indexes, idx)
 		fields.Tags = append(fields.Tags, &dt)
 		fields.Types = append(fields.Types, t)

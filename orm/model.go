@@ -10,6 +10,7 @@ type Model struct {
 	options    *Options
 	collection string
 	fields     *driver.Fields
+	tags       string
 }
 
 func (m *Model) Type() reflect.Type {
@@ -22,16 +23,4 @@ func (m *Model) Collection() string {
 
 func (m *Model) Fields() *driver.Fields {
 	return m.fields
-}
-
-func (m *Model) FieldNames() []string {
-	return m.fields.Names
-}
-
-func (m *Model) FieldType(name string) reflect.Type {
-	return m.fields.Types[name]
-}
-
-func (m *Model) FieldTag(name string) driver.Tag {
-	return m.fields.Tags[name]
 }

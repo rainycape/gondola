@@ -16,8 +16,11 @@ type Driver interface {
 	Upsert(m Model, data interface{}, q query.Q) (Result, error)
 	Delete(m Model, q query.Q) (Result, error)
 	Close() error
+	// True if the driver can perform upserts
 	Upserts() bool
-	Tag() string
+	// List of struct tags to be read, in decreasing order of priority.
+	// The first non-empty tag is used.
+	Tags() []string
 }
 
 func Register(name string, opener Opener) {

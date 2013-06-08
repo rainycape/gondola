@@ -46,7 +46,7 @@ func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int) driver.
 	}
 	var buf bytes.Buffer
 	buf.WriteString("SELECT ")
-	for _, v := range m.FieldNames() {
+	for _, v := range m.Fields().Names {
 		buf.WriteString(v)
 		buf.WriteByte(',')
 	}
@@ -157,8 +157,8 @@ func (d *Driver) Upserts() bool {
 	return false
 }
 
-func (d *Driver) Tag() string {
-	return "sql"
+func (d *Driver) Tags() []string {
+	return []string{d.backend.Tag(), "sql"}
 }
 
 func (d *Driver) DB() *sql.DB {
@@ -250,11 +250,12 @@ func (d *Driver) outValues(m driver.Model, out interface{}) ([]interface{}, []sc
 	scanners := make([]scanner, len(fields.Indexes))
 	for ii, v := range fields.Indexes {
 		field := val.FieldByIndex(v)
+		tag := fields.Tags[ii]
 		var s scanner
 		if _, ok := d.transforms[field.Type()]; ok {
-			s = BackendScanner(&field, d.backend)
+			s = BackendScanner(&field, tag, d.backend)
 		} else {
-			s = Scanner(&field)
+			s = Scanner(&field, tag)
 		}
 		scanners[ii] = s
 		values[ii] = s
@@ -263,11 +264,20 @@ func (d *Driver) outValues(m driver.Model, out interface{}) ([]interface{}, []sc
 }
 
 func (d *Driver) tableFields(m driver.Model) ([]string, error) {
-	names := m.FieldNames()
-	fields := make([]string, len(names))
+	fields := m.Fields()
+	names := fields.Names
+	types := fields.Types
+	tags := fields.Tags
+	dbFields := make([]string, len(names))
 	for ii, v := range names {
-		typ := m.FieldType(v)
-		tag := m.FieldTag(v)
+		typ := types[ii]
+		tag := tags[ii]
+		// Check json encoded types
+		if tag.Has("json") {
+			if err := tryEncodeJson(typ); err != nil {
+				return nil, fmt.Errorf("can't encode field %q as JSON: %s", fields.QNames[ii], err)
+			}
+		}
 		ft, err := d.backend.FieldType(typ, tag)
 		if err != nil {
 			return nil, err
@@ -276,9 +286,9 @@ func (d *Driver) tableFields(m driver.Model) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		fields[ii] = fmt.Sprintf("%s %s %s", v, ft, strings.Join(opts, " "))
+		dbFields[ii] = fmt.Sprintf("%s %s %s", v, ft, strings.Join(opts, " "))
 	}
-	return fields, nil
+	return dbFields, nil
 }
 
 func (d *Driver) where(m driver.Model, q query.Q, begin int) (string, []interface{}, error) {

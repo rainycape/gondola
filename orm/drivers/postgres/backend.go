@@ -29,6 +29,10 @@ func (b *Backend) Name() string {
 	return "postgres"
 }
 
+func (b *Backend) Tag() string {
+	return b.Name()
+}
+
 func (b *Backend) Placeholder(n int) string {
 	return "$" + strconv.Itoa(n)
 }
@@ -55,7 +59,7 @@ func (b *Backend) Insert(db *sql.DB, m driver.Model, query string, args ...inter
 	return db.Exec(query, args...)
 }
 
-func (b *Backend) FieldType(typ reflect.Type, tag driver.Tag) (string, error) {
+func (b *Backend) FieldType(typ reflect.Type, tag *driver.Tag) (string, error) {
 	var t string
 	switch typ.Kind() {
 	case reflect.Bool:
@@ -87,7 +91,6 @@ func (b *Backend) FieldType(typ reflect.Type, tag driver.Tag) (string, error) {
 			}
 		}
 	case reflect.Slice:
-		fmt.Println(typ, typ.Elem())
 		etyp := typ.Elem()
 		if etyp.Kind() == reflect.Uint8 {
 			// []byte
@@ -95,7 +98,7 @@ func (b *Backend) FieldType(typ reflect.Type, tag driver.Tag) (string, error) {
 		} else if tag.Has("json") {
 			// TODO: Use type JSON on Postgresql >= 9.2
 			t = "TEXT"
-		} else {
+		} else if typ.Elem().Kind() != reflect.Struct {
 			et, err := b.FieldType(typ.Elem(), tag)
 			if err != nil {
 				return "", err
@@ -105,6 +108,9 @@ func (b *Backend) FieldType(typ reflect.Type, tag driver.Tag) (string, error) {
 	case reflect.Struct:
 		if typ.Name() == "Time" && typ.PkgPath() == "time" {
 			t = "TIMESTAMP WITHOUT TIME ZONE"
+		} else if tag.Has("json") {
+			// TODO: Use type JSON on Postgresql >= 9.2
+			t = "TEXT"
 		}
 	}
 	if tag.Has("auto_increment") {
@@ -120,7 +126,7 @@ func (b *Backend) FieldType(typ reflect.Type, tag driver.Tag) (string, error) {
 	return "", fmt.Errorf("can't map field type %v to a database type", typ)
 }
 
-func (b *Backend) FieldOptions(typ reflect.Type, tag driver.Tag) ([]string, error) {
+func (b *Backend) FieldOptions(typ reflect.Type, tag *driver.Tag) ([]string, error) {
 	var opts []string
 	if tag.Has("notnull") {
 		opts = append(opts, "NOT NULL")
@@ -143,27 +149,27 @@ func (b *Backend) Transforms() []reflect.Type {
 	return transformedTypes
 }
 
-func (b *Backend) ScanInt(val int64, goVal *reflect.Value) error {
+func (b *Backend) ScanInt(val int64, goVal *reflect.Value, tag *driver.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanFloat(val float64, goVal *reflect.Value) error {
+func (b *Backend) ScanFloat(val float64, goVal *reflect.Value, tag *driver.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanBool(val bool, goVal *reflect.Value) error {
+func (b *Backend) ScanBool(val bool, goVal *reflect.Value, tag *driver.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value) error {
+func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, tag *driver.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanString(val string, goVal *reflect.Value) error {
+func (b *Backend) ScanString(val string, goVal *reflect.Value, tag *driver.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value) error {
+func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, tag *driver.Tag) error {
 	goVal.Set(reflect.ValueOf(val.UTC()))
 	return nil
 }

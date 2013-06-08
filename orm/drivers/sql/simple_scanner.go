@@ -2,12 +2,14 @@ package sql
 
 import (
 	"fmt"
+	"gondola/orm/driver"
 	"reflect"
 	"time"
 )
 
 type simpleScanner struct {
 	Out *reflect.Value
+	Tag *driver.Tag
 }
 
 var simpleScannerPool = make(chan *simpleScanner, 64)
@@ -23,12 +25,28 @@ func (s *simpleScanner) Scan(src interface{}) error {
 	case bool:
 		s.Out.SetBool(x)
 	case []byte:
+		// Some sql drivers return strings as []byte
+		if s.Out.Kind() == reflect.String {
+			s.Out.SetString(string(x))
+		} else {
+			// Some drivers return an empty slice for null blob fields
+			if len(x) > 0 {
+				if !s.Tag.Has("raw") {
+					b := make([]byte, len(x))
+					copy(b, x)
+					x = b
+				}
+				s.Out.Set(reflect.ValueOf(x))
+			} else {
+				s.Out.Set(reflect.ValueOf([]byte(nil)))
+			}
+		}
 	case string:
 		s.Out.SetString(x)
 	case time.Time:
 		s.Out.Set(reflect.ValueOf(x))
 	default:
-		return fmt.Errorf("simple can't scan value %v (%T)", src, src)
+		return fmt.Errorf("can't scan value %v (%T)", src, src)
 	}
 	return nil
 }
@@ -40,13 +58,14 @@ func (s *simpleScanner) Put() {
 	}
 }
 
-func Scanner(val *reflect.Value) scanner {
+func Scanner(val *reflect.Value, tag *driver.Tag) scanner {
 	var s *simpleScanner
 	select {
 	case s = <-simpleScannerPool:
 		s.Out = val
+		s.Tag = tag
 	default:
-		s = &simpleScanner{Out: val}
+		s = &simpleScanner{Out: val, Tag: tag}
 	}
 	return s
 }

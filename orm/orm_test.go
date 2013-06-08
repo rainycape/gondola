@@ -6,7 +6,6 @@ import (
 	_ "gondola/orm/drivers/sqlite"
 	"io/ioutil"
 	"os/exec"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -35,14 +34,33 @@ type PtrTest struct {
 	Timestamp *time.Time
 }
 
+type Data struct {
+	Id   int64 `sql:",primary_key,auto_increment"`
+	Data []byte
+}
+
+type Rectangle struct {
+	X      int
+	Y      int
+	Width  int
+	Height int
+}
+
+type Container struct {
+	Id    int64       `sql:",primary_key,auto_increment"`
+	Rects []Rectangle `sql:",json"`
+}
+
 func testOrm(t *testing.T, o *Orm) {
-	// Clear registry
-	nameRegistry = map[string]*Model{}
-	typeRegistry = map[reflect.Type]*Model{}
 	// Set logger
 	o.SetLogger(log.Std)
 
-	TestModel := o.MustRegister(&Test{}, nil)
+	// Register all models first
+	TestModel := o.MustRegister((*Test)(nil), nil)
+	_ = o.MustRegister((*Data)(nil), nil)
+	_ = o.MustRegister((*Container)(nil), nil)
+
+	// Some basic tests
 	now := time.Now()
 	o.MustCommitModels()
 	obj1 := &Test{
@@ -96,6 +114,27 @@ func testOrm(t *testing.T, o *Orm) {
 	}
 	if obj4.Id != obj1.Id {
 		t.Errorf("invalid ID %v, expected %v.", obj4.Id, obj1.Id)
+	}
+	// Test an object with []byte
+	d := []byte("foobar")
+	data := &Data{
+		Data: d,
+	}
+	o.MustSave(&data)
+	o.MustSave(&Data{})
+	err = o.One(&data, Eq("Id", 1))
+	if err != nil {
+		t.Error(err)
+	}
+	if string(data.Data) != string(d) {
+		t.Errorf("Invalid data %v, expected %v.", data.Data, d)
+	}
+	err = o.One(&data, Eq("Id", 2))
+	if err != nil {
+		t.Error(err)
+	}
+	if data.Data != nil {
+		t.Errorf("Invalid data %v, expected %v.", data.Data, nil)
 	}
 	o.Close()
 }

@@ -9,14 +9,16 @@ import (
 	ormsql "gondola/orm/drivers/sql"
 	"gondola/orm/query"
 	"reflect"
+	"strings"
 )
 
 type Orm struct {
 	driver  driver.Driver
 	upserts bool
-	// this field are non-nil iff the ORM driver uses database/sql
-	db     *sql.DB
-	logger *log.Logger
+	logger  *log.Logger
+	tags    string
+	// this field is non-nil iff the ORM driver uses database/sql
+	db *sql.DB
 }
 
 // Query returns a Query object, on which you can call
@@ -257,9 +259,9 @@ func (o *Orm) model(obj interface{}) (*Model, error) {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
-	model := typeRegistry[t]
+	model := _typeRegistry[o.tags][t]
 	if model == nil {
-		return nil, fmt.Errorf("no model registered for type %v", t)
+		return nil, fmt.Errorf("no model registered for type %v with tags %q", t, o.tags)
 	}
 	return model, nil
 }
@@ -273,7 +275,7 @@ func (o *Orm) primaryKey(f *driver.Fields, obj interface{}) (string, reflect.Val
 	for val.Type().Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
-	return f.QualifiedNames[pk], val.FieldByIndex(f.Indexes[pk])
+	return f.QNames[pk], val.FieldByIndex(f.Indexes[pk])
 }
 
 type sqldriver interface {
@@ -295,8 +297,9 @@ func Open(name string, params string) (*Orm, error) {
 	}
 	return &Orm{
 		driver:  drv,
-		db:      db,
 		upserts: drv.Upserts(),
+		tags:    strings.Join(drv.Tags(), "-"),
+		db:      db,
 	}, nil
 }
 

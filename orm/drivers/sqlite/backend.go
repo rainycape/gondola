@@ -28,6 +28,10 @@ func (b *Backend) Name() string {
 	return "sqlite3"
 }
 
+func (b *Backend) Tag() string {
+	return "sqlite"
+}
+
 func (b *Backend) Placeholder(n int) string {
 	return "?"
 }
@@ -44,7 +48,10 @@ func (b *Backend) Insert(db *sql.DB, m driver.Model, query string, args ...inter
 	return db.Exec(query, args...)
 }
 
-func (b *Backend) FieldType(typ reflect.Type, tag driver.Tag) (string, error) {
+func (b *Backend) FieldType(typ reflect.Type, tag *driver.Tag) (string, error) {
+	if tag.Has("json") {
+		return "TEXT", nil
+	}
 	switch typ.Kind() {
 	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return "INTEGER", nil
@@ -52,15 +59,19 @@ func (b *Backend) FieldType(typ reflect.Type, tag driver.Tag) (string, error) {
 		return "REAL", nil
 	case reflect.String:
 		return "TEXT", nil
+	case reflect.Slice:
+		if typ.Elem().Kind() == reflect.Uint8 {
+			return "BLOB", nil
+		}
 	case reflect.Struct:
 		if typ.Name() == "Time" && typ.PkgPath() == "time" {
-			return "INT", nil
+			return "INTEGER", nil
 		}
 	}
 	return "", fmt.Errorf("can't map field type %v to a database type", typ)
 }
 
-func (b *Backend) FieldOptions(typ reflect.Type, tag driver.Tag) ([]string, error) {
+func (b *Backend) FieldOptions(typ reflect.Type, tag *driver.Tag) ([]string, error) {
 	var opts []string
 	if tag.Has("notnull") {
 		opts = append(opts, "NOT NULL")
@@ -86,7 +97,7 @@ func (b *Backend) Transforms() []reflect.Type {
 	return transformedTypes
 }
 
-func (b *Backend) ScanInt(val int64, goVal *reflect.Value) error {
+func (b *Backend) ScanInt(val int64, goVal *reflect.Value, tag *driver.Tag) error {
 	switch goVal.Type().Kind() {
 	case reflect.Struct:
 		goVal.Set(reflect.ValueOf(time.Unix(val, 0).UTC()))
@@ -96,23 +107,23 @@ func (b *Backend) ScanInt(val int64, goVal *reflect.Value) error {
 	return nil
 }
 
-func (b *Backend) ScanFloat(val float64, goVal *reflect.Value) error {
+func (b *Backend) ScanFloat(val float64, goVal *reflect.Value, tag *driver.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanBool(val bool, goVal *reflect.Value) error {
+func (b *Backend) ScanBool(val bool, goVal *reflect.Value, tag *driver.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value) error {
+func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, tag *driver.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanString(val string, goVal *reflect.Value) error {
+func (b *Backend) ScanString(val string, goVal *reflect.Value, tag *driver.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value) error {
+func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, tag *driver.Tag) error {
 	return nil
 }
 

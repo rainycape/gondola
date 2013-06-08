@@ -17,7 +17,7 @@ func tryEncodeJson(typ reflect.Type, drv driver.Driver) error {
 		}
 		return tryEncodeJson(typ.Elem(), drv)
 	case reflect.Struct:
-		// Check for no unexported fields
+		// Check for unexported fields
 		for ii := 0; ii < typ.NumField(); ii++ {
 			field := typ.Field(ii)
 			if field.PkgPath != "" {
@@ -41,4 +41,12 @@ func tryEncodeJson(typ reflect.Type, drv driver.Driver) error {
 		return err
 	}
 	panic("unreachable")
+}
+
+func encodeJson(val reflect.Value) ([]byte, error) {
+	return json.Marshal(val.Interface())
+}
+
+func decodeJson(data []byte, val *reflect.Value) error {
+	return json.Unmarshal(data, val.Interface())
 }

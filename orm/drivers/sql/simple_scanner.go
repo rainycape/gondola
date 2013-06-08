@@ -28,18 +28,22 @@ func (s *simpleScanner) Scan(src interface{}) error {
 		// Some sql drivers return strings as []byte
 		if s.Out.Kind() == reflect.String {
 			s.Out.SetString(string(x))
-		} else {
-			// Some drivers return an empty slice for null blob fields
-			if len(x) > 0 {
-				if !s.Tag.Has("raw") {
-					b := make([]byte, len(x))
-					copy(b, x)
-					x = b
-				}
-				s.Out.Set(reflect.ValueOf(x))
-			} else {
-				s.Out.Set(reflect.ValueOf([]byte(nil)))
+			return nil
+		}
+
+		if s.Tag.Has("json") {
+			return decodeJson(x, s.Out)
+		}
+		// Some drivers return an empty slice for null blob fields
+		if len(x) > 0 {
+			if !s.Tag.Has("raw") {
+				b := make([]byte, len(x))
+				copy(b, x)
+				x = b
 			}
+			s.Out.Set(reflect.ValueOf(x))
+		} else {
+			s.Out.Set(reflect.ValueOf([]byte(nil)))
 		}
 	case string:
 		s.Out.SetString(x)

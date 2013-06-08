@@ -83,7 +83,14 @@ func testOrm(t *testing.T, o *Orm) {
 	obj2.Id = 3
 	// This should perform an insert, even when it has a primary key
 	// because the update will have 0 rows affected.
-	o.MustSave(obj2)
+	res := o.MustSave(obj2)
+	id, err := res.LastInsertId()
+	if err != nil {
+		t.Error(err)
+	}
+	if id != obj2.Id {
+		t.Errorf("Expected id %d, got %d instead", obj2.Id, id)
+	}
 	for _, v := range []int64{2, 3} {
 		err := o.One(obj2, Eq("Id", v))
 		if err != nil {
@@ -98,7 +105,7 @@ func testOrm(t *testing.T, o *Orm) {
 	}
 	var obj3 Test
 	q := Eq("Id", 1)
-	err := o.One(&obj3, q)
+	err = o.One(&obj3, q)
 	if err != nil {
 		t.Error(err)
 	}
@@ -139,6 +146,13 @@ func testOrm(t *testing.T, o *Orm) {
 	if data.Data != nil {
 		t.Errorf("Invalid data %v, expected %v.", data.Data, nil)
 	}
+	// Test json-encoded fields
+	c := &Container{
+		Rects: []Rectangle{
+			{1, 2, 3, 4, 0},
+		},
+	}
+	o.MustSave(c)
 	o.Close()
 }
 

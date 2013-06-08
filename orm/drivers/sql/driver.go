@@ -189,6 +189,7 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 	max := len(fields.Names)
 	names := make([]string, 0, max)
 	values := make([]interface{}, 0, max)
+	var err error
 	if d.transforms != nil {
 		for ii, v := range fields.Indexes {
 			f := val.FieldByIndex(v)
@@ -197,13 +198,19 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 			}
 			var fval interface{}
 			if _, ok := d.transforms[f.Type()]; ok {
-				var err error
 				fval, err = d.backend.TransformOutValue(f)
 				if err != nil {
 					return val, nil, nil, err
 				}
 			} else if !fields.NullZero[ii] || !driver.IsZero(f) {
-				fval = f.Interface()
+				if fields.Tags[ii].Has("json") {
+					fval, err = encodeJson(f)
+					if err != nil {
+						return val, nil, nil, err
+					}
+				} else {
+					fval = f.Interface()
+				}
 			}
 			names = append(names, fields.Names[ii])
 			values = append(values, fval)
@@ -216,7 +223,14 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 			}
 			var fval interface{}
 			if !fields.NullZero[ii] || !driver.IsZero(f) {
-				fval = f.Interface()
+				if fields.Tags[ii].Has("json") {
+					fval, err = encodeJson(f)
+					if err != nil {
+						return val, nil, nil, err
+					}
+				} else {
+					fval = f.Interface()
+				}
 			}
 			names = append(names, fields.Names[ii])
 			values = append(values, fval)

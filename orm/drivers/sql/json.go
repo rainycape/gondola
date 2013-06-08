@@ -48,5 +48,5 @@ func encodeJson(val reflect.Value) ([]byte, error) {
 }
 
 func decodeJson(data []byte, val *reflect.Value) error {
-	return json.Unmarshal(data, val.Interface())
+	return json.Unmarshal(data, val.Addr().Interface())
 }

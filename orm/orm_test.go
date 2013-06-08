@@ -151,10 +151,23 @@ func testOrm(t *testing.T, o *Orm) {
 	// Test json-encoded fields
 	c := &Container{
 		Rects: []Rectangle{
-			{1, 2, 3, 4, 0},
+			{1, 2, 3, 4, 5},
 		},
 	}
 	o.MustSave(c)
+	err = o.One(&c, Eq("Id", 1))
+	if err != nil {
+		t.Error(err)
+	} else {
+		if c.Rects == nil {
+			t.Errorf("JSON field not loaded")
+		} else {
+			r := c.Rects[0]
+			if r.X != 1 || r.Y != 2 || r.Width != 3 || r.Height != 4 || r.ignored != 0 {
+				t.Errorf("Invalid JSON rect loaded %+v", r)
+			}
+		}
+	}
 	o.Close()
 }
 

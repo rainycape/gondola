@@ -1,7 +1,6 @@
 package sql
 
 import (
-	"database/sql"
 	"gondola/orm/driver"
 	"reflect"
 	"time"
@@ -20,7 +19,9 @@ type Backend interface {
 	Placeholders(int) string
 	// Insert performs an insert on the given database for the given model fields.
 	// Most drivers should just return db.Exec(query, args...).
-	Insert(*sql.DB, driver.Model, string, ...interface{}) (driver.Result, error)
+	Insert(DB, driver.Model, string, ...interface{}) (driver.Result, error)
+	// Index creates and index if it doesn't exist using the provided model, index and name.
+	Index(DB, driver.Model, driver.Index, string) error
 	// Returns the db type of the given field (e.g. INTEGER)
 	FieldType(reflect.Type, *driver.Tag) (string, error)
 	// Returns the db options for the given field (.e.g PRIMARY KEY AUTOINCREMENT)

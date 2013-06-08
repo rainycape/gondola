@@ -1,11 +1,11 @@
 package sqlite
 
 import (
-	"database/sql"
+	"bytes"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"gondola/orm/driver"
-	ormsql "gondola/orm/drivers/sql"
+	"gondola/orm/drivers/sql"
 	"reflect"
 	"strings"
 	"time"
@@ -44,8 +44,37 @@ func (b *Backend) Placeholders(n int) string {
 	return p[:2*n-1]
 }
 
-func (b *Backend) Insert(db *sql.DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
+func (b *Backend) Insert(db sql.DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
 	return db.Exec(query, args...)
+}
+
+func (b *Backend) Index(db sql.DB, m driver.Model, idx driver.Index, name string) error {
+	var buf bytes.Buffer
+	buf.WriteString("CREATE ")
+	if idx.Unique() {
+		buf.WriteString("UNIQUE ")
+	}
+	buf.WriteString("INDEX IF NOT EXISTS ")
+	buf.WriteString(name)
+	buf.WriteString(" ON ")
+	buf.WriteString(m.Collection())
+	buf.WriteString(" (")
+	fields := m.Fields()
+	for _, v := range idx.Fields() {
+		name, _, err := fields.Map(v)
+		if err != nil {
+			return err
+		}
+		buf.WriteString(name)
+		if sql.DescField(idx, v) {
+			buf.WriteString(" DESC")
+		}
+		buf.WriteByte(',')
+	}
+	buf.Truncate(buf.Len() - 1)
+	buf.WriteString(")")
+	_, err := db.Exec(buf.String())
+	return err
 }
 
 func (b *Backend) FieldType(typ reflect.Type, tag *driver.Tag) (string, error) {
@@ -147,7 +176,7 @@ func (b *Backend) TransformOutValue(val reflect.Value) (interface{}, error) {
 }
 
 func sqliteOpener(params string) (driver.Driver, error) {
-	return ormsql.NewDriver(sqliteBackend, params)
+	return sql.NewDriver(sqliteBackend, params)
 }
 
 func init() {

@@ -2,11 +2,10 @@ package postgres
 
 import (
 	"bytes"
-	"database/sql"
 	"fmt"
 	_ "github.com/lib/pq"
 	"gondola/orm/driver"
-	ormsql "gondola/orm/drivers/sql"
+	"gondola/orm/drivers/sql"
 	"reflect"
 	"strconv"
 	"strings"
@@ -45,7 +44,7 @@ func (b *Backend) Placeholders(n int) string {
 	return p[:4*n-1]
 }
 
-func (b *Backend) Insert(db *sql.DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
+func (b *Backend) Insert(db sql.DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
 	fields := m.Fields()
 	if fields.IntegerAutoincrementPk {
 		query += " RETURNING " + fields.Names[fields.PrimaryKey]
@@ -57,6 +56,41 @@ func (b *Backend) Insert(db *sql.DB, m driver.Model, query string, args ...inter
 		return insertResult(id), nil
 	}
 	return db.Exec(query, args...)
+}
+
+func (b *Backend) Index(db sql.DB, m driver.Model, idx driver.Index, name string) error {
+	// First, check if the index exists
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM pg_class WHERE relname = $1", name).Scan(&count)
+	if err == nil && count == 1 {
+		return nil
+	}
+	var buf bytes.Buffer
+	buf.WriteString("CREATE ")
+	if idx.Unique() {
+		buf.WriteString("UNIQUE ")
+	}
+	buf.WriteString("INDEX ")
+	buf.WriteString(name)
+	buf.WriteString(" ON ")
+	buf.WriteString(m.Collection())
+	buf.WriteString(" (")
+	fields := m.Fields()
+	for _, v := range idx.Fields() {
+		name, _, err := fields.Map(v)
+		if err != nil {
+			return err
+		}
+		buf.WriteString(name)
+		if sql.DescField(idx, v) {
+			buf.WriteString(" DESC")
+		}
+		buf.WriteByte(',')
+	}
+	buf.Truncate(buf.Len() - 1)
+	buf.WriteString(")")
+	_, err = db.Exec(buf.String())
+	return err
 }
 
 func (b *Backend) FieldType(typ reflect.Type, tag *driver.Tag) (string, error) {
@@ -189,7 +223,7 @@ func (b *Backend) makeplaceholders(n int) string {
 }
 
 func postgresOpener(params string) (driver.Driver, error) {
-	return ormsql.NewDriver(postgresBackend, params)
+	return sql.NewDriver(postgresBackend, params)
 }
 
 func init() {

@@ -13,13 +13,15 @@ import (
 )
 
 type Driver struct {
-	db         *sql.DB
+	db         *db
 	logger     *log.Logger
 	backend    Backend
 	transforms map[reflect.Type]struct{}
 }
 
 func (d *Driver) MakeModels(ms []driver.Model) error {
+	// Create tables
+	// TODO: References
 	for _, v := range ms {
 		tableFields, err := d.tableFields(v)
 		if err != nil {
@@ -34,6 +36,19 @@ func (d *Driver) MakeModels(ms []driver.Model) error {
 		_, err = d.db.Exec(sql)
 		if err != nil {
 			return err
+		}
+	}
+	// Create indexes
+	for _, v := range ms {
+		for _, idx := range v.Indexes() {
+			name, err := d.indexName(v, idx)
+			if err != nil {
+				return err
+			}
+			err = d.backend.Index(d.db, v, idx, name)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -91,9 +106,7 @@ func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error)
 	buf.WriteString(") VALUES (")
 	buf.WriteString(d.backend.Placeholders(len(fields)))
 	buf.WriteByte(')')
-	q := buf.String()
-	d.debugq(q, values)
-	return d.backend.Insert(d.db, m, q, values...)
+	return d.backend.Insert(d.db, m, buf.String(), values...)
 }
 
 func (d *Driver) Update(m driver.Model, data interface{}, q query.Q) (driver.Result, error) {
@@ -162,7 +175,7 @@ func (d *Driver) Tags() []string {
 }
 
 func (d *Driver) DB() *sql.DB {
-	return d.db
+	return d.db.DB
 }
 
 func (d *Driver) DBBackend() Backend {
@@ -387,8 +400,27 @@ func (d *Driver) conditions(fields *driver.Fields, q []query.Q, sep string, para
 	return fmt.Sprintf("(%s)", strings.Join(clauses, sep)), nil
 }
 
+func (d *Driver) indexName(m driver.Model, idx driver.Index) (string, error) {
+	indexFields := idx.Fields()
+	if len(indexFields) == 0 {
+		return "", fmt.Errorf("index on %v has no fields", m.Type())
+	}
+	var buf bytes.Buffer
+	buf.WriteString(m.Collection())
+	fields := m.Fields()
+	for _, v := range indexFields {
+		dbName, _, err := fields.Map(v)
+		if err != nil {
+			return "", err
+		}
+		buf.WriteByte('_')
+		buf.WriteString(dbName)
+	}
+	return buf.String(), nil
+}
+
 func NewDriver(b Backend, params string) (*Driver, error) {
-	db, err := sql.Open(b.Name(), params)
+	conn, err := sql.Open(b.Name(), params)
 	if err != nil {
 		return nil, err
 	}
@@ -400,5 +432,7 @@ func NewDriver(b Backend, params string) (*Driver, error) {
 			transforms[v.Elem()] = struct{}{}
 		}
 	}
-	return &Driver{db: db, backend: b, transforms: transforms}, nil
+	driver := &Driver{backend: b, transforms: transforms}
+	driver.db = &db{DB: conn, driver: driver}
+	return driver, nil
 }

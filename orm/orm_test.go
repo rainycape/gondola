@@ -59,7 +59,9 @@ func testOrm(t *testing.T, o *Orm) {
 	o.SetLogger(log.Std)
 
 	// Register all models first
-	TestModel := o.MustRegister((*Test)(nil), nil)
+	TestModel := o.MustRegister((*Test)(nil), &Options{
+		Indexes: Indexes(Index("Name", "Value", "Number").Set(DESC, []string{"Name"})),
+	})
 	_ = o.MustRegister((*Data)(nil), nil)
 	_ = o.MustRegister((*Container)(nil), nil)
 

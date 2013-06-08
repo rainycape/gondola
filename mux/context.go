@@ -1,13 +1,13 @@
 package mux
 
 import (
-	"database/sql"
 	"fmt"
 	"gondola/cache"
 	"gondola/cookies"
 	"gondola/defaults"
 	"gondola/errors"
 	"gondola/log"
+	"gondola/orm"
 	"gondola/serialize"
 	"math"
 	"net/http"
@@ -36,7 +36,7 @@ type Context struct {
 	customContext interface{}
 	started       time.Time
 	cookies       *cookies.Cookies
-	db            *sql.DB
+	o             *orm.Orm
 	Data          interface{} /* Left to the user */
 }
 
@@ -401,23 +401,23 @@ func (c *Context) Cookies() *cookies.Cookies {
 	return c.cookies
 }
 
-// DB returns a connection to the default database and panics
-// if there's an error. See the the documentation on
+// Orm returns a connection to the ORM using the default database
+// and panics if there's an error. See the the documentation on
 // gondola/defaults/SetDatabase for further information.
-func (c *Context) DB() *sql.DB {
-	if c.db == nil {
+func (c *Context) Orm() *orm.Orm {
+	if c.o == nil {
 		driver, source := defaults.DatabaseParameters()
 		if driver == "" {
 			panic(fmt.Errorf("Default database is not set"))
 		}
-		log.Debugf("Opening DB connection %s:%s", driver, source)
-		db, err := sql.Open(driver, source)
+		log.Debugf("Opening ORM connection %s:%s", driver, source)
+		var err error
+		c.o, err = orm.Open(driver, source)
 		if err != nil {
 			panic(err)
 		}
-		c.db = db
 	}
-	return c.db
+	return c.o
 }
 
 // Execute loads the template with the given name using the
@@ -480,10 +480,10 @@ func (c *Context) Close() {
 		c.c.Close()
 		c.c = nil
 	}
-	if c.db != nil {
-		log.Debug("Closing DB connection")
-		c.db.Close()
-		c.db = nil
+	if c.o != nil {
+		log.Debug("Closing ORM connection")
+		c.o.Close()
+		c.o = nil
 	}
 }
 

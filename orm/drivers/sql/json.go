@@ -3,26 +3,34 @@ package sql
 import (
 	"encoding/json"
 	"fmt"
+	"gondola/orm/driver"
 	"reflect"
 )
 
-func tryEncodeJson(typ reflect.Type) error {
+func tryEncodeJson(typ reflect.Type, drv driver.Driver) error {
 	switch typ.Kind() {
 	case reflect.Slice:
-		return tryEncodeJson(typ.Elem())
+		return tryEncodeJson(typ.Elem(), drv)
 	case reflect.Map:
-		if err := tryEncodeJson(typ.Key()); err != nil {
+		if err := tryEncodeJson(typ.Key(), drv); err != nil {
 			return err
 		}
-		return tryEncodeJson(typ.Elem())
+		return tryEncodeJson(typ.Elem(), drv)
 	case reflect.Struct:
 		// Check for no unexported fields
 		for ii := 0; ii < typ.NumField(); ii++ {
 			field := typ.Field(ii)
 			if field.PkgPath != "" {
-				return fmt.Errorf("%v contains unexported field %q", typ, field.Name)
+				tag := driver.NewTag(field, drv)
+				if tag.IsEmpty() || tag.Name() == "" {
+					// Try json tag
+					tag = driver.Tag(field.Tag.Get("json"))
+				}
+				if tag.Name() != "-" {
+					return fmt.Errorf("%v contains unexported field %q. Tag it with the name \"-\" to explicitely ignore it.", typ, field.Name)
+				}
 			}
-			if err := tryEncodeJson(field.Type); err != nil {
+			if err := tryEncodeJson(field.Type, drv); err != nil {
 				return err
 			}
 		}

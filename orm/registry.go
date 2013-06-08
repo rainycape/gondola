@@ -114,26 +114,11 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix 
 			// Unexported
 			continue
 		}
-		var tag string
-		for _, v := range o.driver.Tags() {
-			tag = field.Tag.Get(v)
-			if tag != "" {
-				break
-			}
-		}
-		if tag == "" {
-			tag = field.Tag.Get("orm")
-		}
-		var name string
-		if tag != "" {
-			t := driver.Tag(tag)
-			if n := t.Name(); n != "" {
-				if n == "-" {
-					// Ignored field
-					continue
-				}
-				name = n
-			}
+		tag := driver.NewTag(field, o.driver)
+		name := tag.Name()
+		if name == "-" {
+			// Ignored field
+			continue
 		}
 		if name == "" {
 			// Default name

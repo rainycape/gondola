@@ -44,6 +44,9 @@ type Rectangle struct {
 	Y      int
 	Width  int
 	Height int
+	// Field must be tagged with name -, since the ORM does not allow
+	// implicitely unexported fields.
+	ignored int `json:"-"`
 }
 
 type Container struct {

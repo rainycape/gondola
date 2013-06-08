@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"reflect"
 	"strings"
 )
 
@@ -31,4 +32,18 @@ func (t Tag) Value(key string) string {
 		return s[pos:end]
 	}
 	return ""
+}
+
+func (t Tag) IsEmpty() bool {
+    return len(t) == 0
+}
+
+func NewTag(field reflect.StructField, driver Driver) Tag {
+	for _, v := range driver.Tags() {
+		t := field.Tag.Get(v)
+		if t != "" {
+			return Tag(t)
+		}
+	}
+	return Tag(field.Tag.Get("orm"))
 }

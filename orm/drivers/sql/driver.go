@@ -274,7 +274,7 @@ func (d *Driver) tableFields(m driver.Model) ([]string, error) {
 		tag := tags[ii]
 		// Check json encoded types
 		if tag.Has("json") {
-			if err := tryEncodeJson(typ); err != nil {
+			if err := tryEncodeJson(typ, d); err != nil {
 				return nil, fmt.Errorf("can't encode field %q as JSON: %s", fields.QNames[ii], err)
 			}
 		}

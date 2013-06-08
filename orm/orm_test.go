@@ -93,6 +93,23 @@ func testOrm(t *testing.T, o *Orm) {
 	if id != obj2.Id {
 		t.Errorf("Expected id %d, got %d instead", obj2.Id, id)
 	}
+	var out *Test
+	err = o.Query(TestModel, nil).Sort("Id", DESC).One(&out)
+	if err != nil {
+		t.Error(err)
+	} else {
+		if out.Id != obj2.Id {
+			t.Errorf("Error sorting, expected id %v, got %v", obj2.Id, out.Id)
+		}
+	}
+	err = o.Query(TestModel, nil).Sort("Id", ASC).One(&out)
+	if err != nil {
+		t.Error(err)
+	} else {
+		if out.Id != obj1.Id {
+			t.Errorf("Error sorting, expected id %v, got %v", obj1.Id, out.Id)
+		}
+	}
 	for _, v := range []int64{2, 3} {
 		err := o.One(obj2, Eq("Id", v))
 		if err != nil {

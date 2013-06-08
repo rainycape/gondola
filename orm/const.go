@@ -19,4 +19,6 @@ const (
 	// will create an index where A and C are sorted in the default order
 	// (usually ascending) while B is sorted in descending order.
 	DESC = driver.DESC
+	// NONE indicates that no sorting has been specified.
+	NONE = driver.NONE
 )

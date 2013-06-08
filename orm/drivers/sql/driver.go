@@ -54,7 +54,7 @@ func (d *Driver) MakeModels(ms []driver.Model) error {
 	return nil
 }
 
-func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int) driver.Iter {
+func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) driver.Iter {
 	where, params, err := d.where(m, q, 0)
 	if err != nil {
 		return &Iter{err: err}
@@ -71,6 +71,16 @@ func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int) driver.
 	if where != "" {
 		buf.WriteString(" WHERE ")
 		buf.WriteString(where)
+	}
+	if sort != driver.NONE {
+		buf.WriteString(" ORDER BY ")
+		buf.WriteString(sortField)
+		switch sort {
+		case driver.ASC:
+			buf.WriteString(" ASC")
+		case driver.DESC:
+			buf.WriteString(" DESC")
+		}
 	}
 	if limit >= 0 {
 		buf.WriteString(" LIMIT ")

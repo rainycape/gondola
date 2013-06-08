@@ -16,7 +16,7 @@ func UnCamelCase(s string, sep string) string {
 	runes := []rune(s)
 	r := []rune{unicode.ToLower(runes[0])}
 	last := len(runes) - 1
-	if last > 1 {
+	if last > 0 {
 		for ii, v := range runes[1:last] {
 			if unicode.IsUpper(v) && unicode.IsLower(runes[ii+2]) {
 				r = append(r, rs...)

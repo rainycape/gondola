@@ -30,6 +30,7 @@ func TestUnCamelCase(t *testing.T) {
 		"":          "",
 		"T":         "t",
 		"t":         "t",
+		"Id":        "id",
 	}
 	for k, v := range cases {
 		if u := UnCamelCase(k, "_"); u != v {

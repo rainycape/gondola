@@ -1,6 +1,7 @@
 package mux
 
 import (
+	"bytes"
 	"fmt"
 	"gondola/cache"
 	"gondola/cookies"
@@ -9,6 +10,7 @@ import (
 	"gondola/log"
 	"gondola/orm"
 	"gondola/serialize"
+	"html/template"
 	"math"
 	"net/http"
 	"reflect"
@@ -469,6 +471,39 @@ func (c *Context) Custom() interface{} {
 		}
 	}
 	return c.customContext
+}
+
+// Elapsed returns the duration since this context started
+// processing the request.
+func (c *Context) Elapsed() time.Duration {
+	return time.Since(c.started)
+}
+
+// DebugComment returns an HTML comment with some debug information,
+// including the time when the template was rendered, the time it
+// took to serve the request and the number of queries to the cache
+// and the ORM. It is intended to be used in the templates like e.g.
+//
+//    </html>
+//    {{ $Context.DebugComment }}
+func (c *Context) DebugComment() template.HTML {
+	var buf bytes.Buffer
+	buf.WriteString("<!-- generated on ")
+	buf.WriteString(c.started.String())
+	buf.WriteString(" - took ")
+	buf.WriteString(c.Elapsed().String())
+	if c.o != nil {
+		buf.WriteString(" - ")
+		buf.WriteString(strconv.Itoa(c.o.NumQueries()))
+		buf.WriteString(" ORM queries")
+	}
+	if c.c != nil {
+		buf.WriteString(" - ")
+		buf.WriteString(strconv.Itoa(c.c.NumQueries()))
+		buf.WriteString(" cache queries")
+	}
+	buf.WriteString(" -->")
+	return template.HTML(buf.String())
 }
 
 // Close closes any resources opened by the context

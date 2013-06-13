@@ -248,7 +248,8 @@ func (d *Driver) outValues(m driver.Model, out interface{}) ([]interface{}, []sc
 		return nil, nil, fmt.Errorf("can't set object of type %t. Please, pass a %v rather than a %v", out, reflect.PtrTo(vt), vt)
 	}
 	if vt.Elem().Kind() == reflect.Ptr && vt.Elem().Elem().Kind() == reflect.Struct {
-		// Received a pointer to pointer
+		// Received a pointer to pointer. Always create a new object,
+		// to avoid overwriting the previous result.
 		val = val.Elem()
 		el := reflect.New(val.Type().Elem())
 		val.Set(el)

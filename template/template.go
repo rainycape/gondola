@@ -56,6 +56,7 @@ type Template struct {
 	vars          VarMap
 	prepend       string
 	renames       map[string]string
+	contentType   string
 }
 
 func (t *Template) readString(idx *int, s string, stopchars string) (string, error) {
@@ -256,6 +257,11 @@ func (t *Template) load(name string, included bool) error {
 			return err
 		}
 	}
+	mimeType := mime.TypeByExtension(path.Ext(t.Name))
+	if mimeType == "" {
+		mimeType = "text/html; charset=utf-8"
+	}
+	t.contentType = mimeType
 	return nil
 }
 
@@ -519,11 +525,7 @@ func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error
 	}
 	if rw, ok := w.(http.ResponseWriter); ok {
 		header := rw.Header()
-		mimeType := mime.TypeByExtension(path.Ext(t.Name))
-		if mimeType == "" {
-			mimeType = "text/html"
-		}
-		header.Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", mimeType))
+		header.Set("Content-Type", t.contentType)
 		header.Set("Content-Length", strconv.Itoa(buf.Len()))
 	}
 	w.Write(buf.Bytes())

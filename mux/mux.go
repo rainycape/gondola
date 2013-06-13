@@ -665,7 +665,7 @@ func (mux *Mux) CloseContext(ctx *Context) {
 	}
 	if mux.Logger != nil && ctx.R != nil {
 		mux.Logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.RequestURI, ctx.R.RemoteAddr,
-			strconv.Itoa(ctx.statusCode), time.Now().Sub(ctx.started).String()}, " "))
+			strconv.Itoa(ctx.statusCode), ctx.Elapsed().String()}, " "))
 	}
 	select {
 	case mux.contextPool <- ctx:

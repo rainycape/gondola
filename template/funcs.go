@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func eq(args ...interface{}) bool {
@@ -153,6 +154,10 @@ func not(arg interface{}) bool {
 	return !t
 }
 
+func now() time.Time {
+	return time.Now()
+}
+
 // isTrue returns whether the value is 'true', in the sense of not the zero of its type,
 // and whether the value has a meaningful truth value. This function is a copy of the
 // one found in text/template
@@ -198,4 +203,5 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"and":    and,
 	"or":     or,
 	"not":    not,
+	"now":    now,
 }

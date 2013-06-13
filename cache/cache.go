@@ -16,6 +16,7 @@ type Cache struct {
 	Codec             *codec.Codec
 	MinCompressLength int
 	CompressLevel     int
+	numQueries        int
 }
 
 func (c *Cache) manipulatesKeys() bool {
@@ -75,6 +76,7 @@ func (c *Cache) GetObject(key string, obj interface{}) bool {
 // GetMulti returns several objects as a map[string]interface{}
 // in only one roundtrip to the cache
 func (c *Cache) GetMulti(keys []string) map[string]interface{} {
+	c.numQueries++
 	if c.manipulatesKeys() {
 		k := make([]string, len(keys))
 		for ii, v := range keys {
@@ -116,6 +118,7 @@ func (c *Cache) GetMulti(keys []string) map[string]interface{} {
 // the given key. See the documentation for Set for an
 // explanation of the timeout parameter
 func (c *Cache) SetBytes(key string, b []byte, timeout int) error {
+	c.numQueries++
 	if c.MinCompressLength >= 0 {
 		if l := len(b); l > c.MinCompressLength {
 			var buf bytes.Buffer
@@ -143,6 +146,7 @@ func (c *Cache) SetBytes(key string, b []byte, timeout int) error {
 
 // GetBytes returns the byte array assocciated with the given key
 func (c *Cache) GetBytes(key string) []byte {
+	c.numQueries++
 	b, err := c.Driver.Get(c.backendKey(key))
 	if err != nil {
 		log.Errorf("Error getting cache key %s: %s", key, err)
@@ -168,11 +172,18 @@ func (c *Cache) GetBytes(key string) []byte {
 
 // Delete removes the key from the cache
 func (c *Cache) Delete(key string) error {
+	c.numQueries++
 	err := c.Driver.Delete(c.backendKey(key))
 	if err != nil {
 		log.Logf(c.errLevel(err), "Error deleting cache key %s: %s", key, err)
 	}
 	return err
+}
+
+// NumQueries returns the number of queries made to this
+// cache since it was initialized.
+func (c *Cache) NumQueries() int {
+	return c.numQueries
 }
 
 // Close closes the cache connection. If you're using a cache

@@ -150,10 +150,10 @@ func DatabaseParameters() (string, string) {
 }
 
 // SetDatabase sets the default database. The format of this string
-// is driverName:dataSourceName (e.g. postgres:user=foo dbname=bar).
+// is driverName://data (e.g. postgres://user=foo dbname=bar).
 // If the string does not have this format, it will panic.
 func SetDatabase(d string) {
-	p := strings.SplitN(d, ":", 2)
+	p := strings.SplitN(d, "://", 2)
 	if len(p) != 2 {
 		panic(fmt.Errorf("Invalid default database: %s", d))
 	}

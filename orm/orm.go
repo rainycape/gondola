@@ -13,10 +13,11 @@ import (
 )
 
 type Orm struct {
-	driver  driver.Driver
-	upserts bool
-	logger  *log.Logger
-	tags    string
+	driver     driver.Driver
+	upserts    bool
+	logger     *log.Logger
+	tags       string
+	numQueries int
 	// this field is non-nil iff the ORM driver uses database/sql
 	db *sql.DB
 }
@@ -71,6 +72,7 @@ func (o *Orm) Insert(obj interface{}) (Result, error) {
 			return nil, fmt.Errorf("can't set primary key field %q. Please, insert a %v rather than a %v", pkName, reflect.PtrTo(t), t)
 		}
 	}
+	o.numQueries++
 	res, err := o.driver.Insert(m, obj)
 	if err == nil && pkVal.IsValid() && pkVal.Int() == 0 {
 		id, err := res.LastInsertId()
@@ -101,6 +103,7 @@ func (o *Orm) Update(obj interface{}, q query.Q) (Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	o.numQueries++
 	return o.driver.Update(m, obj, q)
 }
 
@@ -125,6 +128,7 @@ func (o *Orm) Upsert(obj interface{}, q query.Q) (Result, error) {
 		if err != nil {
 			return nil, err
 		}
+		o.numQueries++
 		return o.driver.Upsert(m, obj, q)
 	}
 	res, err := o.Update(obj, q)
@@ -195,6 +199,7 @@ func (o *Orm) MustSave(obj interface{}) Result {
 // Delete removes all objects from the given model matching
 // the query.
 func (o *Orm) Delete(m *Model, q query.Q) (Result, error) {
+	o.numQueries++
 	return o.driver.Delete(m, q)
 }
 
@@ -212,6 +217,15 @@ func (o *Orm) Close() error {
 		return err
 	}
 	return nil
+}
+
+// NumQueries returns the number of queries since the ORM was
+// initialized. Keep in mind that this number might not be
+// completely in all cases accurate, since drivers are free
+// to perform several queries per operation. However, the numbers
+// reported by SQL drivers are currently accurate.
+func (o *Orm) NumQueries() int {
+	return o.numQueries
 }
 
 // Driver returns the underlying driver.

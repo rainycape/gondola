@@ -57,6 +57,7 @@ func (q *Query) Iter() Iter {
 }
 
 func (q *Query) Count() (uint64, error) {
+	q.orm.numQueries++
 	return q.orm.driver.Count(q.model, q.q, q.limit, q.offset, q.sortDir, q.sortField)
 }
 
@@ -64,6 +65,7 @@ func (q *Query) iter(limit int) Iter {
 	if q.err != nil {
 		return &erroriter{q.err}
 	}
+	q.orm.numQueries++
 	return q.orm.driver.Query(q.model, q.q, limit, q.offset, q.sortDir, q.sortField)
 }
 

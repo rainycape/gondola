@@ -55,48 +55,27 @@ func (d *Driver) MakeModels(ms []driver.Model) error {
 }
 
 func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) driver.Iter {
-	where, params, err := d.where(m, q, 0)
+	query, params, err := d.Select(m.Fields().Names, m, q, limit, offset, sort, sortField)
 	if err != nil {
 		return &Iter{err: err}
 	}
-	var buf bytes.Buffer
-	buf.WriteString("SELECT ")
-	for _, v := range m.Fields().Names {
-		buf.WriteString(v)
-		buf.WriteByte(',')
-	}
-	buf.Truncate(buf.Len() - 1)
-	buf.WriteString(" FROM ")
-	buf.WriteString(m.Collection())
-	if where != "" {
-		buf.WriteString(" WHERE ")
-		buf.WriteString(where)
-	}
-	if sort != driver.NONE {
-		buf.WriteString(" ORDER BY ")
-		buf.WriteString(sortField)
-		switch sort {
-		case driver.ASC:
-			buf.WriteString(" ASC")
-		case driver.DESC:
-			buf.WriteString(" DESC")
-		}
-	}
-	if limit >= 0 {
-		buf.WriteString(" LIMIT ")
-		buf.WriteString(strconv.Itoa(limit))
-	}
-	if offset >= 0 {
-		buf.WriteString(" OFFSET ")
-		buf.WriteString(strconv.Itoa(offset))
-	}
-	query := buf.String()
 	d.debugq(query, params)
 	rows, err := d.db.Query(query, params...)
 	if err != nil {
 		return &Iter{err: err}
 	}
 	return &Iter{model: m, rows: rows, driver: d}
+}
+
+func (d *Driver) Count(m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) (uint64, error) {
+	var count uint64
+	query, params, err := d.Select([]string{"COUNT(*)"}, m, q, limit, offset, sort, sortField)
+	if err != nil {
+		return 0, err
+	}
+	d.debugq(query, params)
+	err = d.db.QueryRow(query, params...).Scan(&count)
+	return count, err
 }
 
 func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error) {
@@ -427,6 +406,45 @@ func (d *Driver) indexName(m driver.Model, idx driver.Index) (string, error) {
 		buf.WriteString(dbName)
 	}
 	return buf.String(), nil
+}
+
+func (d *Driver) Select(fields []string, m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) (string, []interface{}, error) {
+	where, params, err := d.where(m, q, 0)
+	if err != nil {
+		return "", nil, err
+	}
+	var buf bytes.Buffer
+	buf.WriteString("SELECT ")
+	for _, v := range fields {
+		buf.WriteString(v)
+		buf.WriteByte(',')
+	}
+	buf.Truncate(buf.Len() - 1)
+	buf.WriteString(" FROM ")
+	buf.WriteString(m.Collection())
+	if where != "" {
+		buf.WriteString(" WHERE ")
+		buf.WriteString(where)
+	}
+	if sort != driver.NONE {
+		buf.WriteString(" ORDER BY ")
+		buf.WriteString(sortField)
+		switch sort {
+		case driver.ASC:
+			buf.WriteString(" ASC")
+		case driver.DESC:
+			buf.WriteString(" DESC")
+		}
+	}
+	if limit >= 0 {
+		buf.WriteString(" LIMIT ")
+		buf.WriteString(strconv.Itoa(limit))
+	}
+	if offset >= 0 {
+		buf.WriteString(" OFFSET ")
+		buf.WriteString(strconv.Itoa(offset))
+	}
+	return buf.String(), params, nil
 }
 
 func NewDriver(b Backend, params string) (*Driver, error) {

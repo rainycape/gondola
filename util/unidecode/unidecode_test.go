@@ -39,3 +39,7 @@ func BenchmarkUnidecode(b *testing.B) {
 		}
 	}
 }
+
+func init() {
+	initTransliterations()
+}

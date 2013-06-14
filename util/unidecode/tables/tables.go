@@ -46773,16 +46773,17 @@ func main() {
 		fmt.Printf("\tseq%x = []rune{%s}\n", v.First, strings.Join(s, ","))
 
 	}
-	fmt.Printf(")\n\n")
-	fmt.Printf("var transliterations = map[rune][]rune{\n")
+	fmt.Printf(")\n\nvar transliterations map[rune][]rune\n")
+	fmt.Printf("func initTransliterations(){\n")
+	fmt.Printf("\ttransliterations = map[rune][]rune{\n")
 	var ii rune
 	for ii = 0; ii <= 0xffff; ii++ {
 		trans := transliterations[ii]
 		if trans != "" {
 			c := m[trans]
 			val := fmt.Sprintf("seq%x", c.First)
-			fmt.Printf("0x%x: %s,\n", ii, val)
+			fmt.Printf("\t0x%x: %s,\n", ii, val)
 		}
 	}
-	fmt.Printf("}\n")
+	fmt.Printf("\t}\n}\n")
 }

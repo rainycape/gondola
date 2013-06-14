@@ -19,6 +19,9 @@ var pool = make(chan []rune, 8)
 // with their closest ASCII counterparts.
 // e.g. Unicode("áéíóú") => "aeiou"
 func Unidecode(s string) string {
+	if transliterations == nil {
+		initTransliterations()
+	}
 	l := len(s)
 	var r []rune
 	if l > pooledCapacity {

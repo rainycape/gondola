@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	_ "github.com/lib/pq"
+	"gondola/orm/codec"
 	"gondola/orm/driver"
 	"gondola/orm/drivers/sql"
+	"gondola/orm/tag"
 	"reflect"
 	"strconv"
 	"strings"
@@ -73,7 +75,7 @@ func (b *Backend) Index(db sql.DB, m driver.Model, idx driver.Index, name string
 	buf.WriteString("INDEX ")
 	buf.WriteString(name)
 	buf.WriteString(" ON ")
-	buf.WriteString(m.Collection())
+	buf.WriteString(m.TableName())
 	buf.WriteString(" (")
 	fields := m.Fields()
 	for _, v := range idx.Fields() {
@@ -93,34 +95,41 @@ func (b *Backend) Index(db sql.DB, m driver.Model, idx driver.Index, name string
 	return err
 }
 
-func (b *Backend) FieldType(typ reflect.Type, tag *driver.Tag) (string, error) {
-	var t string
+func (b *Backend) FieldType(typ reflect.Type, t *tag.Tag) (string, error) {
+	if c := codec.FromTag(t); c != nil {
+		// TODO: Use type JSON on Postgresql >= 9.2 for JSON encoded fields
+		if c.Binary() {
+			return "BYTEA", nil
+		}
+		return "TEXT", nil
+	}
+	var ft string
 	switch typ.Kind() {
 	case reflect.Bool:
-		t = "BOOL"
+		ft = "BOOL"
 	case reflect.Int8, reflect.Uint8, reflect.Int16:
-		t = "INT2"
+		ft = "INT2"
 	case reflect.Uint16, reflect.Int32:
-		t = "INT4"
+		ft = "INT4"
 	case reflect.Int, reflect.Uint, reflect.Uint32, reflect.Int64, reflect.Uint64:
-		t = "INT8"
+		ft = "INT8"
 	case reflect.Float32:
-		t = "FLOAT4"
+		ft = "FLOAT4"
 	case reflect.Float64:
-		t = "FLOAT8"
+		ft = "FLOAT8"
 	case reflect.String:
-		if tag.Has("macaddr") {
-			t = "MACADDR"
-		} else if tag.Has("inet") {
-			t = "INET"
+		if t.Has("macaddr") {
+			ft = "MACADDR"
+		} else if t.Has("inet") {
+			ft = "INET"
 		} else {
-			if ml := tag.Value("max_length"); ml != "" {
-				t = fmt.Sprintf("VARCHAR (%s)", ml)
+			if ml := t.Value("max_length"); ml != "" {
+				ft = fmt.Sprintf("VARCHAR (%s)", ml)
 			} else {
-				if fl := tag.Value("length"); fl != "" {
-					t = fmt.Sprintf("CHAR (%s)", fl)
+				if fl := t.Value("length"); fl != "" {
+					ft = fmt.Sprintf("CHAR (%s)", fl)
 				} else {
-					t = "TEXT"
+					ft = "TEXT"
 				}
 			}
 		}
@@ -128,49 +137,45 @@ func (b *Backend) FieldType(typ reflect.Type, tag *driver.Tag) (string, error) {
 		etyp := typ.Elem()
 		if etyp.Kind() == reflect.Uint8 {
 			// []byte
-			t = "BYTEA"
-		} else if tag.Has("json") {
-			// TODO: Use type JSON on Postgresql >= 9.2
-			t = "TEXT"
-		} else if typ.Elem().Kind() != reflect.Struct {
-			et, err := b.FieldType(typ.Elem(), tag)
-			if err != nil {
-				return "", err
-			}
-			t = et + "[]"
+			ft = "BYTEA"
+			// TODO: database/sql does not support array types. Enable this code
+			// if that changes in the future
+			//		} else if typ.Elem().Kind() != reflect.Struct {
+			//			et, err := b.FieldType(typ.Elem(), tag)
+			//			if err != nil {
+			//				return "", err
+			//			}
+			//			t = et + "[]"
 		}
 	case reflect.Struct:
 		if typ.Name() == "Time" && typ.PkgPath() == "time" {
-			t = "TIMESTAMP WITHOUT TIME ZONE"
-		} else if tag.Has("json") {
-			// TODO: Use type JSON on Postgresql >= 9.2
-			t = "TEXT"
+			ft = "TIMESTAMP WITHOUT TIME ZONE"
 		}
 	}
-	if tag.Has("auto_increment") {
-		if strings.HasPrefix(t, "INT") {
-			t = strings.Replace(t, "INT", "SERIAL", -1)
+	if t.Has("auto_increment") {
+		if strings.HasPrefix(ft, "INT") {
+			ft = strings.Replace(ft, "INT", "SERIAL", -1)
 		} else {
 			return "", fmt.Errorf("postgres does not support auto incrementing %v", typ)
 		}
 	}
-	if t != "" {
-		return t, nil
+	if ft != "" {
+		return ft, nil
 	}
 	return "", fmt.Errorf("can't map field type %v to a database type", typ)
 }
 
-func (b *Backend) FieldOptions(typ reflect.Type, tag *driver.Tag) ([]string, error) {
+func (b *Backend) FieldOptions(typ reflect.Type, t *tag.Tag) ([]string, error) {
 	var opts []string
-	if tag.Has("notnull") {
+	if t.Has("notnull") {
 		opts = append(opts, "NOT NULL")
 	}
-	if tag.Has("primary_key") {
+	if t.Has("primary_key") {
 		opts = append(opts, "PRIMARY KEY")
-	} else if tag.Has("unique") {
+	} else if t.Has("unique") {
 		opts = append(opts, "UNIQUE")
 	}
-	if def := tag.Value("default"); def != "" {
+	if def := t.Value("default"); def != "" {
 		if typ.Kind() == reflect.String {
 			def = "\"" + def + "\""
 		}
@@ -183,27 +188,27 @@ func (b *Backend) Transforms() []reflect.Type {
 	return transformedTypes
 }
 
-func (b *Backend) ScanInt(val int64, goVal *reflect.Value, tag *driver.Tag) error {
+func (b *Backend) ScanInt(val int64, goVal *reflect.Value, t *tag.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanFloat(val float64, goVal *reflect.Value, tag *driver.Tag) error {
+func (b *Backend) ScanFloat(val float64, goVal *reflect.Value, t *tag.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanBool(val bool, goVal *reflect.Value, tag *driver.Tag) error {
+func (b *Backend) ScanBool(val bool, goVal *reflect.Value, t *tag.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, tag *driver.Tag) error {
+func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, t *tag.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanString(val string, goVal *reflect.Value, tag *driver.Tag) error {
+func (b *Backend) ScanString(val string, goVal *reflect.Value, t *tag.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, tag *driver.Tag) error {
+func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, t *tag.Tag) error {
 	goVal.Set(reflect.ValueOf(val.UTC()))
 	return nil
 }

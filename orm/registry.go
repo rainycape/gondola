@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"gondola/log"
 	"gondola/orm/driver"
+	"gondola/orm/tag"
 	"gondola/util"
 	"reflect"
 	"strings"
 )
 
-type nameRegistry map[string]*Model
-type typeRegistry map[reflect.Type]*Model
+type nameRegistry map[string]*model
+type typeRegistry map[reflect.Type]*model
 
 var (
 	// these keep track of the registered models,
@@ -21,14 +22,18 @@ var (
 
 // Register registers a struct for future usage with the ORMs with
 // the same driver. If you're using ORM instances with different drivers
-// (e.g. postgres and mongodb)  you must register each model with each
+// (e.g. postgres and mongodb)  you must register each object type with each
 // driver (by creating an ORM of each type, calling Register() and then
-// CommitModels(). The first returned value is a Model object, which must be
-// using when querying the ORM.
-func (o *Orm) Register(t interface{}, opt *Options) (*Model, error) {
+// CommitTables()). The first returned value is a Table object, which must be
+// using when querying the ORM in cases when an object is not provided
+// (like e.g. Count()). If you want to use the same type in multiple
+// tables, you must register it for every table and then use the Table
+// object returned to specify on which table you want to operate. If
+// no table is specified, the first registered table will be used.
+func (o *Orm) Register(t interface{}, opt *Options) (*Table, error) {
 	var name string
 	if opt != nil {
-		name = opt.Name
+		name = opt.TableName
 	}
 	typ := reflect.TypeOf(t)
 	for typ.Kind() == reflect.Ptr {
@@ -54,42 +59,48 @@ func (o *Orm) Register(t interface{}, opt *Options) (*Model, error) {
 	if err != nil {
 		return nil, err
 	}
-	model := &Model{
-		typ:        typ,
-		fields:     fields,
-		options:    opt,
-		collection: name,
-		tags:       o.tags,
+	model := &model{
+		typ:       typ,
+		fields:    fields,
+		options:   opt,
+		tableName: name,
+		tags:      o.tags,
 	}
 	_nameRegistry[o.tags][name] = model
-	_typeRegistry[o.tags][typ] = model
+	// The first registered table is the default for the type
+	if _, ok := _typeRegistry[o.tags][typ]; !ok {
+		_typeRegistry[o.tags][typ] = model
+	}
 	log.Debugf("Registered model %v (%q) with tags %q", typ, name, o.tags)
-	return model, nil
+	return &Table{model: model}, nil
 }
 
 // MustRegister works like Register, but panics if there's an
 // error.
-func (o *Orm) MustRegister(t interface{}, opt *Options) *Model {
-	m, err := o.Register(t, opt)
+func (o *Orm) MustRegister(t interface{}, opt *Options) *Table {
+	tbl, err := o.Register(t, opt)
 	if err != nil {
 		panic(err)
 	}
-	return m
+	return tbl
 }
 
-func (o *Orm) CommitModels() error {
+// CommitTables initializes any tables and indexes required by
+// the registered models. You should call it only after all the
+// models have been registered.
+func (o *Orm) CommitTables() error {
 	nr := _nameRegistry[o.tags]
 	models := make([]driver.Model, 0, len(nr))
 	for _, v := range nr {
 		models = append(models, v)
 	}
-	return o.driver.MakeModels(models)
+	return o.driver.MakeTables(models)
 }
 
-// MustCommitModels works like CommitModels, but panics if
+// MustCommitTables works like CommitTables, but panics if
 // there's an error.
-func (o *Orm) MustCommitModels() {
-	if err := o.CommitModels(); err != nil {
+func (o *Orm) MustCommitTables() {
+	if err := o.CommitTables(); err != nil {
 		panic(err)
 	}
 }
@@ -108,14 +119,15 @@ func (o *Orm) fields(typ reflect.Type) (*driver.Fields, error) {
 
 func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix string, index []int) error {
 	n := typ.NumField()
+	dtags := o.driver.Tags()
 	for ii := 0; ii < n; ii++ {
 		field := typ.Field(ii)
 		if field.PkgPath != "" {
 			// Unexported
 			continue
 		}
-		tag := driver.NewTag(field, o.driver)
-		name := tag.Name()
+		ftag := tag.New(field, dtags)
+		name := ftag.Name()
 		if name == "-" {
 			// Ignored field
 			continue
@@ -154,23 +166,22 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix 
 		idx := make([]int, len(index))
 		copy(idx, index)
 		idx = append(idx, field.Index[0])
-		dt := driver.Tag(tag)
 		fields.Names = append(fields.Names, name)
 		fields.QNames = append(fields.QNames, qname)
-		fields.OmitZero = append(fields.OmitZero, dt.Has("omitzero") || (dt.Has("auto_increment") && !dt.Has("notomitzero")))
-		fields.NullZero = append(fields.NullZero, dt.Has("nullzero") || (k == reflect.Slice && !dt.Has("notnullzero")))
+		fields.OmitZero = append(fields.OmitZero, ftag.Has("omitzero") || (ftag.Has("auto_increment") && !ftag.Has("notomitzero")))
+		fields.NullZero = append(fields.NullZero, ftag.Has("nullzero") || (k == reflect.Slice && !ftag.Has("notnullzero")))
 		fields.Indexes = append(fields.Indexes, idx)
-		fields.Tags = append(fields.Tags, &dt)
+		fields.Tags = append(fields.Tags, ftag)
 		fields.Types = append(fields.Types, t)
 		p := len(fields.Names) - 1
 		fields.NameMap[name] = p
 		fields.QNameMap[qname] = p
-		if dt.Has("primary_key") {
+		if ftag.Has("primary_key") {
 			if fields.PrimaryKey >= 0 {
 				return fmt.Errorf("duplicate primary_key in struct %v (%s and %s)", typ, fields.Names[fields.PrimaryKey], name)
 			}
 			fields.PrimaryKey = len(fields.Names) - 1
-			if dt.Has("auto_increment") && (k == reflect.Int || k == reflect.Int8 || k == reflect.Int16 || k == reflect.Int32 || k == reflect.Int64) {
+			if ftag.Has("auto_increment") && (k == reflect.Int || k == reflect.Int8 || k == reflect.Int16 || k == reflect.Int32 || k == reflect.Int64) {
 				fields.IntegerAutoincrementPk = true
 			}
 		}

@@ -5,27 +5,27 @@ import (
 	"reflect"
 )
 
-type Model struct {
-	typ        reflect.Type
-	options    *Options
-	collection string
-	fields     *driver.Fields
-	tags       string
+type model struct {
+	typ       reflect.Type
+	options   *Options
+	tableName string
+	fields    *driver.Fields
+	tags      string
 }
 
-func (m *Model) Type() reflect.Type {
+func (m *model) Type() reflect.Type {
 	return m.typ
 }
 
-func (m *Model) Collection() string {
-	return m.collection
+func (m *model) TableName() string {
+	return m.tableName
 }
 
-func (m *Model) Fields() *driver.Fields {
+func (m *model) Fields() *driver.Fields {
 	return m.fields
 }
 
-func (m *Model) Indexes() []driver.Index {
+func (m *model) Indexes() []driver.Index {
 	var indexes []driver.Index
 	if m.options != nil {
 		indexes = append(indexes, m.options.Indexes...)

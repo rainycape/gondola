@@ -9,12 +9,12 @@ var registry = map[string]Opener{}
 type Opener func(params string) (Driver, error)
 
 type Driver interface {
-	MakeModels(m []Model) error
+	MakeTables(m []Model) error
 	Query(m Model, q query.Q, limit int, offset int, sort int, sortField string) Iter
 	Count(m Model, q query.Q, limit int, offset int, sort int, sortField string) (uint64, error)
 	Insert(m Model, data interface{}) (Result, error)
-	Update(m Model, data interface{}, q query.Q) (Result, error)
-	Upsert(m Model, data interface{}, q query.Q) (Result, error)
+	Update(m Model, q query.Q, data interface{}) (Result, error)
+	Upsert(m Model, q query.Q, data interface{}) (Result, error)
 	Delete(m Model, q query.Q) (Result, error)
 	Close() error
 	// True if the driver can perform upserts

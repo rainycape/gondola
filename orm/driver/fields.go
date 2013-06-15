@@ -2,6 +2,7 @@ package driver
 
 import (
 	"fmt"
+	"gondola/orm/tag"
 	"reflect"
 )
 
@@ -19,7 +20,7 @@ type Fields struct {
 	// Field types, in order
 	Types []reflect.Type
 	// Field tags, in order
-	Tags []*Tag
+	Tags []*tag.Tag
 	// Maps db names to indexes
 	NameMap map[string]int
 	// Maps struct names to indexes

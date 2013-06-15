@@ -32,6 +32,10 @@ func (i *Iter) Err() error {
 	return i.err
 }
 
+func (i *Iter) Close() error {
+	return i.rows.Close()
+}
+
 func NewIter(m driver.Model, d driver.Driver, r *sql.Rows, err error) driver.Iter {
 	// TODO: Check for errors here?
 	drv, _ := d.(*Driver)

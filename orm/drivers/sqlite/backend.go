@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+	"gondola/orm/codec"
 	"gondola/orm/driver"
 	"gondola/orm/drivers/sql"
+	"gondola/orm/tag"
 	"reflect"
 	"strings"
 	"time"
@@ -57,7 +59,7 @@ func (b *Backend) Index(db sql.DB, m driver.Model, idx driver.Index, name string
 	buf.WriteString("INDEX IF NOT EXISTS ")
 	buf.WriteString(name)
 	buf.WriteString(" ON ")
-	buf.WriteString(m.Collection())
+	buf.WriteString(m.TableName())
 	buf.WriteString(" (")
 	fields := m.Fields()
 	for _, v := range idx.Fields() {
@@ -77,8 +79,11 @@ func (b *Backend) Index(db sql.DB, m driver.Model, idx driver.Index, name string
 	return err
 }
 
-func (b *Backend) FieldType(typ reflect.Type, tag *driver.Tag) (string, error) {
-	if tag.Has("json") {
+func (b *Backend) FieldType(typ reflect.Type, t *tag.Tag) (string, error) {
+	if c := codec.FromTag(t); c != nil {
+		if c.Binary() {
+			return "BLOB", nil
+		}
 		return "TEXT", nil
 	}
 	switch typ.Kind() {
@@ -89,6 +94,7 @@ func (b *Backend) FieldType(typ reflect.Type, tag *driver.Tag) (string, error) {
 	case reflect.String:
 		return "TEXT", nil
 	case reflect.Slice:
+		// []byte
 		if typ.Elem().Kind() == reflect.Uint8 {
 			return "BLOB", nil
 		}
@@ -100,20 +106,20 @@ func (b *Backend) FieldType(typ reflect.Type, tag *driver.Tag) (string, error) {
 	return "", fmt.Errorf("can't map field type %v to a database type", typ)
 }
 
-func (b *Backend) FieldOptions(typ reflect.Type, tag *driver.Tag) ([]string, error) {
+func (b *Backend) FieldOptions(typ reflect.Type, t *tag.Tag) ([]string, error) {
 	var opts []string
-	if tag.Has("notnull") {
+	if t.Has("notnull") {
 		opts = append(opts, "NOT NULL")
 	}
-	if tag.Has("primary_key") {
+	if t.Has("primary_key") {
 		opts = append(opts, "PRIMARY KEY")
-	} else if tag.Has("unique") {
+	} else if t.Has("unique") {
 		opts = append(opts, "UNIQUE")
 	}
-	if tag.Has("auto_increment") {
+	if t.Has("auto_increment") {
 		opts = append(opts, "AUTOINCREMENT")
 	}
-	if def := tag.Value("default"); def != "" {
+	if def := t.Value("default"); def != "" {
 		if typ.Kind() == reflect.String {
 			def = "'" + def + "'"
 		}
@@ -126,7 +132,7 @@ func (b *Backend) Transforms() []reflect.Type {
 	return transformedTypes
 }
 
-func (b *Backend) ScanInt(val int64, goVal *reflect.Value, tag *driver.Tag) error {
+func (b *Backend) ScanInt(val int64, goVal *reflect.Value, t *tag.Tag) error {
 	switch goVal.Type().Kind() {
 	case reflect.Struct:
 		goVal.Set(reflect.ValueOf(time.Unix(val, 0).UTC()))
@@ -136,23 +142,23 @@ func (b *Backend) ScanInt(val int64, goVal *reflect.Value, tag *driver.Tag) erro
 	return nil
 }
 
-func (b *Backend) ScanFloat(val float64, goVal *reflect.Value, tag *driver.Tag) error {
+func (b *Backend) ScanFloat(val float64, goVal *reflect.Value, t *tag.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanBool(val bool, goVal *reflect.Value, tag *driver.Tag) error {
+func (b *Backend) ScanBool(val bool, goVal *reflect.Value, t *tag.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, tag *driver.Tag) error {
+func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, t *tag.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanString(val string, goVal *reflect.Value, tag *driver.Tag) error {
+func (b *Backend) ScanString(val string, goVal *reflect.Value, t *tag.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, tag *driver.Tag) error {
+func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, t *tag.Tag) error {
 	return nil
 }
 

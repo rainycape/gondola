@@ -14,7 +14,7 @@ type Options struct {
 	// foo_bar_baz, but types in the main package will
 	// omit the package name (e.g. Foo becomes foo,
 	// not main_foo).
-	Name string
+	TableName string
 	// Any indexes that can't be declared using field tags
 	// (most of the time because they index multiple fields
 	// or require special flags). See the function Indexes()

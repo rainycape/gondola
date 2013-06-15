@@ -2,14 +2,15 @@ package sql
 
 import (
 	"fmt"
-	"gondola/orm/driver"
+	"gondola/orm/codec"
+	"gondola/orm/tag"
 	"reflect"
 	"time"
 )
 
 type simpleScanner struct {
 	Out *reflect.Value
-	Tag *driver.Tag
+	Tag *tag.Tag
 }
 
 var simpleScannerPool = make(chan *simpleScanner, 64)
@@ -25,14 +26,13 @@ func (s *simpleScanner) Scan(src interface{}) error {
 	case bool:
 		s.Out.SetBool(x)
 	case []byte:
+		if c := codec.FromTag(s.Tag); c != nil {
+			return c.Decode(x, s.Out)
+		}
 		// Some sql drivers return strings as []byte
 		if s.Out.Kind() == reflect.String {
 			s.Out.SetString(string(x))
 			return nil
-		}
-
-		if s.Tag.Has("json") {
-			return decodeJson(x, s.Out)
 		}
 		// Some drivers return an empty slice for null blob fields
 		if len(x) > 0 {
@@ -62,14 +62,14 @@ func (s *simpleScanner) Put() {
 	}
 }
 
-func Scanner(val *reflect.Value, tag *driver.Tag) scanner {
+func Scanner(val *reflect.Value, t *tag.Tag) scanner {
 	var s *simpleScanner
 	select {
 	case s = <-simpleScannerPool:
 		s.Out = val
-		s.Tag = tag
+		s.Tag = t
 	default:
-		s = &simpleScanner{Out: val, Tag: tag}
+		s = &simpleScanner{Out: val, Tag: t}
 	}
 	return s
 }

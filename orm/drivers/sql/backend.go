@@ -2,6 +2,7 @@ package sql
 
 import (
 	"gondola/orm/driver"
+	"gondola/orm/tag"
 	"reflect"
 	"time"
 )
@@ -23,23 +24,23 @@ type Backend interface {
 	// Index creates and index if it doesn't exist using the provided model, index and name.
 	Index(DB, driver.Model, driver.Index, string) error
 	// Returns the db type of the given field (e.g. INTEGER)
-	FieldType(reflect.Type, *driver.Tag) (string, error)
+	FieldType(reflect.Type, *tag.Tag) (string, error)
 	// Returns the db options for the given field (.e.g PRIMARY KEY AUTOINCREMENT)
-	FieldOptions(reflect.Type, *driver.Tag) ([]string, error)
+	FieldOptions(reflect.Type, *tag.Tag) ([]string, error)
 	// Types that need to be transformed (e.g. sqlite transforms time.Time and bool to integer)
 	Transforms() []reflect.Type
 	// Scan an int64 from the db to Go
-	ScanInt(val int64, goVal *reflect.Value, tag *driver.Tag) error
+	ScanInt(val int64, goVal *reflect.Value, t *tag.Tag) error
 	// Scan a float64 from the db to Go
-	ScanFloat(val float64, goVal *reflect.Value, tag *driver.Tag) error
+	ScanFloat(val float64, goVal *reflect.Value, t *tag.Tag) error
 	// Scan a bool from the db to Go
-	ScanBool(val bool, goVal *reflect.Value, tag *driver.Tag) error
+	ScanBool(val bool, goVal *reflect.Value, t *tag.Tag) error
 	// Scan a []byte from the db to Go
-	ScanByteSlice(val []byte, goVal *reflect.Value, tag *driver.Tag) error
+	ScanByteSlice(val []byte, goVal *reflect.Value, t *tag.Tag) error
 	// Scan a string from the db to Go
-	ScanString(val string, goVal *reflect.Value, tag *driver.Tag) error
+	ScanString(val string, goVal *reflect.Value, t *tag.Tag) error
 	// Scan a *time.Time from the db to Go
-	ScanTime(val *time.Time, goVal *reflect.Value, tag *driver.Tag) error
+	ScanTime(val *time.Time, goVal *reflect.Value, t *tag.Tag) error
 	// Transform a value from Go to the database
 	TransformOutValue(reflect.Value) (interface{}, error)
 }

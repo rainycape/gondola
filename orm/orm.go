@@ -22,36 +22,44 @@ type Orm struct {
 	db *sql.DB
 }
 
-// Query returns a Query object, on which you can call
-// Limit, Offset or Iter, to start iterating the results.
-// The first argument is the Model object returned when
-// registering the type.
-func (o *Orm) Query(m *Model, q query.Q) *Query {
+// Table returns a Query object initialized with the given table.
+// The Table object is returned when registering the model. See
+// the explanation on the Query's Table method about why strings
+// are not accepted.
+func (o *Orm) Table(t *Table) *Query {
 	return &Query{
 		orm:    o,
-		model:  m,
+		model:  t.model,
+		limit:  -1,
+		offset: -1,
+	}
+}
+
+// Query returns a Query object, on which you can call
+// Limit, Offset or Iter, to start iterating the results.
+// If you want to iterate over all the items on a given table
+// pass nil as the q argument.
+// By default, the query will use the table of the first
+// object passed to Next(), but you can override it using
+// Table() (and you most do so for Count() and other functions
+// which don't take objects).
+func (o *Orm) Query(q query.Q) *Query {
+	return &Query{
+		orm:    o,
 		q:      q,
 		limit:  -1,
 		offset: -1,
 	}
 }
 
-// One fetchs the first result. The out parameter must be a pointer
-// to an object previously registered as a model. If there are no
-// results, ErrNotFound is returned.
-func (o *Orm) One(out interface{}, q query.Q) error {
-	model, err := o.model(out)
-	if err != nil {
-		return err
-	}
-	iter := o.Query(model, q).Iter()
-	if !iter.Next(out) {
-		if err := iter.Err(); err != nil {
-			return err
-		}
-		return ErrNotFound
-	}
-	return nil
+// One is a shorthand for Query(q).One(&out)
+func (o *Orm) One(q query.Q, out interface{}) error {
+	return o.Query(q).One(out)
+}
+
+// All is a shorthand for Query(nil)
+func (o *Orm) All() *Query {
+	return o.Query(nil)
 }
 
 // Insert saves an object into its collection. Its
@@ -63,13 +71,28 @@ func (o *Orm) Insert(obj interface{}) (Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	return o.insert(m, obj)
+}
+
+// MustInsert works like insert, but panics if there's
+// an error.
+func (o *Orm) MustInsert(obj interface{}) Result {
+	res, err := o.Insert(obj)
+	if err != nil {
+		panic(err)
+	}
+	return res
+}
+
+func (o *Orm) insert(m *model, obj interface{}) (Result, error) {
 	var pkName string
 	var pkVal reflect.Value
-	if m.fields.IntegerAutoincrementPk {
-		pkName, pkVal = o.primaryKey(m.fields, obj)
+	f := m.fields
+	if f.IntegerAutoincrementPk {
+		pkName, pkVal = o.primaryKey(f, obj)
 		if pkVal.Int() == 0 && !pkVal.CanSet() {
-			t := reflect.TypeOf(obj)
-			return nil, fmt.Errorf("can't set primary key field %q. Please, insert a %v rather than a %v", pkName, reflect.PtrTo(t), t)
+			typ := reflect.TypeOf(obj)
+			return nil, fmt.Errorf("can't set primary key field %q. Please, insert a %v rather than a %v", pkName, reflect.PtrTo(typ), typ)
 		}
 	}
 	o.numQueries++
@@ -88,33 +111,27 @@ func (o *Orm) Insert(obj interface{}) (Result, error) {
 	return res, err
 }
 
-// MustInsert works like insert, but panics if there's
-// an error.
-func (o *Orm) MustInsert(obj interface{}) Result {
-	res, err := o.Insert(obj)
-	if err != nil {
-		panic(err)
-	}
-	return res
-}
-
-func (o *Orm) Update(obj interface{}, q query.Q) (Result, error) {
+func (o *Orm) Update(q query.Q, obj interface{}) (Result, error) {
 	m, err := o.model(obj)
 	if err != nil {
 		return nil, err
 	}
-	o.numQueries++
-	return o.driver.Update(m, obj, q)
+	return o.update(m, q, obj)
 }
 
 // MustUpdate works like update, but panics if there's
 // an error.
-func (o *Orm) MustUpdate(obj interface{}, q query.Q) Result {
-	res, err := o.Update(obj, q)
+func (o *Orm) MustUpdate(q query.Q, obj interface{}) Result {
+	res, err := o.Update(q, obj)
 	if err != nil {
 		panic(err)
 	}
 	return res
+}
+
+func (o *Orm) update(m *model, q query.Q, obj interface{}) (Result, error) {
+	o.numQueries++
+	return o.driver.Update(m, q, obj)
 }
 
 // Upsert tries to perform an update with the given query
@@ -122,16 +139,16 @@ func (o *Orm) MustUpdate(obj interface{}, q query.Q) Result {
 // an insert. Some drivers (like mongodb) are able to perform
 // this operation in just one query, but most require two
 // trips to the database.
-func (o *Orm) Upsert(obj interface{}, q query.Q) (Result, error) {
+func (o *Orm) Upsert(q query.Q, obj interface{}) (Result, error) {
 	if o.upserts {
 		m, err := o.model(obj)
 		if err != nil {
 			return nil, err
 		}
 		o.numQueries++
-		return o.driver.Upsert(m, obj, q)
+		return o.driver.Upsert(m, q, obj)
 	}
-	res, err := o.Update(obj, q)
+	res, err := o.Update(q, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -146,8 +163,8 @@ func (o *Orm) Upsert(obj interface{}, q query.Q) (Result, error) {
 }
 
 // MustUpsert works like Upsert, but panics if there's an error.
-func (o *Orm) MustUpsert(obj interface{}, q query.Q) Result {
-	res, err := o.Upsert(obj, q)
+func (o *Orm) MustUpsert(q query.Q, obj interface{}) Result {
+	res, err := o.Upsert(q, obj)
 	if err != nil {
 		panic(err)
 	}
@@ -165,6 +182,20 @@ func (o *Orm) Save(obj interface{}) (Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	return o.save(m, obj)
+}
+
+// MustSave works like save, but panics if there's an
+// error.
+func (o *Orm) MustSave(obj interface{}) Result {
+	res, err := o.Save(obj)
+	if err != nil {
+		panic(err)
+	}
+	return res
+}
+
+func (o *Orm) save(m *model, obj interface{}) (Result, error) {
 	if m.fields.PrimaryKey < 0 {
 		return o.Insert(obj)
 	}
@@ -172,7 +203,7 @@ func (o *Orm) Save(obj interface{}) (Result, error) {
 	if driver.IsZero(pkVal) {
 		return o.Insert(obj)
 	}
-	res, err := o.Update(obj, Eq(pkName, pkVal.Interface()))
+	res, err := o.Update(Eq(pkName, pkVal.Interface()), obj)
 	if err != nil {
 		return nil, err
 	}
@@ -186,26 +217,16 @@ func (o *Orm) Save(obj interface{}) (Result, error) {
 	return res, nil
 }
 
-// MustSave works like save, but panics if there's an
-// error.
-func (o *Orm) MustSave(obj interface{}) Result {
-	res, err := o.Save(obj)
-	if err != nil {
-		panic(err)
-	}
-	return res
-}
-
-// Delete removes all objects from the given model matching
+// DeleteFrom removes all objects from the given table matching
 // the query.
-func (o *Orm) Delete(m *Model, q query.Q) (Result, error) {
+func (o *Orm) DeleteFrom(t *Table, q query.Q) (Result, error) {
 	o.numQueries++
-	return o.driver.Delete(m, q)
+	return o.driver.Delete(t.model, q)
 }
 
-// DeleteObject removes the given object, which must be a type
-// previously registered as a model and must have a primary key
-func (o *Orm) DeleteObject(obj interface{}) error {
+// Delete removes the given object, which must be of a type
+// previously registered as a table and must have a primary key
+func (o *Orm) Delete(obj interface{}) error {
 	return nil
 }
 
@@ -244,12 +265,12 @@ func (o *Orm) SqlDB() *sql.DB {
 // returns and iter with the results. If the underlying connection is
 // not using database/sql, the returned Iter will have no results and
 // will report the error ErrNoSql.
-func (o *Orm) SqlQuery(m *Model, query string, args ...interface{}) Iter {
+func (o *Orm) SqlQuery(m *model, query string, args ...interface{}) *Iter {
 	if o.db == nil {
-		return ormsql.NewIter(nil, nil, nil, ErrNoSql)
+		return &Iter{err: ErrNoSql}
 	}
 	rows, err := o.db.Query(query, args...)
-	return ormsql.NewIter(m, o.driver, rows, err)
+	return &Iter{Iter: ormsql.NewIter(m, o.driver, rows, err)}
 }
 
 // Logger returns the logger for this ORM. By default, it's
@@ -268,7 +289,7 @@ func (o *Orm) SetLogger(logger *log.Logger) {
 	}
 }
 
-func (o *Orm) model(obj interface{}) (*Model, error) {
+func (o *Orm) model(obj interface{}) (*model, error) {
 	t := reflect.TypeOf(obj)
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()

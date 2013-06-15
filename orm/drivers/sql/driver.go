@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"gondola/log"
+	"gondola/orm/codec"
 	"gondola/orm/driver"
 	"gondola/orm/query"
 	"reflect"
@@ -19,7 +20,7 @@ type Driver struct {
 	transforms map[reflect.Type]struct{}
 }
 
-func (d *Driver) MakeModels(ms []driver.Model) error {
+func (d *Driver) MakeTables(ms []driver.Model) error {
 	// Create tables
 	// TODO: References
 	for _, v := range ms {
@@ -28,11 +29,10 @@ func (d *Driver) MakeModels(ms []driver.Model) error {
 			return err
 		}
 		if len(tableFields) == 0 {
-			log.Debugf("Skipping collection %s (model %v) because it has no fields", v.Collection, v)
+			log.Debugf("Skipping collection %s (model %v) because it has no fields", v.TableName, v)
 			continue
 		}
-		sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n%s\n);", v.Collection(), strings.Join(tableFields, ",\n"))
-		d.debugq(sql, nil)
+		sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n%s\n);", v.TableName(), strings.Join(tableFields, ",\n"))
 		_, err = d.db.Exec(sql)
 		if err != nil {
 			return err
@@ -55,7 +55,7 @@ func (d *Driver) MakeModels(ms []driver.Model) error {
 }
 
 func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) driver.Iter {
-	query, params, err := d.Select(m.Fields().Names, m, q, limit, offset, sort, sortField)
+	query, params, err := d.Select(m.Fields().Names, true, m, q, limit, offset, sort, sortField)
 	if err != nil {
 		return &Iter{err: err}
 	}
@@ -69,7 +69,7 @@ func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int, sort in
 
 func (d *Driver) Count(m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) (uint64, error) {
 	var count uint64
-	query, params, err := d.Select([]string{"COUNT(*)"}, m, q, limit, offset, sort, sortField)
+	query, params, err := d.Select([]string{"COUNT(*)"}, false, m, q, limit, offset, sort, sortField)
 	if err != nil {
 		return 0, err
 	}
@@ -85,10 +85,12 @@ func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error)
 	}
 	var buf bytes.Buffer
 	buf.WriteString("INSERT INTO ")
-	buf.WriteString(m.Collection())
+	buf.WriteString(m.TableName())
 	buf.WriteString(" (")
 	for _, v := range fields {
+		buf.WriteByte('"')
 		buf.WriteString(v)
+		buf.WriteByte('"')
 		buf.WriteByte(',')
 	}
 	buf.Truncate(buf.Len() - 1)
@@ -98,7 +100,7 @@ func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error)
 	return d.backend.Insert(d.db, m, buf.String(), values...)
 }
 
-func (d *Driver) Update(m driver.Model, data interface{}, q query.Q) (driver.Result, error) {
+func (d *Driver) Update(m driver.Model, q query.Q, data interface{}) (driver.Result, error) {
 	_, fields, values, err := d.saveParameters(m, data)
 	if err != nil {
 		return nil, err
@@ -109,7 +111,7 @@ func (d *Driver) Update(m driver.Model, data interface{}, q query.Q) (driver.Res
 	}
 	var buf bytes.Buffer
 	buf.WriteString("UPDATE ")
-	buf.WriteString(m.Collection())
+	buf.WriteString(m.TableName())
 	buf.WriteString(" SET ")
 	for ii, v := range fields {
 		buf.WriteString(v)
@@ -129,7 +131,7 @@ func (d *Driver) Update(m driver.Model, data interface{}, q query.Q) (driver.Res
 	return d.db.Exec(query, params...)
 }
 
-func (d *Driver) Upsert(m driver.Model, data interface{}, q query.Q) (driver.Result, error) {
+func (d *Driver) Upsert(m driver.Model, q query.Q, data interface{}) (driver.Result, error) {
 	// TODO: MySql might be able to provide upserts
 	return nil, nil
 }
@@ -141,7 +143,7 @@ func (d *Driver) Delete(m driver.Model, q query.Q) (driver.Result, error) {
 	}
 	var buf bytes.Buffer
 	buf.WriteString("DELETE FROM ")
-	buf.WriteString(m.Collection())
+	buf.WriteString(m.TableName())
 	if where != "" {
 		buf.WriteString(" WHERE ")
 		buf.WriteString(where)
@@ -205,8 +207,8 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 					return val, nil, nil, err
 				}
 			} else if !fields.NullZero[ii] || !driver.IsZero(f) {
-				if fields.Tags[ii].Has("json") {
-					fval, err = encodeJson(f)
+				if c := codec.FromTag(fields.Tags[ii]); c != nil {
+					fval, err = c.Encode(&f)
 					if err != nil {
 						return val, nil, nil, err
 					}
@@ -225,8 +227,8 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 			}
 			var fval interface{}
 			if !fields.NullZero[ii] || !driver.IsZero(f) {
-				if fields.Tags[ii].Has("json") {
-					fval, err = encodeJson(f)
+				if c := codec.FromTag(fields.Tags[ii]); c != nil {
+					fval, err = c.Encode(&f)
 					if err != nil {
 						return val, nil, nil, err
 					}
@@ -289,11 +291,13 @@ func (d *Driver) tableFields(m driver.Model) ([]string, error) {
 	for ii, v := range names {
 		typ := types[ii]
 		tag := tags[ii]
-		// Check json encoded types
-		if tag.Has("json") {
-			if err := tryEncodeJson(typ, d); err != nil {
-				return nil, fmt.Errorf("can't encode field %q as JSON: %s", fields.QNames[ii], err)
+		// Check encoded types
+		if c := codec.FromTag(tag); c != nil {
+			if err := c.Try(typ, d.Tags()); err != nil {
+				return nil, fmt.Errorf("can't encode field %q as %s: %s", fields.QNames[ii], c.Name(), err)
 			}
+		} else if tag.CodecName() != "" {
+			return nil, fmt.Errorf("can't find ORM codec %q. Perhaps you missed an import?", tag.CodecName())
 		}
 		ft, err := d.backend.FieldType(typ, tag)
 		if err != nil {
@@ -303,7 +307,7 @@ func (d *Driver) tableFields(m driver.Model) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		dbFields[ii] = fmt.Sprintf("%s %s %s", v, ft, strings.Join(opts, " "))
+		dbFields[ii] = fmt.Sprintf("\"%s\" %s %s", v, ft, strings.Join(opts, " "))
 	}
 	return dbFields, nil
 }
@@ -396,7 +400,7 @@ func (d *Driver) indexName(m driver.Model, idx driver.Index) (string, error) {
 		return "", fmt.Errorf("index on %v has no fields", m.Type())
 	}
 	var buf bytes.Buffer
-	buf.WriteString(m.Collection())
+	buf.WriteString(m.TableName())
 	fields := m.Fields()
 	for _, v := range indexFields {
 		dbName, _, err := fields.Map(v)
@@ -409,27 +413,40 @@ func (d *Driver) indexName(m driver.Model, idx driver.Index) (string, error) {
 	return buf.String(), nil
 }
 
-func (d *Driver) Select(fields []string, m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) (string, []interface{}, error) {
+func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) (string, []interface{}, error) {
 	where, params, err := d.where(m, q, 0)
 	if err != nil {
 		return "", nil, err
 	}
 	var buf bytes.Buffer
 	buf.WriteString("SELECT ")
-	for _, v := range fields {
-		buf.WriteString(v)
-		buf.WriteByte(',')
+	if quote {
+		for _, v := range fields {
+			buf.WriteByte('"')
+			buf.WriteString(v)
+			buf.WriteByte('"')
+			buf.WriteByte(',')
+		}
+	} else {
+		for _, v := range fields {
+			buf.WriteString(v)
+			buf.WriteByte(',')
+		}
 	}
 	buf.Truncate(buf.Len() - 1)
 	buf.WriteString(" FROM ")
-	buf.WriteString(m.Collection())
+	buf.WriteString(m.TableName())
 	if where != "" {
 		buf.WriteString(" WHERE ")
 		buf.WriteString(where)
 	}
-	if sort != driver.NONE {
+	if sort != driver.NONE && sortField != "" {
 		buf.WriteString(" ORDER BY ")
-		buf.WriteString(sortField)
+		dbName, _, err := m.Fields().Map(sortField)
+		if err != nil {
+			return "", nil, err
+		}
+		buf.WriteString(dbName)
 		switch sort {
 		case driver.ASC:
 			buf.WriteString(" ASC")

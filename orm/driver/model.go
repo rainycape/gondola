@@ -6,7 +6,7 @@ import (
 
 type Model interface {
 	Type() reflect.Type
-	Collection() string
+	TableName() string
 	Fields() *Fields
 	Indexes() []Index
 }

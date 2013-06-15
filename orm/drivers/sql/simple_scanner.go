@@ -27,7 +27,8 @@ func (s *simpleScanner) Scan(src interface{}) error {
 		s.Out.SetBool(x)
 	case []byte:
 		if c := codec.FromTag(s.Tag); c != nil {
-			return c.Decode(x, s.Out)
+			addr := s.Out.Addr()
+			return c.Decode(x, &addr)
 		}
 		// Some sql drivers return strings as []byte
 		if s.Out.Kind() == reflect.String {

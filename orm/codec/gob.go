@@ -33,7 +33,7 @@ func (c *gobCodec) Encode(val *reflect.Value) ([]byte, error) {
 
 func (c *gobCodec) Decode(data []byte, val *reflect.Value) error {
 	decoder := gob.NewDecoder(bytes.NewReader(data))
-	return decoder.DecodeValue(val.Addr())
+	return decoder.DecodeValue(*val)
 }
 
 func init() {

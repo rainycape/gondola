@@ -59,7 +59,7 @@ func (c *jsonCodec) Encode(val *reflect.Value) ([]byte, error) {
 }
 
 func (c *jsonCodec) Decode(data []byte, val *reflect.Value) error {
-	return json.Unmarshal(data, val.Addr().Interface())
+	return json.Unmarshal(data, val.Interface())
 }
 
 func init() {

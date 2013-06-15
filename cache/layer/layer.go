@@ -10,6 +10,10 @@ import (
 	"net/http"
 )
 
+var (
+	fromLayer = []string{"true"}
+)
+
 type cachedResponse struct {
 	Header     http.Header
 	StatusCode int
@@ -41,6 +45,7 @@ func New(c *cache.Cache, m Mediator) mux.Transformer {
 					for k, v := range response.Header {
 						header[k] = v
 					}
+					header["X-Gondola-From-Layer"] = fromLayer
 					ctx.WriteHeader(response.StatusCode)
 					ctx.Write(response.Data)
 					return

@@ -152,6 +152,7 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix 
 		for t.Kind() == reflect.Ptr {
 			t = t.Elem()
 		}
+		k := t.Kind()
 		// Check encoded types
 		if c := codec.FromTag(ftag); c != nil {
 			if err := c.Try(t, dtags); err != nil {
@@ -159,22 +160,26 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix 
 			}
 		} else if ftag.CodecName() != "" {
 			return fmt.Errorf("can't find ORM codec %q. Perhaps you missed an import?", ftag.CodecName())
-		}
-		k := t.Kind()
-		switch k {
-		case reflect.Array, reflect.Chan, reflect.Func, reflect.Interface, reflect.Map:
-			return fmt.Errorf("field %q in struct %v has invalid type %v", field.Name, typ, k)
-		case reflect.Struct:
-			// Inner struct
-			idx := make([]int, len(index))
-			copy(idx, index)
-			idx = append(idx, field.Index[0])
-			if t.Name() != "Time" || t.PkgPath() != "time" {
-				err := o._fields(t, fields, qname+".", dbPrefix+name+"_", idx)
-				if err != nil {
-					return err
+		} else {
+			switch k {
+			case reflect.Array, reflect.Chan, reflect.Func, reflect.Interface, reflect.Map:
+				return fmt.Errorf("field %q in struct %v has invalid type %v", field.Name, typ, k)
+			case reflect.Struct:
+				// Inner struct
+				idx := make([]int, len(index))
+				copy(idx, index)
+				idx = append(idx, field.Index[0])
+				if t.Name() != "Time" || t.PkgPath() != "time" {
+					prefix := dbPrefix
+					if !ftag.Has("inline") {
+						prefix += name + "_"
+					}
+					err := o._fields(t, fields, qname+".", prefix, idx)
+					if err != nil {
+						return err
+					}
+					continue
 				}
-				continue
 			}
 		}
 		idx := make([]int, len(index))

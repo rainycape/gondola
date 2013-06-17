@@ -32,7 +32,7 @@ func (i *Iter) Next(out interface{}) bool {
 	if ok {
 		i.err = i.q.model.fields.Methods.Load(out)
 	}
-	return i.err == nil
+	return ok && i.err == nil
 }
 
 // Err returns the first error returned by the iterator. Once

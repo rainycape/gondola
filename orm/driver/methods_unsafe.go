@@ -51,14 +51,14 @@ func MakeMethods(typ reflect.Type) (m Methods, err error) {
 	}
 	// Check for Load and Save methods
 	if load, ok := typ.MethodByName("Load"); ok {
-		if err = checkMethod(load); err != nil {
+		if err = checkMethod(typ, load); err != nil {
 			return
 		}
 		m.LoadPointer = pointer(typ, load.Index)
 		m.LoadReturns = returns(load)
 	}
 	if save, ok := typ.MethodByName("Save"); ok {
-		if err = checkMethod(save); err != nil {
+		if err = checkMethod(typ, save); err != nil {
 			return
 		}
 		m.SavePointer = pointer(typ, save.Index)

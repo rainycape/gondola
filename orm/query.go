@@ -96,6 +96,15 @@ func (q *Query) Count() (uint64, error) {
 	return q.orm.driver.Count(q.model, q.q, q.limit, q.offset, q.sortDir, q.sortField)
 }
 
+// MustCount works like Count, but panics if there's an error.
+func (q *Query) MustCount() uint64 {
+	c, err := q.Count()
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
 // Clone returns a copy of the query.
 func (q *Query) Clone() *Query {
 	return &Query{

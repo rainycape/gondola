@@ -71,6 +71,9 @@ func (o *Orm) Insert(obj interface{}) (Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := m.fields.Methods.Save(obj); err != nil {
+		return nil, err
+	}
 	return o.insert(m, obj)
 }
 
@@ -78,6 +81,25 @@ func (o *Orm) Insert(obj interface{}) (Result, error) {
 // an error.
 func (o *Orm) MustInsert(obj interface{}) Result {
 	res, err := o.Insert(obj)
+	if err != nil {
+		panic(err)
+	}
+	return res
+}
+
+// InsertInto works like insert, but stores the object in the
+// given table (as returned by Register).
+func (o *Orm) InsertInto(t *Table, obj interface{}) (Result, error) {
+	if err := t.model.fields.Methods.Save(obj); err != nil {
+		return nil, err
+	}
+	return o.insert(t.model, obj)
+}
+
+// MustInsertInto works like InsertInto, but panics if there's
+// an error.
+func (o *Orm) MustInsertInto(t *Table, obj interface{}) Result {
+	res, err := o.InsertInto(t, obj)
 	if err != nil {
 		panic(err)
 	}
@@ -116,6 +138,9 @@ func (o *Orm) Update(q query.Q, obj interface{}) (Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := m.fields.Methods.Save(obj); err != nil {
+		return nil, err
+	}
 	return o.update(m, q, obj)
 }
 
@@ -140,15 +165,18 @@ func (o *Orm) update(m *model, q query.Q, obj interface{}) (Result, error) {
 // this operation in just one query, but most require two
 // trips to the database.
 func (o *Orm) Upsert(q query.Q, obj interface{}) (Result, error) {
+	m, err := o.model(obj)
+	if err != nil {
+		return nil, err
+	}
+	if err := m.fields.Methods.Save(obj); err != nil {
+		return nil, err
+	}
 	if o.upserts {
-		m, err := o.model(obj)
-		if err != nil {
-			return nil, err
-		}
 		o.numQueries++
 		return o.driver.Upsert(m, q, obj)
 	}
-	res, err := o.Update(q, obj)
+	res, err := o.update(m, q, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +185,7 @@ func (o *Orm) Upsert(q query.Q, obj interface{}) (Result, error) {
 		return nil, err
 	}
 	if aff == 0 {
-		res, err = o.Insert(obj)
+		res, err = o.insert(m, obj)
 	}
 	return res, err
 }
@@ -172,7 +200,7 @@ func (o *Orm) MustUpsert(q query.Q, obj interface{}) Result {
 }
 
 // Save takes an object, with its type registered as
-// a model with a primary key and either inserts it
+// a model and either inserts it
 // (if the primary key is zero or it has no primary key)
 // or updates it using the primary key as the query
 // (if it's non zero). If the update results in no
@@ -180,6 +208,9 @@ func (o *Orm) MustUpsert(q query.Q, obj interface{}) Result {
 func (o *Orm) Save(obj interface{}) (Result, error) {
 	m, err := o.model(obj)
 	if err != nil {
+		return nil, err
+	}
+	if err := m.fields.Methods.Save(obj); err != nil {
 		return nil, err
 	}
 	return o.save(m, obj)
@@ -195,15 +226,33 @@ func (o *Orm) MustSave(obj interface{}) Result {
 	return res
 }
 
+// SaveInto works like Save, but stores the object in the given
+// table (as returned from Register).
+func (o *Orm) SaveInto(t *Table, obj interface{}) (Result, error) {
+	if err := t.model.fields.Methods.Save(obj); err != nil {
+		return nil, err
+	}
+	return o.save(t.model, obj)
+}
+
+// MustSaveInto works like SaveInto, but panics if there's an error.
+func (o *Orm) MustSaveInto(t *Table, obj interface{}) Result {
+	res, err := o.SaveInto(t, obj)
+	if err != nil {
+		panic(err)
+	}
+	return res
+}
+
 func (o *Orm) save(m *model, obj interface{}) (Result, error) {
 	if m.fields.PrimaryKey < 0 {
 		return o.Insert(obj)
 	}
 	pkName, pkVal := o.primaryKey(m.fields, obj)
 	if driver.IsZero(pkVal) {
-		return o.Insert(obj)
+		return o.insert(m, obj)
 	}
-	res, err := o.Update(Eq(pkName, pkVal.Interface()), obj)
+	res, err := o.update(m, Eq(pkName, pkVal.Interface()), obj)
 	if err != nil {
 		return nil, err
 	}
@@ -212,22 +261,46 @@ func (o *Orm) save(m *model, obj interface{}) (Result, error) {
 		return nil, err
 	}
 	if up == 0 {
-		return o.Insert(obj)
+		return o.insert(m, obj)
 	}
 	return res, nil
 }
 
-// DeleteFrom removes all objects from the given table matching
+// DeleteFromTable removes all objects from the given table matching
 // the query.
-func (o *Orm) DeleteFrom(t *Table, q query.Q) (Result, error) {
-	o.numQueries++
-	return o.driver.Delete(t.model, q)
+func (o *Orm) DeleteFromTable(t *Table, q query.Q) (Result, error) {
+	return o.delete(t.model, q)
 }
 
 // Delete removes the given object, which must be of a type
 // previously registered as a table and must have a primary key
 func (o *Orm) Delete(obj interface{}) error {
-	return nil
+	m, err := o.model(obj)
+	if err != nil {
+		return err
+	}
+	return o.deleteByPk(m, obj)
+}
+
+// DeleteFrom works like Delete, but deletes from the given table
+// (as returned by Register)
+func (o *Orm) DeleteFrom(t *Table, obj interface{}) error {
+	return o.deleteByPk(t.model, obj)
+}
+
+func (o *Orm) deleteByPk(m *model, obj interface{}) error {
+	pkName, pkVal := o.primaryKey(m.fields, obj)
+	if !pkVal.IsValid() || pkName == "" {
+		return fmt.Errorf("type %T does not have a primary key", obj)
+	}
+	q := Eq(pkName, pkVal.Interface())
+	_, err := o.delete(m, q)
+	return err
+}
+
+func (o *Orm) delete(m *model, q query.Q) (Result, error) {
+	o.numQueries++
+	return o.driver.Delete(m, q)
 }
 
 // Close closes the database connection.

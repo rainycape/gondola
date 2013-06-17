@@ -117,6 +117,9 @@ func (b *Backend) FieldOptions(typ reflect.Type, t *tag.Tag) ([]string, error) {
 		opts = append(opts, "UNIQUE")
 	}
 	if t.Has("auto_increment") {
+		if !t.Has("primary_key") {
+			return nil, fmt.Errorf("%s can only auto increment the primary key", b.Name())
+		}
 		opts = append(opts, "AUTOINCREMENT")
 	}
 	if def := t.Value("default"); def != "" {

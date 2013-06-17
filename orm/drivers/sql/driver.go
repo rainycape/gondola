@@ -73,7 +73,6 @@ func (d *Driver) Count(m driver.Model, q query.Q, limit int, offset int, sort in
 	if err != nil {
 		return 0, err
 	}
-	d.debugq(query, params)
 	err = d.db.QueryRow(query, params...).Scan(&count)
 	return count, err
 }
@@ -126,9 +125,7 @@ func (d *Driver) Update(m driver.Model, q query.Q, data interface{}) (driver.Res
 		buf.WriteString(where)
 	}
 	params := append(values, qParams...)
-	query := buf.String()
-	d.debugq(query, params)
-	return d.db.Exec(query, params...)
+	return d.db.Exec(buf.String(), params...)
 }
 
 func (d *Driver) Upsert(m driver.Model, q query.Q, data interface{}) (driver.Result, error) {
@@ -148,9 +145,7 @@ func (d *Driver) Delete(m driver.Model, q query.Q) (driver.Result, error) {
 		buf.WriteString(" WHERE ")
 		buf.WriteString(where)
 	}
-	query := buf.String()
-	d.debugq(query, params)
-	return d.db.Exec(query, params...)
+	return d.db.Exec(buf.String(), params...)
 }
 
 func (d *Driver) Close() error {
@@ -291,14 +286,6 @@ func (d *Driver) tableFields(m driver.Model) ([]string, error) {
 	for ii, v := range names {
 		typ := types[ii]
 		tag := tags[ii]
-		// Check encoded types
-		if c := codec.FromTag(tag); c != nil {
-			if err := c.Try(typ, d.Tags()); err != nil {
-				return nil, fmt.Errorf("can't encode field %q as %s: %s", fields.QNames[ii], c.Name(), err)
-			}
-		} else if tag.CodecName() != "" {
-			return nil, fmt.Errorf("can't find ORM codec %q. Perhaps you missed an import?", tag.CodecName())
-		}
 		ft, err := d.backend.FieldType(typ, tag)
 		if err != nil {
 			return nil, err

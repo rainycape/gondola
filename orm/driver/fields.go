@@ -29,6 +29,8 @@ type Fields struct {
 	PrimaryKey int
 	// True if the primary key is an integer type with auto_increment
 	IntegerAutoincrementPk bool
+	// Model methods called by the ORM
+	Methods Methods
 }
 
 // Map takes a qualified struct name and returns its db name and type

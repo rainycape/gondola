@@ -3,6 +3,7 @@ package orm
 import (
 	"fmt"
 	"gondola/log"
+	"gondola/orm/codec"
 	"gondola/orm/driver"
 	"gondola/orm/tag"
 	"gondola/util"
@@ -106,10 +107,15 @@ func (o *Orm) MustCommitTables() {
 }
 
 func (o *Orm) fields(typ reflect.Type) (*driver.Fields, error) {
+	methods, err := driver.MakeMethods(typ)
+	if err != nil {
+		return nil, err
+	}
 	fields := &driver.Fields{
 		NameMap:    make(map[string]int),
 		QNameMap:   make(map[string]int),
 		PrimaryKey: -1,
+		Methods:    methods,
 	}
 	if err := o._fields(typ, fields, "", "", nil); err != nil {
 		return nil, err
@@ -145,6 +151,14 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix 
 		t := field.Type
 		for t.Kind() == reflect.Ptr {
 			t = t.Elem()
+		}
+		// Check encoded types
+		if c := codec.FromTag(ftag); c != nil {
+			if err := c.Try(t, dtags); err != nil {
+				return fmt.Errorf("can't encode field %q as %s: %s", qname, c.Name(), err)
+			}
+		} else if ftag.CodecName() != "" {
+			return fmt.Errorf("can't find ORM codec %q. Perhaps you missed an import?", ftag.CodecName())
 		}
 		k := t.Kind()
 		switch k {

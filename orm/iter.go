@@ -28,7 +28,11 @@ func (i *Iter) Next(out interface{}) bool {
 		i.q.orm.numQueries++
 		i.Iter = i.q.orm.driver.Query(i.q.model, i.q.q, i.limit, i.q.offset, i.q.sortDir, i.q.sortField)
 	}
-	return i.Iter.Next(out)
+	ok := i.Iter.Next(out)
+	if ok {
+		i.err = i.q.model.fields.Methods.Load(out)
+	}
+	return i.err == nil
 }
 
 // Err returns the first error returned by the iterator. Once

@@ -1,3 +1,5 @@
+// +build appengine !amd64
+
 package driver
 
 import (

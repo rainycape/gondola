@@ -338,12 +338,15 @@ func (o *Orm) SqlDB() *sql.DB {
 // returns and iter with the results. If the underlying connection is
 // not using database/sql, the returned Iter will have no results and
 // will report the error ErrNoSql.
-func (o *Orm) SqlQuery(m *model, query string, args ...interface{}) *Iter {
+func (o *Orm) SqlQuery(t *Table, query string, args ...interface{}) *Iter {
 	if o.db == nil {
 		return &Iter{err: ErrNoSql}
 	}
 	rows, err := o.db.Query(query, args...)
-	return &Iter{Iter: ormsql.NewIter(m, o.driver, rows, err)}
+	return &Iter{
+		Iter: ormsql.NewIter(t.model, o.driver, rows, err),
+		q:    &Query{model: t.model},
+	}
 }
 
 // Logger returns the logger for this ORM. By default, it's

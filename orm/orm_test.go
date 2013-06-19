@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"bytes"
 	"gondola/log"
 	_ "gondola/orm/drivers/sqlite"
 	"io/ioutil"
@@ -38,6 +39,11 @@ type Object struct {
 	Value  string
 	loaded int `orm:"-"`
 	saved  int `orm:"-"`
+}
+
+type Data struct {
+	Id   int64 `orm:",primary_key,auto_increment"`
+	Data []byte
 }
 
 func (o *Object) Load() {
@@ -195,4 +201,26 @@ func testSaveDelete(t *testing.T, o *Orm) {
 
 func TestSaveDelete(t *testing.T) {
 	runTest(t, testSaveDelete)
+}
+
+func testData(t *testing.T, o *Orm) {
+	o.MustRegister((*Data)(nil), &Options{
+		TableName: "test_data",
+	})
+	o.MustCommitTables()
+	data := []byte{1, 2, 3, 4, 5, 6}
+	o.MustSave(&Data{Data: data})
+	var d *Data
+	err := o.One(Eq("Id", 1), &d)
+	if err != nil {
+		t.Error(err)
+	} else {
+		if !bytes.Equal(d.Data, data) {
+			t.Errorf("invalid stored []byte. Want %v, got %v.", data, d.Data)
+		}
+	}
+}
+
+func TestData(t *testing.T) {
+	runTest(t, testData)
 }

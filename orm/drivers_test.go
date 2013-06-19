@@ -21,6 +21,7 @@ func testOrm(t *testing.T, o *Orm) {
 		testSaveDelete,
 		testLoadSaveMethods,
 		testLoadSaveMethodsErrors,
+		testData,
 	}
 	for _, v := range tests {
 		v(t, o)

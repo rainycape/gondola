@@ -418,6 +418,9 @@ func (c *Context) Orm() *orm.Orm {
 		if err != nil {
 			panic(err)
 		}
+		if c.mux.debug {
+			c.o.SetLogger(log.Std)
+		}
 	}
 	return c.o
 }

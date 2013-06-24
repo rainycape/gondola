@@ -188,7 +188,7 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix 
 		fields.Names = append(fields.Names, name)
 		fields.QNames = append(fields.QNames, qname)
 		fields.OmitZero = append(fields.OmitZero, ftag.Has("omitzero") || (ftag.Has("auto_increment") && !ftag.Has("notomitzero")))
-		fields.NullZero = append(fields.NullZero, ftag.Has("nullzero") || (k == reflect.Slice && !ftag.Has("notnullzero")))
+		fields.NullZero = append(fields.NullZero, ftag.Has("nullzero") || (defaultsToNullZero(k, ftag) && !ftag.Has("notnullzero")))
 		fields.Indexes = append(fields.Indexes, idx)
 		fields.Tags = append(fields.Tags, ftag)
 		fields.Types = append(fields.Types, t)
@@ -214,4 +214,9 @@ func (o *Orm) name(typ reflect.Type) string {
 		n = strings.Replace(p, "/", "_", -1) + n
 	}
 	return util.UnCamelCase(n, "_")
+}
+
+// returns wheter the kind defaults to nullzero option
+func defaultsToNullZero(k reflect.Kind, t *tag.Tag) bool {
+	return k == reflect.Slice || k == reflect.Ptr || k == reflect.Interface
 }

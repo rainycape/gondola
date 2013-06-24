@@ -165,9 +165,11 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 					inc = false
 					fallthrough
 				case "include", "includes":
-					err := t.load(value, inc)
-					if err != nil {
-						return err
+					for _, n := range t.readAssetNames(value) {
+						err := t.load(n, inc)
+						if err != nil {
+							return err
+						}
 					}
 				default:
 					if t.AssetsManager == nil {

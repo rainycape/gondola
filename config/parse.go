@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"gondola/log"
+	"gondola/signal"
 	"gondola/util"
 	"io"
 	"io/ioutil"
@@ -265,7 +266,7 @@ func Parse(config interface{}) error {
 	if err != nil {
 		return err
 	}
-	setDefaults(fields)
+	signal.Emit(signal.CONFIGURED, config)
 	return nil
 }
 

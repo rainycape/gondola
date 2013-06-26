@@ -11,6 +11,7 @@ import (
 	"gondola/cache"
 	"gondola/log"
 	"gondola/mail"
+	"gondola/signal"
 	"strings"
 )
 
@@ -178,4 +179,10 @@ func enableMailErrorLogging() {
 		writer := log.NewSmtpWriter(log.LError, MailServer(), FromEmail(), AdminEmail())
 		log.Std.AddWriter(writer)
 	}
+}
+
+func init() {
+	signal.MustRegister(signal.CONFIGURED, func(_ string, object interface{}) {
+		setDefaults(object)
+	})
 }

@@ -32,7 +32,7 @@ func (d *Driver) MakeTables(ms []driver.Model) error {
 			log.Debugf("Skipping collection %s (model %v) because it has no fields", v.TableName, v)
 			continue
 		}
-		sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n%s\n);", v.TableName(), strings.Join(tableFields, ",\n"))
+		sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS \"%s\" (\n%s\n);", v.TableName(), strings.Join(tableFields, ",\n"))
 		_, err = d.db.Exec(sql)
 		if err != nil {
 			return err
@@ -84,7 +84,9 @@ func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error)
 	}
 	var buf bytes.Buffer
 	buf.WriteString("INSERT INTO ")
+	buf.WriteByte('"')
 	buf.WriteString(m.TableName())
+	buf.WriteByte('"')
 	buf.WriteString(" (")
 	for _, v := range fields {
 		buf.WriteByte('"')
@@ -110,7 +112,9 @@ func (d *Driver) Update(m driver.Model, q query.Q, data interface{}) (driver.Res
 	}
 	var buf bytes.Buffer
 	buf.WriteString("UPDATE ")
+	buf.WriteByte('"')
 	buf.WriteString(m.TableName())
+	buf.WriteByte('"')
 	buf.WriteString(" SET ")
 	for ii, v := range fields {
 		buf.WriteString(v)
@@ -140,7 +144,9 @@ func (d *Driver) Delete(m driver.Model, q query.Q) (driver.Result, error) {
 	}
 	var buf bytes.Buffer
 	buf.WriteString("DELETE FROM ")
+	buf.WriteByte('"')
 	buf.WriteString(m.TableName())
+	buf.WriteByte('"')
 	if where != "" {
 		buf.WriteString(" WHERE ")
 		buf.WriteString(where)
@@ -422,7 +428,9 @@ func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, 
 	}
 	buf.Truncate(buf.Len() - 1)
 	buf.WriteString(" FROM ")
+	buf.WriteByte('"')
 	buf.WriteString(m.TableName())
+	buf.WriteByte('"')
 	if where != "" {
 		buf.WriteString(" WHERE ")
 		buf.WriteString(where)

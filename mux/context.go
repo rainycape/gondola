@@ -10,12 +10,11 @@ import (
 	"gondola/log"
 	"gondola/orm"
 	"gondola/serialize"
+	"gondola/types"
 	"html/template"
-	"math"
 	"net/http"
 	"reflect"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -200,74 +199,8 @@ func (c *Context) StatusCode() int {
 	return c.statusCode
 }
 
-func (c *Context) funcName(depth int) string {
-	funcName := "???"
-	caller, _, _, ok := runtime.Caller(depth + 1)
-	if ok {
-		f := runtime.FuncForPC(caller)
-		if f != nil {
-			fullName := strings.Trim(f.Name(), ".")
-			parts := strings.Split(fullName, ".")
-			simpleName := parts[len(parts)-1]
-			funcName = fmt.Sprintf("%s()", simpleName)
-		}
-	}
-	return funcName
-}
-
 func (c *Context) parseTypedValue(val string, arg interface{}) bool {
-	v := reflect.ValueOf(arg)
-	for v.Type().Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	if !v.CanSet() {
-		panic(fmt.Errorf("Invalid argument type passed to %s. Please pass %s instead of %s.",
-			c.funcName(1), reflect.PtrTo(v.Type()), v.Type()))
-	}
-	switch v.Type().Kind() {
-	case reflect.Bool:
-		res := false
-		if val != "" && val != "0" && strings.ToLower(val) != "false" {
-			res = true
-		}
-		v.SetBool(res)
-		return true
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		res, err := strconv.ParseInt(val, 0, 64)
-		if err == nil {
-			if v.OverflowInt(res) {
-				if res > 0 {
-					res = int64(math.Pow(2, float64(8*v.Type().Size()-1)) - 1)
-				} else {
-					res = -int64(math.Pow(2, float64(8*v.Type().Size()-1)))
-				}
-			}
-			v.SetInt(res)
-			return true
-		}
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		res, err := strconv.ParseUint(val, 0, 64)
-		if err == nil {
-			if v.OverflowUint(res) {
-				res = uint64(math.Pow(2, float64(8*v.Type().Size())) - 1)
-			}
-			v.SetUint(res)
-			return true
-		}
-	case reflect.Float32, reflect.Float64:
-		res, err := strconv.ParseFloat(val, 64)
-		if err == nil {
-			v.SetFloat(res)
-			return true
-		}
-	case reflect.String:
-		v.SetString(val)
-		return true
-	default:
-		panic(fmt.Errorf("Invalid arguent type passed to %s: %s. Please, see ParseFormValue() docs for a list of the supported types.",
-			c.funcName(1), v.Type()))
-	}
-	return false
+	return types.Parse(val, arg) == nil
 }
 
 // Cache returns the default cache

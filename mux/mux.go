@@ -150,7 +150,7 @@ func (mux *Mux) SetCustomContextType(ctx interface{}) {
 	if t.Kind() == reflect.Struct {
 		t = reflect.PtrTo(t)
 	}
-	contextType := reflect.TypeOf(&Context{})
+	contextType := reflect.TypeOf((*Context)(nil))
 	if !t.ConvertibleTo(contextType) {
 		panic(fmt.Errorf("Custom context type must convertible to %v", contextType))
 	}

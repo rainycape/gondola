@@ -1,11 +1,16 @@
 package mux
 
-func TemplateHandler(name string) Handler {
+// TemplateHandler returns a handler which executes the given
+// template with the given data.
+func TemplateHandler(name string, data interface{}) Handler {
 	return func(ctx *Context) {
-		ctx.MustExecute(name, nil)
+		ctx.MustExecute(name, data)
 	}
 }
 
+// RedirectHandler returns a handler which redirects to the given
+// url. The permanent argument indicates if the redirect should
+// be temporary or permanent.
 func RedirectHandler(destination string, permanent bool) Handler {
 	return func(ctx *Context) {
 		ctx.Redirect(destination, permanent)

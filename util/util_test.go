@@ -22,7 +22,7 @@ func TestSlug(t *testing.T) {
 	testSlug(t, "el-papa-pide-una-solucion-politica-para-el-conflicto-en-siria", "El papa pide una “solución política” para el conflicto en Siria", -1)
 }
 
-func TestUnCamelCase(t *testing.T) {
+func TestCamelCaseToLower(t *testing.T) {
 	cases := map[string]string{
 		"FooBarBaz": "foo_bar_baz",
 		"FOOBarBaz": "foo_bar_baz",
@@ -31,10 +31,11 @@ func TestUnCamelCase(t *testing.T) {
 		"T":         "t",
 		"t":         "t",
 		"Id":        "id",
+		"FóoBar":    "fóo_bar",
 	}
 	for k, v := range cases {
-		if u := UnCamelCase(k, "_"); u != v {
-			t.Errorf("Error uncamelcasing %q. Want %q, got %q.", k, v, u)
+		if u := CamelCaseToLower(k, "_"); u != v {
+			t.Errorf("Error transforming camel case %q to lower. Want %q, got %q.", k, v, u)
 		}
 	}
 }

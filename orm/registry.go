@@ -140,7 +140,7 @@ func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix 
 		}
 		if name == "" {
 			// Default name
-			name = util.UnCamelCase(field.Name, "_")
+			name = util.CamelCaseToLower(field.Name, "_")
 		}
 		name = dbPrefix + name
 		if _, ok := fields.NameMap[name]; ok {
@@ -213,7 +213,7 @@ func (o *Orm) name(typ reflect.Type) string {
 	if p := typ.PkgPath(); p != "main" {
 		n = strings.Replace(p, "/", "_", -1) + n
 	}
-	return util.UnCamelCase(n, "_")
+	return util.CamelCaseToLower(n, "_")
 }
 
 // returns wheter the kind defaults to nullzero option

@@ -52,11 +52,11 @@ func Filename() string {
 }
 
 func fileParameterName(name string) string {
-	return util.UnCamelCase(name, "_")
+	return util.CamelCaseToLower(name, "_")
 }
 
 func flagParameterName(name string) string {
-	return util.UnCamelCase(name, "-")
+	return util.CamelCaseToLower(name, "-")
 }
 
 func parseValue(v reflect.Value, raw string) error {

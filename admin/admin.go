@@ -1,11 +1,11 @@
 package admin
 
 import (
+	"flag"
 	"fmt"
 	"gondola/log"
 	"gondola/mux"
 	"gondola/util"
-	"flag"
 	"os"
 	"reflect"
 	"runtime"
@@ -51,7 +51,7 @@ func Register(cmds ...*Command) {
 				log.Fatalf("Could not determine name for function %v. Please, use admin.N() or admin.NH() to provide a name.", c.Handler)
 			}
 		}
-		cmdName := util.UnCamelCase(c.Name, "-")
+		cmdName := util.CamelCaseToLower(c.Name, "-")
 		if _, ok := commands[cmdName]; ok {
 			log.Fatalf("Duplicate command name %q", c.Name)
 		}

@@ -3,7 +3,7 @@ package codec
 import (
 	"encoding/json"
 	"fmt"
-	"gondola/orm/tag"
+	"gondola/types"
 	"reflect"
 )
 
@@ -32,10 +32,10 @@ func (c *jsonCodec) Try(typ reflect.Type, tags []string) error {
 		for ii := 0; ii < typ.NumField(); ii++ {
 			field := typ.Field(ii)
 			if field.PkgPath != "" {
-				t := tag.New(field, tags)
+				t := types.NewTag(field, tags)
 				if t.IsEmpty() || t.Name() == "" {
 					// Try json tag
-					t = tag.NewNamed(field, "json")
+					t = types.NewTagNamed(field, "json")
 				}
 				if t.Name() != "-" {
 					return fmt.Errorf("%v contains unexported field %q. Tag it with the name \"-\" to explicitely ignore it.", typ, field.Name)

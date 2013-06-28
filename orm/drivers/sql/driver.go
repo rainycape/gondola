@@ -55,7 +55,7 @@ func (d *Driver) MakeTables(ms []driver.Model) error {
 }
 
 func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) driver.Iter {
-	query, params, err := d.Select(m.Fields().Names, true, m, q, limit, offset, sort, sortField)
+	query, params, err := d.Select(m.Fields().MNames, true, m, q, limit, offset, sort, sortField)
 	if err != nil {
 		return &Iter{err: err}
 	}
@@ -191,7 +191,7 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 		val = val.Elem()
 	}
 	fields := m.Fields()
-	max := len(fields.Names)
+	max := len(fields.MNames)
 	names := make([]string, 0, max)
 	values := make([]interface{}, 0, max)
 	var err error
@@ -217,7 +217,7 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 					fval = f.Interface()
 				}
 			}
-			names = append(names, fields.Names[ii])
+			names = append(names, fields.MNames[ii])
 			values = append(values, fval)
 		}
 	} else {
@@ -237,7 +237,7 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 					fval = f.Interface()
 				}
 			}
-			names = append(names, fields.Names[ii])
+			names = append(names, fields.MNames[ii])
 			values = append(values, fval)
 		}
 	}
@@ -285,7 +285,7 @@ func (d *Driver) outValues(m driver.Model, out interface{}) ([]interface{}, []sc
 
 func (d *Driver) tableFields(m driver.Model) ([]string, error) {
 	fields := m.Fields()
-	names := fields.Names
+	names := fields.MNames
 	types := fields.Types
 	tags := fields.Tags
 	dbFields := make([]string, len(names))

@@ -6,7 +6,6 @@ import (
 )
 
 type model struct {
-	typ       reflect.Type
 	options   *Options
 	tableName string
 	fields    *driver.Fields
@@ -14,7 +13,7 @@ type model struct {
 }
 
 func (m *model) Type() reflect.Type {
-	return m.typ
+	return m.fields.Type
 }
 
 func (m *model) TableName() string {

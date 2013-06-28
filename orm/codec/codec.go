@@ -2,7 +2,7 @@ package codec
 
 import (
 	"fmt"
-	"gondola/orm/tag"
+	"gondola/types"
 	"reflect"
 )
 
@@ -52,6 +52,6 @@ func Get(name string) Codec {
 }
 
 // FromTag returns the codec for a given field tag.
-func FromTag(t *tag.Tag) Codec {
+func FromTag(t *types.Tag) Codec {
 	return registry[t.CodecName()]
 }

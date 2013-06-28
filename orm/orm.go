@@ -123,7 +123,7 @@ func (o *Orm) insert(m *model, obj interface{}) (Result, error) {
 		id, err := res.LastInsertId()
 		if err == nil && id != 0 {
 			if o.logger != nil {
-				o.logger.Debugf("Setting primary key %q to %d on model %v", pkName, id, m.typ)
+				o.logger.Debugf("Setting primary key %q to %d on model %v", pkName, id, m.Type())
 			}
 			pkVal.SetInt(id)
 		} else if err != nil && o.logger != nil {

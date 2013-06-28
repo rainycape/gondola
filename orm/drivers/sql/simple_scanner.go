@@ -3,14 +3,14 @@ package sql
 import (
 	"fmt"
 	"gondola/orm/codec"
-	"gondola/orm/tag"
+	"gondola/types"
 	"reflect"
 	"time"
 )
 
 type simpleScanner struct {
 	Out *reflect.Value
-	Tag *tag.Tag
+	Tag *types.Tag
 }
 
 var simpleScannerPool = make(chan *simpleScanner, 64)
@@ -63,7 +63,7 @@ func (s *simpleScanner) Put() {
 	}
 }
 
-func Scanner(val *reflect.Value, t *tag.Tag) scanner {
+func Scanner(val *reflect.Value, t *types.Tag) scanner {
 	var s *simpleScanner
 	select {
 	case s = <-simpleScannerPool:

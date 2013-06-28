@@ -1,4 +1,4 @@
-package tag
+package types
 
 import (
 	"reflect"
@@ -46,16 +46,16 @@ func makeTag(tag string) *Tag {
 	return &Tag{name, values}
 }
 
-func New(field reflect.StructField, alternatives []string) *Tag {
+func NewTag(field reflect.StructField, alternatives []string) *Tag {
 	for _, v := range alternatives {
 		t := field.Tag.Get(v)
 		if t != "" {
 			return makeTag(t)
 		}
 	}
-	return makeTag(field.Tag.Get("orm"))
+	return makeTag("")
 }
 
-func NewNamed(field reflect.StructField, name string) *Tag {
+func NewTagNamed(field reflect.StructField, name string) *Tag {
 	return makeTag(field.Tag.Get(name))
 }

@@ -80,3 +80,17 @@ func testLoadSaveMethodsErrors(t *testing.T, o *Orm) {
 func TestLoadSaveMethodsErrors(t *testing.T) {
 	runTest(t, testLoadSaveMethodsErrors)
 }
+
+func BenchmarkLoadSaveMethods(b *testing.B) {
+	o := newMemoryOrm(b)
+	defer o.Close()
+	tbl := o.MustRegister((*Object)(nil), &Options{
+		TableName: "test_load_save_benchmark",
+	})
+	b.ResetTimer()
+	m := tbl.model.fields.Methods
+	obj := &Object{}
+	for ii := 0; ii < b.N; ii++ {
+		m.Load(obj)
+	}
+}

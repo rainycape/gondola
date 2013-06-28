@@ -7,7 +7,7 @@ import (
 	"gondola/orm/codec"
 	"gondola/orm/driver"
 	"gondola/orm/drivers/sql"
-	"gondola/orm/tag"
+	"gondola/types"
 	"reflect"
 	"strconv"
 	"strings"
@@ -49,7 +49,7 @@ func (b *Backend) Placeholders(n int) string {
 func (b *Backend) Insert(db sql.DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
 	fields := m.Fields()
 	if fields.IntegerAutoincrementPk {
-		query += " RETURNING " + fields.Names[fields.PrimaryKey]
+		query += " RETURNING " + fields.MNames[fields.PrimaryKey]
 		var id int64
 		err := db.QueryRow(query, args...).Scan(&id)
 		if err != nil {
@@ -95,7 +95,7 @@ func (b *Backend) Index(db sql.DB, m driver.Model, idx driver.Index, name string
 	return err
 }
 
-func (b *Backend) FieldType(typ reflect.Type, t *tag.Tag) (string, error) {
+func (b *Backend) FieldType(typ reflect.Type, t *types.Tag) (string, error) {
 	if c := codec.FromTag(t); c != nil {
 		// TODO: Use type JSON on Postgresql >= 9.2 for JSON encoded fields
 		if c.Binary() {
@@ -165,7 +165,7 @@ func (b *Backend) FieldType(typ reflect.Type, t *tag.Tag) (string, error) {
 	return "", fmt.Errorf("can't map field type %v to a database type", typ)
 }
 
-func (b *Backend) FieldOptions(typ reflect.Type, t *tag.Tag) ([]string, error) {
+func (b *Backend) FieldOptions(typ reflect.Type, t *types.Tag) ([]string, error) {
 	var opts []string
 	if t.Has("notnull") {
 		opts = append(opts, "NOT NULL")
@@ -188,27 +188,27 @@ func (b *Backend) Transforms() []reflect.Type {
 	return transformedTypes
 }
 
-func (b *Backend) ScanInt(val int64, goVal *reflect.Value, t *tag.Tag) error {
+func (b *Backend) ScanInt(val int64, goVal *reflect.Value, t *types.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanFloat(val float64, goVal *reflect.Value, t *tag.Tag) error {
+func (b *Backend) ScanFloat(val float64, goVal *reflect.Value, t *types.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanBool(val bool, goVal *reflect.Value, t *tag.Tag) error {
+func (b *Backend) ScanBool(val bool, goVal *reflect.Value, t *types.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, t *tag.Tag) error {
+func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, t *types.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanString(val string, goVal *reflect.Value, t *tag.Tag) error {
+func (b *Backend) ScanString(val string, goVal *reflect.Value, t *types.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, t *tag.Tag) error {
+func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, t *types.Tag) error {
 	goVal.Set(reflect.ValueOf(val.UTC()))
 	return nil
 }

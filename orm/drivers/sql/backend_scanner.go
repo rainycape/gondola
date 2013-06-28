@@ -2,14 +2,14 @@ package sql
 
 import (
 	"fmt"
-	"gondola/orm/tag"
+	"gondola/types"
 	"reflect"
 	"time"
 )
 
 type backendScanner struct {
 	Out     *reflect.Value
-	Tag     *tag.Tag
+	Tag     *types.Tag
 	Backend Backend
 }
 
@@ -43,7 +43,7 @@ func (s *backendScanner) Put() {
 	}
 }
 
-func BackendScanner(val *reflect.Value, t *tag.Tag, backend Backend) scanner {
+func BackendScanner(val *reflect.Value, t *types.Tag, backend Backend) scanner {
 	var s *backendScanner
 	select {
 	case s = <-backendScannerPool:

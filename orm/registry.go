@@ -5,7 +5,7 @@ import (
 	"gondola/log"
 	"gondola/orm/codec"
 	"gondola/orm/driver"
-	"gondola/orm/tag"
+	"gondola/types"
 	"gondola/util"
 	"reflect"
 	"strings"
@@ -32,36 +32,34 @@ var (
 // object returned to specify on which table you want to operate. If
 // no table is specified, the first registered table will be used.
 func (o *Orm) Register(t interface{}, opt *Options) (*Table, error) {
+	s, err := types.NewStruct(t, o.dtags())
+	if err != nil {
+		switch err {
+		case types.ErrNoStruct:
+			return nil, fmt.Errorf("only structs can be registered as models (tried to register %T)", t)
+		case types.ErrNoFields:
+			return nil, fmt.Errorf("type %T has no fields", t)
+		}
+		return nil, err
+	}
 	var name string
 	if opt != nil {
 		name = opt.TableName
-	}
-	typ := reflect.TypeOf(t)
-	for typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
-	}
-	if typ.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("only structs can be registered as models (tried to register %T)", t)
-	}
-	if typ.NumField() == 0 {
-		return nil, fmt.Errorf("type %T has no fields", t)
-	}
-	if name == "" {
-		name = o.name(typ)
+	} else {
+		name = defaultName(s.Type)
 	}
 	if _nameRegistry[o.tags] == nil {
 		_nameRegistry[o.tags] = nameRegistry{}
 		_typeRegistry[o.tags] = typeRegistry{}
 	}
 	if _, ok := _nameRegistry[o.tags][name]; ok {
-		return nil, fmt.Errorf("duplicate model name %q", name)
+		return nil, fmt.Errorf("duplicate ORM model name %q", name)
 	}
-	fields, err := o.fields(typ)
+	fields, err := o.fields(s)
 	if err != nil {
 		return nil, err
 	}
 	model := &model{
-		typ:       typ,
 		fields:    fields,
 		options:   opt,
 		tableName: name,
@@ -69,6 +67,7 @@ func (o *Orm) Register(t interface{}, opt *Options) (*Table, error) {
 	}
 	_nameRegistry[o.tags][name] = model
 	// The first registered table is the default for the type
+	typ := model.Type()
 	if _, ok := _typeRegistry[o.tags][typ]; !ok {
 		_typeRegistry[o.tags][typ] = model
 	}
@@ -106,117 +105,65 @@ func (o *Orm) MustCommitTables() {
 	}
 }
 
-func (o *Orm) fields(typ reflect.Type) (*driver.Fields, error) {
-	methods, err := driver.MakeMethods(typ)
+func (o *Orm) fields(s *types.Struct) (*driver.Fields, error) {
+	methods, err := driver.MakeMethods(s.Type)
 	if err != nil {
 		return nil, err
 	}
 	fields := &driver.Fields{
-		NameMap:    make(map[string]int),
-		QNameMap:   make(map[string]int),
+		Struct:     s,
 		PrimaryKey: -1,
 		Methods:    methods,
 	}
-	if err := o._fields(typ, fields, "", "", nil); err != nil {
-		return nil, err
-	}
-	return fields, nil
-}
-
-func (o *Orm) _fields(typ reflect.Type, fields *driver.Fields, prefix, dbPrefix string, index []int) error {
-	n := typ.NumField()
-	dtags := o.driver.Tags()
-	for ii := 0; ii < n; ii++ {
-		field := typ.Field(ii)
-		if field.PkgPath != "" {
-			// Unexported
-			continue
-		}
-		ftag := tag.New(field, dtags)
-		name := ftag.Name()
-		if name == "-" {
-			// Ignored field
-			continue
-		}
-		if name == "" {
-			// Default name
-			name = util.CamelCaseToLower(field.Name, "_")
-		}
-		name = dbPrefix + name
-		if _, ok := fields.NameMap[name]; ok {
-			return fmt.Errorf("duplicate field %q in struct %v", name, typ)
-		}
-		qname := prefix + field.Name
-		// Check type
-		t := field.Type
-		for t.Kind() == reflect.Ptr {
-			t = t.Elem()
-		}
+	for ii, v := range s.QNames {
+		t := s.Types[ii]
 		k := t.Kind()
+		ftag := s.Tags[ii]
 		// Check encoded types
 		if c := codec.FromTag(ftag); c != nil {
-			if err := c.Try(t, dtags); err != nil {
-				return fmt.Errorf("can't encode field %q as %s: %s", qname, c.Name(), err)
+			if err := c.Try(t, o.dtags()); err != nil {
+				return nil, fmt.Errorf("can't encode field %q as %s: %s", v, c.Name(), err)
 			}
 		} else if ftag.CodecName() != "" {
-			return fmt.Errorf("can't find ORM codec %q. Perhaps you missed an import?", ftag.CodecName())
+			return nil, fmt.Errorf("can't find ORM codec %q. Perhaps you missed an import?", ftag.CodecName())
 		} else {
 			switch k {
 			case reflect.Array, reflect.Chan, reflect.Func, reflect.Interface, reflect.Map:
-				return fmt.Errorf("field %q in struct %v has invalid type %v", field.Name, typ, k)
-			case reflect.Struct:
-				// Inner struct
-				idx := make([]int, len(index))
-				copy(idx, index)
-				idx = append(idx, field.Index[0])
-				if t.Name() != "Time" || t.PkgPath() != "time" {
-					prefix := dbPrefix
-					if !ftag.Has("inline") {
-						prefix += name + "_"
-					}
-					err := o._fields(t, fields, qname+".", prefix, idx)
-					if err != nil {
-						return err
-					}
-					continue
-				}
+				return nil, fmt.Errorf("field %q in struct %v has invalid type %v", v, t, k)
 			}
 		}
-		idx := make([]int, len(index))
-		copy(idx, index)
-		idx = append(idx, field.Index[0])
-		fields.Names = append(fields.Names, name)
-		fields.QNames = append(fields.QNames, qname)
 		fields.OmitZero = append(fields.OmitZero, ftag.Has("omitzero") || (ftag.Has("auto_increment") && !ftag.Has("notomitzero")))
+		// Struct has flattened types, but we need to original type
+		// to determine if it should be nullzero by default
+		field := s.Type.FieldByIndex(s.Indexes[ii])
 		fields.NullZero = append(fields.NullZero, ftag.Has("nullzero") || (defaultsToNullZero(field.Type.Kind(), ftag) && !ftag.Has("notnullzero")))
-		fields.Indexes = append(fields.Indexes, idx)
-		fields.Tags = append(fields.Tags, ftag)
-		fields.Types = append(fields.Types, t)
-		p := len(fields.Names) - 1
-		fields.NameMap[name] = p
-		fields.QNameMap[qname] = p
 		if ftag.Has("primary_key") {
 			if fields.PrimaryKey >= 0 {
-				return fmt.Errorf("duplicate primary_key in struct %v (%s and %s)", typ, fields.Names[fields.PrimaryKey], name)
+				return nil, fmt.Errorf("duplicate primary_key in struct %v (%s and %s)", s.Type, s.QNames[fields.PrimaryKey], v)
 			}
-			fields.PrimaryKey = len(fields.Names) - 1
+			fields.PrimaryKey = ii
 			if ftag.Has("auto_increment") && (k == reflect.Int || k == reflect.Int8 || k == reflect.Int16 || k == reflect.Int32 || k == reflect.Int64) {
 				fields.IntegerAutoincrementPk = true
 			}
 		}
 	}
-	return nil
+	return fields, nil
 }
 
-func (o *Orm) name(typ reflect.Type) string {
+func (o *Orm) dtags() []string {
+	return append(o.driver.Tags(), "orm")
+}
+
+// returns wheter the kind defaults to nullzero option
+func defaultsToNullZero(k reflect.Kind, t *types.Tag) bool {
+	return k == reflect.Slice || k == reflect.Ptr || k == reflect.Interface
+}
+
+// Returns the default name for a type
+func defaultName(typ reflect.Type) string {
 	n := typ.Name()
 	if p := typ.PkgPath(); p != "main" {
 		n = strings.Replace(p, "/", "_", -1) + n
 	}
 	return util.CamelCaseToLower(n, "_")
-}
-
-// returns wheter the kind defaults to nullzero option
-func defaultsToNullZero(k reflect.Kind, t *tag.Tag) bool {
-	return k == reflect.Slice || k == reflect.Ptr || k == reflect.Interface
 }

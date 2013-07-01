@@ -70,8 +70,8 @@ func SendVia(server, from, to, message string, headers Headers, attachments []*A
 	}
 	buf := bytes.NewBuffer(nil)
 	if headers == nil {
-	    headers = make(Headers)
-	    headers["To"] = to
+		headers = make(Headers)
+		headers["To"] = to
 	}
 	for k, v := range headers {
 		buf.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))

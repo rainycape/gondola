@@ -23,6 +23,16 @@ func (t *Tag) Value(key string) string {
 	return t.values[key]
 }
 
+func (t *Tag) IntValue(key string) (int, bool) {
+	v := t.Value(key)
+	if v != "" {
+		var val int
+		ret := Parse(t.Value(key), &val)
+		return val, ret == nil
+	}
+	return 0, false
+}
+
 func (t *Tag) CodecName() string {
 	return t.Value("codec")
 }

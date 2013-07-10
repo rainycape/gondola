@@ -5,7 +5,7 @@ import (
 )
 
 func TestPassword(t *testing.T) {
-	pw := "whatever"
+	pw := "gondola"
 	for _, v := range []Hash{SHA1, SHA224, SHA256, SHA384, SHA512} {
 		p := NewHashed(pw, v)
 		t.Logf("Password %q was encoded using %s as %q", pw, v.Name(), p.String())

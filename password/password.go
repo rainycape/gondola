@@ -11,7 +11,7 @@ import (
 
 var (
 	ErrNoMatch             = errors.New("password does not match")
-	ErrInvalidFieldCount   = errors.New("password does not have 3 fields")
+	ErrInvalidFieldCount   = errors.New("encoded password does not have 3 fields")
 	ErrInvalidSaltLength   = errors.New("salt does not have the same length as the hash output")
 	ErrInvalidHashedLength = errors.New("hashed password does not have the same length as the hash output")
 	ErrInvalidHex          = errors.New("hashed password is not properly encoded")
@@ -19,7 +19,7 @@ var (
 
 // Password represents an encoded password, which can be stored
 // as a string and then used to verify if the user provided
-// password.
+// password matches the stored one.
 type Password string
 
 func (p Password) field(idx int) string {
@@ -74,14 +74,15 @@ func (p Password) String() string {
 
 // Valid returns true iff the password is a correctly encoded password.
 // This means it has a hash that is available and the salt and hashed
-// data have the same length as the hash.
+// data have the same length as the hash output.
 func (p Password) Valid() bool {
 	_, _, err := p.validate()
 	return err == nil
 }
 
 // Check returns nil if the password could be verified without
-// any erorrs. This function performs a constant time comparison,
+// any errors and it matches the provided plain text password.
+// This function performs a constant time comparison,
 // so it's not vulnerable to timing attacks.
 func (p Password) Check(plain string) error {
 	decoded, hash, err := p.validate()

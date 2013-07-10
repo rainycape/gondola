@@ -9,6 +9,7 @@ import (
 	"hash"
 )
 
+// Type Hash represents a hash algorithm for hashing passwords.
 type Hash uint
 
 const (
@@ -52,7 +53,8 @@ func (h Hash) New() hash.Hash {
 	return crypto.Hash(h).New()
 }
 
-// HashNamed returns the hash with the given name.
+// HashNamed returns the hash with the given name. If no hash
+// with that name is found, an error is returned.
 func HashNamed(name string) (Hash, error) {
 	switch name {
 	case "sha1":

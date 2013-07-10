@@ -60,6 +60,9 @@ func Register(cmds ...*Command) {
 }
 
 func Perform(m *mux.Mux) bool {
+	if !flag.Parsed() {
+		flag.Parse()
+	}
 	args := flag.Args()
 	if len(args) > 0 {
 		cmd := strings.ToLower(args[0])

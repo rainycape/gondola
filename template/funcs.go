@@ -138,15 +138,15 @@ func and(args ...interface{}) bool {
 	return true
 }
 
-func or(args ...interface{}) bool {
+func or(args ...interface{}) interface{} {
 	for _, v := range args {
 		val := reflect.ValueOf(v)
 		t, _ := types.IsTrue(val)
 		if t {
-			return true
+			return v
 		}
 	}
-	return false
+	return nil
 }
 
 func not(arg interface{}) bool {

@@ -2,6 +2,7 @@ package html
 
 import (
 	"gondola/types"
+	"io"
 	"strings"
 )
 
@@ -24,6 +25,75 @@ func (a Attrs) Remove(key, value string) {
 			a[key] = val
 		}
 	}
+}
+
+func (a Attrs) WriteTo(w io.Writer) (int, error) {
+	if sw, ok := w.(stringWriter); ok {
+		return a.writeToStringWriter(sw)
+	}
+	return a.writeTo(w)
+}
+
+func (a Attrs) writeTo(w io.Writer) (int, error) {
+	t := 0
+	for k, v := range a {
+		_, err := w.Write([]byte{' '})
+		if err != nil {
+			return 0, err
+		}
+		t += 1
+		c, err := w.Write([]byte(k))
+		if err != nil {
+			return 0, err
+		}
+		t += c
+		_, err = w.Write([]byte{'=', '"'})
+		if err != nil {
+			return 0, err
+		}
+		t += 1
+		c, err = w.Write([]byte(Escape(v)))
+		if err != nil {
+			return 0, err
+		}
+		t += c
+		_, err = w.Write([]byte{'"'})
+		if err != nil {
+			return 0, err
+		}
+	}
+	return t, nil
+}
+
+func (a Attrs) writeToStringWriter(w stringWriter) (int, error) {
+	t := 0
+	for k, v := range a {
+		_, err := w.WriteString(" ")
+		if err != nil {
+			return 0, err
+		}
+		t += 1
+		c, err := w.WriteString(k)
+		if err != nil {
+			return 0, err
+		}
+		t += c
+		_, err = w.WriteString("=\"")
+		if err != nil {
+			return 0, err
+		}
+		t += 1
+		c, err = w.WriteString(Escape(v))
+		if err != nil {
+			return 0, err
+		}
+		t += c
+		_, err = w.WriteString("\"")
+		if err != nil {
+			return 0, err
+		}
+	}
+	return t, nil
 }
 
 func (n *Node) Attr(name string) string {

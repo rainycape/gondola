@@ -23,13 +23,18 @@ func tag(tag string, children *Node) *Node {
 }
 
 func ttag(tag, text string) *Node {
-	return &Node{
-		Type: TAG_NODE,
-		Tag:  tag,
-		Children: &Node{
+	var children *Node
+	if text != "" {
+		children = &Node{
 			Type:    TEXT_NODE,
 			Content: text,
-		},
+		}
+
+	}
+	return &Node{
+		Type:     TAG_NODE,
+		Tag:      tag,
+		Children: children,
 	}
 }
 
@@ -82,4 +87,20 @@ func Caption(text string) *Node {
 
 func Div(children ...*Node) *Node {
 	return container("div", children)
+}
+
+func Em(text string) *Node {
+	return ttag("em", text)
+}
+
+func P(children ...*Node) *Node {
+	return container("p", children)
+}
+
+func Small(text string) *Node {
+	return ttag("small", text)
+}
+
+func Span(text string) *Node {
+	return ttag("span", text)
 }

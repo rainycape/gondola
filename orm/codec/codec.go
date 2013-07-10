@@ -37,7 +37,7 @@ type Codec interface {
 }
 
 // Register registers a new Codec into the codec registry.
-// If there's already a codec with that name, it will panic.
+// If there's already a codec with the same name, it will panic.
 func Register(c Codec) {
 	name := c.Name()
 	if _, ok := registry[name]; ok {
@@ -46,7 +46,7 @@ func Register(c Codec) {
 	registry[name] = c
 }
 
-// Get returns the codec name with name.
+// Get returns the codec with the give name, or nil if there's no such codec.
 func Get(name string) Codec {
 	return registry[name]
 }

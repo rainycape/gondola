@@ -12,12 +12,12 @@ import (
 type Hash uint
 
 const (
-	SHA1         Hash = Hash(crypto.SHA1)
-	SHA224       Hash = Hash(crypto.SHA224)
-	SHA256       Hash = Hash(crypto.SHA256)
-	SHA384       Hash = Hash(crypto.SHA384)
-	SHA512            = Hash(crypto.SHA512)
-	DEFAULT_HASH      = SHA256
+	SHA1         = Hash(crypto.SHA1)
+	SHA224       = Hash(crypto.SHA224)
+	SHA256       = Hash(crypto.SHA256)
+	SHA384       = Hash(crypto.SHA384)
+	SHA512       = Hash(crypto.SHA512)
+	DEFAULT_HASH = SHA256
 )
 
 // Name returns the name of the hash.

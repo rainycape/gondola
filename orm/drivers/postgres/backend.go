@@ -123,14 +123,12 @@ func (b *Backend) FieldType(typ reflect.Type, t *types.Tag) (string, error) {
 		} else if t.Has("inet") {
 			ft = "INET"
 		} else {
-			if ml := t.Value("max_length"); ml != "" {
-				ft = fmt.Sprintf("VARCHAR (%s)", ml)
+			if ml, ok := t.IntValue("max_length"); ok {
+				ft = fmt.Sprintf("VARCHAR (%d)", ml)
+			} else if fl, ok := t.IntValue("length"); ok {
+				ft = fmt.Sprintf("CHAR (%d)", fl)
 			} else {
-				if fl := t.Value("length"); fl != "" {
-					ft = fmt.Sprintf("CHAR (%s)", fl)
-				} else {
-					ft = "TEXT"
-				}
+				ft = "TEXT"
 			}
 		}
 	case reflect.Slice:

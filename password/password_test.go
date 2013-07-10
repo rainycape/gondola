@@ -6,10 +6,12 @@ import (
 
 func TestPassword(t *testing.T) {
 	pw := "whatever"
-	p := New(pw)
-	t.Logf("Password %q was encoded as %q", pw, p.String())
-	if err := p.Check(pw); err != nil {
-		t.Errorf("Error verifying password %q: %s", pw, err)
+	for _, v := range []Hash{SHA1, SHA224, SHA256, SHA384, SHA512} {
+		p := NewHashed(pw, v)
+		t.Logf("Password %q was encoded using %s as %q", pw, v.Name(), p.String())
+		if err := p.Check(pw); err != nil {
+			t.Errorf("Error verifying password %q using %s: %s", pw, v.Name(), err)
+		}
 	}
 }
 

@@ -1,5 +1,3 @@
-// Package password contains function for securely storing
-// and verifying passwords.
 package password
 
 import (

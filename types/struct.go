@@ -89,7 +89,11 @@ func fields(typ reflect.Type, tags []string, s *Struct, qprefix, mprefix string,
 		for t.Kind() == reflect.Ptr {
 			t = t.Elem()
 		}
-		if t.Kind() == reflect.Struct {
+		// TODO: The ORM needs the fields tagged with a codec
+		// to not be broken into their members. Make this a
+		// parameter, since other users of this function
+		// might want all the fields.
+		if t.Kind() == reflect.Struct && !ftag.Has("codec") {
 			// Inner struct
 			idx := make([]int, len(index))
 			copy(idx, index)

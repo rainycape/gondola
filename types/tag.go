@@ -69,3 +69,8 @@ func NewTag(field reflect.StructField, alternatives []string) *Tag {
 func NewTagNamed(field reflect.StructField, name string) *Tag {
 	return makeTag(field.Tag.Get(name))
 }
+
+func NewStringTagNamed(tag string, name string) *Tag {
+	t := reflect.StructTag(tag)
+	return makeTag(t.Get(name))
+}

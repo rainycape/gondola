@@ -3,6 +3,7 @@ package astutil
 import (
 	"go/ast"
 	"go/token"
+	"strconv"
 )
 
 func Selector(expr ast.Expr) (x string, sel string) {
@@ -36,8 +37,11 @@ func Ident(n ast.Expr) string {
 func StringLiteral(f *token.FileSet, n ast.Expr) (string, *token.Position) {
 	if lit, ok := n.(*ast.BasicLit); ok {
 		if lit.Kind == token.STRING {
-			pos := f.Position(lit.Pos())
-			return unquote(lit.Value), &pos
+			unquoted, err := strconv.Unquote(lit.Value)
+			if err == nil {
+				pos := f.Position(lit.Pos())
+				return unquoted, &pos
+			}
 		}
 	}
 	if bin, ok := n.(*ast.BinaryExpr); ok && bin.Op == token.ADD {

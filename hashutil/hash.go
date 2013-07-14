@@ -1,4 +1,5 @@
-package util
+// Package hashutil provides utility functions for hashing data.
+package hashutil
 
 import (
 	"crypto"

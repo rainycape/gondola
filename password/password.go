@@ -72,10 +72,10 @@ func (p Password) String() string {
 	return string(p)
 }
 
-// Valid returns true iff the password is a correctly encoded password.
+// IsValid returns true iff the password is a correctly encoded password.
 // This means it has a hash that is available and the salt and hashed
 // data have the same length as the hash output.
-func (p Password) Valid() bool {
+func (p Password) IsValid() bool {
 	_, _, err := p.validate()
 	return err == nil
 }

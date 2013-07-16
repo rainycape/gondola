@@ -68,7 +68,7 @@ func In(field string, value interface{}) query.Q {
 }
 
 func And(qs ...query.Q) query.Q {
-	return query.And{
+	return &query.And{
 		Combinator: query.Combinator{
 			Conditions: qs,
 		},
@@ -76,7 +76,7 @@ func And(qs ...query.Q) query.Q {
 }
 
 func Or(qs ...query.Q) query.Q {
-	return query.Or{
+	return &query.Or{
 		Combinator: query.Combinator{
 			Conditions: qs,
 		},

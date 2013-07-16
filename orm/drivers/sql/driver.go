@@ -13,6 +13,10 @@ import (
 	"strings"
 )
 
+var (
+	stringType = reflect.TypeOf("")
+)
+
 type Driver struct {
 	db         *db
 	logger     *log.Logger
@@ -201,8 +205,9 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 			if fields.OmitZero[ii] && driver.IsZero(f) {
 				continue
 			}
+			ft := f.Type()
 			var fval interface{}
-			if _, ok := d.transforms[f.Type()]; ok {
+			if _, ok := d.transforms[ft]; ok {
 				fval, err = d.backend.TransformOutValue(f)
 				if err != nil {
 					return val, nil, nil, err
@@ -214,6 +219,10 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 						return val, nil, nil, err
 					}
 				} else {
+					// Most sql drivers won't accept aliases for string type
+					if ft.Kind() == reflect.String && ft != stringType {
+						f = f.Convert(stringType)
+					}
 					fval = f.Interface()
 				}
 			}
@@ -234,6 +243,11 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 						return val, nil, nil, err
 					}
 				} else {
+					ft := f.Type()
+					// Most sql drivers won't accept aliases for string type
+					if ft.Kind() == reflect.String && ft != stringType {
+						f = f.Convert(stringType)
+					}
 					fval = f.Interface()
 				}
 			}

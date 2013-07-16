@@ -114,7 +114,6 @@ func mult(args ...interface{}) (float64, error) {
 
 func concat(args ...interface{}) string {
 	s := make([]string, len(args))
-	var s []string
 	for ii, v := range args {
 		s[ii] = types.ToString(v)
 	}

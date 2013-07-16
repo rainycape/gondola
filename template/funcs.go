@@ -129,8 +129,7 @@ func concat(args ...interface{}) string {
 
 func and(args ...interface{}) bool {
 	for _, v := range args {
-		val := reflect.ValueOf(v)
-		t, _ := types.IsTrue(val)
+		t, _ := types.IsTrue(v)
 		if !t {
 			return false
 		}
@@ -140,8 +139,7 @@ func and(args ...interface{}) bool {
 
 func or(args ...interface{}) interface{} {
 	for _, v := range args {
-		val := reflect.ValueOf(v)
-		t, _ := types.IsTrue(val)
+		t, _ := types.IsTrue(v)
 		if t {
 			return v
 		}
@@ -150,8 +148,7 @@ func or(args ...interface{}) interface{} {
 }
 
 func not(arg interface{}) bool {
-	val := reflect.ValueOf(arg)
-	t, _ := types.IsTrue(val)
+	t, _ := types.IsTrue(arg)
 	return !t
 }
 

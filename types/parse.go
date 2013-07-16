@@ -18,18 +18,17 @@ import (
 // the parsed value would overflow the given type, the maximum value
 // (or minimum, if it's negative) for the type will be set.
 func Parse(val string, arg interface{}) error {
+	v, err := SettableValue(arg)
+	if err != nil {
+		return err
+	}
+	return parse(val, v)
+}
+
+func parse(val string, v reflect.Value) error {
 	// If val is empty, do nothing
 	if val == "" {
 		return nil
-	}
-	v := reflect.ValueOf(arg)
-	for v.Type().Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	if !v.CanSet() {
-		return fmt.Errorf("Invalid argument type passed to Parse(). Please pass %s instead of %s.",
-			reflect.PtrTo(v.Type()), v.Type())
-
 	}
 	switch v.Type().Kind() {
 	case reflect.Bool:

@@ -2,15 +2,32 @@ package util
 
 import (
 	"crypto/rand"
+	"fmt"
 	"io"
 )
 
-// RandomString returns a random string with the given length
-// The alphabet used includes all lowercase and uppercase ascii
-// letters and the numbers
+const (
+	alphanumeric = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ0123456789"
+	printable    = "!\"#$%'()*+,-./0123456789:;<=>?@ABCDEFGHJKLMNPQRSTUVWXYZ[\\]^_`abcdefghjkmnpqrstuvwxyz"
+)
+
+// Most code in this file is adapted from https://github.com/dchest/uniuri
+
+// RandomString returns a random string with the given length.
+// The alphabet used includes ASCII lowercase and uppercase
+// letters and numbers.
 func RandomString(length int) string {
-	/* From https://github.com/dchest/uniuri/blob/master/uniuri.go */
-	chars := "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ0123456789"
+	return randomString(length, alphanumeric)
+}
+
+// RandomPrintableString returns a random string with the
+// given length, using all the ASCII printable characters
+// as the alphabet.
+func RandomPrintableString(length int) string {
+	return randomString(length, printable)
+}
+
+func randomString(length int, chars string) string {
 	b := make([]byte, length)
 	r := make([]byte, length+(length/4)) // storage for random bytes.
 	clen := byte(len(chars))
@@ -18,7 +35,7 @@ func RandomString(length int) string {
 	i := 0
 	for {
 		if _, err := io.ReadFull(rand.Reader, r); err != nil {
-			panic("error reading from random source: " + err.Error())
+			panic(fmt.Errorf("error reading from random source: %s", err))
 		}
 		for _, c := range r {
 			if c >= maxrb {

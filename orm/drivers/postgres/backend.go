@@ -49,13 +49,15 @@ func (b *Backend) Placeholders(n int) string {
 func (b *Backend) Insert(db sql.DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
 	fields := m.Fields()
 	if fields.IntegerAutoincrementPk {
-		query += " RETURNING " + fields.MNames[fields.PrimaryKey]
+		q := query + " RETURNING " + fields.MNames[fields.PrimaryKey]
 		var id int64
-		err := db.QueryRow(query, args...).Scan(&id)
-		if err != nil {
-			return nil, err
+		err := db.QueryRow(q, args...).Scan(&id)
+		// We need to perform a "real" insert to find the real error, so
+		// just let the code fall to the Exec at the end of the function
+		// if there's an error.
+		if err == nil {
+			return insertResult(id), nil
 		}
-		return insertResult(id), nil
 	}
 	return db.Exec(query, args...)
 }

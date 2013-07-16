@@ -2,6 +2,11 @@ package driver
 
 import (
 	"reflect"
+	"time"
+)
+
+var (
+	timeType = reflect.TypeOf(time.Time{})
 )
 
 func IsZero(val reflect.Value) bool {
@@ -21,6 +26,9 @@ func IsZero(val reflect.Value) bool {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		return val.Uint() == 0
 	case reflect.Struct:
+		if val.Type() == timeType {
+			return val.Interface().(time.Time).IsZero()
+		}
 		return false
 	}
 	return true

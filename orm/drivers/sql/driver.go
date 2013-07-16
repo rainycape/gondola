@@ -212,6 +212,9 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 				if err != nil {
 					return val, nil, nil, err
 				}
+				if fields.NullZero[ii] && driver.IsZero(reflect.ValueOf(fval)) {
+					fval = nil
+				}
 			} else if !fields.NullZero[ii] || !driver.IsZero(f) {
 				if c := codec.FromTag(fields.Tags[ii]); c != nil {
 					fval, err = c.Encode(&f)

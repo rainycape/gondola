@@ -33,8 +33,30 @@ func (t *Tag) IntValue(key string) (int, bool) {
 	return 0, false
 }
 
+// Commonly used tag fields
+
 func (t *Tag) CodecName() string {
 	return t.Value("codec")
+}
+
+func (t *Tag) Optional() bool {
+	return t.Has("optional")
+}
+
+func (t *Tag) Required() bool {
+	return t.Has("required")
+}
+
+func (t *Tag) Alphanumeric() bool {
+	return t.Has("alphanumeric")
+}
+
+func (t *Tag) MaxLength() (int, bool) {
+	return t.IntValue("max_length")
+}
+
+func (t *Tag) MinLength() (int, bool) {
+	return t.IntValue("min_length")
 }
 
 func (t *Tag) IsEmpty() bool {

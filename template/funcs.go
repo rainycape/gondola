@@ -67,14 +67,7 @@ func lower(x string) string {
 }
 
 func join(x []string, sep string) string {
-	s := ""
-	for _, v := range x {
-		s += fmt.Sprintf("%v%s", v, sep)
-	}
-	if len(s) > 0 {
-		return s[:len(s)-len(sep)]
-	}
-	return ""
+	return strings.Join(x, sep)
 }
 
 func _map(args ...interface{}) (map[string]interface{}, error) {
@@ -120,9 +113,10 @@ func mult(args ...interface{}) (float64, error) {
 }
 
 func concat(args ...interface{}) string {
+	s := make([]string, len(args))
 	var s []string
-	for _, v := range args {
-		s = append(s, fmt.Sprintf("%v", v))
+	for ii, v := range args {
+		s[ii] = types.ToString(v)
 	}
 	return strings.Join(s, "")
 }

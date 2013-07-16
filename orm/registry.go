@@ -9,6 +9,7 @@ import (
 	"gondola/util"
 	"reflect"
 	"strings"
+	"time"
 )
 
 type nameRegistry map[string]*model
@@ -19,6 +20,7 @@ var (
 	// using the driver tags as the key.
 	_nameRegistry = map[string]nameRegistry{}
 	_typeRegistry = map[string]typeRegistry{}
+	timeType      = reflect.TypeOf(time.Time{})
 )
 
 // Register registers a struct for future usage with the ORMs with
@@ -136,7 +138,7 @@ func (o *Orm) fields(s *types.Struct) (*driver.Fields, error) {
 		// Struct has flattened types, but we need to original type
 		// to determine if it should be nullzero by default
 		field := s.Type.FieldByIndex(s.Indexes[ii])
-		fields.NullZero = append(fields.NullZero, ftag.Has("nullzero") || (defaultsToNullZero(field.Type.Kind(), ftag) && !ftag.Has("notnullzero")))
+		fields.NullZero = append(fields.NullZero, ftag.Has("nullzero") || (defaultsToNullZero(field.Type, ftag) && !ftag.Has("notnullzero")))
 		if ftag.Has("primary_key") {
 			if fields.PrimaryKey >= 0 {
 				return nil, fmt.Errorf("duplicate primary_key in struct %v (%s and %s)", s.Type, s.QNames[fields.PrimaryKey], v)
@@ -155,8 +157,14 @@ func (o *Orm) dtags() []string {
 }
 
 // returns wheter the kind defaults to nullzero option
-func defaultsToNullZero(k reflect.Kind, t *types.Tag) bool {
-	return k == reflect.Slice || k == reflect.Ptr || k == reflect.Interface
+func defaultsToNullZero(typ reflect.Type, t *types.Tag) bool {
+	switch typ.Kind() {
+	case reflect.Slice, reflect.Ptr, reflect.Interface, reflect.String:
+		return true
+	case reflect.Struct:
+		return typ == timeType
+	}
+	return false
 }
 
 // Returns the default name for a type

@@ -2,9 +2,9 @@ package assets
 
 import (
 	"fmt"
+	"gondola/hashutil"
 	"gondola/loaders"
 	"gondola/log"
-	"gondola/util"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -93,7 +93,7 @@ func (m *AssetsManager) hash(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return util.Adler32(b)[:6], nil
+	return hashutil.Adler32(b)[:6], nil
 }
 
 func (m *AssetsManager) Load(name string) (ReadSeekerCloser, time.Time, error) {

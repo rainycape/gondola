@@ -2,8 +2,8 @@ package assets
 
 import (
 	"fmt"
+	"gondola/hashutil"
 	"gondola/log"
-	"gondola/util"
 	"path"
 	"path/filepath"
 	"strings"
@@ -36,7 +36,7 @@ func (c CodeAssetList) CompiledName(ext string, o Options) string {
 		return ""
 	}
 	code, _ := Code(c)
-	h := util.Fnv32a([]byte(code + o.String()))
+	h := hashutil.Fnv32a(code + o.String())
 	name := c[0].Name()
 	if ext == "" {
 		ext = filepath.Ext(name)

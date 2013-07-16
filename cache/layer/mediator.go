@@ -1,8 +1,8 @@
 package layer
 
 import (
+	"gondola/hashutil"
 	"gondola/mux"
-	"gondola/util"
 	"net/http"
 )
 
@@ -32,7 +32,7 @@ func (m *SimpleMediator) Skip(ctx *mux.Context) bool {
 }
 
 func (m *SimpleMediator) Key(ctx *mux.Context) string {
-	return util.Md5([]byte(ctx.R.Method + ctx.R.URL.String()))
+	return hashutil.Md5(ctx.R.Method + ctx.R.URL.String())
 }
 
 func (m *SimpleMediator) Cache(ctx *mux.Context, responseCode int, outgoingHeaders http.Header) bool {

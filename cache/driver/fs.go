@@ -2,6 +2,7 @@ package driver
 
 import (
 	"encoding/binary"
+	"gondola/hashutil"
 	"gondola/util"
 	"io/ioutil"
 	"os"
@@ -14,7 +15,7 @@ type FileSystemDriver struct {
 }
 
 func (f *FileSystemDriver) keyPath(key string) string {
-	fileKey := util.Md5([]byte(key))
+	fileKey := hashutil.Md5(key)
 	return filepath.Join(f.Root, fileKey[:2], fileKey[2:4], fileKey[4:])
 }
 

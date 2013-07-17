@@ -1,14 +1,11 @@
 // Package hashutil provides utility functions for hashing data.
 //
-// Functions in this package accept a interface{} argument, which
+// Functions in this package accept an interface{} argument, which
 // must be one of the following:
 //
-// * Any type implementing io.Reader
-//
-// * string or *string
-//
-// * []byte
-//
+//  - Any type implementing io.Reader
+//  - string or *string
+//  - []byte
 //
 // Anything else will panic at runtime.
 package hashutil
@@ -82,7 +79,7 @@ func Adler32(src interface{}) string {
 	return _hash(adler32.New(), src)
 }
 
-// CRC32 returns the CRC-32 hash using the IEEE polynomial as a string.
+// CRC32 returns the CRC-32 hash as a string, using the IEEE polynomial.
 func CRC32(src interface{}) string {
 	return _hash(crc32.NewIEEE(), src)
 }
@@ -91,12 +88,12 @@ func _crc64(poly uint64, src interface{}) string {
 	return _hash(crc64.New(crc64.MakeTable(poly)), src)
 }
 
-// CRC64ISO returns the CRC-64 hash using the ISO polynomial as a string.
+// CRC64ISO returns the CRC-64 hash as a string, using the ISO polynomial.
 func CRC64ISO(src interface{}) string {
 	return _crc64(crc64.ISO, src)
 }
 
-// CRC64ECMA returns the CRC-64 hash using the ECMA polynomial as a string.
+// CRC64ECMA returns the CRC-64 hash as a string, using the ECMA polynomial.
 func CRC64ECMA(src interface{}) string {
 	return _crc64(crc64.ECMA, src)
 }

@@ -96,6 +96,8 @@ func extract(messages messageMap, dir string, functions []*Function, types []str
 			if err := extractGoMessages(messages, p, functions, types, tagFields); err != nil {
 				return err
 			}
+		case ".po", ".pot":
+			// Do nothing
 		}
 	}
 	return nil

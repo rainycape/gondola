@@ -64,6 +64,9 @@ func NewError(message string) Error {
 // it when possible. If e already implements Error, the received
 // value is returned.
 func FromError(e error) Error {
+	if e == nil {
+		return nil
+	}
 	if err, ok := e.(Error); ok {
 		return err
 	}

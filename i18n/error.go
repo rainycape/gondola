@@ -1,6 +1,7 @@
 package i18n
 
 import (
+	"errors"
 	"strconv"
 )
 
@@ -14,10 +15,13 @@ const (
 // another language. Keep in mind that Error also implements
 // error, so you can return an Error from any function that
 // returns error. You can later use FromError() to get back
-// an Error again.
+// an Error again or TranslatedError, to get an error with
+// the translated message.
 type Error interface {
 	// Error returns the untranslated error message.
 	Error() string
+	// Err translates the Error and returns it as an error.
+	Err(languager Languager) error
 	// TranslatedError returns the translated error message.
 	TranslatedError(languager Languager) string
 }
@@ -30,6 +34,10 @@ type translatableError struct {
 
 func (e *translatableError) Error() string {
 	return Sprintf(e.Format, nil, e.Args...)
+}
+
+func (e *translatableError) Err(languager Languager) error {
+	return errors.New(e.TranslatedError(languager))
 }
 
 func (e *translatableError) TranslatedError(languager Languager) string {
@@ -63,4 +71,12 @@ func FromError(e error) Error {
 		return Errorf("could not parse %q: %s", err.Num, String(err.Err.Error()))
 	}
 	return NewError(e.Error())
+}
+
+func TranslatedError(err error, languager Languager) error {
+	terr := FromError(err)
+	if terr != nil {
+		return terr.Err(languager)
+	}
+	return nil
 }

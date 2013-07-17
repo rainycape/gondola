@@ -13,6 +13,7 @@ import (
 	"gondola/types"
 	"html/template"
 	"net/http"
+	"net/url"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -322,6 +323,23 @@ func (c *Context) MustRedirectReverse(permanent bool, name string, args ...inter
 	if err != nil {
 		panic(err)
 	}
+}
+
+// URL return the absolute URL for the current request.
+func (c *Context) URL() *url.URL {
+	if c.R != nil {
+		u := *c.R.URL
+		u.Host = c.R.Host
+		if u.Scheme == "" {
+			if c.R.TLS != nil {
+				u.Scheme = "https"
+			} else {
+				u.Scheme = "http"
+			}
+		}
+		return &u
+	}
+	return nil
 }
 
 // Cookies returns a coookies.Cookies object which

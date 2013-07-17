@@ -11,6 +11,8 @@ import (
 	"gondola/orm"
 	"gondola/serialize"
 	"gondola/types"
+	"gondola/users"
+	"gondola/util"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -39,6 +41,7 @@ type Context struct {
 	started       time.Time
 	cookies       *cookies.Cookies
 	o             *orm.Orm
+	user          users.User
 	Data          interface{} /* Left to the user */
 }
 
@@ -322,6 +325,26 @@ func (c *Context) MustRedirectReverse(permanent bool, name string, args ...inter
 	err := c.RedirectReverse(permanent, name, args...)
 	if err != nil {
 		panic(err)
+	}
+}
+
+// RedirectBack redirects the user to the previous page using
+// a temporary redirect. The previous page is determined by first
+// looking at the "from" GET or POST parameter (like in the sign in form)
+// and then looking at the "Referer" header. If there's no previous page
+// or the previous page was from another host, a redirect to / is issued.
+func (c *Context) RedirectBack() {
+	if c.R != nil {
+		us := c.URL().String()
+		redir := "/"
+		// from parameter is used when redirecting to sign in page
+		from := c.FormValue("from")
+		if from != "" && util.EqualHosts(from, us) {
+			redir = from
+		} else if ref := c.R.Referer(); ref != "" && util.EqualHosts(ref, us) {
+			redir = ref
+		}
+		c.Redirect(redir, false)
 	}
 }
 

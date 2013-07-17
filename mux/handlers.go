@@ -16,3 +16,11 @@ func RedirectHandler(destination string, permanent bool) Handler {
 		ctx.Redirect(destination, permanent)
 	}
 }
+
+// SignOutHandler can be added directly to a mux. It signs out the
+// current user (if any) and redirects back to the previous
+// page.
+func SignOutHandler(ctx *Context) {
+	ctx.SignOut()
+	ctx.RedirectBack()
+}

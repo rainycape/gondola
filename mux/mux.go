@@ -32,8 +32,6 @@ type ContextProcessor func(*Context) bool
 
 type Handler func(*Context)
 
-type Transformer func(Handler) Handler
-
 // ErrorHandler is called before an error is sent
 // to the client. The parameters are the current context,
 // the error message and the error code. If the handler
@@ -65,6 +63,7 @@ type Mux struct {
 	secret               string
 	encryptionKey        string
 	defaultCookieOptions *cookies.Options
+	userFunc             UserFunc
 	assetsManager        assets.Manager
 	templatesLoader      loaders.Loader
 	templatesMutex       sync.RWMutex
@@ -261,6 +260,14 @@ func (mux *Mux) ErrorHandler() ErrorHandler {
 // detailed description.
 func (mux *Mux) SetErrorHandler(handler ErrorHandler) {
 	mux.errorHandler = handler
+}
+
+func (mux *Mux) UserFunc() UserFunc {
+	return mux.userFunc
+}
+
+func (mux *Mux) SetUserFunc(f UserFunc) {
+	mux.userFunc = f
 }
 
 // AssetsManager returns the manager for static assets

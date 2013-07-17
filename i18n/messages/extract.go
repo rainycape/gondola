@@ -56,6 +56,7 @@ func DefaultTagFields() []string {
 	return []string{
 		"help",
 		"label",
+		"placeholder",
 	}
 }
 

@@ -8,8 +8,9 @@ import (
 )
 
 type Position struct {
-	*token.Position
-	Comment string
+	Filename string
+	Line     int
+	Comment  string
 }
 
 func (p *Position) String() string {
@@ -90,7 +91,7 @@ func (m messageSlice) Swap(i, j int) {
 type messageMap map[string]*Message
 
 func (m messageMap) Add(msg *Message, pos *token.Position, comment string) error {
-	p := &Position{pos, comment}
+	p := &Position{pos.Filename, pos.Line, comment}
 	k := msg.Key()
 	if message, ok := m[k]; ok {
 		if err := message.Merge(msg, p); err != nil {

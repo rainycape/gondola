@@ -160,6 +160,9 @@ func vmCompile(form string) ([]*instruction, error) {
 			if n := s.TokenText(); n != "n" {
 				return invalid(&s, "ident", n)
 			}
+			if op.Len() > 0 {
+				return invalid(&s, "ident", "RHS variables are not supported")
+			}
 			code = append(code, &instruction{opCode: opN})
 		case scanner.Int:
 			val, _ := strconv.Atoi(s.TokenText())

@@ -12,6 +12,8 @@ type Test struct {
 }
 
 var formulas = []*Test{
+	// Asian
+	{"0", 1, map[int]int{0: 0, 1: 0, 2: 0, 100: 0}},
 	// Romanic
 	{"n != 1", 2, map[int]int{0: 1, 1: 0, 2: 1, 100: 1}},
 	// Polish
@@ -26,10 +28,10 @@ var formulas = []*Test{
 	{"n%100==1 ? 0 : n%100==2 ? 1 : n%100==3 || n%100==4 ? 2 : 3", 4, map[int]int{0: 3, 1: 0, 101: 0, 2: 1, 3: 2, 4: 2, 204: 2}},
 }
 
-func TestCompile(t *testing.T) {
+func testCompile(t *testing.T, comp func(string) (Formula, error)) {
 	for _, v := range formulas {
 		t.Logf("Compiling formula %q", v.Expr)
-		fn, err := compileFormula(v.Expr)
+		fn, err := comp(v.Expr)
 		if err != nil {
 			t.Error(err)
 			continue
@@ -44,15 +46,31 @@ func TestCompile(t *testing.T) {
 	}
 }
 
-func BenchmarkCompile(b *testing.B) {
+func TestCompileAst(t *testing.T) {
+	testCompile(t, compileAstFormula)
+}
+
+func TestCompileVM(t *testing.T) {
+	testCompile(t, compileVmFormula)
+}
+
+func benchmarkCompile(b *testing.B, fn func(string) (Formula, error)) {
 	for ii := 0; ii < b.N; ii++ {
 		for _, v := range formulas {
-			_, err := compileFormula(v.Expr)
+			_, err := fn(v.Expr)
 			if err != nil {
 				b.Fatal(err)
 			}
 		}
 	}
+}
+
+func BenchmarkCompileAst(b *testing.B) {
+	benchmarkCompile(b, compileAstFormula)
+}
+
+func BenchmarkCompileVm(b *testing.B) {
+	benchmarkCompile(b, compileVmFormula)
 }
 
 func BenchmarkFindCompiled(b *testing.B) {
@@ -86,16 +104,24 @@ func benchmarkFormulas(b *testing.B, fns []Formula) {
 	}
 }
 
-func BenchmarkInterpreted(b *testing.B) {
+func benchmarkInterpreted(b *testing.B, fn func(string) (Formula, error)) {
 	fns := make([]Formula, len(formulas))
 	var err error
 	for ii, v := range formulas {
-		fns[ii], err = compileFormula(v.Expr)
+		fns[ii], err = fn(v.Expr)
 		if err != nil {
 			b.Fatal(err)
 		}
 	}
 	benchmarkFormulas(b, fns)
+}
+
+func BenchmarkAstInterpreted(b *testing.B) {
+	benchmarkInterpreted(b, compileAstFormula)
+}
+
+func BenchmarkVmInterpreted(b *testing.B) {
+	benchmarkInterpreted(b, compileVmFormula)
 }
 
 func BenchmarkCompiled(b *testing.B) {

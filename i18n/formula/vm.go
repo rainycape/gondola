@@ -211,10 +211,6 @@ func compileVmFormula(form string) (Formula, error) {
 		}
 		tok = s.Scan()
 	}
-	//	fmt.Println("BC for", form)
-	//	for ii, v := range code {
-	//		fmt.Printf("%d:%s\t%d\n", ii, v.opCode, v.value)
-	//	}
 	code = vmOptimize(code)
 	return makeVmFunc(code), nil
 }
@@ -232,9 +228,11 @@ func removeInstructions(insts []*instruction, start int, count int) []*instructi
 
 func vmOptimize(insts []*instruction) []*instruction {
 	// The optimizer is quite simple. A first pass looks
-	// for multiple comparisons that are preceeded by the
-	// exactly te same instructions and it removes the second
-	// group.
+	// for multiple comparison instructions that are preceeded
+	// by exactly the same instructions and it removes the second
+	// group of instructions. A second pass then looks for
+	// instructions that set R = N when R is already
+	// equal to N and it removes the second instruction.
 	cmp := -1
 	count := len(insts)
 	ii := 0
@@ -263,6 +261,21 @@ func vmOptimize(insts []*instruction) []*instruction {
 				}
 			}
 			cmp = ii
+		}
+	}
+	n := -1
+	for ii = 0; ii < count; ii++ {
+		v := insts[ii]
+		if v.opCode == opN {
+			if n >= 0 {
+				insts = removeInstructions(insts, ii, 1)
+				ii--
+				count--
+				continue
+			}
+			n = ii
+		} else if v.opCode.Alters() {
+			n = -1
 		}
 	}
 	return insts

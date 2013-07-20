@@ -82,7 +82,7 @@ type instruction struct {
 	value  int
 }
 
-func invalid(s *scanner.Scanner, what, val string) (Formula, error) {
+func invalid(s *scanner.Scanner, what, val string) ([]*instruction, error) {
 	return nil, fmt.Errorf("invalid %s in formula at %s: %q", what, s.Pos(), val)
 }
 
@@ -133,6 +133,15 @@ func resolveJumps(s *scanner.Scanner, code []*instruction, jumps map[int][]*inst
 }
 
 func compileVmFormula(form string) (Formula, error) {
+	code, err := vmCompile(form)
+	if err != nil {
+		return nil, err
+	}
+	code = vmOptimize(code)
+	return makeVmFunc(code), nil
+}
+
+func vmCompile(form string) ([]*instruction, error) {
 	var s scanner.Scanner
 	var err error
 	s.Init(strings.NewReader(form))
@@ -221,8 +230,7 @@ func compileVmFormula(form string) (Formula, error) {
 		}
 		tok = s.Scan()
 	}
-	code = vmOptimize(code)
-	return makeVmFunc(code), nil
+	return code, nil
 }
 
 func removeInstructions(insts []*instruction, start int, count int) []*instruction {

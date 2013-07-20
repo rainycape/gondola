@@ -58,6 +58,26 @@ func TestCompileVM(t *testing.T) {
 	testCompile(t, compileVmFormula)
 }
 
+func TestBytecode(t *testing.T) {
+	for _, v := range formulas {
+		t.Logf("Compiling formula %q", v.Expr)
+		code, err := vmCompile(v.Expr)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		t.Log("Bytecode")
+		for ii, i := range code {
+			t.Logf("%d:%s\t%d", ii, i.opCode.String(), i.value)
+		}
+		optimized := vmOptimize(code)
+		t.Log("Optimized")
+		for ii, i := range optimized {
+			t.Logf("%d:%s\t%d", ii, i.opCode.String(), i.value)
+		}
+	}
+}
+
 func benchmarkCompile(b *testing.B, fn func(string) (Formula, error)) {
 	for ii := 0; ii < b.N; ii++ {
 		for _, v := range formulas {

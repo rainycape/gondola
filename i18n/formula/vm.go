@@ -110,7 +110,7 @@ func jumpTarget(s *scanner.Scanner, form string, chr byte) int {
 	return target
 }
 
-func makeJump(s *scanner.Scanner, form string, code *program, op opCode, jumps map[int][]*instruction, chr byte) {
+func makeJump(s *scanner.Scanner, form string, code *program, op opCode, jumps map[int][]int, chr byte) {
 	// end of conditional, put the placeholder for a jump
 	// and complete it once we reach the matching chr. Store the
 	// current position of the jump in its value, so
@@ -119,17 +119,18 @@ func makeJump(s *scanner.Scanner, form string, code *program, op opCode, jumps m
 	inst := &instruction{opCode: op, value: pos}
 	*code = append(*code, inst)
 	target := jumpTarget(s, form, chr)
-	jumps[target] = append(jumps[target], inst)
+	jumps[target] = append(jumps[target], pos)
 }
 
-func resolveJumps(s *scanner.Scanner, code program, jumps map[int][]*instruction) {
+func resolveJumps(s *scanner.Scanner, code program, jumps map[int][]int) {
 	// check for incomplete jumps to this location.
 	// the pc should point at the next instruction
 	// to be added and the jump is relative.
 	pc := len(code)
 	offset := s.Pos().Offset - 1
 	for _, v := range jumps[offset] {
-		v.value = pc - v.value - 1
+		inst := code[v]
+		inst.value = pc - inst.value - 1
 	}
 	delete(jumps, offset)
 }
@@ -155,7 +156,7 @@ func vmCompile(form string) (program, error) {
 	var code program
 	var op bytes.Buffer
 	var logic bytes.Buffer
-	jumps := make(map[int][]*instruction)
+	jumps := make(map[int][]int)
 	for tok != scanner.EOF && err == nil {
 		switch tok {
 		case scanner.Ident:

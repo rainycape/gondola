@@ -19,6 +19,10 @@ import (
 // Some instructions might contain an integer value (V):
 //
 //  N - set R = n
+//  ADD - set R = R + V
+//  SUB - set R = R - V
+//  MULT - set R = R * V
+//  DIV - set R = R / V
 //  MOD - set R = R % V
 //  JMPT - jump by V if S is true
 //  JMPF - jump by V if S is false
@@ -39,6 +43,10 @@ type opCode int
 const (
 	// Instructions altering R
 	opN opCode = iota + 1
+	opADD
+	opSUB
+	opMULT
+	opDIV
 	opMOD
 	// Special instructions
 	opRET
@@ -158,6 +166,14 @@ func compileVmFormula(form string) (Formula, error) {
 			} else {
 				var opc opCode
 				switch op.String() {
+				case "+":
+					opc = opADD
+				case "-":
+					opc = opSUB
+				case "*":
+					opc = opMULT
+				case "/":
+					opc = opDIV
 				case "%":
 					opc = opMOD
 				case "==":
@@ -296,8 +312,16 @@ func vmExec(insts []*instruction, count int, n int) int {
 		switch i.opCode {
 		case opN:
 			R = n
+		case opADD:
+			R += i.value
+		case opSUB:
+			R -= i.value
+		case opMULT:
+			R *= i.value
+		case opDIV:
+			R /= i.value
 		case opMOD:
-			R = R % i.value
+			R %= i.value
 		case opRET:
 			return i.value
 		case opJMPT:

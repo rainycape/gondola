@@ -245,12 +245,13 @@ func removeInstructions(insts []*instruction, start int, count int) []*instructi
 }
 
 func vmOptimize(insts []*instruction) []*instruction {
-	// The optimizer is quite simple. A first pass looks
+	// The optimizer is quite simple. Each pass is documented
+	// at its beginning.
+
+	//A first pass looks
 	// for multiple comparison instructions that are preceeded
 	// by exactly the same instructions and it removes the second
-	// group of instructions. A second pass then looks for
-	// instructions that set R = N when R is already
-	// equal to N and it removes the second instruction.
+	// group of instructions.
 	cmp := -1
 	count := len(insts)
 	ii := 0
@@ -281,6 +282,9 @@ func vmOptimize(insts []*instruction) []*instruction {
 			cmp = ii
 		}
 	}
+	// A second pass then looks for
+	// instructions that set R = N when R is already
+	// equal to N and it removes the second instruction.
 	n := -1
 	for ii = 0; ii < count; ii++ {
 		v := insts[ii]
@@ -294,6 +298,24 @@ func vmOptimize(insts []*instruction) []*instruction {
 			n = ii
 		} else if v.opCode.Alters() {
 			n = -1
+		}
+	}
+	// Third pass looks for jumps which end up in a jump of the same type,
+	// add adjusts the value to make just one jump.
+	for ii := 0; ii < count; ii++ {
+		v := insts[ii]
+		if v.opCode.IsJump() {
+			for true {
+				t := ii + v.value + 1
+				if t >= count {
+					break
+				}
+				nv := insts[t]
+				if nv.opCode != v.opCode {
+					break
+				}
+				v.value += nv.value
+			}
 		}
 	}
 	return insts

@@ -110,38 +110,38 @@ func jumpTarget(s *scanner.Scanner, form string, chr byte) int {
 	return target
 }
 
-func makeJump(s *scanner.Scanner, form string, code *program, op opCode, jumps map[int][]int, chr byte) {
+func makeJump(s *scanner.Scanner, form string, p *program, op opCode, jumps map[int][]int, chr byte) {
 	// end of conditional, put the placeholder for a jump
 	// and complete it once we reach the matching chr. Store the
 	// current position of the jump in its value, so
 	// calculating the relative offset is quicker.
-	pos := len(*code)
+	pos := len(*p)
 	inst := &instruction{opCode: op, value: pos}
-	*code = append(*code, inst)
+	*p = append(*p, inst)
 	target := jumpTarget(s, form, chr)
 	jumps[target] = append(jumps[target], pos)
 }
 
-func resolveJumps(s *scanner.Scanner, code program, jumps map[int][]int) {
+func resolveJumps(s *scanner.Scanner, p program, jumps map[int][]int) {
 	// check for incomplete jumps to this location.
 	// the pc should point at the next instruction
 	// to be added and the jump is relative.
-	pc := len(code)
+	pc := len(p)
 	offset := s.Pos().Offset - 1
 	for _, v := range jumps[offset] {
-		inst := code[v]
+		inst := p[v]
 		inst.value = pc - inst.value - 1
 	}
 	delete(jumps, offset)
 }
 
 func compileVmFormula(form string) (Formula, error) {
-	code, err := vmCompile(form)
+	p, err := vmCompile(form)
 	if err != nil {
 		return nil, err
 	}
-	code = vmOptimize(code)
-	return makeVmFunc(code), nil
+	p = vmOptimize(p)
+	return makeVmFunc(p), nil
 }
 
 func vmCompile(form string) (program, error) {
@@ -153,7 +153,7 @@ func vmCompile(form string) (program, error) {
 	}
 	s.Mode = scanner.ScanIdents | scanner.ScanInts
 	tok := s.Scan()
-	var code program
+	var p program
 	var op bytes.Buffer
 	var logic bytes.Buffer
 	jumps := make(map[int][]int)
@@ -166,12 +166,12 @@ func vmCompile(form string) (program, error) {
 			if op.Len() > 0 {
 				return invalid(&s, "ident", "RHS variables are not supported")
 			}
-			code = append(code, &instruction{opCode: opN})
+			p = append(p, &instruction{opCode: opN})
 		case scanner.Int:
 			val, _ := strconv.Atoi(s.TokenText())
 			if op.Len() == 0 {
 				// return statement
-				code = append(code, &instruction{opCode: opRET, value: val})
+				p = append(p, &instruction{opCode: opRET, value: val})
 			} else {
 				var opc opCode
 				switch op.String() {
@@ -200,14 +200,14 @@ func vmCompile(form string) (program, error) {
 				default:
 					return invalid(&s, "op", op.String())
 				}
-				code = append(code, &instruction{opCode: opc, value: val})
+				p = append(p, &instruction{opCode: opc, value: val})
 				op.Reset()
 			}
 		case '?':
-			resolveJumps(&s, code, jumps)
-			makeJump(&s, form, &code, opJMPF, jumps, ':')
+			resolveJumps(&s, p, jumps)
+			makeJump(&s, form, &p, opJMPF, jumps, ':')
 		case ':':
-			resolveJumps(&s, code, jumps)
+			resolveJumps(&s, p, jumps)
 		case '!', '=', '<', '>', '%':
 			op.WriteRune(tok)
 		case '&', '|':
@@ -220,9 +220,9 @@ func vmCompile(form string) (program, error) {
 					return invalid(&s, "token", string(tok))
 				}
 				if b == '&' {
-					makeJump(&s, form, &code, opJMPF, jumps, ':')
+					makeJump(&s, form, &p, opJMPF, jumps, ':')
 				} else {
-					makeJump(&s, form, &code, opJMPT, jumps, '?')
+					makeJump(&s, form, &p, opJMPT, jumps, '?')
 				}
 				logic.Reset()
 			} else {
@@ -230,24 +230,24 @@ func vmCompile(form string) (program, error) {
 			}
 		case '(':
 		case ')':
-			resolveJumps(&s, code, jumps)
+			resolveJumps(&s, p, jumps)
 		default:
 			return invalid(&s, "token", string(tok))
 		}
 		tok = s.Scan()
 	}
-	return code, nil
+	return p, nil
 }
 
-func removeInstructions(code program, start int, count int) program {
-	code = append(code[:start], code[start+count:]...)
+func removeInstructions(p program, start int, count int) program {
+	p = append(p[:start], p[start+count:]...)
 	// Check for jumps that might be affected by the removal
 	for kk := start; kk >= 0; kk-- {
-		if in := code[kk]; in.opCode.IsJump() && kk+in.value > start {
+		if in := p[kk]; in.opCode.IsJump() && kk+in.value > start {
 			in.value -= count
 		}
 	}
-	return code
+	return p
 }
 
 func vmOptimize(insts program) program {

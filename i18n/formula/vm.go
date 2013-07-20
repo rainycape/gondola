@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
-	"strings"
 	"text/scanner"
 )
 
@@ -88,12 +87,12 @@ func invalid(s *scanner.Scanner, what, val string) (program, error) {
 	return nil, fmt.Errorf("invalid %s in formula at %s: %q", what, s.Pos(), val)
 }
 
-func jumpTarget(s *scanner.Scanner, form string, chr byte) int {
+func jumpTarget(s *scanner.Scanner, code []byte, chr byte) int {
 	// look for matching chr
 	offset := s.Pos().Offset
 	paren := 0
 	target := -1
-	for ii, v := range []byte(form[offset:]) {
+	for ii, v := range code[offset:] {
 		if v == '(' {
 			paren++
 		} else if v == ')' {
@@ -110,7 +109,7 @@ func jumpTarget(s *scanner.Scanner, form string, chr byte) int {
 	return target
 }
 
-func makeJump(s *scanner.Scanner, form string, p *program, op opCode, jumps map[int][]int, chr byte) {
+func makeJump(s *scanner.Scanner, code []byte, p *program, op opCode, jumps map[int][]int, chr byte) {
 	// end of conditional, put the placeholder for a jump
 	// and complete it once we reach the matching chr. Store the
 	// current position of the jump in its value, so
@@ -118,7 +117,7 @@ func makeJump(s *scanner.Scanner, form string, p *program, op opCode, jumps map[
 	pos := len(*p)
 	inst := &instruction{opCode: op, value: pos}
 	*p = append(*p, inst)
-	target := jumpTarget(s, form, chr)
+	target := jumpTarget(s, code, chr)
 	jumps[target] = append(jumps[target], pos)
 }
 
@@ -135,8 +134,8 @@ func resolveJumps(s *scanner.Scanner, p program, jumps map[int][]int) {
 	delete(jumps, offset)
 }
 
-func compileVmFormula(form string) (Formula, error) {
-	p, err := vmCompile(form)
+func compileVmFormula(code string) (Formula, error) {
+	p, err := vmCompile(code)
 	if err != nil {
 		return nil, err
 	}
@@ -144,10 +143,11 @@ func compileVmFormula(form string) (Formula, error) {
 	return makeVmFunc(p), nil
 }
 
-func vmCompile(form string) (program, error) {
+func vmCompile(code string) (program, error) {
 	var s scanner.Scanner
 	var err error
-	s.Init(strings.NewReader(form))
+	codeb := []byte(code)
+	s.Init(bytes.NewReader(codeb))
 	s.Error = func(s *scanner.Scanner, msg string) {
 		err = fmt.Errorf("error parsing plural formula %s: %s", s.Pos(), msg)
 	}
@@ -205,7 +205,7 @@ func vmCompile(form string) (program, error) {
 			}
 		case '?':
 			resolveJumps(&s, p, jumps)
-			makeJump(&s, form, &p, opJMPF, jumps, ':')
+			makeJump(&s, codeb, &p, opJMPF, jumps, ':')
 		case ':':
 			resolveJumps(&s, p, jumps)
 		case '!', '=', '<', '>', '%':
@@ -220,9 +220,9 @@ func vmCompile(form string) (program, error) {
 					return invalid(&s, "token", string(tok))
 				}
 				if b == '&' {
-					makeJump(&s, form, &p, opJMPF, jumps, ':')
+					makeJump(&s, codeb, &p, opJMPF, jumps, ':')
 				} else {
-					makeJump(&s, form, &p, opJMPT, jumps, '?')
+					makeJump(&s, codeb, &p, opJMPT, jumps, '?')
 				}
 				logic.Reset()
 			} else {

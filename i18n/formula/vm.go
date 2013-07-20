@@ -32,7 +32,7 @@ import (
 // a ret instruction, the last value of S is returned.
 // as an integer.
 
-type opCode int
+type opCode uint8
 
 const (
 	// Instructions altering R

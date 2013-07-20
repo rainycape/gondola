@@ -37,22 +37,42 @@ import (
 type opCode int
 
 const (
+	// Instructions altering R
 	opN opCode = iota + 1
 	opMOD
+	// Special instructions
+	opRET
+	// Jump instructions
 	opJMPT
 	opJMPF
+	// Comparison instructions
 	opEQ
 	opNEQ
 	opLT
 	opLTE
 	opGT
 	opGTE
-	opRET
 )
 
 func (o opCode) String() string {
-	names := []string{"N", "MOD", "JMPT", "JMPF", "EQ", "NEQ", "LT", "LTE", "GT", "GTE", "RET"}
+	names := []string{"N", "MOD", "RET", "JMPT", "JMPF", "EQ", "NEQ", "LT", "LTE", "GT", "GTE"}
 	return names[int(o)-1]
+}
+
+func (o opCode) Alters() bool {
+	return o <= opMOD
+}
+
+func (o opCode) IsSpecial() bool {
+	return o == opRET
+}
+
+func (o opCode) IsJump() bool {
+	return o == opJMPT || o == opJMPF
+}
+
+func (o opCode) Compares() bool {
+	return o >= opEQ
 }
 
 type instruction struct {
@@ -215,6 +235,8 @@ func vmExec(insts []*instruction, count int, n int) int {
 			R = n
 		case opMOD:
 			R = R % i.value
+		case opRET:
+			return i.value
 		case opJMPT:
 			if S {
 				ii += i.value
@@ -235,8 +257,6 @@ func vmExec(insts []*instruction, count int, n int) int {
 			S = R > i.value
 		case opGTE:
 			S = R >= i.value
-		case opRET:
-			return i.value
 		}
 	}
 	return bint(S)

@@ -87,7 +87,7 @@ func invalid(s *scanner.Scanner, what, val string) ([]*instruction, error) {
 }
 
 func jumpTarget(s *scanner.Scanner, form string, chr byte) int {
-	// look for matching :
+	// look for matching chr
 	offset := s.Pos().Offset
 	paren := 0
 	target := -1

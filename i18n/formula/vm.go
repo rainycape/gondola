@@ -82,7 +82,9 @@ type instruction struct {
 	value  int
 }
 
-func invalid(s *scanner.Scanner, what, val string) ([]*instruction, error) {
+type program []*instruction
+
+func invalid(s *scanner.Scanner, what, val string) (program, error) {
 	return nil, fmt.Errorf("invalid %s in formula at %s: %q", what, s.Pos(), val)
 }
 
@@ -108,7 +110,7 @@ func jumpTarget(s *scanner.Scanner, form string, chr byte) int {
 	return target
 }
 
-func makeJump(s *scanner.Scanner, form string, code *[]*instruction, op opCode, jumps map[int][]*instruction, chr byte) {
+func makeJump(s *scanner.Scanner, form string, code *program, op opCode, jumps map[int][]*instruction, chr byte) {
 	// end of conditional, put the placeholder for a jump
 	// and complete it once we reach the matching chr. Store the
 	// current position of the jump in its value, so
@@ -120,7 +122,7 @@ func makeJump(s *scanner.Scanner, form string, code *[]*instruction, op opCode, 
 	jumps[target] = append(jumps[target], inst)
 }
 
-func resolveJumps(s *scanner.Scanner, code []*instruction, jumps map[int][]*instruction) {
+func resolveJumps(s *scanner.Scanner, code program, jumps map[int][]*instruction) {
 	// check for incomplete jumps to this location.
 	// the pc should point at the next instruction
 	// to be added and the jump is relative.
@@ -141,7 +143,7 @@ func compileVmFormula(form string) (Formula, error) {
 	return makeVmFunc(code), nil
 }
 
-func vmCompile(form string) ([]*instruction, error) {
+func vmCompile(form string) (program, error) {
 	var s scanner.Scanner
 	var err error
 	s.Init(strings.NewReader(form))
@@ -150,7 +152,7 @@ func vmCompile(form string) ([]*instruction, error) {
 	}
 	s.Mode = scanner.ScanIdents | scanner.ScanInts
 	tok := s.Scan()
-	var code []*instruction
+	var code program
 	var op bytes.Buffer
 	var logic bytes.Buffer
 	jumps := make(map[int][]*instruction)
@@ -236,18 +238,18 @@ func vmCompile(form string) ([]*instruction, error) {
 	return code, nil
 }
 
-func removeInstructions(insts []*instruction, start int, count int) []*instruction {
-	insts = append(insts[:start], insts[start+count:]...)
+func removeInstructions(code program, start int, count int) program {
+	code = append(code[:start], code[start+count:]...)
 	// Check for jumps that might be affected by the removal
 	for kk := start; kk >= 0; kk-- {
-		if in := insts[kk]; in.opCode.IsJump() && kk+in.value > start {
+		if in := code[kk]; in.opCode.IsJump() && kk+in.value > start {
 			in.value -= count
 		}
 	}
-	return insts
+	return code
 }
 
-func vmOptimize(insts []*instruction) []*instruction {
+func vmOptimize(insts program) program {
 	// The optimizer is quite simple. Each pass is documented
 	// at its beginning.
 
@@ -324,18 +326,18 @@ func vmOptimize(insts []*instruction) []*instruction {
 	return insts
 }
 
-func makeVmFunc(insts []*instruction) Formula {
-	count := len(insts)
+func makeVmFunc(p program) Formula {
+	count := len(p)
 	return func(n int) int {
-		return vmExec(insts, count, n)
+		return vmExec(p, count, n)
 	}
 }
 
-func vmExec(insts []*instruction, count int, n int) int {
+func vmExec(p program, count int, n int) int {
 	var R int
 	var S bool
 	for ii := 0; ii < count; ii++ {
-		i := insts[ii]
+		i := p[ii]
 		switch i.opCode {
 		case opN:
 			R = n

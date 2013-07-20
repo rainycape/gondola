@@ -63,7 +63,7 @@ const (
 )
 
 func (o opCode) String() string {
-	names := []string{"N", "MOD", "RET", "JMPT", "JMPF", "EQ", "NEQ", "LT", "LTE", "GT", "GTE"}
+	names := []string{"N", "ADD", "SUB", "MULT", "DIV", "MOD", "RET", "JMPT", "JMPF", "EQ", "NEQ", "LT", "LTE", "GT", "GTE"}
 	return names[int(o)-1]
 }
 

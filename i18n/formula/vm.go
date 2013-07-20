@@ -215,7 +215,57 @@ func compileVmFormula(form string) (Formula, error) {
 	//	for ii, v := range code {
 	//		fmt.Printf("%d:%s\t%d\n", ii, v.opCode, v.value)
 	//	}
+	code = vmOptimize(code)
 	return makeVmFunc(code), nil
+}
+
+func removeInstructions(insts []*instruction, start int, count int) []*instruction {
+	insts = append(insts[:start], insts[start+count:]...)
+	// Check for jumps that might be affected by the removal
+	for kk := start; kk >= 0; kk-- {
+		if in := insts[kk]; in.opCode.IsJump() && kk+in.value > start {
+			in.value -= count
+		}
+	}
+	return insts
+}
+
+func vmOptimize(insts []*instruction) []*instruction {
+	// The optimizer is quite simple. A first pass looks
+	// for multiple comparisons that are preceeded by the
+	// exactly te same instructions and it removes the second
+	// group.
+	cmp := -1
+	count := len(insts)
+	ii := 0
+	for ; ii < count; ii++ {
+		v := insts[ii]
+		if v.opCode.Compares() {
+			if cmp >= 0 {
+				delta := ii - cmp
+				jj := cmp - 1
+				for ; jj >= 0; jj-- {
+					i1 := insts[jj]
+					if !i1.opCode.Alters() {
+						break
+					}
+					i2 := insts[jj+delta]
+					if i1.opCode != i2.opCode || i1.value != i2.value {
+						break
+					}
+				}
+				equal := (cmp - 1) - jj
+				if equal > 0 {
+					ii -= equal
+					count -= equal
+					insts = removeInstructions(insts, ii, equal)
+					continue
+				}
+			}
+			cmp = ii
+		}
+	}
+	return insts
 }
 
 func makeVmFunc(insts []*instruction) Formula {

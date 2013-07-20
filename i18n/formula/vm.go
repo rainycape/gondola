@@ -8,13 +8,7 @@ import (
 	"text/scanner"
 )
 
-// This virtual machine is able to execute most formulas
-// much faster than the AST walking interpreter, but
-// it's more restricted. By default, a formula will be
-// first compiled using the VM. If that fails, it will
-// fall back to AST walking.
-//
-// The VM is quite simple, having only a general purpose
+// This VM is quite simple, having only a general purpose
 // register (R) and a boolean status register (S).
 // Some instructions might contain an integer value (V):
 //

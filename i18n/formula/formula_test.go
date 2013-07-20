@@ -54,10 +54,6 @@ func testCompile(t *testing.T, comp func(string) (Formula, error)) {
 	}
 }
 
-func TestCompileAst(t *testing.T) {
-	testCompile(t, compileAstFormula)
-}
-
 func TestCompileVM(t *testing.T) {
 	testCompile(t, compileVmFormula)
 }
@@ -71,10 +67,6 @@ func benchmarkCompile(b *testing.B, fn func(string) (Formula, error)) {
 			}
 		}
 	}
-}
-
-func BenchmarkCompileAst(b *testing.B) {
-	benchmarkCompile(b, compileAstFormula)
 }
 
 func BenchmarkCompileVm(b *testing.B) {
@@ -122,10 +114,6 @@ func benchmarkInterpreted(b *testing.B, fn func(string) (Formula, error)) {
 		}
 	}
 	benchmarkFormulas(b, fns)
-}
-
-func BenchmarkAstInterpreted(b *testing.B) {
-	benchmarkInterpreted(b, compileAstFormula)
 }
 
 func BenchmarkVmInterpreted(b *testing.B) {

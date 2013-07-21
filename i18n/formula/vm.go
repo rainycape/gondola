@@ -253,7 +253,7 @@ func removeInstructions(p program, start int, count int) program {
 	return p
 }
 
-func vmOptimize(insts program) program {
+func vmOptimize(p program) program {
 	// The optimizer is quite simple. Each pass is documented
 	// at its beginning.
 
@@ -262,20 +262,20 @@ func vmOptimize(insts program) program {
 	// by exactly the same instructions and it removes the second
 	// group of instructions.
 	cmp := -1
-	count := len(insts)
+	count := len(p)
 	ii := 0
 	for ; ii < count; ii++ {
-		v := insts[ii]
+		v := p[ii]
 		if v.opCode.Compares() {
 			if cmp >= 0 {
 				delta := ii - cmp
 				jj := cmp - 1
 				for ; jj >= 0; jj-- {
-					i1 := insts[jj]
+					i1 := p[jj]
 					if !i1.opCode.Alters() {
 						break
 					}
-					i2 := insts[jj+delta]
+					i2 := p[jj+delta]
 					if i1.opCode != i2.opCode || i1.value != i2.value {
 						break
 					}
@@ -284,7 +284,7 @@ func vmOptimize(insts program) program {
 				if equal > 0 {
 					ii -= equal
 					count -= equal
-					insts = removeInstructions(insts, ii, equal)
+					p = removeInstructions(p, ii, equal)
 					continue
 				}
 			}
@@ -296,10 +296,10 @@ func vmOptimize(insts program) program {
 	// equal to N and it removes the second instruction.
 	n := -1
 	for ii = 0; ii < count; ii++ {
-		v := insts[ii]
+		v := p[ii]
 		if v.opCode == opN {
 			if n >= 0 {
-				insts = removeInstructions(insts, ii, 1)
+				p = removeInstructions(p, ii, 1)
 				ii--
 				count--
 				continue

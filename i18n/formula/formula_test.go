@@ -55,13 +55,13 @@ func testCompile(t *testing.T, comp func(string) (Formula, error)) {
 }
 
 func TestCompileVM(t *testing.T) {
-	testCompile(t, compileVmFormula)
+	testCompile(t, compileVmFormulaString)
 }
 
 func TestBytecode(t *testing.T) {
 	for _, v := range formulas {
 		t.Logf("Compiling formula %q", v.Expr)
-		code, err := vmCompile(v.Expr)
+		code, err := vmCompile([]byte(v.Expr))
 		if err != nil {
 			t.Error(err)
 			continue
@@ -90,7 +90,7 @@ func benchmarkCompile(b *testing.B, fn func(string) (Formula, error)) {
 }
 
 func BenchmarkCompileVm(b *testing.B) {
-	benchmarkCompile(b, compileVmFormula)
+	benchmarkCompile(b, compileVmFormulaString)
 }
 
 func BenchmarkFindCompiled(b *testing.B) {
@@ -137,7 +137,7 @@ func benchmarkInterpreted(b *testing.B, fn func(string) (Formula, error)) {
 }
 
 func BenchmarkVmInterpreted(b *testing.B) {
-	benchmarkInterpreted(b, compileVmFormula)
+	benchmarkInterpreted(b, compileVmFormulaString)
 }
 
 func BenchmarkCompiled(b *testing.B) {

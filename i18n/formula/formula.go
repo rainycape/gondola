@@ -69,7 +69,7 @@ func Make(text string) (fn Formula, nplurals int, err error) {
 		fn = slovenianFormula
 	}
 	if fn == nil {
-		fn, err = compileVmFormula(form)
+		fn, err = compileVmFormulaString(form)
 	}
 	return
 }

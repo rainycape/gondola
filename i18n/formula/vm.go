@@ -134,7 +134,11 @@ func resolveJumps(s *scanner.Scanner, p program, jumps map[int][]int) {
 	delete(jumps, offset)
 }
 
-func compileVmFormula(code string) (Formula, error) {
+func compileVmFormulaString(code string) (Formula, error) {
+	return compileVmFormula([]byte(code))
+}
+
+func compileVmFormula(code []byte) (Formula, error) {
 	p, err := vmCompile(code)
 	if err != nil {
 		return nil, err
@@ -143,11 +147,10 @@ func compileVmFormula(code string) (Formula, error) {
 	return makeVmFunc(p), nil
 }
 
-func vmCompile(code string) (program, error) {
+func vmCompile(code []byte) (program, error) {
 	var s scanner.Scanner
 	var err error
-	codeb := []byte(code)
-	s.Init(bytes.NewReader(codeb))
+	s.Init(bytes.NewReader(code))
 	s.Error = func(s *scanner.Scanner, msg string) {
 		err = fmt.Errorf("error parsing plural formula %s: %s", s.Pos(), msg)
 	}
@@ -205,7 +208,7 @@ func vmCompile(code string) (program, error) {
 			}
 		case '?':
 			resolveJumps(&s, p, jumps)
-			makeJump(&s, codeb, &p, opJMPF, jumps, ':')
+			makeJump(&s, code, &p, opJMPF, jumps, ':')
 		case ':':
 			resolveJumps(&s, p, jumps)
 		case '!', '=', '<', '>', '%':
@@ -220,9 +223,9 @@ func vmCompile(code string) (program, error) {
 					return invalid(&s, "token", string(tok))
 				}
 				if b == '&' {
-					makeJump(&s, codeb, &p, opJMPF, jumps, ':')
+					makeJump(&s, code, &p, opJMPF, jumps, ':')
 				} else {
-					makeJump(&s, codeb, &p, opJMPT, jumps, '?')
+					makeJump(&s, code, &p, opJMPT, jumps, '?')
 				}
 				logic.Reset()
 			} else {

@@ -27,6 +27,7 @@ import (
 //  GTE - set S = (R >= V)
 //  RET - end execution and return V
 //
+// At the start of the program, R is initialized to n.
 // If the end of the program is reached without finding
 // a ret instruction, the last value of S is returned.
 // as an integer.
@@ -357,6 +358,11 @@ func vmOptimize(p program) program {
 			}
 		}
 	}
+	// Finally, if the first instruction sets R = n, remove it
+	// since that's the initial state for R.
+	if p[0].opCode == opN {
+		p = p[1:]
+	}
 	return p
 }
 
@@ -368,7 +374,7 @@ func makeVmFunc(p program) Formula {
 }
 
 func vmExec(p program, count int, n int) int {
-	var R int
+	var R int = n
 	var S bool
 	for ii := 0; ii < count; ii++ {
 		i := p[ii]

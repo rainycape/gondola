@@ -309,25 +309,55 @@ func vmOptimize(p program) program {
 			n = -1
 		}
 	}
-	// Third pass looks for jumps which end up in a jump of the same type,
-	// add adjusts the value to make just one jump.
+	// Third pass does two jump related optimizations. It looks for jumps
+	// which end up in a jump of the same type, and adjusts the value to
+	// make just one jump. It also checks jumps which end up in N instruction
+	// since the R register might already be set with the required value,
+	// meaning the N can be jumped over.
 	for ii := 0; ii < count; ii++ {
-		v := insts[ii]
+		v := p[ii]
 		if v.opCode.IsJump() {
 			for true {
 				t := ii + v.value + 1
 				if t >= count {
 					break
 				}
-				nv := insts[t]
+				nv := p[t]
 				if nv.opCode != v.opCode {
 					break
 				}
 				v.value += nv.value
 			}
+			t := ii + v.value + 1
+			if p[t].opCode == opN {
+				// find opN before ii
+				ni := -1
+				for jj := ii - 1; jj >= 0; jj-- {
+					if p[jj].opCode == opN {
+						ni = jj
+						break
+					}
+				}
+				if ni >= 0 {
+					end := ii - ni
+					equal := 1
+					for jj := 1; jj < end; jj++ {
+						i1, i2 := p[ni+jj], p[t+jj]
+						if i1.opCode.Alters() && i1.opCode == i2.opCode && i1.value == i2.value {
+							equal++
+						} else {
+							if !i1.opCode.Compares() || !i2.opCode.Compares() {
+								equal = 0
+							}
+							break
+						}
+					}
+					v.value += equal
+				}
+			}
 		}
 	}
-	return insts
+	return p
 }
 
 func makeVmFunc(p program) Formula {

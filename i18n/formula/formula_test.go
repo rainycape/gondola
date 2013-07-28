@@ -34,6 +34,8 @@ var formulas = []*Test{
 	{"n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2", 4, map[int]int{1: 0, 0: 2, 5: 2, 8: 2, 12: 2, 15: 2, 22: 1, 103: 1}},
 	// Slovenian
 	{"n%100==1 ? 0 : n%100==2 ? 1 : n%100==3 || n%100==4 ? 2 : 3", 4, map[int]int{0: 3, 1: 0, 101: 0, 2: 1, 3: 2, 4: 2, 204: 2}},
+	// Icelandic
+	{"n%10!=1 || n%100==11", 2, map[int]int{0: 1, 1: 0, 11: 1, 12: 1, 21: 0, 22: 1}},
 	// Some made up formulas
 	{"n + 7 < 10 ? 1 : 0", 2, map[int]int{0: 1, 2: 1, 3: 0}},
 	{"n - 5 > 0", 2, map[int]int{0: 0, 5: 0, 6: 1}},
@@ -102,7 +104,7 @@ func TestInvalid(t *testing.T) {
 		"m == 7",
 	}
 	for _, v := range invalid {
-		if _, err := compileVmFormula([]byte(v)); err == nil {
+		if _, _, err := Make(v); err == nil {
 			t.Errorf("invalid formula %q compiled without errors", v)
 		} else {
 			t.Logf("invalid formulq %q failed with error %s", v, err)

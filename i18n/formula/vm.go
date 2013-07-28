@@ -3,6 +3,7 @@ package formula
 import (
 	"bytes"
 	"fmt"
+	"hash/crc64"
 	"strconv"
 	"text/scanner"
 )
@@ -28,10 +29,16 @@ import (
 //  GT - set S = (R > V)
 //  GTE - set S = (R >= V)
 //
-// At the start of the program, R is initialized to n.
-// If the end of the program is reached without finding
+// At the start of the Program, R is initialized to n.
+// If the end of the Program is reached without finding
 // a ret instruction, the last value of S is returned.
 // as an integer.
+
+var (
+	opcodeNames = []string{"N", "ADD", "SUB", "MULT", "DIV", "MOD", "NMOD", "RET", "JMPT", "JMPF", "EQ", "NEQ", "LT", "LTE", "GT", "GTE"}
+	// ISO is considered weak for hashing
+	crcTable = crc64.MakeTable(crc64.ECMA)
+)
 
 type opCode uint8
 
@@ -59,8 +66,7 @@ const (
 )
 
 func (o opCode) String() string {
-	names := []string{"N", "ADD", "SUB", "MULT", "DIV", "MOD", "NMOD", "RET", "JMPT", "JMPF", "EQ", "NEQ", "LT", "LTE", "GT", "GTE"}
-	return names[int(o)-1]
+	return opcodeNames[int(o)-1]
 }
 
 func (o opCode) Alters() bool {
@@ -102,9 +108,22 @@ type instruction struct {
 	value  int
 }
 
-type program []*instruction
+// Program is an opaque type which represents an
+// already compiled formula.
+type Program []*instruction
 
-func invalid(s *scanner.Scanner, what, val string) (program, error) {
+// Id returns the unique program id. If two programs
+// have the same id, they're equal.
+func (p Program) Id() uint64 {
+	var buf bytes.Buffer
+	for _, v := range p {
+		buf.WriteString(v.opCode.String())
+		buf.WriteString(strconv.Itoa(v.value))
+	}
+	return crc64.Checksum(buf.Bytes(), crcTable)
+}
+
+func invalid(s *scanner.Scanner, what, val string) (Program, error) {
 	return nil, fmt.Errorf("invalid %s in formula at %s: %q", what, s.Pos(), val)
 }
 
@@ -130,7 +149,7 @@ func jumpTarget(s *scanner.Scanner, code []byte, chr byte) int {
 	return target
 }
 
-func makeJump(s *scanner.Scanner, code []byte, p *program, op opCode, jumps map[int][]int, chr byte) {
+func makeJump(s *scanner.Scanner, code []byte, p *Program, op opCode, jumps map[int][]int, chr byte) {
 	// end of conditional, put the placeholder for a jump
 	// and complete it once we reach the matching chr. Store the
 	// current position of the jump in its value, so
@@ -142,12 +161,16 @@ func makeJump(s *scanner.Scanner, code []byte, p *program, op opCode, jumps map[
 	jumps[target] = append(jumps[target], pos)
 }
 
-func resolveJumps(s *scanner.Scanner, p program, jumps map[int][]int) {
-	// check for incomplete jumps to this location.
-	// the pc should point at the next instruction
-	// to be added and the jump is relative.
-	pc := len(p)
+func resolveJumps(s *scanner.Scanner, p Program, jumps map[int][]int) {
 	offset := s.Pos().Offset - 1
+	resolveJumpsOffset(offset, p, jumps)
+}
+
+func resolveJumpsOffset(offset int, p Program, jumps map[int][]int) {
+	// Check for incomplete jumps to offset.
+	// The pc should point at the next instruction
+	// to be added. The jump is relative.
+	pc := len(p)
 	for _, v := range jumps[offset] {
 		inst := p[v]
 		inst.value = pc - inst.value - 1
@@ -155,20 +178,7 @@ func resolveJumps(s *scanner.Scanner, p program, jumps map[int][]int) {
 	delete(jumps, offset)
 }
 
-func compileVmFormula(code []byte) (Formula, error) {
-	p, err := vmCompile(code)
-	if err != nil {
-		return nil, err
-	}
-	p = vmOptimize(p)
-	fn, err := vmJit(p)
-	if err == nil {
-		return fn, nil
-	}
-	return makeVmFunc(p), nil
-}
-
-func vmCompile(code []byte) (program, error) {
+func vmCompile(code []byte) (Program, error) {
 	var s scanner.Scanner
 	var err error
 	s.Init(bytes.NewReader(code))
@@ -177,7 +187,7 @@ func vmCompile(code []byte) (program, error) {
 	}
 	s.Mode = scanner.ScanIdents | scanner.ScanInts
 	tok := s.Scan()
-	var p program
+	var p Program
 	var op bytes.Buffer
 	var logic bytes.Buffer
 	jumps := make(map[int][]int)
@@ -266,10 +276,11 @@ func vmCompile(code []byte) (program, error) {
 	if op.Len() > 0 {
 		return invalid(&s, "unused token", op.String())
 	}
+	resolveJumpsOffset(-1, p, jumps)
 	return p, nil
 }
 
-func removeInstructions(p program, start int, count int) program {
+func removeInstructions(p Program, start int, count int) Program {
 	p = append(p[:start], p[start+count:]...)
 	// Check for jumps that might be affected by the removal
 	for kk := start; kk >= 0; kk-- {
@@ -280,7 +291,7 @@ func removeInstructions(p program, start int, count int) program {
 	return p
 }
 
-func vmOptimize(p program) program {
+func vmOptimize(p Program) Program {
 	// The optimizer is quite simple. Each pass is documented
 	// at its beginning.
 
@@ -369,6 +380,10 @@ func vmOptimize(p program) program {
 				}
 			}
 			t := ii + v.value + 1
+			if t >= count {
+				// jump goes to the end of the program
+				continue
+			}
 			if p[t].opCode == opN {
 				// find opN before ii
 				ni := -1
@@ -405,14 +420,14 @@ func vmOptimize(p program) program {
 	return p
 }
 
-func makeVmFunc(p program) Formula {
+func makeVmFunc(p Program) Formula {
 	count := len(p)
 	return func(n int) int {
 		return vmExec(p, count, n)
 	}
 }
 
-func vmExec(p program, count int, n int) int {
+func vmExec(p Program, count int, n int) int {
 	var R int = n
 	var S bool
 	for ii := 0; ii < count; ii++ {

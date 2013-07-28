@@ -52,7 +52,7 @@ func jump(buf *bytes.Buffer, jumps *[]int, targets map[int]int, jump, cmp *instr
 	return nil
 }
 
-func vmJit(p program) (f Formula, err error) {
+func vmJit(p Program) (f Formula, err error) {
 	if asm == nil || mmap == nil {
 		return nil, errJitNotSupported
 	}
@@ -127,6 +127,16 @@ func vmJit(p program) (f Formula, err error) {
 			return nil, fmt.Errorf("can't map jump ending at %d", v)
 		}
 		skip := targets[v]
+		if j < len(p) && j+1+skip >= len(p) {
+			// the vm jumped to the end of the program on this
+			// jump, causing the S register to be returned. When
+			// jitting, we need to skip the potentially introduced
+			// jump when the program doesn't end with opRET. The
+			// first test (j < len(p)) ensures that the jump was
+			// in the compiled Program and not introduced by the
+			// jit.
+			skip++
+		}
 		offset := ends[j+skip] - ends[j]
 		var b bytes.Buffer
 		if err = asm.WriteInt32(&b, int32(offset)); err != nil {

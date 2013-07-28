@@ -125,7 +125,15 @@ func benchmarkCompile(b *testing.B, fn func([]byte) (Formula, error)) {
 }
 
 func BenchmarkCompileVm(b *testing.B) {
-	benchmarkCompile(b, compileVmFormula)
+	benchmarkCompile(b, compiler(false, false))
+}
+
+func BenchmarkCompileVmOptimize(b *testing.B) {
+	benchmarkCompile(b, compiler(true, false))
+}
+
+func BenchmarkCompileJit(b *testing.B) {
+	benchmarkCompile(b, compiler(true, true))
 }
 
 func BenchmarkFindCompiled(b *testing.B) {

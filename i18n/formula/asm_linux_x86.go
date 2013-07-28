@@ -9,16 +9,16 @@ import (
 	"io"
 )
 
-type x86Assembler struct {
+type x86Asm struct {
 }
 
-func (a *x86Assembler) WriteOpN(w io.Writer) error {
+func (a *x86Asm) WriteOpN(w io.Writer) error {
 	// mov 0x8(%esp) to %ebx
 	_, err := w.Write([]byte{0x8b, 0x5c, 0x24, 0x08})
 	return err
 }
 
-func (a *x86Assembler) WriteCompare(w io.Writer, n int32) error {
+func (a *x86Asm) WriteCompare(w io.Writer, n int32) error {
 	// cmp %ebx, im32
 	if _, err := w.Write([]byte{0x81, 0xfb}); err != nil {
 		return err
@@ -26,7 +26,7 @@ func (a *x86Assembler) WriteCompare(w io.Writer, n int32) error {
 	return a.WriteInt32(w, n)
 }
 
-func (a *x86Assembler) WriteAdd(w io.Writer, n int32) error {
+func (a *x86Asm) WriteAdd(w io.Writer, n int32) error {
 	// add %ebx, im32
 	if _, err := w.Write([]byte{0x81, 0xc3}); err != nil {
 		return err
@@ -34,7 +34,7 @@ func (a *x86Assembler) WriteAdd(w io.Writer, n int32) error {
 	return a.WriteInt32(w, n)
 }
 
-func (a *x86Assembler) WriteSub(w io.Writer, n int32) error {
+func (a *x86Asm) WriteSub(w io.Writer, n int32) error {
 	// sub %ebx, im32
 	if _, err := w.Write([]byte{0x81, 0xeb}); err != nil {
 		return err
@@ -42,7 +42,7 @@ func (a *x86Assembler) WriteSub(w io.Writer, n int32) error {
 	return a.WriteInt32(w, n)
 }
 
-func (a *x86Assembler) WriteMult(w io.Writer, n int32) error {
+func (a *x86Asm) WriteMult(w io.Writer, n int32) error {
 	// imul %ebx, %ebx, im32
 	if _, err := w.Write([]byte{0x69, 0xdb}); err != nil {
 		return err
@@ -50,7 +50,7 @@ func (a *x86Assembler) WriteMult(w io.Writer, n int32) error {
 	return a.WriteInt32(w, n)
 }
 
-func (a *x86Assembler) writeDiv(w io.Writer, n int32, reg byte) error {
+func (a *x86Asm) writeDiv(w io.Writer, n int32, reg byte) error {
 	// mov %ebx to %eax
 	if _, err := w.Write([]byte{0x89, 0xd8}); err != nil {
 		return err
@@ -80,17 +80,17 @@ func (a *x86Assembler) writeDiv(w io.Writer, n int32, reg byte) error {
 	return nil
 }
 
-func (a *x86Assembler) WriteDiv(w io.Writer, n int32) error {
+func (a *x86Asm) WriteDiv(w io.Writer, n int32) error {
 	// grab %eax after idiv
 	return a.writeDiv(w, n, 0)
 }
 
-func (a *x86Assembler) WriteMod(w io.Writer, n int32) error {
+func (a *x86Asm) WriteMod(w io.Writer, n int32) error {
 	// grab %edx after idiv
 	return a.writeDiv(w, n, 1<<4)
 }
 
-func (a *x86Assembler) WriteJump(w io.Writer, cmp opCode) error {
+func (a *x86Asm) WriteJump(w io.Writer, cmp opCode) error {
 	var b byte
 	switch cmp {
 	case opEQ:
@@ -112,7 +112,7 @@ func (a *x86Assembler) WriteJump(w io.Writer, cmp opCode) error {
 	return err
 }
 
-func (a *x86Assembler) WriteReturn(w io.Writer, n int32) error {
+func (a *x86Asm) WriteReturn(w io.Writer, n int32) error {
 	// mov imm32 0x10(%esp) to %ebx
 	if _, err := w.Write([]byte{0xc7, 0x44, 0x24, 0x10}); err != nil {
 		return err
@@ -125,10 +125,10 @@ func (a *x86Assembler) WriteReturn(w io.Writer, n int32) error {
 	return err
 }
 
-func (a *x86Assembler) WriteInt32(w io.Writer, n int32) error {
+func (a *x86Asm) WriteInt32(w io.Writer, n int32) error {
 	return binary.Write(w, binary.LittleEndian, n)
 }
 
 func init() {
-	asm = &x86Assembler{}
+	asm = &x86Asm{}
 }

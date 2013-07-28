@@ -17,6 +17,8 @@ import (
 //  MULT - set R = R * V
 //  DIV - set R = R / V
 //  MOD - set R = R % V
+//  NMOD - set R = n % V
+//  RET - end execution and return V
 //  JMPT - jump by V if S is true
 //  JMPF - jump by V if S is false
 //  EQ - set S = (R == V)
@@ -25,7 +27,6 @@ import (
 //  LTE - set S = (R <= V)
 //  GT - set S = (R > V)
 //  GTE - set S = (R >= V)
-//  RET - end execution and return V
 //
 // At the start of the program, R is initialized to n.
 // If the end of the program is reached without finding
@@ -42,6 +43,7 @@ const (
 	opMULT
 	opDIV
 	opMOD
+	opNMOD
 	// Special instructions
 	opRET
 	// Jump instructions
@@ -57,12 +59,12 @@ const (
 )
 
 func (o opCode) String() string {
-	names := []string{"N", "ADD", "SUB", "MULT", "DIV", "MOD", "RET", "JMPT", "JMPF", "EQ", "NEQ", "LT", "LTE", "GT", "GTE"}
+	names := []string{"N", "ADD", "SUB", "MULT", "DIV", "MOD", "NMOD", "RET", "JMPT", "JMPF", "EQ", "NEQ", "LT", "LTE", "GT", "GTE"}
 	return names[int(o)-1]
 }
 
 func (o opCode) Alters() bool {
-	return o <= opMOD
+	return o <= opNMOD
 }
 
 func (o opCode) IsSpecial() bool {
@@ -75,6 +77,24 @@ func (o opCode) IsJump() bool {
 
 func (o opCode) Compares() bool {
 	return o >= opEQ
+}
+
+func (o opCode) Inverse() opCode {
+	switch o {
+	case opEQ:
+		return opNEQ
+	case opNEQ:
+		return opEQ
+	case opLT:
+		return opGTE
+	case opLTE:
+		return opGT
+	case opGT:
+		return opLTE
+	case opGTE:
+		return opLT
+	}
+	return o
 }
 
 type instruction struct {
@@ -135,16 +155,16 @@ func resolveJumps(s *scanner.Scanner, p program, jumps map[int][]int) {
 	delete(jumps, offset)
 }
 
-func compileVmFormulaString(code string) (Formula, error) {
-	return compileVmFormula([]byte(code))
-}
-
 func compileVmFormula(code []byte) (Formula, error) {
 	p, err := vmCompile(code)
 	if err != nil {
 		return nil, err
 	}
 	p = vmOptimize(p)
+	fn, err := vmJit(p)
+	if err == nil {
+		return fn, nil
+	}
 	return makeVmFunc(p), nil
 }
 
@@ -310,7 +330,16 @@ func vmOptimize(p program) program {
 			n = -1
 		}
 	}
-	// Third pass does two jump related optimizations. It looks for jumps
+	// Third pass looks for opN followed by opMOD and replaces it
+	// with opNMOD
+	for ii = 1; ii < count; ii++ {
+		if in := p[ii]; in.opCode == opMOD && p[ii-1].opCode == opN {
+			in.opCode = opNMOD
+			p = removeInstructions(p, ii-1, 1)
+			count--
+		}
+	}
+	// Fourth pass does two jump related optimizations. It looks for jumps
 	// which end up in a jump of the same type, and adjusts the value to
 	// make just one jump. It also checks jumps which end up in N instruction
 	// since the R register might already be set with the required value,
@@ -324,10 +353,14 @@ func vmOptimize(p program) program {
 					break
 				}
 				nv := p[t]
-				if nv.opCode != v.opCode {
+				if !nv.opCode.IsJump() {
 					break
 				}
-				v.value += nv.value
+				if nv.opCode == v.opCode {
+					v.value += nv.value
+				} else {
+					v.value++
+				}
 			}
 			t := ii + v.value + 1
 			if p[t].opCode == opN {
@@ -391,6 +424,8 @@ func vmExec(p program, count int, n int) int {
 			R /= i.value
 		case opMOD:
 			R %= i.value
+		case opNMOD:
+			R = n % i.value
 		case opRET:
 			return i.value
 		case opJMPT:

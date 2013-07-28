@@ -93,6 +93,23 @@ func TestJit(t *testing.T) {
 	}
 }
 
+func TestInvalid(t *testing.T) {
+	invalid := []string{
+		"n++",
+		"5 == n",
+		"3 > n",
+		"n > 12 + 3",
+		"m == 7",
+	}
+	for _, v := range invalid {
+		if _, err := compileVmFormula([]byte(v)); err == nil {
+			t.Errorf("invalid formula %q compiled without errors", v)
+		} else {
+			t.Logf("invalid formulq %q failed with error %s", v, err)
+		}
+	}
+}
+
 func TestBytecode(t *testing.T) {
 	for _, v := range formulas {
 		t.Logf("Compiling formula %q", v.Expr)

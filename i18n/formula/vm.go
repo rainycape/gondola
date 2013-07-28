@@ -224,6 +224,9 @@ func vmCompile(code []byte) (program, error) {
 				default:
 					return invalid(&s, "op", op.String())
 				}
+				if !opc.Compares() && p[len(p)-1].opCode != opN {
+					return invalid(&s, "operation on non-n value", op.String()+" "+s.TokenText())
+				}
 				p = append(p, &instruction{opCode: opc, value: val})
 				op.Reset()
 			}
@@ -259,6 +262,9 @@ func vmCompile(code []byte) (program, error) {
 			return invalid(&s, "token", string(tok))
 		}
 		tok = s.Scan()
+	}
+	if op.Len() > 0 {
+		return invalid(&s, "unused token", op.String())
 	}
 	return p, nil
 }

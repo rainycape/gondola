@@ -17,13 +17,17 @@ var (
 type assembler interface {
 	WriteOpN(w io.Writer) error
 	WriteCompare(w io.Writer, n int32) error
+	WriteAdd(w io.Writer, n int32) error
+	WriteSub(w io.Writer, n int32) error
+	WriteMult(w io.Writer, n int32) error
+	WriteDiv(w io.Writer, n int32) error
 	WriteMod(w io.Writer, n int32) error
-	WriteInt32(w io.Writer, n int32) error
 	// cmp is the opcode for the comparison just before this
 	// this jump. If the jump branchs if false, this function
 	// will receive the inverse comparison.
 	WriteJump(w io.Writer, cmp opCode) error
 	WriteReturn(w io.Writer, n int32) error
+	WriteInt32(w io.Writer, n int32) error
 }
 
 type mmapper interface {
@@ -66,6 +70,14 @@ func vmJit(p program) (f Formula, err error) {
 		switch v.opCode {
 		case opN:
 			err = asm.WriteOpN(&buf)
+		case opADD:
+			err = asm.WriteAdd(&buf, int32(v.value))
+		case opSUB:
+			err = asm.WriteSub(&buf, int32(v.value))
+		case opMULT:
+			err = asm.WriteMult(&buf, int32(v.value))
+		case opDIV:
+			err = asm.WriteDiv(&buf, int32(v.value))
 		case opMOD, opNMOD:
 			if v.opCode == opNMOD && ii > 0 {
 				if err = asm.WriteOpN(&buf); err != nil {

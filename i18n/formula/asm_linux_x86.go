@@ -26,7 +26,31 @@ func (a *x86Assembler) WriteCompare(w io.Writer, n int32) error {
 	return a.WriteInt32(w, n)
 }
 
-func (a *x86Assembler) WriteMod(w io.Writer, n int32) error {
+func (a *x86Assembler) WriteAdd(w io.Writer, n int32) error {
+	// add %ebx, im32
+	if _, err := w.Write([]byte{0x81, 0xc3}); err != nil {
+		return err
+	}
+	return a.WriteInt32(w, n)
+}
+
+func (a *x86Assembler) WriteSub(w io.Writer, n int32) error {
+	// sub %ebx, im32
+	if _, err := w.Write([]byte{0x81, 0xeb}); err != nil {
+		return err
+	}
+	return a.WriteInt32(w, n)
+}
+
+func (a *x86Assembler) WriteMult(w io.Writer, n int32) error {
+	// imul %ebx, %ebx, im32
+	if _, err := w.Write([]byte{0x69, 0xdb}); err != nil {
+		return err
+	}
+	return a.WriteInt32(w, n)
+}
+
+func (a *x86Assembler) writeDiv(w io.Writer, n int32, reg byte) error {
 	// mov %ebx to %eax
 	if _, err := w.Write([]byte{0x89, 0xd8}); err != nil {
 		return err
@@ -46,15 +70,24 @@ func (a *x86Assembler) WriteMod(w io.Writer, n int32) error {
 	if _, err := w.Write([]byte{0xf7, 0xfb}); err != nil {
 		return err
 	}
-	// mov %rdx to %ebx
-	if _, err := w.Write([]byte{0x89, 0xd3}); err != nil {
+	// quotient is in %eax, remainder in %edx. reg
+	// indicates which register to copy. It will be
+	// either 0 (resulting on %eax) or 010000 (resulting
+	// in %edx)
+	if _, err := w.Write([]byte{0x89, 0xc3 | reg}); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (a *x86Assembler) WriteInt32(w io.Writer, n int32) error {
-	return binary.Write(w, binary.LittleEndian, n)
+func (a *x86Assembler) WriteDiv(w io.Writer, n int32) error {
+	// grab %eax after idiv
+	return a.writeDiv(w, n, 0)
+}
+
+func (a *x86Assembler) WriteMod(w io.Writer, n int32) error {
+	// grab %edx after idiv
+	return a.writeDiv(w, n, 1<<4)
 }
 
 func (a *x86Assembler) WriteJump(w io.Writer, cmp opCode) error {
@@ -90,6 +123,10 @@ func (a *x86Assembler) WriteReturn(w io.Writer, n int32) error {
 	// ret
 	_, err := w.Write([]byte{0xc3})
 	return err
+}
+
+func (a *x86Assembler) WriteInt32(w io.Writer, n int32) error {
+	return binary.Write(w, binary.LittleEndian, n)
 }
 
 func init() {

@@ -232,7 +232,7 @@ func vmCompile(code []byte) (program, error) {
 			makeJump(&s, code, &p, opJMPF, jumps, ':')
 		case ':':
 			resolveJumps(&s, p, jumps)
-		case '!', '=', '<', '>', '%':
+		case '!', '=', '<', '>', '%', '+', '-', '*', '/':
 			op.WriteRune(tok)
 		case '&', '|':
 			// logic operations

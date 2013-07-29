@@ -78,11 +78,10 @@ func Compile(formula string) (Program, error) {
 // FromProgram returns a Formula function from an already
 // compiled Program.
 func FromProgram(p Program) Formula {
-	if fn := formulasTable[p.Id()]; fn != nil {
+	if fn := getFormula(p.Id()); fn != nil {
 		return fn
 	}
-	fn, err := vmJit(p)
-	if err == nil {
+	if fn, _ := vmJit(p); fn != nil {
 		return fn
 	}
 	return makeVmFunc(p)

@@ -47,6 +47,7 @@ func FetchFormulas() ([]string, error) {
 		}
 		form = strings.Replace(form, " or ", " || ", -1)
 		form = strings.Replace(form, "= n", "=n", -1)
+		form = strings.Replace(form, "plural= ", "plural=", -1)
 		fn, _, err := formula.Extract(form)
 		if err != nil {
 			return nil, err

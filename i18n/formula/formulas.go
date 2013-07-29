@@ -31,15 +31,15 @@ func getFormula(id uint64) Formula {
 		return formula11
 	case 12497748465301699578:
 		return formula12
-	case 7242280884330115815:
-		return formula13
-	case 2921744522093718907:
-		return formula14
 	case 1850486709935878788:
-		return formula15
+		return formula13
 	case 8091386089892711711:
-		return formula16
+		return formula14
 	case 9284432213023049903:
+		return formula15
+	case 7242280884330115815:
+		return formula16
+	case 2921744522093718907:
 		return formula17
 	case 6087668853982681023:
 		return formula18
@@ -181,38 +181,8 @@ func formula12(n int) int {
 	return 2
 }
 
-// nplurals=4; plural= (n==1) ? 0 : (n==2) ? 1 : (n != 8 && n != 11) ? 2 : 3;
-func formula13(n int) int {
-	if n == 1 {
-		return 0
-	}
-	if n == 2 {
-		return 1
-	}
-	if n != 8 && n != 11 {
-		return 2
-	}
-
-	return 3
-}
-
-// nplurals=4; plural= (n==1) ? 0 : (n==2) ? 1 : (n == 3) ? 2 : 3;
-func formula14(n int) int {
-	if n == 1 {
-		return 0
-	}
-	if n == 2 {
-		return 1
-	}
-	if n == 3 {
-		return 2
-	}
-
-	return 3
-}
-
 // nplurals=4; plural=(n%100==1 ? 1 : n%100==2 ? 2 : n%100==3 || n%100==4 ? 3 : 0);
-func formula15(n int) int {
+func formula13(n int) int {
 	if n%100 == 1 {
 		return 1
 	}
@@ -227,7 +197,7 @@ func formula15(n int) int {
 }
 
 // nplurals=4; plural=(n==1 ? 0 : n==0 || ( n%100>1 && n%100<11) ? 1 : (n%100>10 && n%100<20 ) ? 2 : 3);
-func formula16(n int) int {
+func formula14(n int) int {
 	if n == 1 {
 		return 0
 	}
@@ -242,7 +212,7 @@ func formula16(n int) int {
 }
 
 // nplurals=4; plural=(n==1 || n==11) ? 0 : (n==2 || n==12) ? 1 : (n > 2 && n < 20) ? 2 : 3;
-func formula17(n int) int {
+func formula15(n int) int {
 	if n == 1 || n == 11 {
 		return 0
 	}
@@ -250,6 +220,36 @@ func formula17(n int) int {
 		return 1
 	}
 	if n > 2 && n < 20 {
+		return 2
+	}
+
+	return 3
+}
+
+// nplurals=4; plural=(n==1) ? 0 : (n==2) ? 1 : (n != 8 && n != 11) ? 2 : 3;
+func formula16(n int) int {
+	if n == 1 {
+		return 0
+	}
+	if n == 2 {
+		return 1
+	}
+	if n != 8 && n != 11 {
+		return 2
+	}
+
+	return 3
+}
+
+// nplurals=4; plural=(n==1) ? 0 : (n==2) ? 1 : (n == 3) ? 2 : 3;
+func formula17(n int) int {
+	if n == 1 {
+		return 0
+	}
+	if n == 2 {
+		return 1
+	}
+	if n == 3 {
 		return 2
 	}
 

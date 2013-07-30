@@ -144,7 +144,7 @@ func Write(w io.Writer, messages []*Message) error {
 			}
 		}
 		if m.Context != "" {
-			if _, err := io.WriteString(w, fmt.Sprintf("msgctxt %s\n", m.Context)); err != nil {
+			if _, err := io.WriteString(w, fmt.Sprintf("msgctxt %q\n", m.Context)); err != nil {
 				return err
 			}
 		}

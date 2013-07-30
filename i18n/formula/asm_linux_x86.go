@@ -86,6 +86,120 @@ func (a *x86Asm) WriteDiv(w io.Writer, n int32) error {
 }
 
 func (a *x86Asm) WriteMod(w io.Writer, n int32) error {
+	if n == 10 {
+		// mov    $0x66666667 to %edx
+		if _, err := w.Write([]byte{0xba, 0x67, 0x66, 0x66, 0x66}); err != nil {
+			return err
+		}
+		// mov    %ebx to %eax
+		if _, err := w.Write([]byte{0x89, 0xd8}); err != nil {
+			return err
+		}
+		// imul   %edx
+		if _, err := w.Write([]byte{0xf7, 0xea}); err != nil {
+			return err
+		}
+		// sar    $0x2,%edx
+		if _, err := w.Write([]byte{0xc1, 0xfa, 0x02}); err != nil {
+			return err
+		}
+		// mov    %ebx,%eax
+		if _, err := w.Write([]byte{0x89, 0xd8}); err != nil {
+			return err
+		}
+		// sar    $0x1f,%eax
+		if _, err := w.Write([]byte{0xc1, 0xf8, 0x1f}); err != nil {
+			return err
+		}
+		// sub    %eax,%edx
+		if _, err := w.Write([]byte{0x29, 0xc2}); err != nil {
+			return err
+		}
+		// mov    %edx,%eax
+		if _, err := w.Write([]byte{0x89, 0xd0}); err != nil {
+			return err
+		}
+		// shl    $0x2,%eax
+		if _, err := w.Write([]byte{0xc1, 0xe0, 0x02}); err != nil {
+			return err
+		}
+		// add    %edx,%eax
+		if _, err := w.Write([]byte{0x01, 0xd0}); err != nil {
+			return err
+		}
+		// add    %eax,%eax
+		if _, err := w.Write([]byte{0x01, 0xc0}); err != nil {
+			return err
+		}
+		// mov    %ebx,%edx
+		if _, err := w.Write([]byte{0x89, 0xda}); err != nil {
+			return err
+		}
+		// sub    %eax,%edx
+		if _, err := w.Write([]byte{0x29, 0xc2}); err != nil {
+			return err
+		}
+		// mov    %edx,%ebx
+		if _, err := w.Write([]byte{0x89, 0xd3}); err != nil {
+			return err
+		}
+		return nil
+	}
+	if n == 100 {
+		// mov    $0x51eb851f,%edx
+		if _, err := w.Write([]byte{0xba, 0x1f, 0x85, 0xeb, 0x51}); err != nil {
+			return err
+		}
+		// mov    %ebx,%eax
+		if _, err := w.Write([]byte{0x89, 0xd8}); err != nil {
+			return err
+		}
+		// imul   %edx
+		if _, err := w.Write([]byte{0xf7, 0xea}); err != nil {
+			return err
+		}
+		// sar    $0x5,%edx
+		if _, err := w.Write([]byte{0xc1, 0xfa, 0x05}); err != nil {
+			return err
+		}
+		// mov    %ebx,%eax
+		if _, err := w.Write([]byte{0x89, 0xd8}); err != nil {
+			return err
+		}
+		// sar    $0x1f,%eax
+		if _, err := w.Write([]byte{0xc1, 0xf8, 0x1f}); err != nil {
+			return err
+		}
+		// mov    %edx,%ecx
+		if _, err := w.Write([]byte{0x89, 0xd1}); err != nil {
+			return err
+		}
+		//sub    %eax,%ecx
+		if _, err := w.Write([]byte{0x29, 0xc1}); err != nil {
+			return err
+		}
+		// mov    %ecx,%eax
+		if _, err := w.Write([]byte{0x89, 0xc8}); err != nil {
+			return err
+		}
+		// imul   $0x64,%eax,%eax
+		if _, err := w.Write([]byte{0x6b, 0xc0, 0x64}); err != nil {
+			return err
+		}
+		// mov    %ebx,%edx
+		if _, err := w.Write([]byte{0x89, 0xda}); err != nil {
+			return err
+		}
+		// sub    %eax,%edx
+		if _, err := w.Write([]byte{0x29, 0xc2}); err != nil {
+			return err
+		}
+		// mov    %edx,%ebx
+		if _, err := w.Write([]byte{0x89, 0xd3}); err != nil {
+			return err
+		}
+		return nil
+	}
 	// grab %edx after idiv
 	return a.writeDiv(w, n, 1<<4)
 }

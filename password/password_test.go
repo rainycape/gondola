@@ -24,7 +24,7 @@ func TestInvalidPasswords(t *testing.T) {
 		"pepe:lotas:a2e4150de3aec65b826e6105392058a42cf3c63cc2ab859a68962603ae8a0588",
 	}
 	for _, v := range invalid {
-		if Password(v).Valid() {
+		if Password(v).IsValid() {
 			t.Errorf("Invalid password %q parsed as valid", v)
 		}
 	}

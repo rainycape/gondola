@@ -58,9 +58,9 @@ func (b *Backend) Index(db sql.DB, m driver.Model, idx driver.Index, name string
 	}
 	buf.WriteString("INDEX IF NOT EXISTS ")
 	buf.WriteString(name)
-	buf.WriteString(" ON ")
+	buf.WriteString(" ON \"")
 	buf.WriteString(m.TableName())
-	buf.WriteString(" (")
+	buf.WriteString("\" (")
 	fields := m.Fields()
 	for _, v := range idx.Fields() {
 		name, _, err := fields.Map(v)

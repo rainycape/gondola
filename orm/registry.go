@@ -134,11 +134,11 @@ func (o *Orm) fields(s *types.Struct) (*driver.Fields, error) {
 				return nil, fmt.Errorf("field %q in struct %v has invalid type %v", v, t, k)
 			}
 		}
-		fields.OmitZero = append(fields.OmitZero, ftag.Has("omitzero") || (ftag.Has("auto_increment") && !ftag.Has("notomitzero")))
+		fields.OmitEmpty = append(fields.OmitEmpty, ftag.Has("omitempty") || (ftag.Has("auto_increment") && !ftag.Has("notomitempty")))
 		// Struct has flattened types, but we need to original type
-		// to determine if it should be nullzero by default
+		// to determine if it should be nullempty by default
 		field := s.Type.FieldByIndex(s.Indexes[ii])
-		fields.NullZero = append(fields.NullZero, ftag.Has("nullzero") || (defaultsToNullZero(field.Type, ftag) && !ftag.Has("notnullzero")))
+		fields.NullEmpty = append(fields.NullEmpty, ftag.Has("nullempty") || (defaultsToNullEmpty(field.Type, ftag) && !ftag.Has("notnullempty")))
 		if ftag.Has("primary_key") {
 			if fields.PrimaryKey >= 0 {
 				return nil, fmt.Errorf("duplicate primary_key in struct %v (%s and %s)", s.Type, s.QNames[fields.PrimaryKey], v)
@@ -156,8 +156,8 @@ func (o *Orm) dtags() []string {
 	return append(o.driver.Tags(), "orm")
 }
 
-// returns wheter the kind defaults to nullzero option
-func defaultsToNullZero(typ reflect.Type, t *types.Tag) bool {
+// returns wheter the kind defaults to nullempty option
+func defaultsToNullEmpty(typ reflect.Type, t *types.Tag) bool {
 	switch typ.Kind() {
 	case reflect.Slice, reflect.Ptr, reflect.Interface, reflect.String:
 		return true

@@ -215,7 +215,7 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 	if d.transforms != nil {
 		for ii, v := range fields.Indexes {
 			f := val.FieldByIndex(v)
-			if fields.OmitZero[ii] && driver.IsZero(f) {
+			if fields.OmitEmpty[ii] && driver.IsZero(f) {
 				continue
 			}
 			ft := f.Type()
@@ -225,10 +225,10 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 				if err != nil {
 					return val, nil, nil, err
 				}
-				if fields.NullZero[ii] && driver.IsZero(reflect.ValueOf(fval)) {
+				if fields.NullEmpty[ii] && driver.IsZero(reflect.ValueOf(fval)) {
 					fval = nil
 				}
-			} else if !fields.NullZero[ii] || !driver.IsZero(f) {
+			} else if !fields.NullEmpty[ii] || !driver.IsZero(f) {
 				if c := codec.FromTag(fields.Tags[ii]); c != nil {
 					fval, err = c.Encode(&f)
 					if err != nil {
@@ -248,11 +248,11 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 	} else {
 		for ii, v := range fields.Indexes {
 			f := val.FieldByIndex(v)
-			if fields.OmitZero[ii] && driver.IsZero(f) {
+			if fields.OmitEmpty[ii] && driver.IsZero(f) {
 				continue
 			}
 			var fval interface{}
-			if !fields.NullZero[ii] || !driver.IsZero(f) {
+			if !fields.NullEmpty[ii] || !driver.IsZero(f) {
 				if c := codec.FromTag(fields.Tags[ii]); c != nil {
 					fval, err = c.Encode(&f)
 					if err != nil {

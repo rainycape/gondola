@@ -16,6 +16,13 @@ type Query struct {
 	err       error
 }
 
+func (q *Query) ensureTable() error {
+	if q.model == nil {
+		fmt.Errorf("no table selected, set one with Table() before calling Count()")
+	}
+	return nil
+}
+
 // Table sets the table for the query. If the table was
 // previously set, it's overridden. Rather than using
 // strings to select tables, a Table object (which is
@@ -79,6 +86,16 @@ func (q *Query) One(out interface{}) error {
 	return ErrNotFound
 }
 
+// Exists returns wheter a result with the specified query
+// exists.
+func (q *Query) Exists() (bool, error) {
+	if err := q.ensureTable(); err != nil {
+		return false, err
+	}
+	q.orm.numQueries++
+	return q.orm.driver.Exists(q.model, q.q)
+}
+
 // Iter returns an Iter object which lets you
 // iterate over the results produced by the
 // query.
@@ -89,8 +106,8 @@ func (q *Query) Iter() *Iter {
 // Count returns the number of results for the query. Note that
 // you have to set the table manually before calling Count().
 func (q *Query) Count() (uint64, error) {
-	if q.model == nil {
-		return 0, fmt.Errorf("no table selected, set one with Table() before calling Count()")
+	if err := q.ensureTable(); err != nil {
+		return 0, err
 	}
 	q.orm.numQueries++
 	return q.orm.driver.Count(q.model, q.q, q.limit, q.offset, q.sortDir, q.sortField)

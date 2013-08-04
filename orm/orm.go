@@ -35,6 +35,11 @@ func (o *Orm) Table(t *Table) *Query {
 	}
 }
 
+// Exists is a shorthand for Table(t).Filter(q).Exists()
+func (o *Orm) Exists(t *Table, q query.Q) (bool, error) {
+	return o.Table(t).Filter(q).Exists()
+}
+
 // Query returns a Query object, on which you can call
 // Limit, Offset or Iter, to start iterating the results.
 // If you want to iterate over all the items on a given table

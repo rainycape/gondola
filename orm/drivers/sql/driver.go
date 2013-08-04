@@ -81,6 +81,19 @@ func (d *Driver) Count(m driver.Model, q query.Q, limit int, offset int, sort in
 	return count, err
 }
 
+func (d *Driver) Exists(m driver.Model, q query.Q) (bool, error) {
+	query, params, err := d.Select([]string{"1"}, false, m, q, -1, -1, driver.NONE, "")
+	if err != nil {
+		return false, err
+	}
+	var one uint64
+	err = d.db.QueryRow(query, params...).Scan(&one)
+	if err == sql.ErrNoRows {
+		err = nil
+	}
+	return one == 1, err
+}
+
 func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error) {
 	_, fields, values, err := d.saveParameters(m, data)
 	if err != nil {

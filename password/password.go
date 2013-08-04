@@ -100,6 +100,14 @@ func (p Password) Check(plain string) error {
 	return nil
 }
 
+// Matches is a shorthand for Check(plain) == nil. Id est,
+// if returns true iff the password is correctly encoded
+// and the provided plain password matches the encoded
+// one.
+func (p Password) Matches(plain string) bool {
+	return p.Check(plain) == nil
+}
+
 // New returns a new Password hashed using the default hash
 // (at this time, sha256).
 func New(plain string) Password {

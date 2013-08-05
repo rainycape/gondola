@@ -22,24 +22,26 @@ func TestCredentials(t *testing.T) {
 
 type Validation struct {
 	Address    string
+	Email      string
 	UseNetwork bool
 	Valid      bool
 }
 
 func TestValidation(t *testing.T) {
 	cases := []Validation{
-		{"pepe  @gmail.com", true, false},
-		{"pepe@lotas@gmail.com", true, false},
-		{"pepe", true, false},
-		{"pepe@", true, false},
-		{"@gmail.com", true, false},
-		{"pepe@gmail.com", true, true},
-		{"fiam@raichu.rm-fr.net", true, true},
-		{"pepe@gmaildoesnotexistwolololhopefullynooneregistersthisdomainandbreaksthistest.com", false, true},
-		{"pepe@gmaildoesnotexistwolololhopefullynooneregistersthisdomainandbreaksthistest.com", true, false},
+		{"pepe  @gmail.com", "", true, false},
+		{"pepe@lotas@gmail.com", "", true, false},
+		{"pepe", "", true, false},
+		{"pepe@", "", true, false},
+		{"@gmail.com", "", true, false},
+		{"pepe@gmail.com", "", true, true},
+		{"Pepe <pepe@gmail.com>", "pepe@gmail.com", true, true},
+		{"fiam@raichu.rm-fr.net", "", true, true},
+		{"pepe@gmaildoesnotexistwolololhopefullynooneregistersthisdomainandbreaksthistest.com", "", false, true},
+		{"pepe@gmaildoesnotexistwolololhopefullynooneregistersthisdomainandbreaksthistest.com", "", true, false},
 	}
 	for _, v := range cases {
-		err := Validate(v.Address, v.UseNetwork)
+		email, err := Validate(v.Address, v.UseNetwork)
 		t.Logf("Validated address %q (net %v), error: %v", v.Address, v.UseNetwork, err)
 		valid := err == nil
 		if valid != v.Valid {
@@ -48,6 +50,9 @@ func TestValidation(t *testing.T) {
 				e = "invalid"
 			}
 			t.Errorf("Error validating %q (net %v), expecting %s address", v.Address, v.UseNetwork, e)
+		}
+		if v.Email != "" && v.Email != email {
+			t.Errorf("invalid email %q from %q, want %q", email, v.Address, v.Email)
 		}
 	}
 }

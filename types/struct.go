@@ -29,6 +29,8 @@ type Struct struct {
 	MNameMap map[string]int
 	// Maps qualified names to indexes
 	QNameMap map[string]int
+	// Lists the field indexes prefix for pointers in embedded structs
+	Pointers [][]int
 }
 
 // Map takes a qualified struct name and returns its mangled name and type
@@ -85,30 +87,29 @@ func fields(typ reflect.Type, tags []string, s *Struct, qprefix, mprefix string,
 		}
 		qname := qprefix + field.Name
 		// Check type
+		ptr := false
 		t := field.Type
 		for t.Kind() == reflect.Ptr {
+			ptr = true
 			t = t.Elem()
 		}
-		// TODO: The ORM needs the fields tagged with a codec
-		// to not be broken into their members. Make this a
-		// parameter, since other users of this function
-		// might want all the fields.
-		if t.Kind() == reflect.Struct && !ftag.Has("codec") {
+		if t.Kind() == reflect.Struct && decompose(t, ftag) {
 			// Inner struct
 			idx := make([]int, len(index))
 			copy(idx, index)
 			idx = append(idx, field.Index[0])
-			if t.Name() != "Time" || t.PkgPath() != "time" {
-				prefix := mprefix
-				if !ftag.Has("inline") {
-					prefix += name + "_"
-				}
-				err := fields(t, tags, s, qname+".", prefix, idx)
-				if err != nil {
-					return err
-				}
-				continue
+			prefix := mprefix
+			if !ftag.Has("inline") {
+				prefix += name + "_"
 			}
+			err := fields(t, tags, s, qname+".", prefix, idx)
+			if err != nil {
+				return err
+			}
+			if ptr {
+				s.Pointers = append(s.Pointers, idx)
+			}
+			continue
 		}
 		idx := make([]int, len(index))
 		copy(idx, index)
@@ -123,4 +124,14 @@ func fields(typ reflect.Type, tags []string, s *Struct, qprefix, mprefix string,
 		s.QNameMap[qname] = p
 	}
 	return nil
+}
+
+// Returns wheter a stuct should decomposed into its fields
+func decompose(typ reflect.Type, tag *Tag) bool {
+	// TODO: The ORM needs the fields tagged with a codec
+	// to not be broken into their members. Make this a
+	// parameter, since other users of this function
+	// might want all the fields. Make also struct types
+	// like time.Time configurable
+	return !tag.Has("codec") && !(typ.Name() == "Time" && typ.PkgPath() == "time")
 }

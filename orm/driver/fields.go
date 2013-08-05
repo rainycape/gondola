@@ -17,3 +17,15 @@ type Fields struct {
 	// Model methods called by the ORM
 	Methods Methods
 }
+
+func (f *Fields) IsSubfield(field, parent []int) bool {
+	if len(field) <= len(parent) {
+		return false
+	}
+	for ii, v := range parent {
+		if field[ii] != v {
+			return false
+		}
+	}
+	return true
+}

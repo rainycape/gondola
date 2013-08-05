@@ -11,6 +11,7 @@ import (
 type simpleScanner struct {
 	Out *reflect.Value
 	Tag *types.Tag
+	Nil bool
 }
 
 var simpleScannerPool = make(chan *simpleScanner, 64)
@@ -21,6 +22,7 @@ func (s *simpleScanner) Scan(src interface{}) error {
 	case nil:
 		// Assign zero to the type
 		s.Out.Set(reflect.Zero(s.Out.Type()))
+		s.Nil = true
 	case int64:
 		s.Out.SetInt(x)
 	case bool:
@@ -44,6 +46,7 @@ func (s *simpleScanner) Scan(src interface{}) error {
 			}
 			s.Out.Set(reflect.ValueOf(x))
 		} else {
+			s.Nil = true
 			s.Out.Set(reflect.ValueOf([]byte(nil)))
 		}
 	case string:
@@ -63,12 +66,17 @@ func (s *simpleScanner) Put() {
 	}
 }
 
+func (s *simpleScanner) IsNil() bool {
+	return s.Nil
+}
+
 func Scanner(val *reflect.Value, t *types.Tag) scanner {
 	var s *simpleScanner
 	select {
 	case s = <-simpleScannerPool:
 		s.Out = val
 		s.Tag = t
+		s.Nil = false
 	default:
 		s = &simpleScanner{Out: val, Tag: t}
 	}

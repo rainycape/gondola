@@ -54,6 +54,17 @@ func (o *Object) Save() {
 	o.saved++
 }
 
+type Inner struct {
+	A int `orm:",omitempty"`
+	B int `orm:",omitempty"`
+}
+
+type Outer struct {
+	Id    int64 `orm:",primary_key,auto_increment"`
+	Key   string
+	Inner *Inner
+}
+
 func newOrm(t T, drv, name string, logging bool) *Orm {
 	// Clear registry
 	_nameRegistry = map[string]nameRegistry{}
@@ -223,4 +234,43 @@ func testData(t *testing.T, o *Orm) {
 
 func TestData(t *testing.T) {
 	runTest(t, testData)
+}
+
+func testInnerPointer(t *testing.T, o *Orm) {
+	o.MustRegister((*Outer)(nil), &Options{
+		TableName: "test_outer",
+	})
+	o.MustCommitTables()
+	out := Outer{Key: "foo"}
+	o.MustSave(&out)
+	out2 := Outer{Key: "bar", Inner: &Inner{A: 4, B: 2}}
+	o.MustSave(&out2)
+	var in Outer
+	err := o.One(Eq("Key", "foo"), &in)
+	if err != nil {
+		t.Error(err)
+	} else {
+		if in.Inner != nil {
+			t.Errorf("want %v, got %+v", nil, in.Inner)
+		}
+	}
+	err = o.One(Eq("Key", "bar"), &in)
+	if err != nil {
+		t.Error(err)
+	} else {
+		if in.Inner != nil {
+			if in.Inner.A != out2.Inner.A {
+				t.Errorf("want %v, got %v", out2.Inner.A, in.Inner.A)
+			}
+			if in.Inner.B != out2.Inner.B {
+				t.Errorf("want %v, got %v", out2.Inner.B, in.Inner.A)
+			}
+		} else {
+			t.Errorf("want non-nil, got nil")
+		}
+	}
+}
+
+func TestInnerPointer(t *testing.T) {
+	runTest(t, testInnerPointer)
 }

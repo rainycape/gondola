@@ -201,6 +201,22 @@ func (d *Driver) debugq(sql string, args interface{}) {
 	}
 }
 
+func (d *Driver) fieldByIndex(val reflect.Value, indexes []int, alloc bool) reflect.Value {
+	for _, v := range indexes {
+		if val.Type().Kind() == reflect.Ptr {
+			if val.IsNil() {
+				if !alloc {
+					return reflect.Value{}
+				}
+				val.Set(reflect.New(val.Type().Elem()))
+			}
+			val = val.Elem()
+		}
+		val = val.Field(v)
+	}
+	return val
+}
+
 func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value, []string, []interface{}, error) {
 	// data is guaranteed to be of m.Type()
 	val := reflect.ValueOf(data)
@@ -214,7 +230,10 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 	var err error
 	if d.transforms != nil {
 		for ii, v := range fields.Indexes {
-			f := val.FieldByIndex(v)
+			f := d.fieldByIndex(val, v, false)
+			if !f.IsValid() {
+				continue
+			}
 			if fields.OmitEmpty[ii] && driver.IsZero(f) {
 				continue
 			}
@@ -247,7 +266,10 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 		}
 	} else {
 		for ii, v := range fields.Indexes {
-			f := val.FieldByIndex(v)
+			f := d.fieldByIndex(val, v, false)
+			if !f.IsValid() {
+				continue
+			}
 			if fields.OmitEmpty[ii] && driver.IsZero(f) {
 				continue
 			}
@@ -274,11 +296,11 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 	return val, names, values, nil
 }
 
-func (d *Driver) outValues(m driver.Model, out interface{}) ([]interface{}, []scanner, error) {
+func (d *Driver) outValues(m driver.Model, out interface{}) (reflect.Value, *driver.Fields, []interface{}, []scanner, error) {
 	val := reflect.ValueOf(out)
 	vt := val.Type()
 	if vt.Kind() != reflect.Ptr {
-		return nil, nil, fmt.Errorf("can't set object of type %t. Please, pass a %v rather than a %v", out, reflect.PtrTo(vt), vt)
+		return reflect.Value{}, nil, nil, nil, fmt.Errorf("can't set object of type %t. Please, pass a %v rather than a %v", out, reflect.PtrTo(vt), vt)
 	}
 	if vt.Elem().Kind() == reflect.Ptr && vt.Elem().Elem().Kind() == reflect.Struct {
 		// Received a pointer to pointer. Always create a new object,
@@ -299,7 +321,7 @@ func (d *Driver) outValues(m driver.Model, out interface{}) ([]interface{}, []sc
 	values := make([]interface{}, len(fields.Indexes))
 	scanners := make([]scanner, len(fields.Indexes))
 	for ii, v := range fields.Indexes {
-		field := val.FieldByIndex(v)
+		field := d.fieldByIndex(val, v, true)
 		tag := fields.Tags[ii]
 		var s scanner
 		if _, ok := d.transforms[field.Type()]; ok {
@@ -310,7 +332,7 @@ func (d *Driver) outValues(m driver.Model, out interface{}) ([]interface{}, []sc
 		scanners[ii] = s
 		values[ii] = s
 	}
-	return values, scanners, nil
+	return val, fields, values, scanners, nil
 }
 
 func (d *Driver) tableFields(m driver.Model) ([]string, error) {

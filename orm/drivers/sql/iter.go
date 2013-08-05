@@ -3,6 +3,7 @@ package sql
 import (
 	"database/sql"
 	"gondola/orm/driver"
+	"reflect"
 )
 
 type Iter struct {
@@ -14,11 +15,26 @@ type Iter struct {
 
 func (i *Iter) Next(out interface{}) bool {
 	if i.err == nil && i.rows != nil && i.rows.Next() {
+		var val reflect.Value
+		var fields *driver.Fields
 		var values []interface{}
 		var scanners []scanner
-		values, scanners, i.err = i.driver.outValues(i.model, out)
+		val, fields, values, scanners, i.err = i.driver.outValues(i.model, out)
 		if i.err == nil {
 			i.err = i.rows.Scan(values...)
+		}
+		for _, p := range fields.Pointers {
+			isNil := true
+			for ii, v := range fields.Indexes {
+				if fields.IsSubfield(v, p) && !scanners[ii].IsNil() {
+					isNil = false
+					break
+				}
+			}
+			if isNil {
+				fval := i.driver.fieldByIndex(val, p, false)
+				fval.Set(reflect.Zero(fval.Type()))
+			}
 		}
 		for _, v := range scanners {
 			v.Put()

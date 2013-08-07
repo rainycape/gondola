@@ -171,6 +171,7 @@ type decodeState struct {
 	savedError error
 	tempstr    string // scratch space to avoid some allocations
 	useNumber  bool
+	fieldCache map[reflect.Type]map[string]*field // cache for field lookups
 }
 
 // errPhase is used for errors that should not happen unless
@@ -182,6 +183,7 @@ func (d *decodeState) init(data []byte) *decodeState {
 	d.data = data
 	d.off = 0
 	d.savedError = nil
+	d.fieldCache = make(map[reflect.Type]map[string]*field)
 	return d
 }
 
@@ -473,6 +475,16 @@ func (d *decodeState) object(v reflect.Value) {
 	}
 
 	var mapElem reflect.Value
+	typ := v.Type()
+	kind := typ.Kind()
+	var cache map[string]*field
+	if kind != reflect.Map {
+		cache = d.fieldCache[typ]
+		if cache == nil {
+			cache = make(map[string]*field)
+			d.fieldCache[typ] = cache
+		}
+	}
 
 	for {
 		// Read opening " of string key or closing }.
@@ -498,8 +510,8 @@ func (d *decodeState) object(v reflect.Value) {
 		var subv reflect.Value
 		destring := false // whether the value is wrapped in a string to be decoded first
 
-		if v.Kind() == reflect.Map {
-			elemType := v.Type().Elem()
+		if kind == reflect.Map {
+			elemType := typ.Elem()
 			if !mapElem.IsValid() {
 				mapElem = reflect.New(elemType).Elem()
 			} else {
@@ -507,18 +519,7 @@ func (d *decodeState) object(v reflect.Value) {
 			}
 			subv = mapElem
 		} else {
-			var f *field
-			fields := cachedTypeFields(v.Type())
-			for i := range fields {
-				ff := &fields[i]
-				if ff.name == key {
-					f = ff
-					break
-				}
-				if f == nil && strings.EqualFold(ff.name, key) {
-					f = ff
-				}
-			}
+			f := d.lookupField(typ, cache, key)
 			if f != nil {
 				subv = v
 				destring = f.quoted
@@ -552,8 +553,8 @@ func (d *decodeState) object(v reflect.Value) {
 
 		// Write value back to map;
 		// if using struct, subv points into struct already.
-		if v.Kind() == reflect.Map {
-			kv := reflect.ValueOf(key).Convert(v.Type().Key())
+		if kind == reflect.Map {
+			kv := reflect.ValueOf(key).Convert(typ.Key())
 			v.SetMapIndex(kv, subv)
 		}
 
@@ -566,6 +567,25 @@ func (d *decodeState) object(v reflect.Value) {
 			d.error(errPhase)
 		}
 	}
+}
+
+func (d *decodeState) lookupField(typ reflect.Type, cache map[string]*field, key string) *field {
+	f, ok := cache[key]
+	if !ok {
+		fields := cachedTypeFields(typ)
+		for i := range fields {
+			ff := &fields[i]
+			if ff.name == key {
+				f = ff
+				break
+			}
+			if f == nil && strings.EqualFold(ff.name, key) {
+				f = ff
+			}
+		}
+		cache[key] = f
+	}
+	return f
 }
 
 // literal consumes a literal from d.data[d.off-1:], decoding into the value v.

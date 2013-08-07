@@ -169,6 +169,7 @@ func (n Number) Int64() (int64, error) {
 // decodeState represents the state while decoding a JSON value.
 type decodeState struct {
 	data       []byte
+	length     int
 	off        int // read offset in data
 	scan       scanner
 	nextscan   scanner // for calls to nextValue
@@ -185,6 +186,7 @@ var errPhase = errors.New("JSON decoder out of sync - data changing underfoot?")
 
 func (d *decodeState) init(data []byte) *decodeState {
 	d.data = data
+	d.length = len(data)
 	d.off = 0
 	d.savedError = nil
 	d.fieldCache = make(map[reflect.Type]map[string]*field)
@@ -212,7 +214,7 @@ func (d *decodeState) next() []byte {
 	if err != nil {
 		d.error(err)
 	}
-	d.off = len(d.data) - len(rest)
+	d.off = d.length - len(rest)
 
 	// Our scanner has seen the opening brace/bracket
 	// and thinks we're still in the middle of the object.
@@ -232,9 +234,9 @@ func (d *decodeState) next() []byte {
 func (d *decodeState) scanWhile(op int) int {
 	var newOp int
 	for {
-		if d.off >= len(d.data) {
+		if d.off >= d.length {
 			newOp = d.scan.eof()
-			d.off = len(d.data) + 1 // mark processed EOF with len+1
+			d.off = d.length + 1 // mark processed EOF with len+1
 		} else {
 			c := int(d.data[d.off])
 			d.off++
@@ -255,7 +257,7 @@ func (d *decodeState) value(v reflect.Value) {
 		if err != nil {
 			d.error(err)
 		}
-		d.off = len(d.data) - len(rest)
+		d.off = d.length - len(rest)
 
 		// d.scan thinks we're still at the beginning of the item.
 		// Feed in an empty string - the shortest, simplest value -

@@ -1,6 +1,6 @@
 PASS
-BenchmarkCodeUnmarshal	      20	 115876934 ns/op	  16.75 MB/s	 4274764 B/op	  195382 allocs/op
-BenchmarkCodeUnmarshalInterface	      20	  92631205 ns/op	  20.95 MB/s	 7935433 B/op	  220397 allocs/op
-BenchmarkCodeUnmarshalMethod	      20	 115972596 ns/op	  16.73 MB/s	 4274475 B/op	  195381 allocs/op
-BenchmarkCodeUnmarshalReuse	      20	 109754316 ns/op	  17.68 MB/s	 2865024 B/op	  179523 allocs/op
-ok  	gondola/json	9.386s
+BenchmarkCodeUnmarshal	      20	  99194288 ns/op	  19.56 MB/s	 4275272 B/op	  195385 allocs/op
+BenchmarkCodeUnmarshalInterface	      20	  91442801 ns/op	  21.22 MB/s	 7935296 B/op	  220397 allocs/op
+BenchmarkCodeUnmarshalMethod	      20	 100149834 ns/op	  19.38 MB/s	 4274729 B/op	  195382 allocs/op
+BenchmarkCodeUnmarshalReuse	      20	  93432017 ns/op	  20.77 MB/s	 2864919 B/op	  179522 allocs/op
+ok  	gondola/json	8.404s

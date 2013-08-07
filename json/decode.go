@@ -375,17 +375,27 @@ func (d *decodeState) array(v reflect.Value) {
 	}
 
 	i := 0
-	for {
-		// Look ahead for ] - can only happen on first iteration.
-		op := d.scanWhile(scanSkipSpace)
-		if op == scanEndArray {
-			break
+	// Look ahead for ]
+	op := d.scanWhile(scanSkipSpace)
+	if op == scanEndArray {
+		// empty array
+		if v.Kind() == reflect.Slice {
+			v.Set(reflect.MakeSlice(v.Type(), 0, 0))
+		} else {
+			// Array. Zero all elements
+			z := reflect.Zero(v.Type().Elem())
+			for ; i < v.Len(); i++ {
+				v.Index(i).Set(z)
+			}
 		}
+		return
+	}
 
-		// Back up so d.value can have the byte we just read.
-		d.off--
-		d.scan.undo(op)
+	// Back up so d.value can have the byte we just read.
+	d.off--
+	d.scan.undo(op)
 
+	for {
 		// Get element of array, growing if necessary.
 		if v.Kind() == reflect.Slice {
 			// Grow slice if necessary
@@ -432,9 +442,6 @@ func (d *decodeState) array(v reflect.Value) {
 		} else {
 			v.SetLen(i)
 		}
-	}
-	if i == 0 && v.Kind() == reflect.Slice {
-		v.Set(reflect.MakeSlice(v.Type(), 0, 0))
 	}
 }
 
@@ -788,17 +795,17 @@ func (d *decodeState) valueInterface() interface{} {
 // arrayInterface is like array but returns []interface{}.
 func (d *decodeState) arrayInterface() []interface{} {
 	var v = make([]interface{}, 0)
+	// Look ahead for ]
+	op := d.scanWhile(scanSkipSpace)
+	if op == scanEndArray {
+		// empty array
+		return v
+	}
+	// Back up so d.value can have the byte we just read.
+	d.off--
+	d.scan.undo(op)
+
 	for {
-		// Look ahead for ] - can only happen on first iteration.
-		op := d.scanWhile(scanSkipSpace)
-		if op == scanEndArray {
-			break
-		}
-
-		// Back up so d.value can have the byte we just read.
-		d.off--
-		d.scan.undo(op)
-
 		v = append(v, d.valueInterface())
 
 		// Next token must be , or ].

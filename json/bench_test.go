@@ -33,6 +33,26 @@ type codeNode struct {
 	MeanT    int64       `json:"mean_t"`
 }
 
+// This is used to test decoding when the passed in
+// struct has methods, since there are additional
+// type assertion to perform in that case.
+type codeResponseMethod struct {
+	Tree     *codeNodeMethod `json:"tree"`
+	Username string          `json:"username"`
+}
+
+func (c *codeResponseMethod) F() int {
+	return 0
+}
+
+type codeNodeMethod struct {
+	codeNode
+}
+
+func (c *codeNodeMethod) F() int {
+	return 0
+}
+
 var codeJSON []byte
 var codeStruct codeResponse
 
@@ -104,12 +124,15 @@ func BenchmarkCodeMarshal(b *testing.B) {
 	b.SetBytes(int64(len(codeJSON)))
 }
 
-func BenchmarkCodeDecoder(b *testing.B) {
+func initializeCodeBenchmark(b *testing.B) {
 	if codeJSON == nil {
-		b.StopTimer()
 		codeInit()
-		b.StartTimer()
 	}
+	b.ResetTimer()
+}
+
+func BenchmarkCodeDecoder(b *testing.B) {
+	initializeCodeBenchmark(b)
 	var buf bytes.Buffer
 	dec := NewDecoder(&buf)
 	var r codeResponse
@@ -127,11 +150,7 @@ func BenchmarkCodeDecoder(b *testing.B) {
 }
 
 func BenchmarkCodeUnmarshal(b *testing.B) {
-	if codeJSON == nil {
-		b.StopTimer()
-		codeInit()
-		b.StartTimer()
-	}
+	initializeCodeBenchmark(b)
 	for i := 0; i < b.N; i++ {
 		var r codeResponse
 		if err := Unmarshal(codeJSON, &r); err != nil {
@@ -141,18 +160,36 @@ func BenchmarkCodeUnmarshal(b *testing.B) {
 	b.SetBytes(int64(len(codeJSON)))
 }
 
-func BenchmarkCodeUnmarshalReuse(b *testing.B) {
-	if codeJSON == nil {
-		b.StopTimer()
-		codeInit()
-		b.StartTimer()
+func BenchmarkCodeUnmarshalInterface(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		var r interface{}
+		if err := Unmarshal(codeJSON, &r); err != nil {
+			b.Fatal("Unmmarshal:", err)
+		}
 	}
+	b.SetBytes(int64(len(codeJSON)))
+}
+
+func BenchmarkCodeUnmarshalMethod(b *testing.B) {
+	initializeCodeBenchmark(b)
+	for i := 0; i < b.N; i++ {
+		var r codeResponseMethod
+		if err := Unmarshal(codeJSON, &r); err != nil {
+			b.Fatal("Unmmarshal:", err)
+		}
+	}
+	b.SetBytes(int64(len(codeJSON)))
+}
+
+func BenchmarkCodeUnmarshalReuse(b *testing.B) {
+	initializeCodeBenchmark(b)
 	var r codeResponse
 	for i := 0; i < b.N; i++ {
 		if err := Unmarshal(codeJSON, &r); err != nil {
 			b.Fatal("Unmmarshal:", err)
 		}
 	}
+	b.SetBytes(int64(len(codeJSON)))
 }
 
 func BenchmarkUnmarshalString(b *testing.B) {

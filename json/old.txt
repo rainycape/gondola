@@ -1,0 +1,14 @@
+PASS
+BenchmarkCodeEncoder	      20	  62353555 ns/op	  31.12 MB/s	 1688669 B/op	   38742 allocs/op
+BenchmarkCodeMarshal	      50	  67181796 ns/op	  28.88 MB/s	 6254654 B/op	   38703 allocs/op
+BenchmarkCodeDecoder	      10	 155075392 ns/op	  12.51 MB/s	 3952209 B/op	  180416 allocs/op
+BenchmarkCodeUnmarshal	      10	 154230358 ns/op	  12.58 MB/s	 4280638 B/op	  195413 allocs/op
+BenchmarkCodeUnmarshalInterface	      20	 107411548 ns/op	  18.07 MB/s	 7938553 B/op	  220410 allocs/op
+BenchmarkCodeUnmarshalMethod	      10	 157400878 ns/op	  12.33 MB/s	 4280638 B/op	  195413 allocs/op
+BenchmarkCodeUnmarshalReuse	      10	 148991437 ns/op	  13.02 MB/s	 2942635 B/op	  180373 allocs/op
+BenchmarkUnmarshalString	 1000000	      1032 ns/op	     276 B/op	       2 allocs/op
+BenchmarkUnmarshalFloat64	 2000000	       851 ns/op	     268 B/op	       2 allocs/op
+BenchmarkUnmarshalInt64	 2000000	       811 ns/op	     268 B/op	       2 allocs/op
+BenchmarkSkipValue	    2000	   2920725 ns/op	  94.53 MB/s	    2326 B/op	      29 allocs/op
+BenchmarkEncoderEncode	  500000	      4124 ns/op	     278 B/op	       4 allocs/op
+ok  	gondola/json	28.382s

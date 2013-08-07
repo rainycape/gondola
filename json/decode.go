@@ -502,11 +502,11 @@ func (d *decodeState) object(v reflect.Value) {
 	for {
 		// Read opening " of string key or closing }.
 		op := d.scanWhile(scanSkipSpace)
-		if op == scanEndObject {
-			// closing } - can only happen on first iteration.
-			break
-		}
 		if op != scanBeginLiteral {
+			if op == scanEndObject {
+				// closing } - can only happen on first iteration.
+				break
+			}
 			d.error(errPhase)
 		}
 
@@ -826,11 +826,11 @@ func (d *decodeState) objectInterface() map[string]interface{} {
 	for {
 		// Read opening " of string key or closing }.
 		op := d.scanWhile(scanSkipSpace)
-		if op == scanEndObject {
-			// closing } - can only happen on first iteration.
-			break
-		}
 		if op != scanBeginLiteral {
+			if op == scanEndObject {
+				// closing } - can only happen on first iteration.
+				break
+			}
 			d.error(errPhase)
 		}
 

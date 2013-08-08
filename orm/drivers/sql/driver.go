@@ -195,7 +195,7 @@ func (d *Driver) SetLogger(logger *log.Logger) {
 	d.logger = logger
 }
 
-func (d *Driver) debugq(sql string, args interface{}) {
+func (d *Driver) debugq(sql string, args []interface{}) {
 	if d.logger != nil {
 		d.logger.Debugf("SQL %q with arguments %v", sql, args)
 	}

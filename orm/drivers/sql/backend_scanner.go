@@ -26,6 +26,8 @@ func (s *backendScanner) Scan(src interface{}) error {
 		return nil
 	case int64:
 		return s.Backend.ScanInt(x, s.Out, s.Tag)
+	case float64:
+		return s.Backend.ScanFloat(x, s.Out, s.Tag)
 	case bool:
 		return s.Backend.ScanBool(x, s.Out, s.Tag)
 	case []byte:

@@ -25,6 +25,8 @@ func (s *simpleScanner) Scan(src interface{}) error {
 		s.Nil = true
 	case int64:
 		s.Out.SetInt(x)
+	case float64:
+		s.Out.SetFloat(x)
 	case bool:
 		s.Out.SetBool(x)
 	case []byte:

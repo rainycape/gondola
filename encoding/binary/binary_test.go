@@ -7,6 +7,7 @@ package binary
 import (
 	"bytes"
 	"io"
+	"io/ioutil"
 	"math"
 	"reflect"
 	"strings"
@@ -219,6 +220,150 @@ func TestBlankFields(t *testing.T) {
 	}
 }
 
+func testWriteReadOddSlice(t *testing.T, typ reflect.Type, unsigned bool) {
+	const count = 35
+	data := reflect.MakeSlice(reflect.SliceOf(typ), count, count)
+	if unsigned {
+		for i := 0; i < count; i++ {
+			data.Index(i).SetUint(uint64(i))
+		}
+	} else {
+		for i := 0; i < count; i++ {
+			data.Index(i).SetInt(int64(i))
+		}
+	}
+	var buf bytes.Buffer
+	if err := Write(&buf, BigEndian, data.Interface()); err != nil {
+		t.Error(err)
+	} else {
+		if err := Read(bytes.NewReader(buf.Bytes()), BigEndian, data.Interface()); err != nil {
+			t.Error(err)
+		} else {
+			if unsigned {
+				for i := 0; i < count; i++ {
+					if v := data.Index(i).Uint(); v != uint64(i) {
+						t.Errorf("incorrect %v %v. want %v", typ, v, i)
+					} else {
+						t.Logf("%v %v = %v", typ, v, i)
+					}
+				}
+			} else {
+				for i := 0; i < count; i++ {
+					if v := data.Index(i).Int(); v != int64(i) {
+						t.Errorf("incorrect %v %v. want %v", typ, v, i)
+					} else {
+						t.Logf("%v %v = %v", typ, v, i)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestWriteReadOddSlice(t *testing.T) {
+	testWriteReadOddSlice(t, reflect.TypeOf(int8(0)), false)
+	testWriteReadOddSlice(t, reflect.TypeOf(uint8(0)), true)
+	testWriteReadOddSlice(t, reflect.TypeOf(int16(0)), false)
+	testWriteReadOddSlice(t, reflect.TypeOf(uint16(0)), true)
+	testWriteReadOddSlice(t, reflect.TypeOf(int32(0)), false)
+	testWriteReadOddSlice(t, reflect.TypeOf(uint32(0)), true)
+	testWriteReadOddSlice(t, reflect.TypeOf(int64(0)), false)
+	testWriteReadOddSlice(t, reflect.TypeOf(uint64(0)), true)
+}
+
+type fakeReader struct {
+}
+
+// Don't alter the contents of p, so we can benchmark
+// how much time it takes to actually read the data,
+// without taking into account the time for copying it.
+func (n *fakeReader) Read(p []byte) (int, error) {
+	return len(p), nil
+}
+
+func benchmarkReadSlice(b *testing.B, typ reflect.Type, count int) {
+	fr := &fakeReader{}
+	slice := reflect.MakeSlice(reflect.SliceOf(typ), count, count).Interface()
+	b.SetBytes(int64(count * int(typ.Size())))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Read(fr, BigEndian, slice)
+	}
+}
+
+func BenchmarkReadSlice1000Int8s(b *testing.B) {
+	benchmarkReadSlice(b, reflect.TypeOf(int8(0)), 1000)
+}
+
+func BenchmarkReadSlice1000Uint8s(b *testing.B) {
+	benchmarkReadSlice(b, reflect.TypeOf(uint8(0)), 1000)
+}
+
+func BenchmarkReadSlice1000Int16s(b *testing.B) {
+	benchmarkReadSlice(b, reflect.TypeOf(int16(0)), 1000)
+}
+
+func BenchmarkReadSlice1000Uint16s(b *testing.B) {
+	benchmarkReadSlice(b, reflect.TypeOf(uint16(0)), 1000)
+}
+
+func BenchmarkReadSlice1000Int32s(b *testing.B) {
+	benchmarkReadSlice(b, reflect.TypeOf(int32(0)), 1000)
+}
+
+func BenchmarkReadSlice1000Uint32s(b *testing.B) {
+	benchmarkReadSlice(b, reflect.TypeOf(uint32(0)), 1000)
+}
+
+func BenchmarkReadSlice1000Int64s(b *testing.B) {
+	benchmarkReadSlice(b, reflect.TypeOf(int64(0)), 1000)
+}
+
+func BenchmarkReadSlice1000Uint64s(b *testing.B) {
+	benchmarkReadSlice(b, reflect.TypeOf(uint64(0)), 1000)
+}
+
+func benchmarkWriteSlice(b *testing.B, typ reflect.Type, count int) {
+	slice := reflect.MakeSlice(reflect.SliceOf(typ), count, count).Interface()
+	b.SetBytes(int64(count * int(typ.Size())))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Write(ioutil.Discard, BigEndian, slice)
+	}
+}
+
+func BenchmarkWriteSlice1000Int8s(b *testing.B) {
+	benchmarkWriteSlice(b, reflect.TypeOf(int8(0)), 1000)
+}
+
+func BenchmarkWriteSlice1000Uint8s(b *testing.B) {
+	benchmarkWriteSlice(b, reflect.TypeOf(uint8(0)), 1000)
+}
+
+func BenchmarkWriteSlice1000Int16s(b *testing.B) {
+	benchmarkWriteSlice(b, reflect.TypeOf(int16(0)), 1000)
+}
+
+func BenchmarkWriteSlice1000Uint16s(b *testing.B) {
+	benchmarkWriteSlice(b, reflect.TypeOf(uint16(0)), 1000)
+}
+
+func BenchmarkWriteSlice1000Int32s(b *testing.B) {
+	benchmarkWriteSlice(b, reflect.TypeOf(int32(0)), 1000)
+}
+
+func BenchmarkWriteSlice1000Uint32s(b *testing.B) {
+	benchmarkWriteSlice(b, reflect.TypeOf(uint32(0)), 1000)
+}
+
+func BenchmarkWriteSlice1000Int64s(b *testing.B) {
+	benchmarkWriteSlice(b, reflect.TypeOf(int64(0)), 1000)
+}
+
+func BenchmarkWriteSlice1000Uint64s(b *testing.B) {
+	benchmarkWriteSlice(b, reflect.TypeOf(uint64(0)), 1000)
+}
+
 type byteSliceReader struct {
 	remain []byte
 }
@@ -227,18 +372,6 @@ func (br *byteSliceReader) Read(p []byte) (int, error) {
 	n := copy(p, br.remain)
 	br.remain = br.remain[n:]
 	return n, nil
-}
-
-func BenchmarkReadSlice1000Int32s(b *testing.B) {
-	bsr := &byteSliceReader{}
-	slice := make([]int32, 1000)
-	buf := make([]byte, len(slice)*4)
-	b.SetBytes(int64(len(buf)))
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		bsr.remain = buf
-		Read(bsr, BigEndian, slice)
-	}
 }
 
 func BenchmarkReadStruct(b *testing.B) {

@@ -14,10 +14,6 @@
 // numbers with smaller absolute value take a smaller number of bytes.
 // For a specification, see http://code.google.com/apis/protocolbuffers/docs/encoding.html.
 //
-// This package favors simplicity over efficiency. Clients that require
-// high-performance serialization, especially for large data structures,
-// should look at more advanced solutions such as the encoding/gob
-// package or protocol buffers.
 package binary
 
 import (
@@ -25,6 +21,7 @@ import (
 	"io"
 	"math"
 	"reflect"
+	"runtime"
 )
 
 // A ByteOrder specifies how to convert byte sequences into
@@ -125,6 +122,34 @@ func (bigEndian) String() string { return "BigEndian" }
 
 func (bigEndian) GoString() string { return "binary.BigEndian" }
 
+// readAtLeast is an optimized version of io.ReadAtLeast,
+// which omits some checks that don't need to be performed
+// when called from Read() in this package.
+func readAtLeast(r io.Reader, buf []byte, min int) error {
+	var n int
+	var err error
+	// Most common case, we get all the bytes in one read
+	if n, err = r.Read(buf); n == min {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var nn int
+	// Fall back to looping
+	for n < min {
+		nn, err = r.Read(buf[n:])
+		if err != nil {
+			if err == io.EOF && n > 0 {
+				err = io.ErrUnexpectedEOF
+			}
+			return err
+		}
+		n += nn
+	}
+	return nil
+}
+
 // Read reads structured binary data from r into data.
 // Data must be a pointer to a fixed-size value or a slice
 // of fixed-size values.
@@ -134,30 +159,229 @@ func (bigEndian) GoString() string { return "binary.BigEndian" }
 // blank (_) field names is skipped; i.e., blank field names
 // may be used for padding.
 func Read(r io.Reader, order ByteOrder, data interface{}) error {
-	// Fast path for basic types.
-	if n := intDestSize(data); n != 0 {
-		var b [8]byte
-		bs := b[:n]
-		if _, err := io.ReadFull(r, bs); err != nil {
+	// Fast path for basic types and slices of basic types
+	var b [8]byte
+	var err error
+	switch v := data.(type) {
+	case *int8:
+		bs := b[:1]
+		if err = readAtLeast(r, bs, 1); err != nil {
 			return err
 		}
-		switch v := data.(type) {
-		case *int8:
-			*v = int8(b[0])
-		case *uint8:
-			*v = b[0]
-		case *int16:
-			*v = int16(order.Uint16(bs))
-		case *uint16:
-			*v = order.Uint16(bs)
-		case *int32:
-			*v = int32(order.Uint32(bs))
-		case *uint32:
-			*v = order.Uint32(bs)
-		case *int64:
-			*v = int64(order.Uint64(bs))
-		case *uint64:
-			*v = order.Uint64(bs)
+		*v = int8(b[0])
+		return nil
+	case *uint8:
+		bs := b[:1]
+		if err = readAtLeast(r, bs, 1); err != nil {
+			return err
+		}
+		*v = b[0]
+		return nil
+	case *int16:
+		bs := b[:2]
+		if err = readAtLeast(r, bs, 2); err != nil {
+			return err
+		}
+		*v = int16(order.Uint16(bs))
+		return nil
+	case *uint16:
+		bs := b[:2]
+		if err = readAtLeast(r, bs, 2); err != nil {
+			return err
+		}
+		*v = order.Uint16(bs)
+		return nil
+	case *int32:
+		bs := b[:4]
+		if err = readAtLeast(r, bs, 4); err != nil {
+			return err
+		}
+		*v = int32(order.Uint32(bs))
+		return nil
+	case *uint32:
+		bs := b[:4]
+		if err = readAtLeast(r, bs, 4); err != nil {
+			return err
+		}
+		*v = order.Uint32(bs)
+		return nil
+	case *int64:
+		bs := b[:8]
+		if err = readAtLeast(r, bs, 8); err != nil {
+			return err
+		}
+		*v = int64(order.Uint64(bs))
+		return nil
+	case *uint64:
+		bs := b[:8]
+		if err = readAtLeast(r, bs, 8); err != nil {
+			return err
+		}
+		*v = order.Uint64(bs)
+		return nil
+	case []int8:
+		bs := b[:8]
+		count := len(v)
+		steps := count / 8
+		i := 0
+		for j := 0; j < steps; j++ {
+			if err = readAtLeast(r, bs, 8); err != nil {
+				return err
+			}
+			v[i] = int8(bs[0])
+			i++
+			v[i] = int8(bs[1])
+			i++
+			v[i] = int8(bs[2])
+			i++
+			v[i] = int8(bs[3])
+			i++
+			v[i] = int8(bs[4])
+			i++
+			v[i] = int8(bs[5])
+			i++
+			v[i] = int8(bs[6])
+			i++
+			v[i] = int8(bs[7])
+			i++
+		}
+		if i < count {
+			rem := count - i
+			br := b[:rem]
+			if err = readAtLeast(r, br, rem); err != nil {
+				return err
+			}
+			for j := 0; j < rem; j++ {
+				v[i] = int8(br[j])
+				i++
+			}
+		}
+		return nil
+	case []uint8:
+		if err = readAtLeast(r, v, len(v)); err != nil {
+			return err
+		}
+		return nil
+	case []int16:
+		bs := b[:8]
+		count := len(v)
+		steps := count / 4
+		i := 0
+		for j := 0; j < steps; j++ {
+			if err = readAtLeast(r, bs, 8); err != nil {
+				return err
+			}
+			v[i] = int16(order.Uint16(bs[:2]))
+			i++
+			v[i] = int16(order.Uint16(bs[2:4]))
+			i++
+			v[i] = int16(order.Uint16(bs[4:6]))
+			i++
+			v[i] = int16(order.Uint16(bs[6:8]))
+			i++
+		}
+		if i < count {
+			rem := (count - i) * 2
+			br := b[:rem]
+			if err = readAtLeast(r, br, rem); err != nil {
+				return err
+			}
+			for j := 0; j < rem; j += 2 {
+				v[i] = int16(order.Uint16(br[j : j+2]))
+				i++
+			}
+		}
+		return nil
+	case []uint16:
+		bs := b[:8]
+		count := len(v)
+		steps := count / 4
+		i := 0
+		for j := 0; j < steps; j++ {
+			if err = readAtLeast(r, bs, 8); err != nil {
+				return err
+			}
+			v[i] = order.Uint16(bs[:2])
+			i++
+			v[i] = order.Uint16(bs[2:4])
+			i++
+			v[i] = order.Uint16(bs[4:6])
+			i++
+			v[i] = order.Uint16(bs[6:8])
+			i++
+		}
+		if i < count {
+			rem := (count - i) * 2
+			br := b[:rem]
+			if err = readAtLeast(r, br, rem); err != nil {
+				return err
+			}
+			for j := 0; j < rem; j += 2 {
+				v[i] = order.Uint16(br[j : j+2])
+				i++
+			}
+		}
+		return nil
+	case []int32:
+		bs := b[:8]
+		count := len(v)
+		steps := count / 2
+		i := 0
+		for j := 0; j < steps; j++ {
+			if err = readAtLeast(r, bs, 8); err != nil {
+				return err
+			}
+			v[i] = int32(order.Uint32(bs[:4]))
+			i++
+			v[i] = int32(order.Uint32(bs[4:]))
+			i++
+		}
+		if i != count {
+			b4 := b[:4]
+			if err = readAtLeast(r, b4, 4); err != nil {
+				return err
+			}
+			v[i] = int32(order.Uint32(b4))
+		}
+		return nil
+	case []uint32:
+		bs := b[:8]
+		count := len(v)
+		steps := count / 2
+		i := 0
+		for j := 0; j < steps; j++ {
+			if err = readAtLeast(r, bs, 8); err != nil {
+				return err
+			}
+			v[i] = order.Uint32(bs[:4])
+			i++
+			v[i] = order.Uint32(bs[4:])
+			i++
+		}
+		if i != count {
+			b4 := b[:4]
+			if err = readAtLeast(r, b4, 4); err != nil {
+				return err
+			}
+			v[i] = order.Uint32(b4)
+		}
+		return nil
+	case []int64:
+		bs := b[:8]
+		for i := range v {
+			if err = readAtLeast(r, bs, 8); err != nil {
+				return err
+			}
+			v[i] = int64(order.Uint64(bs))
+		}
+		return nil
+	case []uint64:
+		bs := b[:8]
+		for i := range v {
+			if err = readAtLeast(r, bs, 8); err != nil {
+				return err
+			}
+			v[i] = order.Uint64(bs)
 		}
 		return nil
 	}
@@ -172,14 +396,10 @@ func Read(r io.Reader, order ByteOrder, data interface{}) error {
 	default:
 		return errors.New("binary.Read: invalid type " + d.Type().String())
 	}
-	size, err := dataSize(v)
-	if err != nil {
+	if _, err := dataSize(v); err != nil {
 		return errors.New("binary.Read: " + err.Error())
 	}
-	d := &decoder{order: order, buf: make([]byte, size)}
-	if _, err := io.ReadFull(r, d.buf); err != nil {
-		return err
-	}
+	d := decoder{coder: coder{order: order}, reader: r}
 	d.value(v)
 	return nil
 }
@@ -192,9 +412,10 @@ func Read(r io.Reader, order ByteOrder, data interface{}) error {
 // When writing structs, zero values are written for fields
 // with blank (_) field names.
 func Write(w io.Writer, order ByteOrder, data interface{}) error {
-	// Fast path for basic types.
+	// Fast path for basic types and slices of basic types
 	var b [8]byte
 	var bs []byte
+	var err error
 	switch v := data.(type) {
 	case *int8:
 		bs = b[:1]
@@ -244,6 +465,159 @@ func Write(w io.Writer, order ByteOrder, data interface{}) error {
 	case uint64:
 		bs = b[:8]
 		order.PutUint64(bs, v)
+	case []int8:
+		bs := b[:8]
+		count := len(v)
+		steps := count / 8
+		i := 0
+		for j := 0; j < steps; j++ {
+			bs[0] = byte(v[i])
+			i++
+			bs[1] = byte(v[i])
+			i++
+			bs[2] = byte(v[i])
+			i++
+			bs[3] = byte(v[i])
+			i++
+			bs[4] = byte(v[i])
+			i++
+			bs[5] = byte(v[i])
+			i++
+			bs[6] = byte(v[i])
+			i++
+			bs[7] = byte(v[i])
+			i++
+			if _, err = w.Write(bs); err != nil {
+				return err
+			}
+		}
+		if i < count && err == nil {
+			rem := count - i
+			br := b[:rem]
+			for j := 0; j < rem; j++ {
+				br[j] = byte(v[i])
+				i++
+			}
+			_, err = w.Write(br)
+		}
+		return err
+	case []uint8:
+		_, err := w.Write(v)
+		return err
+	case []int16:
+		bs := b[:8]
+		count := len(v)
+		steps := count / 4
+		i := 0
+		for j := 0; j < steps; j++ {
+			order.PutUint16(bs[:2], uint16(v[i]))
+			i++
+			order.PutUint16(bs[2:4], uint16(v[i]))
+			i++
+			order.PutUint16(bs[4:6], uint16(v[i]))
+			i++
+			order.PutUint16(bs[6:8], uint16(v[i]))
+			i++
+			if _, err = w.Write(bs); err != nil {
+				return err
+			}
+		}
+		if i < count {
+			rem := (count - i) * 2
+			br := b[:rem]
+			for j := 0; j < rem; j += 2 {
+				order.PutUint16(br[j:j+2], uint16(v[i]))
+				i++
+			}
+			_, err = w.Write(br)
+		}
+		return err
+	case []uint16:
+		bs := b[:8]
+		count := len(v)
+		steps := count / 4
+		i := 0
+		for j := 0; j < steps; j++ {
+			order.PutUint16(bs[:2], v[i])
+			i++
+			order.PutUint16(bs[2:4], v[i])
+			i++
+			order.PutUint16(bs[4:6], v[i])
+			i++
+			order.PutUint16(bs[6:8], v[i])
+			i++
+			if _, err = w.Write(bs); err != nil {
+				return err
+			}
+		}
+		if i < count {
+			rem := (count - i) * 2
+			br := b[:rem]
+			for j := 0; j < rem; j += 2 {
+				order.PutUint16(br[j:j+2], v[i])
+				i++
+			}
+			_, err = w.Write(br)
+		}
+		return err
+	case []int32:
+		bs := b[:8]
+		count := len(v)
+		steps := count / 2
+		i := 0
+		for j := 0; j < steps; j++ {
+			order.PutUint32(bs[:4], uint32(v[i]))
+			i++
+			order.PutUint32(bs[4:], uint32(v[i]))
+			i++
+			if _, err = w.Write(bs); err != nil {
+				return err
+			}
+		}
+		if i != count {
+			b4 := b[:4]
+			order.PutUint32(b4, uint32(v[i]))
+			_, err = w.Write(b4)
+		}
+		return err
+	case []uint32:
+		bs := b[:8]
+		count := len(v)
+		steps := count / 2
+		i := 0
+		for j := 0; j < steps; j++ {
+			order.PutUint32(bs[:4], v[i])
+			i++
+			order.PutUint32(bs[4:], v[i])
+			i++
+			if _, err = w.Write(bs); err != nil {
+				return err
+			}
+		}
+		if i != count {
+			b4 := b[:4]
+			order.PutUint32(b4, v[i])
+			_, err = w.Write(b4)
+		}
+		return err
+	case []int64:
+		bs = b[:8]
+		for _, val := range v {
+			order.PutUint64(bs, uint64(val))
+			if _, err = w.Write(bs); err != nil {
+				break
+			}
+		}
+		return err
+	case []uint64:
+		bs = b[:8]
+		for _, val := range v {
+			order.PutUint64(bs, val)
+			if _, err = w.Write(bs); err != nil {
+				break
+			}
+		}
+		return err
 	}
 	if bs != nil {
 		_, err := w.Write(bs)
@@ -252,15 +626,13 @@ func Write(w io.Writer, order ByteOrder, data interface{}) error {
 
 	// Fallback to reflect-based encoding.
 	v := reflect.Indirect(reflect.ValueOf(data))
-	size, err := dataSize(v)
-	if err != nil {
+	if _, err := dataSize(v); err != nil {
 		return errors.New("binary.Write: " + err.Error())
 	}
-	buf := make([]byte, size)
-	e := &encoder{order: order, buf: buf}
+	e := encoder{coder: coder{order: order}, writer: w}
+	defer e.recover()
 	e.value(v)
-	_, err = w.Write(buf)
-	return err
+	return e.err
 }
 
 // Size returns how many bytes Write would generate to encode the value v, which
@@ -318,54 +690,87 @@ func sizeof(t reflect.Type) (int, error) {
 
 type coder struct {
 	order ByteOrder
-	buf   []byte
+	buf   [8]byte
+	err   error
 }
 
-type decoder coder
-type encoder coder
+func (c *coder) recover() {
+	if r := recover(); r != nil {
+		if _, ok := r.(runtime.Error); ok {
+			panic(r)
+		}
+		c.err = r.(error)
+	}
+}
+
+type decoder struct {
+	coder
+	reader io.Reader
+}
+
+func (d *decoder) read(bs []byte) {
+	if _, err := d.reader.Read(bs); err != nil {
+		panic(err)
+	}
+}
+
+type encoder struct {
+	coder
+	writer io.Writer
+}
+
+func (e *encoder) write(bs []byte) {
+	if _, err := e.writer.Write(bs); err != nil {
+		panic(err)
+	}
+}
 
 func (d *decoder) uint8() uint8 {
-	x := d.buf[0]
-	d.buf = d.buf[1:]
-	return x
+	bs := d.buf[:1]
+	d.read(bs)
+	return bs[0]
 }
 
 func (e *encoder) uint8(x uint8) {
-	e.buf[0] = x
-	e.buf = e.buf[1:]
+	bs := e.buf[:1]
+	bs[0] = x
+	e.write(bs)
 }
 
 func (d *decoder) uint16() uint16 {
-	x := d.order.Uint16(d.buf[0:2])
-	d.buf = d.buf[2:]
-	return x
+	bs := d.buf[:2]
+	d.read(bs)
+	return d.order.Uint16(bs)
 }
 
 func (e *encoder) uint16(x uint16) {
-	e.order.PutUint16(e.buf[0:2], x)
-	e.buf = e.buf[2:]
+	bs := e.buf[:2]
+	e.order.PutUint16(bs, x)
+	e.write(bs)
 }
 
 func (d *decoder) uint32() uint32 {
-	x := d.order.Uint32(d.buf[0:4])
-	d.buf = d.buf[4:]
-	return x
+	bs := d.buf[:4]
+	d.read(bs)
+	return d.order.Uint32(bs)
 }
 
 func (e *encoder) uint32(x uint32) {
-	e.order.PutUint32(e.buf[0:4], x)
-	e.buf = e.buf[4:]
+	bs := e.buf[:4]
+	e.order.PutUint32(bs, x)
+	e.write(bs)
 }
 
 func (d *decoder) uint64() uint64 {
-	x := d.order.Uint64(d.buf[0:8])
-	d.buf = d.buf[8:]
-	return x
+	bs := d.buf[:8]
+	d.read(bs)
+	return d.order.Uint64(bs)
 }
 
 func (e *encoder) uint64(x uint64) {
-	e.order.PutUint64(e.buf[0:8], x)
-	e.buf = e.buf[8:]
+	bs := e.buf[:8]
+	e.order.PutUint64(bs, x)
+	e.write(bs)
 }
 
 func (d *decoder) int8() int8 { return int8(d.uint8()) }
@@ -409,9 +814,45 @@ func (d *decoder) value(v reflect.Value) {
 		}
 
 	case reflect.Slice:
-		l := v.Len()
-		for i := 0; i < l; i++ {
-			d.value(v.Index(i))
+		// Fast path for basic slice types
+		switch s := v.Interface().(type) {
+		case []int8:
+			for i := range s {
+				s[i] = d.int8()
+			}
+		case []uint8:
+			for i := range s {
+				s[i] = d.uint8()
+			}
+		case []int16:
+			for i := range s {
+				s[i] = d.int16()
+			}
+		case []uint16:
+			for i := range s {
+				s[i] = d.uint16()
+			}
+		case []int32:
+			for i := range s {
+				s[i] = d.int32()
+			}
+		case []uint32:
+			for i := range s {
+				s[i] = d.uint32()
+			}
+		case []int64:
+			for i := range s {
+				s[i] = d.int64()
+			}
+		case []uint64:
+			for i := range s {
+				s[i] = d.uint64()
+			}
+		default:
+			l := v.Len()
+			for i := 0; i < l; i++ {
+				d.value(v.Index(i))
+			}
 		}
 
 	case reflect.Int8:
@@ -471,9 +912,45 @@ func (e *encoder) value(v reflect.Value) {
 		}
 
 	case reflect.Slice:
-		l := v.Len()
-		for i := 0; i < l; i++ {
-			e.value(v.Index(i))
+		// Fast path for basic slice types
+		switch s := v.Interface().(type) {
+		case []int8:
+			for _, val := range s {
+				e.int8(val)
+			}
+		case []uint8:
+			for _, val := range s {
+				e.uint8(val)
+			}
+		case []int16:
+			for _, val := range s {
+				e.int16(val)
+			}
+		case []uint16:
+			for _, val := range s {
+				e.uint16(val)
+			}
+		case []int32:
+			for _, val := range s {
+				e.int32(val)
+			}
+		case []uint32:
+			for _, val := range s {
+				e.uint32(val)
+			}
+		case []int64:
+			for _, val := range s {
+				e.int64(val)
+			}
+		case []uint64:
+			for _, val := range s {
+				e.uint64(val)
+			}
+		default:
+			l := v.Len()
+			for i := 0; i < l; i++ {
+				e.value(v.Index(i))
+			}
 		}
 
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -524,29 +1001,27 @@ func (e *encoder) value(v reflect.Value) {
 
 func (d *decoder) skip(v reflect.Value) {
 	n, _ := dataSize(v)
-	d.buf = d.buf[n:]
+	b := d.buf[:8]
+	for n >= 8 {
+		d.read(b)
+		n -= 8
+	}
+	if n > 0 {
+		d.read(b[:n])
+	}
 }
 
 func (e *encoder) skip(v reflect.Value) {
 	n, _ := dataSize(v)
-	for i := range e.buf[0:n] {
-		e.buf[i] = 0
+	for ii := 0; ii < 8; ii++ {
+		e.buf[ii] = 0
 	}
-	e.buf = e.buf[n:]
-}
-
-// intDestSize returns the size of the integer that ptrType points to,
-// or 0 if the type is not supported.
-func intDestSize(ptrType interface{}) int {
-	switch ptrType.(type) {
-	case *int8, *uint8:
-		return 1
-	case *int16, *uint16:
-		return 2
-	case *int32, *uint32:
-		return 4
-	case *int64, *uint64:
-		return 8
+	b := e.buf[:8]
+	for n >= 8 {
+		e.write(b)
+		n -= 8
 	}
-	return 0
+	if n > 0 {
+		e.write(b[:n])
+	}
 }

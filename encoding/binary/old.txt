@@ -1,0 +1,23 @@
+PASS
+BenchmarkReadSlice1000Int8s	   50000	     36328 ns/op	  27.53 MB/s	    1072 B/op	       2 allocs/op
+BenchmarkReadSlice1000Uint8s	   50000	     34976 ns/op	  28.59 MB/s	    1072 B/op	       2 allocs/op
+BenchmarkReadSlice1000Int16s	   50000	     46208 ns/op	  43.28 MB/s	    2096 B/op	       2 allocs/op
+BenchmarkReadSlice1000Uint16s	   50000	     45533 ns/op	  43.92 MB/s	    2096 B/op	       2 allocs/op
+BenchmarkReadSlice1000Int32s	   50000	     52098 ns/op	  76.78 MB/s	    4144 B/op	       2 allocs/op
+BenchmarkReadSlice1000Uint32s	   50000	     47682 ns/op	  83.89 MB/s	    4144 B/op	       2 allocs/op
+BenchmarkReadSlice1000Int64s	   50000	     60798 ns/op	 131.58 MB/s	    8240 B/op	       2 allocs/op
+BenchmarkReadSlice1000Uint64s	   50000	     57726 ns/op	 138.58 MB/s	    8240 B/op	       2 allocs/op
+BenchmarkWriteSlice1000Int8s	   50000	     42624 ns/op	  23.46 MB/s	    1080 B/op	       3 allocs/op
+BenchmarkWriteSlice1000Uint8s	   50000	     38764 ns/op	  25.80 MB/s	    1080 B/op	       3 allocs/op
+BenchmarkWriteSlice1000Int16s	   50000	     51189 ns/op	  39.07 MB/s	    2104 B/op	       3 allocs/op
+BenchmarkWriteSlice1000Uint16s	   50000	     51945 ns/op	  38.50 MB/s	    2104 B/op	       3 allocs/op
+BenchmarkWriteSlice1000Int32s	   50000	     60323 ns/op	  66.31 MB/s	    4152 B/op	       3 allocs/op
+BenchmarkWriteSlice1000Uint32s	   20000	     58157 ns/op	  68.78 MB/s	    4152 B/op	       3 allocs/op
+BenchmarkWriteSlice1000Int64s	   50000	     69788 ns/op	 114.63 MB/s	    8248 B/op	       3 allocs/op
+BenchmarkWriteSlice1000Uint64s	   50000	     61492 ns/op	 130.10 MB/s	    8248 B/op	       3 allocs/op
+BenchmarkReadStruct	  500000	      3243 ns/op	  21.58 MB/s	     233 B/op	      15 allocs/op
+BenchmarkReadInts	 1000000	      1295 ns/op	  23.16 MB/s	      64 B/op	       8 allocs/op
+BenchmarkWriteInts	 1000000	      1227 ns/op	  24.45 MB/s	      64 B/op	       8 allocs/op
+BenchmarkPutUvarint32	50000000	        50.8 ns/op	  78.76 MB/s	       0 B/op	       0 allocs/op
+BenchmarkPutUvarint64	10000000	       166 ns/op	  47.98 MB/s	       0 B/op	       0 allocs/op
+ok  	encoding/binary	56.029s

@@ -16,9 +16,9 @@ type Query struct {
 	err       error
 }
 
-func (q *Query) ensureTable() error {
+func (q *Query) ensureTable(f string) error {
 	if q.model == nil {
-		fmt.Errorf("no table selected, set one with Table() before calling Count()")
+		fmt.Errorf("no table selected, set one with Table() before calling %s()", f)
 	}
 	return nil
 }
@@ -89,7 +89,7 @@ func (q *Query) One(out interface{}) error {
 // Exists returns wheter a result with the specified query
 // exists.
 func (q *Query) Exists() (bool, error) {
-	if err := q.ensureTable(); err != nil {
+	if err := q.ensureTable("Exists"); err != nil {
 		return false, err
 	}
 	q.orm.numQueries++
@@ -106,7 +106,7 @@ func (q *Query) Iter() *Iter {
 // Count returns the number of results for the query. Note that
 // you have to set the table manually before calling Count().
 func (q *Query) Count() (uint64, error) {
-	if err := q.ensureTable(); err != nil {
+	if err := q.ensureTable("Count"); err != nil {
 		return 0, err
 	}
 	q.orm.numQueries++

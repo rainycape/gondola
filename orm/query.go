@@ -110,7 +110,7 @@ func (q *Query) Count() (uint64, error) {
 		return 0, err
 	}
 	q.orm.numQueries++
-	return q.orm.driver.Count(q.model, q.q, q.limit, q.offset, q.sortDir, q.sortField)
+	return q.orm.driver.Count(q.model, q.q, q.limit, q.offset)
 }
 
 // MustCount works like Count, but panics if there's an error.

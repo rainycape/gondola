@@ -72,9 +72,9 @@ func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int, sort in
 	return &Iter{model: m, rows: rows, driver: d}
 }
 
-func (d *Driver) Count(m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) (uint64, error) {
+func (d *Driver) Count(m driver.Model, q query.Q, limit int, offset int) (uint64, error) {
 	var count uint64
-	query, params, err := d.Select([]string{"COUNT(*)"}, false, m, q, limit, offset, sort, sortField)
+	query, params, err := d.Select([]string{"COUNT(*)"}, false, m, q, limit, offset, driver.NONE, "")
 	if err != nil {
 		return 0, err
 	}

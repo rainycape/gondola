@@ -12,7 +12,7 @@ type Opener func(params string) (Driver, error)
 type Driver interface {
 	MakeTables(m []Model) error
 	Query(m Model, q query.Q, limit int, offset int, sort int, sortField string) Iter
-	Count(m Model, q query.Q, limit int, offset int, sort int, sortField string) (uint64, error)
+	Count(m Model, q query.Q, limit int, offset int) (uint64, error)
 	Exists(m Model, q query.Q) (bool, error)
 	Insert(m Model, data interface{}) (Result, error)
 	Update(m Model, q query.Q, data interface{}) (Result, error)

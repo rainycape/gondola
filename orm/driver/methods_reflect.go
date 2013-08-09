@@ -9,7 +9,7 @@ import (
 type Methods struct {
 	// The index for the Load method. -1 if there's no Load method
 	LoadIndex int
-	// The index for the Save method. -1 if there's no Load method
+	// The index for the Save method. -1 if there's no Save method
 	SaveIndex int
 }
 

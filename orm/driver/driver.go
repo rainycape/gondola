@@ -2,6 +2,7 @@ package driver
 
 import (
 	"gondola/orm/query"
+	"gondola/orm/transaction"
 )
 
 var registry = map[string]Opener{}
@@ -17,6 +18,10 @@ type Driver interface {
 	Update(m Model, q query.Q, data interface{}) (Result, error)
 	Upsert(m Model, q query.Q, data interface{}) (Result, error)
 	Delete(m Model, q query.Q) (Result, error)
+	// Transactions
+	Begin(transaction.Options) error
+	Commit() error
+	Rollback() error
 	Close() error
 	// True if the driver can perform upserts
 	Upserts() bool

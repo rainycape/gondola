@@ -274,3 +274,34 @@ func testInnerPointer(t *testing.T, o *Orm) {
 func TestInnerPointer(t *testing.T) {
 	runTest(t, testInnerPointer)
 }
+
+func testTransactions(t *testing.T, o *Orm) {
+	table := o.MustRegister((*AutoIncrement)(nil), &Options{
+		TableName: "test_transactions",
+	})
+	o.MustCommitTables()
+	obj := &AutoIncrement{}
+	o.MustBegin()
+	o.MustSaveInto(table, obj)
+	o.MustCommit()
+	e, err := o.Exists(table, Eq("Id", obj.Id))
+	if err != nil {
+		t.Error(err)
+	} else if !e {
+		t.Error("commited object does not exist")
+	}
+	o.MustBegin()
+	obj.Id = 0
+	o.MustSaveInto(table, obj)
+	o.MustRollback()
+	e, err = o.Exists(table, Eq("Id", obj.Id))
+	if err != nil {
+		t.Error(err)
+	} else if e {
+		t.Error("rolled back object exists")
+	}
+}
+
+func TestTransactions(t *testing.T) {
+	runTest(t, testTransactions)
+}

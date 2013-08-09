@@ -8,6 +8,7 @@ import (
 	"gondola/orm/codec"
 	"gondola/orm/driver"
 	"gondola/orm/query"
+	"gondola/orm/transaction"
 	"reflect"
 	"strconv"
 	"strings"
@@ -510,6 +511,18 @@ func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, 
 		buf.WriteString(strconv.Itoa(offset))
 	}
 	return buf.String(), params, nil
+}
+
+func (d *Driver) Begin(t transaction.Options) error {
+	return d.backend.Begin(d.db, t)
+}
+
+func (d *Driver) Commit() error {
+	return d.backend.Commit(d.db)
+}
+
+func (d *Driver) Rollback() error {
+	return d.backend.Rollback(d.db)
 }
 
 func NewDriver(b Backend, params string) (*Driver, error) {

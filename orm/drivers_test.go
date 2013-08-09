@@ -23,6 +23,7 @@ func testOrm(t *testing.T, o *Orm) {
 		testLoadSaveMethodsErrors,
 		testData,
 		testInnerPointer,
+		testTransactions,
 	}
 	for _, v := range tests {
 		v(t, o)

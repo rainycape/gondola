@@ -8,16 +8,18 @@ import (
 	"gondola/orm/driver"
 	ormsql "gondola/orm/drivers/sql"
 	"gondola/orm/query"
+	"gondola/orm/transaction"
 	"reflect"
 	"strings"
 )
 
 type Orm struct {
-	driver     driver.Driver
-	upserts    bool
-	logger     *log.Logger
-	tags       string
-	numQueries int
+	driver        driver.Driver
+	upserts       bool
+	logger        *log.Logger
+	tags          string
+	inTransaction bool
+	numQueries    int
 	// this field is non-nil iff the ORM driver uses database/sql
 	db *sql.DB
 }
@@ -308,9 +310,83 @@ func (o *Orm) delete(m *model, q query.Q) (Result, error) {
 	return o.driver.Delete(m, q)
 }
 
-// Close closes the database connection.
+// Begin starts a new transaction. If the driver does
+// not support transactions, Begin will just return nil.
+// Calling Begin when a transaction has been already started
+// has no effect.
+func (o *Orm) Begin() error {
+	return o.BeginOptions(transaction.NONE)
+}
+
+// MustBegin works like Begin, but panics if there's an error.
+func (o *Orm) MustBegin() {
+	if err := o.Begin(); err != nil {
+		panic(err)
+	}
+}
+
+// BeginOptions works like Begin, but allows specifying
+// transaction options.
+func (o *Orm) BeginOptions(t transaction.Options) error {
+	if !o.inTransaction {
+		err := o.driver.Begin(t)
+		if err != nil {
+			return err
+		}
+		o.inTransaction = true
+	}
+	return nil
+}
+
+// Commit commits the current transaction. If there is no
+// current transaction, it does nothing.
+func (o *Orm) Commit() error {
+	if o.inTransaction {
+		err := o.driver.Commit()
+		if err != nil {
+			return err
+		}
+		o.inTransaction = false
+	}
+	return nil
+}
+
+// MustCommit works like Commit, but panics if there's an error.
+func (o *Orm) MustCommit() {
+	if err := o.Commit(); err != nil {
+		panic(err)
+	}
+}
+
+// Rollback rolls back the current transaction. If there is no
+// current transaction, it does nothing.
+func (o *Orm) Rollback() error {
+	if o.inTransaction {
+		err := o.driver.Rollback()
+		if err != nil {
+			return err
+		}
+		o.inTransaction = false
+	}
+	return nil
+}
+
+// MustRollback works like Rollback, but panics if there's an error.
+func (o *Orm) MustRollback() {
+	if err := o.Rollback(); err != nil {
+		panic(err)
+	}
+}
+
+// Close closes the database connection. Any pending
+// transactions are rolled back before closing the
+// connection.
 func (o *Orm) Close() error {
 	if o.driver != nil {
+		if o.inTransaction {
+			o.Rollback()
+			o.inTransaction = false
+		}
 		err := o.driver.Close()
 		o.driver = nil
 		return err

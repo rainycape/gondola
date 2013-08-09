@@ -250,21 +250,47 @@ func Read(r io.Reader, order ByteOrder, data interface{}) error {
 		}
 		return nil
 	case []int64:
-		bs := make([]byte, 8)
-		for i := range v {
-			if err = readAtLeast(r, bs, 8); err != nil {
+		bs := make([]byte, 16)
+		count := len(v)
+		steps := count / 2
+		i := 0
+		for j := 0; j < steps; j++ {
+			if err = readAtLeast(r, bs, 16); err != nil {
 				return err
 			}
 			v[i] = int64(order.Uint64(bs))
+			i++
+			v[i] = int64(order.Uint64(bs[8:]))
+			i++
+		}
+		if i != count {
+			b8 := bs[:8]
+			if err = readAtLeast(r, b8, 8); err != nil {
+				return err
+			}
+			v[i] = int64(order.Uint64(b8))
 		}
 		return nil
 	case []uint64:
-		bs := make([]byte, 8)
-		for i := range v {
-			if err = readAtLeast(r, bs, 8); err != nil {
+		bs := make([]byte, 16)
+		count := len(v)
+		steps := count / 2
+		i := 0
+		for j := 0; j < steps; j++ {
+			if err = readAtLeast(r, bs, 16); err != nil {
 				return err
 			}
 			v[i] = order.Uint64(bs)
+			i++
+			v[i] = order.Uint64(bs[8:])
+			i++
+		}
+		if i != count {
+			b8 := bs[:8]
+			if err = readAtLeast(r, b8, 8); err != nil {
+				return err
+			}
+			v[i] = order.Uint64(b8)
 		}
 		return nil
 	}

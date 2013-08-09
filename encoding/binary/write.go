@@ -202,21 +202,43 @@ func Write(w io.Writer, order ByteOrder, data interface{}) error {
 		}
 		return err
 	case []int64:
-		bs = make([]byte, 8)
-		for _, val := range v {
-			order.PutUint64(bs, uint64(val))
+		bs = make([]byte, 16)
+		count := len(v)
+		steps := count / 2
+		i := 0
+		for j := 0; j < steps; j++ {
+			order.PutUint64(bs, uint64(v[i]))
+			i++
+			order.PutUint64(bs[8:], uint64(v[i]))
+			i++
 			if _, err = w.Write(bs); err != nil {
-				break
+				return err
 			}
+		}
+		if i != count {
+			b8 := bs[:8]
+			order.PutUint64(b8, uint64(v[i]))
+			_, err = w.Write(b8)
 		}
 		return err
 	case []uint64:
-		bs = make([]byte, 8)
-		for _, val := range v {
-			order.PutUint64(bs, val)
+		bs = make([]byte, 16)
+		count := len(v)
+		steps := count / 2
+		i := 0
+		for j := 0; j < steps; j++ {
+			order.PutUint64(bs, v[i])
+			i++
+			order.PutUint64(bs[8:], v[i])
+			i++
 			if _, err = w.Write(bs); err != nil {
-				break
+				return err
 			}
+		}
+		if i != count {
+			b8 := bs[:8]
+			order.PutUint64(b8, v[i])
+			_, err = w.Write(b8)
 		}
 		return err
 	}

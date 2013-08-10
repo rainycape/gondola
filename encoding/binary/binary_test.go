@@ -490,6 +490,26 @@ func TestWriteReadOddSlice(t *testing.T) {
 	testWriteReadOddSlice(t, reflect.TypeOf(uint64(0)), true)
 }
 
+func TestNil(t *testing.T) {
+	var f interface{}
+	err := Read(nil, BigEndian, nil)
+	if err == nil {
+		t.Error("expecting error when decoding nil")
+	}
+	err = Read(nil, BigEndian, f)
+	if err == nil {
+		t.Error("expecting error when decoding nil")
+	}
+	err = Write(nil, BigEndian, nil)
+	if err == nil {
+		t.Error("expecting error when encoding nil")
+	}
+	err = Write(nil, BigEndian, f)
+	if err == nil {
+		t.Error("expecting error when encoding nil")
+	}
+}
+
 type fakeReader struct {
 }
 

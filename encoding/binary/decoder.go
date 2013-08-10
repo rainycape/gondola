@@ -279,6 +279,8 @@ func valueDecoder(data interface{}) (reflect.Value, typeDecoder, error) {
 		v = d.Elem()
 	case reflect.Slice:
 		v = d
+	case reflect.Invalid:
+		return reflect.Value{}, nil, errors.New("can't decode into nil")
 	default:
 		return reflect.Value{}, nil, errors.New("invalid type " + d.Type().String())
 	}

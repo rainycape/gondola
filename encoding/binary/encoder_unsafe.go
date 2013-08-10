@@ -3,6 +3,7 @@
 package binary
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -263,6 +264,9 @@ type emptyInterface struct {
 
 func valueEncoder(data interface{}) (unsafe.Pointer, typeEncoder, error) {
 	v := reflect.Indirect(reflect.ValueOf(data))
+	if !v.IsValid() {
+		return nil, nil, errors.New("can't encode nil")
+	}
 	enc, err := makeEncoder(v.Type())
 	if err != nil {
 		return nil, nil, err

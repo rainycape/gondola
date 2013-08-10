@@ -3,7 +3,6 @@ package binary
 import (
 	"errors"
 	"io"
-	"reflect"
 )
 
 // readAtLeast is an optimized version of io.ReadAtLeast,
@@ -295,17 +294,8 @@ func Read(r io.Reader, order ByteOrder, data interface{}) error {
 		return nil
 	}
 
-	// Fallback to reflect-based decoding.
-	var v reflect.Value
-	switch d := reflect.ValueOf(data); d.Kind() {
-	case reflect.Ptr:
-		v = d.Elem()
-	case reflect.Slice:
-		v = d
-	default:
-		return errors.New("binary.Read: invalid type " + d.Type().String())
-	}
-	dec, err := makeDecoder(v.Type())
+	// Fallback to decoder.
+	v, dec, err := valueDecoder(data)
 	if err != nil {
 		return errors.New("binary.Read: " + err.Error())
 	}

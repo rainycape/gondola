@@ -269,3 +269,20 @@ func makeDecoder(typ reflect.Type) (typeDecoder, error) {
 	}
 	return decoder, nil
 }
+
+func valueDecoder(data interface{}) (reflect.Value, typeDecoder, error) {
+	var v reflect.Value
+	switch d := reflect.ValueOf(data); d.Kind() {
+	case reflect.Ptr:
+		v = d.Elem()
+	case reflect.Slice:
+		v = d
+	default:
+		return reflect.Value{}, nil, errors.New("invalid type " + d.Type().String())
+	}
+	dec, err := makeDecoder(v.Type())
+	if err != nil {
+		return reflect.Value{}, nil, err
+	}
+	return v, dec, err
+}

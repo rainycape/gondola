@@ -3,7 +3,6 @@ package binary
 import (
 	"errors"
 	"io"
-	"reflect"
 )
 
 // Write writes the binary representation of data into w.
@@ -247,9 +246,8 @@ func Write(w io.Writer, order ByteOrder, data interface{}) error {
 		return err
 	}
 
-	// Fallback to reflect-based encoding.
-	v := reflect.Indirect(reflect.ValueOf(data))
-	enc, err := makeEncoder(v.Type())
+	// Fallback to encoder.
+	v, enc, err := valueEncoder(data)
 	if err != nil {
 		return errors.New("binary.Write: " + err.Error())
 	}

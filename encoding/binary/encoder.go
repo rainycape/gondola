@@ -257,3 +257,12 @@ func makeEncoder(typ reflect.Type) (typeEncoder, error) {
 	}
 	return encoder, nil
 }
+
+func valueEncoder(data interface{}) (reflect.Value, typeEncoder, error) {
+	v := reflect.Indirect(reflect.ValueOf(data))
+	enc, err := makeEncoder(v.Type())
+	if err != nil {
+		return reflect.Value{}, nil, err
+	}
+	return v, enc, err
+}

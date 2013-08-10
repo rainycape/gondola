@@ -43,7 +43,8 @@ func sliceDecoder(typ reflect.Type) (typeDecoder, error) {
 		return nil, err
 	}
 	return func(dec *decoder, v reflect.Value) error {
-		for ii := 0; ii < v.Len(); ii++ {
+		sl := v.Len()
+		for ii := 0; ii < sl; ii++ {
 			if err := edec(dec, v.Index(ii)); err != nil {
 				return err
 			}

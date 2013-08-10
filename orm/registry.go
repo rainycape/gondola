@@ -46,8 +46,9 @@ func (o *Orm) Register(t interface{}, opt *Options) (*Table, error) {
 	}
 	var name string
 	if opt != nil {
-		name = opt.TableName
-	} else {
+		name = opt.Table
+	}
+	if name == "" {
 		name = defaultName(s.Type)
 	}
 	if _nameRegistry[o.tags] == nil {
@@ -61,11 +62,27 @@ func (o *Orm) Register(t interface{}, opt *Options) (*Table, error) {
 	if err != nil {
 		return nil, err
 	}
+	if opt != nil {
+		if len(opt.PrimaryKey) > 0 {
+			if fields.PrimaryKey >= 0 {
+				return nil, fmt.Errorf("duplicate primary key in model %q. tags define %q as PK, options define %v",
+					name, fields.QNames[fields.PrimaryKey], opt.PrimaryKey)
+			}
+			fields.CompositePrimaryKey = make([]int, len(opt.PrimaryKey))
+			for ii, v := range opt.PrimaryKey {
+				pos, ok := fields.QNameMap[v]
+				if !ok {
+					return nil, fmt.Errorf("can't map qualified name %q on model %q when creating composite key", v, name)
+				}
+				fields.CompositePrimaryKey[ii] = pos
+			}
+		}
+	}
 	model := &model{
-		fields:    fields,
-		options:   opt,
-		tableName: name,
-		tags:      o.tags,
+		fields:  fields,
+		options: opt,
+		table:   name,
+		tags:    o.tags,
 	}
 	_nameRegistry[o.tags][name] = model
 	// The first registered table is the default for the type

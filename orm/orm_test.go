@@ -65,6 +65,12 @@ type Outer struct {
 	Inner *Inner
 }
 
+type Composite struct {
+	Id    int
+	Name  string
+	Value string
+}
+
 func newOrm(t T, drv, name string, logging bool) *Orm {
 	// Clear registry
 	_nameRegistry = map[string]nameRegistry{}
@@ -155,7 +161,7 @@ func TestTime(t *testing.T) {
 
 func testSaveDelete(t *testing.T, o *Orm) {
 	SaveTable := o.MustRegister((*Object)(nil), &Options{
-		TableName: "test_save",
+		Table: "test_save",
 	})
 	o.MustCommitTables()
 	obj := &Object{Value: "Foo"}
@@ -216,7 +222,7 @@ func TestSaveDelete(t *testing.T) {
 
 func testData(t *testing.T, o *Orm) {
 	o.MustRegister((*Data)(nil), &Options{
-		TableName: "test_data",
+		Table: "test_data",
 	})
 	o.MustCommitTables()
 	data := []byte{1, 2, 3, 4, 5, 6}
@@ -238,7 +244,7 @@ func TestData(t *testing.T) {
 
 func testInnerPointer(t *testing.T, o *Orm) {
 	o.MustRegister((*Outer)(nil), &Options{
-		TableName: "test_outer",
+		Table: "test_outer",
 	})
 	o.MustCommitTables()
 	out := Outer{Key: "foo"}
@@ -277,7 +283,7 @@ func TestInnerPointer(t *testing.T) {
 
 func testTransactions(t *testing.T, o *Orm) {
 	table := o.MustRegister((*AutoIncrement)(nil), &Options{
-		TableName: "test_transactions",
+		Table: "test_transactions",
 	})
 	o.MustCommitTables()
 	obj := &AutoIncrement{}
@@ -304,4 +310,66 @@ func testTransactions(t *testing.T, o *Orm) {
 
 func TestTransactions(t *testing.T) {
 	runTest(t, testTransactions)
+}
+
+func testCompositePrimaryKey(t *testing.T, o *Orm) {
+	// This should fail with a duplicate PK error
+	_, err := o.Register((*AutoIncrement)(nil), &Options{
+		Table:      "test_composite_fail",
+		PrimaryKey: []string{"non-existant"},
+	})
+	if err == nil {
+		t.Error("expecting an error when registering duplicate PK")
+	}
+	// This should fail because the field can't be mapped
+	_, err = o.Register((*Composite)(nil), &Options{
+		Table:      "test_composite_fail",
+		PrimaryKey: []string{"non-existant"},
+	})
+	if err == nil {
+		t.Error("expecting an error when registering non-existant field as PK")
+	}
+	table := o.MustRegister((*Composite)(nil), &Options{
+		Table:      "test_composite",
+		PrimaryKey: []string{"Id", "Name"},
+	})
+	o.MustCommitTables()
+	comp := &Composite{
+		Id:    1,
+		Name:  "Foo",
+		Value: "Bar",
+	}
+	o.MustSave(comp)
+	c1, err := o.Count(table, nil)
+	if err != nil {
+		t.Error(err)
+	}
+	if c1 != 1 {
+		t.Errorf("expecting 1 row, got %v instead", c1)
+	}
+	_, err = o.InsertInto(table, comp)
+	if err == nil {
+		t.Error("must return error because of duplicate constraint")
+	}
+	comp.Value = "Baz"
+	o.MustSave(comp)
+	var comp2 *Composite
+	err = o.Table(table).Filter(Eq("Id", 1)).One(&comp2)
+	if err != nil {
+		t.Error(err)
+	} else if comp2.Value != comp.Value {
+		t.Errorf("value not updated. want %q, got %q", comp.Value, comp2.Value)
+	}
+	comp2.Name = "Go!"
+	o.MustSave(comp2)
+	c2, err := o.Count(table, nil)
+	if err != nil {
+		t.Error(err)
+	} else if c2 != 2 {
+		t.Errorf("expecting 2 rows, got %v instead", c2)
+	}
+}
+
+func TestCompositePrimaryKey(t *testing.T) {
+	runTest(t, testCompositePrimaryKey)
 }

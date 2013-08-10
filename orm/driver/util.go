@@ -33,3 +33,13 @@ func IsZero(val reflect.Value) bool {
 	}
 	return true
 }
+
+// Direct descends into val.Elem() as long as
+// val.Type().Kind() is reflect.Ptr and returns
+// the result.
+func Direct(val reflect.Value) reflect.Value {
+	for val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	return val
+}

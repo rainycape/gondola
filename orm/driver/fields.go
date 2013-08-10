@@ -14,6 +14,8 @@ type Fields struct {
 	PrimaryKey int
 	// True if the primary key is an integer type with auto_increment
 	IntegerAutoincrementPk bool
+	// The fields which make the composite primary key, if any
+	CompositePrimaryKey []int
 	// Model methods called by the ORM
 	Methods Methods
 }

@@ -7,6 +7,7 @@ import (
 	"gondola/orm/codec"
 	"gondola/orm/driver"
 	"gondola/orm/drivers/sql"
+	"gondola/orm/index"
 	"gondola/orm/transaction"
 	"gondola/types"
 	"reflect"
@@ -63,7 +64,7 @@ func (b *Backend) Insert(db sql.DB, m driver.Model, query string, args ...interf
 	return db.Exec(query, args...)
 }
 
-func (b *Backend) Index(db sql.DB, m driver.Model, idx driver.Index, name string) error {
+func (b *Backend) Index(db sql.DB, m driver.Model, idx *index.Index, name string) error {
 	// First, check if the index exists
 	var count int
 	err := db.QueryRow("SELECT COUNT(*) FROM pg_class WHERE relname = $1", name).Scan(&count)
@@ -72,16 +73,16 @@ func (b *Backend) Index(db sql.DB, m driver.Model, idx driver.Index, name string
 	}
 	var buf bytes.Buffer
 	buf.WriteString("CREATE ")
-	if idx.Unique() {
+	if idx.Unique {
 		buf.WriteString("UNIQUE ")
 	}
 	buf.WriteString("INDEX ")
 	buf.WriteString(name)
 	buf.WriteString(" ON \"")
-	buf.WriteString(m.TableName())
+	buf.WriteString(m.Table())
 	buf.WriteString("\" (")
 	fields := m.Fields()
-	for _, v := range idx.Fields() {
+	for _, v := range idx.Fields {
 		name, _, err := fields.Map(v)
 		if err != nil {
 			return err

@@ -7,6 +7,7 @@ import (
 	"gondola/log"
 	"gondola/orm/codec"
 	"gondola/orm/driver"
+	"gondola/orm/index"
 	"gondola/orm/query"
 	"gondola/orm/transaction"
 	"reflect"
@@ -34,10 +35,18 @@ func (d *Driver) MakeTables(ms []driver.Model) error {
 			return err
 		}
 		if len(tableFields) == 0 {
-			log.Debugf("Skipping collection %s (model %v) because it has no fields", v.TableName, v)
+			log.Debugf("Skipping collection %s (model %v) because it has no fields", v.Table, v)
 			continue
 		}
-		sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS \"%s\" (\n%s\n);", v.TableName(), strings.Join(tableFields, ",\n"))
+		if cpk := v.Fields().CompositePrimaryKey; len(cpk) > 0 {
+			var pkFields []string
+			qnames := v.Fields().MNames
+			for _, f := range cpk {
+				pkFields = append(pkFields, fmt.Sprintf("\"%s\"", qnames[f]))
+			}
+			tableFields = append(tableFields, fmt.Sprintf("PRIMARY KEY(%s)", strings.Join(pkFields, ",")))
+		}
+		sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS \"%s\" (\n%s\n);", v.Table(), strings.Join(tableFields, ",\n"))
 		_, err = d.db.Exec(sql)
 		if err != nil {
 			return err
@@ -103,7 +112,7 @@ func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error)
 	var buf bytes.Buffer
 	buf.WriteString("INSERT INTO ")
 	buf.WriteByte('"')
-	buf.WriteString(m.TableName())
+	buf.WriteString(m.Table())
 	buf.WriteByte('"')
 	buf.WriteString(" (")
 	for _, v := range fields {
@@ -131,7 +140,7 @@ func (d *Driver) Update(m driver.Model, q query.Q, data interface{}) (driver.Res
 	var buf bytes.Buffer
 	buf.WriteString("UPDATE ")
 	buf.WriteByte('"')
-	buf.WriteString(m.TableName())
+	buf.WriteString(m.Table())
 	buf.WriteByte('"')
 	buf.WriteString(" SET ")
 	for ii, v := range fields {
@@ -163,7 +172,7 @@ func (d *Driver) Delete(m driver.Model, q query.Q) (driver.Result, error) {
 	var buf bytes.Buffer
 	buf.WriteString("DELETE FROM ")
 	buf.WriteByte('"')
-	buf.WriteString(m.TableName())
+	buf.WriteString(m.Table())
 	buf.WriteByte('"')
 	if where != "" {
 		buf.WriteString(" WHERE ")
@@ -220,10 +229,7 @@ func (d *Driver) fieldByIndex(val reflect.Value, indexes []int, alloc bool) refl
 
 func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value, []string, []interface{}, error) {
 	// data is guaranteed to be of m.Type()
-	val := reflect.ValueOf(data)
-	for val.Type().Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
+	val := driver.Direct(reflect.ValueOf(data))
 	fields := m.Fields()
 	max := len(fields.MNames)
 	names := make([]string, 0, max)
@@ -310,7 +316,7 @@ func (d *Driver) outValues(m driver.Model, out interface{}) (reflect.Value, *dri
 		el := reflect.New(val.Type().Elem())
 		val.Set(el)
 	}
-	for val.Type().Kind() == reflect.Ptr {
+	for val.Kind() == reflect.Ptr {
 		el := val.Elem()
 		if !el.IsValid() {
 			el = reflect.New(val.Type().Elem())
@@ -440,15 +446,14 @@ func (d *Driver) conditions(fields *driver.Fields, q []query.Q, sep string, para
 	return fmt.Sprintf("(%s)", strings.Join(clauses, sep)), nil
 }
 
-func (d *Driver) indexName(m driver.Model, idx driver.Index) (string, error) {
-	indexFields := idx.Fields()
-	if len(indexFields) == 0 {
+func (d *Driver) indexName(m driver.Model, idx *index.Index) (string, error) {
+	if len(idx.Fields) == 0 {
 		return "", fmt.Errorf("index on %v has no fields", m.Type())
 	}
 	var buf bytes.Buffer
-	buf.WriteString(m.TableName())
+	buf.WriteString(m.Table())
 	fields := m.Fields()
-	for _, v := range indexFields {
+	for _, v := range idx.Fields {
 		dbName, _, err := fields.Map(v)
 		if err != nil {
 			return "", err
@@ -482,7 +487,7 @@ func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, 
 	buf.Truncate(buf.Len() - 1)
 	buf.WriteString(" FROM ")
 	buf.WriteByte('"')
-	buf.WriteString(m.TableName())
+	buf.WriteString(m.Table())
 	buf.WriteByte('"')
 	if where != "" {
 		buf.WriteString(" WHERE ")

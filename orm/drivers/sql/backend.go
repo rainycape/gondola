@@ -2,6 +2,7 @@ package sql
 
 import (
 	"gondola/orm/driver"
+	"gondola/orm/index"
 	"gondola/orm/transaction"
 	"gondola/types"
 	"reflect"
@@ -23,7 +24,7 @@ type Backend interface {
 	// Most drivers should just return db.Exec(query, args...).
 	Insert(DB, driver.Model, string, ...interface{}) (driver.Result, error)
 	// Index creates and index if it doesn't exist using the provided model, index and name.
-	Index(DB, driver.Model, driver.Index, string) error
+	Index(DB, driver.Model, *index.Index, string) error
 	// Begin starts a new transaction
 	Begin(DB, transaction.Options) error
 	// Commit commits the current transaction

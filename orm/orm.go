@@ -42,6 +42,12 @@ func (o *Orm) Exists(t *Table, q query.Q) (bool, error) {
 	return o.Table(t).Filter(q).Exists()
 }
 
+// Count is a shorthand for Table(t).Filter(q).Count()
+// Pass nil to count all the objects in the given table.
+func (o *Orm) Count(t *Table, q query.Q) (uint64, error) {
+	return o.Table(t).Filter(q).Count()
+}
+
 // Query returns a Query object, on which you can call
 // Limit, Offset or Iter, to start iterating the results.
 // If you want to iterate over all the items on a given table
@@ -211,7 +217,10 @@ func (o *Orm) MustUpsert(q query.Q, obj interface{}) Result {
 // (if the primary key is zero or it has no primary key)
 // or updates it using the primary key as the query
 // (if it's non zero). If the update results in no
-// affected rows, an insert will be performed.
+// affected rows, an insert will be performed. Save also
+// supports models with composite keys. If any field forming
+// the composite key is non-zero, an update will be tried
+// before performing an insert.
 func (o *Orm) Save(obj interface{}) (Result, error) {
 	m, err := o.model(obj)
 	if err != nil {
@@ -252,14 +261,36 @@ func (o *Orm) MustSaveInto(t *Table, obj interface{}) Result {
 }
 
 func (o *Orm) save(m *model, obj interface{}) (Result, error) {
-	if m.fields.PrimaryKey < 0 {
-		return o.Insert(obj)
-	}
-	pkName, pkVal := o.primaryKey(m.fields, obj)
-	if driver.IsZero(pkVal) {
+	var res Result
+	var err error
+	if m.fields.PrimaryKey >= 0 {
+		pkName, pkVal := o.primaryKey(m.fields, obj)
+		if driver.IsZero(pkVal) {
+			return o.insert(m, obj)
+		}
+		res, err = o.update(m, Eq(pkName, pkVal.Interface()), obj)
+	} else if len(m.fields.CompositePrimaryKey) > 0 {
+		// Composite primary key
+		names, values := o.compositePrimaryKey(m.fields, obj)
+		for _, v := range values {
+			if !driver.IsZero(v) {
+				// We have a non-zero value, try to update
+				qs := make([]query.Q, len(names))
+				for ii := range names {
+					qs[ii] = Eq(names[ii], values[ii].Interface())
+				}
+				res, err = o.update(m, And(qs...), obj)
+				break
+			}
+		}
+		if res == nil && err == nil {
+			// Not updated. All the fields in the PK are zero
+			return o.insert(m, obj)
+		}
+	} else {
+		// No pk
 		return o.insert(m, obj)
 	}
-	res, err := o.update(m, Eq(pkName, pkVal.Interface()), obj)
 	if err != nil {
 		return nil, err
 	}
@@ -458,16 +489,40 @@ func (o *Orm) model(obj interface{}) (*model, error) {
 	return model, nil
 }
 
+func (o *Orm) fieldByIndex(val reflect.Value, indexes []int) reflect.Value {
+	for _, v := range indexes {
+		if val.Type().Kind() == reflect.Ptr {
+			if val.IsNil() {
+				return reflect.Value{}
+			}
+			val = val.Elem()
+		}
+		val = val.Field(v)
+	}
+	return val
+}
+
 func (o *Orm) primaryKey(f *driver.Fields, obj interface{}) (string, reflect.Value) {
 	pk := f.PrimaryKey
 	if pk < 0 {
 		return "", reflect.Value{}
 	}
-	val := reflect.ValueOf(obj)
-	for val.Type().Kind() == reflect.Ptr {
-		val = val.Elem()
+	val := driver.Direct(reflect.ValueOf(obj))
+	return f.QNames[pk], o.fieldByIndex(val, f.Indexes[pk])
+}
+
+func (o *Orm) compositePrimaryKey(f *driver.Fields, obj interface{}) ([]string, []reflect.Value) {
+	if len(f.CompositePrimaryKey) == 0 {
+		return nil, nil
 	}
-	return f.QNames[pk], val.FieldByIndex(f.Indexes[pk])
+	val := driver.Direct(reflect.ValueOf(obj))
+	var names []string
+	var values []reflect.Value
+	for _, v := range f.CompositePrimaryKey {
+		names = append(names, f.QNames[v])
+		values = append(values, o.fieldByIndex(val, f.Indexes[v]))
+	}
+	return names, values
 }
 
 type sqldriver interface {

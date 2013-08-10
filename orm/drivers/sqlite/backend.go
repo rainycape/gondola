@@ -7,6 +7,7 @@ import (
 	"gondola/orm/codec"
 	"gondola/orm/driver"
 	"gondola/orm/drivers/sql"
+	"gondola/orm/index"
 	"gondola/orm/transaction"
 	"gondola/types"
 	"reflect"
@@ -51,19 +52,19 @@ func (b *Backend) Insert(db sql.DB, m driver.Model, query string, args ...interf
 	return db.Exec(query, args...)
 }
 
-func (b *Backend) Index(db sql.DB, m driver.Model, idx driver.Index, name string) error {
+func (b *Backend) Index(db sql.DB, m driver.Model, idx *index.Index, name string) error {
 	var buf bytes.Buffer
 	buf.WriteString("CREATE ")
-	if idx.Unique() {
+	if idx.Unique {
 		buf.WriteString("UNIQUE ")
 	}
 	buf.WriteString("INDEX IF NOT EXISTS ")
 	buf.WriteString(name)
 	buf.WriteString(" ON \"")
-	buf.WriteString(m.TableName())
+	buf.WriteString(m.Table())
 	buf.WriteString("\" (")
 	fields := m.Fields()
-	for _, v := range idx.Fields() {
+	for _, v := range idx.Fields {
 		name, _, err := fields.Map(v)
 		if err != nil {
 			return err
@@ -193,9 +194,7 @@ func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, t *types.Tag) e
 }
 
 func (b *Backend) TransformOutValue(val reflect.Value) (interface{}, error) {
-	for val.Type().Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
+	val = driver.Direct(val)
 	switch x := val.Interface().(type) {
 	case time.Time:
 		if x.IsZero() {

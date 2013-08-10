@@ -1,7 +1,7 @@
 package orm
 
 import (
-	"gondola/orm/driver"
+	"gondola/orm/index"
 )
 
 // Options are the structure used to specify
@@ -14,11 +14,17 @@ type Options struct {
 	// foo_bar_baz, but types in the main package will
 	// omit the package name (e.g. Foo becomes foo,
 	// not main_foo).
-	TableName string
+	Table string
 	// Any indexes that can't be declared using field tags
 	// (most of the time because they index multiple fields
-	// or require special flags). See the function Indexes()
-	// for a convenience method for initializing this field.
-	Indexes   []driver.Index
-	Relations []*Relation
+	// or require special flags).
+	Indexes []*index.Index
+	// The primary key when it's not specified in struct tags
+	// or when it's a composite key. The names of the fields
+	// must be qualified names (i.e. the name of the field
+	// in the Go struct). If the primary key is
+	// defined in both the a field tag and using this field, an
+	// error will be returned when registering the model.
+	PrimaryKey []string
+	Relations  []*Relation
 }

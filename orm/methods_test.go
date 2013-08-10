@@ -28,7 +28,7 @@ func (s *SaveError) Save() error {
 
 func testLoadSaveMethods(t *testing.T, o *Orm) {
 	SaveLoadTable := o.MustRegister((*Object)(nil), &Options{
-		TableName: "test_load_save_methods",
+		Table: "test_load_save_methods",
 	})
 	o.MustCommitTables()
 	obj := &Object{Value: "Foo"}
@@ -59,10 +59,10 @@ func TestLoadSaveMethods(t *testing.T) {
 
 func testLoadSaveMethodsErrors(t *testing.T, o *Orm) {
 	LoadErrorTable := o.MustRegister((*LoadError)(nil), &Options{
-		TableName: "test_load_error",
+		Table: "test_load_error",
 	})
 	SaveErrorTable := o.MustRegister((*SaveError)(nil), &Options{
-		TableName: "test_save_error",
+		Table: "test_save_error",
 	})
 	o.MustCommitTables()
 	_, err := o.SaveInto(SaveErrorTable, &SaveError{})
@@ -85,7 +85,7 @@ func BenchmarkLoadSaveMethods(b *testing.B) {
 	o := newMemoryOrm(b)
 	defer o.Close()
 	tbl := o.MustRegister((*Object)(nil), &Options{
-		TableName: "test_load_save_benchmark",
+		Table: "test_load_save_benchmark",
 	})
 	b.ResetTimer()
 	m := tbl.model.fields.Methods

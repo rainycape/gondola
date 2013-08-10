@@ -35,7 +35,7 @@ func (q *Query) Table(t *Table) *Query {
 }
 
 // Filter adds another condition to the query. In other
-// words, it AND the previous condition with the one passed in.
+// words, it ANDs the previous condition with the one passed in.
 func (q *Query) Filter(qu query.Q) *Query {
 	if qu != nil {
 		if q.q == nil {
@@ -67,7 +67,7 @@ func (q *Query) Offset(offset int) *Query {
 
 // Sort sets the field and direction used for sorting
 // this query.
-func (q *Query) Sort(field string, dir SortDirection) *Query {
+func (q *Query) Sort(field string, dir Sort) *Query {
 	q.sortField = field
 	q.sortDir = int(dir)
 	return q

@@ -1,7 +1,7 @@
 package sql
 
 import (
-	"gondola/orm/driver"
+	"gondola/orm/index"
 	"reflect"
 )
 
@@ -13,8 +13,8 @@ func isNil(v interface{}) bool {
 	return r.Type().Kind() == reflect.Ptr && r.IsNil()
 }
 
-func DescField(idx driver.Index, field string) bool {
-	if strs, ok := idx.Get(driver.DESC).([]string); ok {
+func DescField(idx *index.Index, field string) bool {
+	if strs, ok := idx.Get(index.DESC).([]string); ok {
 		for _, v := range strs {
 			if v == field {
 				return true

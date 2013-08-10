@@ -14,6 +14,11 @@ import (
 	"testing"
 )
 
+type binaryCoder interface {
+	binaryEncode(w io.Writer, o ByteOrder) error
+	binaryDecode(r io.Reader, o ByteOrder) error
+}
+
 type Struct struct {
 	Int8       int8
 	Int16      int16
@@ -30,6 +35,144 @@ type Struct struct {
 	Array      [4]uint8
 }
 
+func (s *Struct) binaryEncode(w io.Writer, o ByteOrder) error {
+	var b [8]byte
+	b[0] = byte(s.Int8)
+	if _, err := w.Write(b[:1]); err != nil {
+		return err
+	}
+	bs := b[:2]
+	o.PutUint16(bs, uint16(s.Int16))
+	if _, err := w.Write(bs); err != nil {
+		return err
+	}
+	bs = b[:4]
+	o.PutUint32(bs, uint32(s.Int32))
+	if _, err := w.Write(bs); err != nil {
+		return err
+	}
+	bs = b[:8]
+	o.PutUint64(bs, uint64(s.Int64))
+	if _, err := w.Write(bs); err != nil {
+		return err
+	}
+	b[0] = s.Uint8
+	if _, err := w.Write(b[:1]); err != nil {
+		return err
+	}
+	bs = b[:2]
+	o.PutUint16(bs, s.Uint16)
+	if _, err := w.Write(bs); err != nil {
+		return err
+	}
+	bs = b[:4]
+	o.PutUint32(bs, s.Uint32)
+	if _, err := w.Write(bs); err != nil {
+		return err
+	}
+	bs = b[:8]
+	o.PutUint64(bs, s.Uint64)
+	if _, err := w.Write(bs); err != nil {
+		return err
+	}
+	bs = b[:4]
+	o.PutUint32(bs, math.Float32bits(s.Float32))
+	if _, err := w.Write(bs); err != nil {
+		return err
+	}
+	bs = b[:8]
+	o.PutUint64(bs, math.Float64bits(s.Float64))
+	if _, err := w.Write(bs); err != nil {
+		return err
+	}
+	o.PutUint32(bs, math.Float32bits(real(s.Complex64)))
+	o.PutUint32(bs[4:], math.Float32bits(imag(s.Complex64)))
+	if _, err := w.Write(bs); err != nil {
+		return err
+	}
+	o.PutUint64(bs, math.Float64bits(real(s.Complex128)))
+	if _, err := w.Write(bs); err != nil {
+		return err
+	}
+	o.PutUint64(bs, math.Float64bits(imag(s.Complex128)))
+	if _, err := w.Write(bs); err != nil {
+		return err
+	}
+	_, err := w.Write(s.Array[:4])
+	return err
+}
+
+func (s *Struct) binaryDecode(r io.Reader, o ByteOrder) error {
+	var b [8]byte
+	bs := b[:1]
+	if _, err := io.ReadFull(r, bs); err != nil {
+		return err
+	}
+	s.Int8 = int8(b[0])
+	bs = b[:2]
+	if _, err := io.ReadFull(r, bs); err != nil {
+		return err
+	}
+	s.Int16 = int16(o.Uint16(bs))
+	bs = b[:4]
+	if _, err := io.ReadFull(r, bs); err != nil {
+		return err
+	}
+	s.Int32 = int32(o.Uint32(bs))
+	bs = b[:8]
+	if _, err := io.ReadFull(r, bs); err != nil {
+		return err
+	}
+	s.Int64 = int64(o.Uint64(bs))
+	bs = b[:1]
+	if _, err := io.ReadFull(r, bs); err != nil {
+		return err
+	}
+	s.Uint8 = b[0]
+	bs = b[:2]
+	if _, err := io.ReadFull(r, bs); err != nil {
+		return err
+	}
+	s.Uint16 = o.Uint16(bs)
+	bs = b[:4]
+	if _, err := io.ReadFull(r, bs); err != nil {
+		return err
+	}
+	s.Uint32 = o.Uint32(bs)
+	bs = b[:8]
+	if _, err := io.ReadFull(r, bs); err != nil {
+		return err
+	}
+	s.Uint64 = o.Uint64(bs)
+	bs = b[:4]
+	if _, err := io.ReadFull(r, bs); err != nil {
+		return err
+	}
+	s.Float32 = math.Float32frombits(o.Uint32(bs))
+	bs = b[:8]
+	if _, err := io.ReadFull(r, bs); err != nil {
+		return err
+	}
+	s.Float64 = math.Float64frombits(o.Uint64(bs))
+	if _, err := io.ReadFull(r, bs); err != nil {
+		return err
+	}
+	s.Complex64 = complex(
+		math.Float32frombits(o.Uint32(bs)),
+		math.Float32frombits(o.Uint32(bs[4:])),
+	)
+	if _, err := io.ReadFull(r, bs); err != nil {
+		return err
+	}
+	f1 := math.Float64frombits(o.Uint64(bs))
+	if _, err := io.ReadFull(r, bs); err != nil {
+		return err
+	}
+	s.Complex128 = complex(f1, math.Float64frombits(o.Uint64(bs)))
+	_, err := io.ReadFull(r, s.Array[:4])
+	return err
+}
+
 type T struct {
 	Int     int
 	Uint    uint
@@ -39,6 +182,28 @@ type T struct {
 
 type SliceStruct struct {
 	Ints []int64
+}
+
+func (s *SliceStruct) binaryEncode(w io.Writer, o ByteOrder) error {
+	bs := make([]byte, 8)
+	for _, v := range s.Ints {
+		o.PutUint64(bs, uint64(v))
+		if _, err := w.Write(bs); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *SliceStruct) binaryDecode(r io.Reader, o ByteOrder) error {
+	bs := make([]byte, 8)
+	for ii := range s.Ints {
+		if _, err := io.ReadFull(r, bs); err != nil {
+			return err
+		}
+		s.Ints[ii] = int64(o.Uint64(bs))
+	}
+	return nil
 }
 
 type ArrayStruct struct {
@@ -428,6 +593,31 @@ func (br *byteSliceReader) Read(p []byte) (int, error) {
 	return n, nil
 }
 
+func benchmarkReadCoder(b *testing.B, c binaryCoder, order ByteOrder) {
+	bsr := &byteSliceReader{}
+	var buf bytes.Buffer
+	c.binaryEncode(&buf, order)
+	b.SetBytes(int64(buf.Len()))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		bsr.remain = buf.Bytes()
+		c.binaryDecode(bsr, order)
+	}
+}
+
+func benchmarkWriteCoder(b *testing.B, c binaryCoder, order ByteOrder) {
+	var buf bytes.Buffer
+	err := c.binaryEncode(&buf, order)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(buf.Len()))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c.binaryEncode(ioutil.Discard, order)
+	}
+}
+
 func BenchmarkReadStruct(b *testing.B) {
 	bsr := &byteSliceReader{}
 	var buf bytes.Buffer
@@ -460,6 +650,14 @@ func BenchmarkWriteStruct(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		Write(ioutil.Discard, BigEndian, t)
 	}
+}
+
+func BenchmarkReadStructCustom(b *testing.B) {
+	benchmarkReadCoder(b, &s, BigEndian)
+}
+
+func BenchmarkWriteStructCustom(b *testing.B) {
+	benchmarkWriteCoder(b, &s, BigEndian)
 }
 
 func BenchmarkReadSliceStruct(b *testing.B) {
@@ -499,6 +697,20 @@ func BenchmarkWriteSliceStruct(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		Write(ioutil.Discard, BigEndian, t)
 	}
+}
+
+func BenchmarkReadSliceStructCustom(b *testing.B) {
+	ss := &SliceStruct{
+		Ints: make([]int64, 1000),
+	}
+	benchmarkReadCoder(b, ss, BigEndian)
+}
+
+func BenchmarkWriteSliceStructCustom(b *testing.B) {
+	ss := &SliceStruct{
+		Ints: make([]int64, 1000),
+	}
+	benchmarkWriteCoder(b, ss, BigEndian)
 }
 
 func BenchmarkReadArrayStruct(b *testing.B) {

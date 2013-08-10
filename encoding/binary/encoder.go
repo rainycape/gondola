@@ -22,11 +22,6 @@ type encoder struct {
 	io.Writer
 }
 
-func (e *encoder) write(bs []byte) error {
-	_, err := e.Write(bs)
-	return err
-}
-
 func skipEncoder(typ reflect.Type) (typeEncoder, error) {
 	s, err := sizeof(typ)
 	if err != nil {
@@ -39,13 +34,14 @@ func skipEncoder(typ reflect.Type) (typeEncoder, error) {
 		b := enc.buf[:8]
 		n := s
 		for n >= 8 {
-			if err := enc.write(b); err != nil {
+			if _, err := enc.Write(b); err != nil {
 				return err
 			}
 			n -= 8
 		}
 		if n > 0 {
-			return enc.write(b[:n])
+			_, err := enc.Write(b[:n])
+			return err
 		}
 		return nil
 	}, nil
@@ -127,61 +123,71 @@ func structEncoder(typ reflect.Type) (typeEncoder, error) {
 func int8Encoder(enc *encoder, v reflect.Value) error {
 	bs := enc.buf[:1]
 	bs[0] = byte(int8(v.Int()))
-	return enc.write(bs)
+	_, err := enc.Write(bs)
+	return err
 }
 
 func int16Encoder(enc *encoder, v reflect.Value) error {
 	bs := enc.buf[:2]
 	enc.order.PutUint16(bs, uint16(v.Int()))
-	return enc.write(bs)
+	_, err := enc.Write(bs)
+	return err
 }
 
 func int32Encoder(enc *encoder, v reflect.Value) error {
 	bs := enc.buf[:4]
 	enc.order.PutUint32(bs, uint32(v.Int()))
-	return enc.write(bs)
+	_, err := enc.Write(bs)
+	return err
 }
 
 func int64Encoder(enc *encoder, v reflect.Value) error {
 	bs := enc.buf[:8]
 	enc.order.PutUint64(bs, uint64(v.Int()))
-	return enc.write(bs)
+	_, err := enc.Write(bs)
+	return err
 }
 
 func uint8Encoder(enc *encoder, v reflect.Value) error {
 	bs := enc.buf[:1]
 	bs[0] = uint8(v.Uint())
-	return enc.write(bs)
+	_, err := enc.Write(bs)
+	return err
 }
 
 func uint16Encoder(enc *encoder, v reflect.Value) error {
 	bs := enc.buf[:2]
 	enc.order.PutUint16(bs, uint16(v.Uint()))
-	return enc.write(bs)
+	_, err := enc.Write(bs)
+	return err
 }
 
 func uint32Encoder(enc *encoder, v reflect.Value) error {
 	bs := enc.buf[:4]
 	enc.order.PutUint32(bs, uint32(v.Uint()))
-	return enc.write(bs)
+	_, err := enc.Write(bs)
+	return err
 }
 
 func uint64Encoder(enc *encoder, v reflect.Value) error {
 	bs := enc.buf[:8]
 	enc.order.PutUint64(bs, uint64(v.Uint()))
-	return enc.write(bs)
+	_, err := enc.Write(bs)
+	return err
 }
 
 func float32Encoder(enc *encoder, v reflect.Value) error {
 	bs := enc.buf[:4]
 	enc.order.PutUint32(bs, math.Float32bits(float32(v.Float())))
-	return enc.write(bs)
+	_, err := enc.Write(bs)
+	return err
 }
 
 func float64Encoder(enc *encoder, v reflect.Value) error {
 	bs := enc.buf[:8]
 	enc.order.PutUint64(bs, math.Float64bits(v.Float()))
-	return enc.write(bs)
+	_, err := enc.Write(bs)
+	return err
 }
 
 func complex64Encoder(enc *encoder, v reflect.Value) error {
@@ -189,18 +195,20 @@ func complex64Encoder(enc *encoder, v reflect.Value) error {
 	x := v.Complex()
 	enc.order.PutUint32(bs, math.Float32bits(float32(real(x))))
 	enc.order.PutUint32(bs[4:], math.Float32bits(float32(imag(x))))
-	return enc.write(bs)
+	_, err := enc.Write(bs)
+	return err
 }
 
 func complex128Encoder(enc *encoder, v reflect.Value) error {
 	bs := enc.buf[:8]
 	x := v.Complex()
 	enc.order.PutUint64(bs, math.Float64bits(real(x)))
-	if err := enc.write(bs); err != nil {
+	if _, err := enc.Write(bs); err != nil {
 		return err
 	}
 	enc.order.PutUint64(bs, math.Float64bits(imag(x)))
-	return enc.write(bs)
+	_, err := enc.Write(bs)
+	return err
 }
 
 func newEncoder(typ reflect.Type) (typeEncoder, error) {

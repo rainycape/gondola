@@ -1,7 +1,7 @@
 package binary
 
 import (
-	"fmt"
+	"errors"
 	"io"
 	"io/ioutil"
 	"math"
@@ -247,7 +247,7 @@ func newDecoder(typ reflect.Type) (typeDecoder, error) {
 	case reflect.Complex128:
 		return complex128Decoder, nil
 	}
-	return nil, fmt.Errorf("can't decode type %v", typ)
+	return nil, errors.New("can't decode type " + typ.String())
 }
 
 func makeDecoder(typ reflect.Type) (typeDecoder, error) {

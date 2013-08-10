@@ -1,7 +1,7 @@
 package binary
 
 import (
-	"fmt"
+	"errors"
 	"io"
 	"math"
 	"reflect"
@@ -235,7 +235,7 @@ func newEncoder(typ reflect.Type) (typeEncoder, error) {
 	case reflect.Complex128:
 		return complex128Encoder, nil
 	}
-	return nil, fmt.Errorf("can't encode type %v", typ)
+	return nil, errors.New("can't encode type " + typ.String())
 }
 
 func makeEncoder(typ reflect.Type) (typeEncoder, error) {

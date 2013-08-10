@@ -34,14 +34,20 @@ func skipDecoder(typ reflect.Type) (typeDecoder, error) {
 }
 
 func sliceDecoder(typ reflect.Type) (typeDecoder, error) {
-	if typ.Kind() == reflect.Slice {
-		switch typ.Elem().Kind() {
-		case reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Uint16, reflect.Int32, reflect.Uint32, reflect.Int64, reflect.Uint64:
-			// Take advantage of the fast path in Read
+	switch typ.Elem().Kind() {
+	case reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Uint16, reflect.Int32, reflect.Uint32, reflect.Int64, reflect.Uint64:
+		// Take advantage of the fast path in Read
+		if typ.Kind() == reflect.Slice {
 			return func(dec *decoder, v reflect.Value) error {
 				return Read(dec, dec.order, v.Interface())
 			}, nil
 		}
+		// Array
+		al := typ.Len()
+		return func(dec *decoder, v reflect.Value) error {
+			// Value must be addressable when we reach this point
+			return Read(dec, dec.order, v.Slice(0, al).Interface())
+		}, nil
 	}
 	edec, err := makeDecoder(typ.Elem())
 	if err != nil {

@@ -50,14 +50,28 @@ func skipEncoder(typ reflect.Type) (typeEncoder, error) {
 }
 
 func sliceEncoder(typ reflect.Type) (typeEncoder, error) {
-	if typ.Kind() == reflect.Slice {
-		switch typ.Elem().Kind() {
-		case reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Uint16, reflect.Int32, reflect.Uint32, reflect.Int64, reflect.Uint64:
-			// Take advantage of the fast path in Write
+	switch typ.Elem().Kind() {
+	case reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Uint16, reflect.Int32, reflect.Uint32, reflect.Int64, reflect.Uint64:
+		// Take advantage of the fast path in Write
+		if typ.Kind() == reflect.Slice {
 			return func(enc *encoder, v reflect.Value) error {
 				return Write(enc, enc.order, v.Interface())
 			}, nil
 		}
+		// Array
+		al := typ.Len()
+		eenc, _ := makeEncoder(typ.Elem())
+		return func(enc *encoder, v reflect.Value) error {
+			if v.CanAddr() {
+				return Write(enc, enc.order, v.Slice(0, al).Interface())
+			}
+			for ii := 0; ii < al; ii++ {
+				if err := eenc(enc, v.Index(ii)); err != nil {
+					return err
+				}
+			}
+			return nil
+		}, nil
 	}
 	eenc, err := makeEncoder(typ.Elem())
 	if err != nil {

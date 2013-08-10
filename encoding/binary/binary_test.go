@@ -529,10 +529,9 @@ func BenchmarkWriteArrayStruct(b *testing.B) {
 		b.Fatal(err)
 	}
 	b.SetBytes(int64(n))
-	var t interface{} = as
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Write(ioutil.Discard, BigEndian, t)
+		Write(ioutil.Discard, BigEndian, as)
 	}
 }
 

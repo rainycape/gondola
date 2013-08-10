@@ -142,6 +142,52 @@ func TestWriteSlice(t *testing.T) {
 	checkResult(t, "WriteSlice", BigEndian, err, buf.Bytes(), src)
 }
 
+// Addresses of arrays are easier to manipulate with reflection than are slices.
+var intArrays = []interface{}{
+	&[100]int8{},
+	&[100]int16{},
+	&[100]int32{},
+	&[100]int64{},
+	&[100]uint8{},
+	&[100]uint16{},
+	&[100]uint32{},
+	&[100]uint64{},
+}
+
+func TestSliceRoundTrip(t *testing.T) {
+	buf := new(bytes.Buffer)
+	for _, array := range intArrays {
+		src := reflect.ValueOf(array).Elem()
+		unsigned := false
+		switch src.Index(0).Kind() {
+		case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			unsigned = true
+		}
+		for i := 0; i < src.Len(); i++ {
+			if unsigned {
+				src.Index(i).SetUint(uint64(i * 0x07654321))
+			} else {
+				src.Index(i).SetInt(int64(i * 0x07654321))
+			}
+		}
+		buf.Reset()
+		srcSlice := src.Slice(0, src.Len())
+		err := Write(buf, BigEndian, srcSlice.Interface())
+		if err != nil {
+			t.Fatal(err)
+		}
+		dst := reflect.New(src.Type()).Elem()
+		dstSlice := dst.Slice(0, dst.Len())
+		err = Read(buf, BigEndian, dstSlice.Interface())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(src.Interface(), dst.Interface()) {
+			t.Fatal(src)
+		}
+	}
+}
+
 func TestWriteT(t *testing.T) {
 	buf := new(bytes.Buffer)
 	ts := T{}

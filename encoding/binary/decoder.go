@@ -14,6 +14,8 @@ var decoders struct {
 	cache map[reflect.Type]typeDecoder
 }
 
+type typeDecoder func(dec *decoder, v reflect.Value) error
+
 type decoder struct {
 	coder
 	reader io.Reader
@@ -22,8 +24,6 @@ type decoder struct {
 func (d *decoder) read(bs []byte) error {
 	return readAtLeast(d.reader, bs, len(bs))
 }
-
-type typeDecoder func(dec *decoder, v reflect.Value) error
 
 func skipDecoder(typ reflect.Type) (typeDecoder, error) {
 	s, err := dataSize(typ)
@@ -79,9 +79,6 @@ func structDecoder(typ reflect.Type) (typeDecoder, error) {
 		for ii, fdec := range decoders {
 			f := v.FieldByIndex(indexes[ii])
 			if err := fdec(dec, f); err != nil {
-				return err
-			}
-			if err != nil {
 				return err
 			}
 		}
@@ -238,7 +235,7 @@ func newDecoder(typ reflect.Type) (typeDecoder, error) {
 	case reflect.Complex128:
 		return complex128Decoder, nil
 	}
-	return nil, fmt.Errorf("can't encode type %v", typ)
+	return nil, fmt.Errorf("can't decode type %v", typ)
 }
 
 func makeDecoder(typ reflect.Type) (typeDecoder, error) {

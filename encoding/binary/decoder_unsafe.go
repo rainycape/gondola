@@ -1,4 +1,4 @@
-// +build appengine
+// +build !appengine
 
 package binary
 
@@ -9,6 +9,7 @@ import (
 	"math"
 	"reflect"
 	"sync"
+	"unsafe"
 )
 
 var decoders struct {
@@ -16,7 +17,7 @@ var decoders struct {
 	cache map[reflect.Type]typeDecoder
 }
 
-type typeDecoder func(dec *decoder, v reflect.Value) error
+type typeDecoder func(dec *decoder, p unsafe.Pointer) error
 
 type decoder struct {
 	coder
@@ -29,38 +30,62 @@ func skipDecoder(typ reflect.Type) (typeDecoder, error) {
 		return nil, err
 	}
 	l := int64(s)
-	return func(dec *decoder, v reflect.Value) error {
+	return func(dec *decoder, _ unsafe.Pointer) error {
 		_, err := io.CopyN(ioutil.Discard, dec, l)
 		return err
 	}, nil
 }
 
 func sliceDecoder(typ reflect.Type) (typeDecoder, error) {
-	switch typ.Elem().Kind() {
+	etyp := typ.Elem()
+	switch etyp.Kind() {
 	case reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Uint16, reflect.Int32, reflect.Uint32, reflect.Int64, reflect.Uint64:
 		// Take advantage of the fast path in Read
-		if typ.Kind() == reflect.Slice {
-			return func(dec *decoder, v reflect.Value) error {
-				return Read(dec, dec.order, v.Interface())
-			}, nil
-		}
-		// Array
-		al := typ.Len()
-		return func(dec *decoder, v reflect.Value) error {
-			// Value must be addressable when we reach this point
-			return Read(dec, dec.order, v.Slice(0, al).Interface())
+		return func(dec *decoder, p unsafe.Pointer) error {
+			v := reflect.NewAt(typ, p).Elem()
+			return Read(dec, dec.order, v.Interface())
 		}, nil
 	}
 	edec, err := makeDecoder(typ.Elem())
 	if err != nil {
 		return nil, err
 	}
-	return func(dec *decoder, v reflect.Value) error {
-		sl := v.Len()
-		for ii := 0; ii < sl; ii++ {
-			if err := edec(dec, v.Index(ii)); err != nil {
+	s := etyp.Size()
+	return func(dec *decoder, p unsafe.Pointer) error {
+		h := (*reflect.SliceHeader)(p)
+		ep := unsafe.Pointer(h.Data)
+		for ii := 0; ii < h.Len; ii++ {
+			if err := edec(dec, ep); err != nil {
 				return err
 			}
+			ep = unsafe.Pointer(uintptr(ep) + s)
+		}
+		return nil
+	}, nil
+}
+
+func arrayDecoder(typ reflect.Type) (typeDecoder, error) {
+	etyp := typ.Elem()
+	al := typ.Len()
+	switch etyp.Kind() {
+	case reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Uint16, reflect.Int32, reflect.Uint32, reflect.Int64, reflect.Uint64:
+		// Take advantage of the fast path in Read
+		return func(dec *decoder, p unsafe.Pointer) error {
+			v := reflect.NewAt(typ, p).Elem().Slice(0, al)
+			return Read(dec, dec.order, v.Interface())
+		}, nil
+	}
+	edec, err := makeDecoder(typ.Elem())
+	if err != nil {
+		return nil, err
+	}
+	s := etyp.Size()
+	return func(dec *decoder, p unsafe.Pointer) error {
+		for ii := 0; ii < al; ii++ {
+			if err := edec(dec, p); err != nil {
+				return err
+			}
+			p = unsafe.Pointer(uintptr(p) + s)
 		}
 		return nil
 	}, nil
@@ -68,7 +93,7 @@ func sliceDecoder(typ reflect.Type) (typeDecoder, error) {
 
 func structDecoder(typ reflect.Type) (typeDecoder, error) {
 	var decoders []typeDecoder
-	var indexes [][]int
+	var offsets []uintptr
 	count := typ.NumField()
 	var dec typeDecoder
 	var err error
@@ -87,12 +112,12 @@ func structDecoder(typ reflect.Type) (typeDecoder, error) {
 			return nil, err
 		}
 		decoders = append(decoders, dec)
-		indexes = append(indexes, f.Index)
+		offsets = append(offsets, f.Offset)
 	}
-	return func(dec *decoder, v reflect.Value) error {
+	return func(dec *decoder, p unsafe.Pointer) error {
 		for ii, fdec := range decoders {
-			f := v.FieldByIndex(indexes[ii])
-			if err := fdec(dec, f); err != nil {
+			fp := unsafe.Pointer(uintptr(p) + offsets[ii])
+			if err := fdec(dec, fp); err != nil {
 				return err
 			}
 		}
@@ -100,109 +125,80 @@ func structDecoder(typ reflect.Type) (typeDecoder, error) {
 	}, nil
 }
 
-func int8Decoder(dec *decoder, v reflect.Value) error {
+func int8Decoder(dec *decoder, p unsafe.Pointer) error {
 	bs := dec.buf[:1]
 	if err := readAtLeast(dec, bs, 1); err != nil {
 		return err
 	}
-	v.SetInt(int64(bs[0]))
+	v := (*uint8)(p)
+	*v = bs[0]
 	return nil
 }
 
-func int16Decoder(dec *decoder, v reflect.Value) error {
+func int16Decoder(dec *decoder, p unsafe.Pointer) error {
 	bs := dec.buf[:2]
 	if err := readAtLeast(dec, bs, 2); err != nil {
 		return err
 	}
-	v.SetInt(int64(dec.order.Uint16(bs)))
+	v := (*uint16)(p)
+	*v = dec.order.Uint16(bs)
 	return nil
 }
 
-func int32Decoder(dec *decoder, v reflect.Value) error {
+func int32Decoder(dec *decoder, p unsafe.Pointer) error {
 	bs := dec.buf[:4]
 	if err := readAtLeast(dec, bs, 4); err != nil {
 		return err
 	}
-	v.SetInt(int64(dec.order.Uint32(bs)))
+	v := (*uint32)(p)
+	*v = dec.order.Uint32(bs)
 	return nil
 }
 
-func int64Decoder(dec *decoder, v reflect.Value) error {
+func int64Decoder(dec *decoder, p unsafe.Pointer) error {
 	bs := dec.buf[:8]
 	if err := readAtLeast(dec, bs, 8); err != nil {
 		return err
 	}
-	v.SetInt(int64(dec.order.Uint64(bs)))
+	v := (*uint64)(p)
+	*v = dec.order.Uint64(bs)
 	return nil
 }
 
-func uint8Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:1]
-	if err := readAtLeast(dec, bs, 1); err != nil {
-		return err
-	}
-	v.SetUint(uint64(bs[0]))
-	return nil
-}
-
-func uint16Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:2]
-	if err := readAtLeast(dec, bs, 2); err != nil {
-		return err
-	}
-	v.SetUint(uint64(dec.order.Uint16(bs)))
-	return nil
-}
-
-func uint32Decoder(dec *decoder, v reflect.Value) error {
+func float32Decoder(dec *decoder, p unsafe.Pointer) error {
 	bs := dec.buf[:4]
 	if err := readAtLeast(dec, bs, 4); err != nil {
 		return err
 	}
-	v.SetUint(uint64(dec.order.Uint32(bs)))
+	v := (*float32)(p)
+	*v = math.Float32frombits(dec.order.Uint32(bs))
 	return nil
 }
 
-func uint64Decoder(dec *decoder, v reflect.Value) error {
+func float64Decoder(dec *decoder, p unsafe.Pointer) error {
 	bs := dec.buf[:8]
 	if err := readAtLeast(dec, bs, 8); err != nil {
 		return err
 	}
-	v.SetUint(uint64(dec.order.Uint64(bs)))
+	v := (*float64)(p)
+	*v = math.Float64frombits(dec.order.Uint64(bs))
 	return nil
 }
 
-func float32Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:4]
-	if err := readAtLeast(dec, bs, 4); err != nil {
-		return err
-	}
-	v.SetFloat(float64(math.Float32frombits(dec.order.Uint32(bs))))
-	return nil
-}
-
-func float64Decoder(dec *decoder, v reflect.Value) error {
+func complex64Decoder(dec *decoder, p unsafe.Pointer) error {
 	bs := dec.buf[:8]
 	if err := readAtLeast(dec, bs, 8); err != nil {
 		return err
 	}
-	v.SetFloat(float64(math.Float64frombits(dec.order.Uint64(bs))))
+	v := (*complex64)(p)
+	*v = complex(
+		math.Float32frombits(dec.order.Uint32(bs)),
+		math.Float32frombits(dec.order.Uint32(bs[4:])),
+	)
 	return nil
 }
 
-func complex64Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:8]
-	if err := readAtLeast(dec, bs, 8); err != nil {
-		return err
-	}
-	v.SetComplex(complex(
-		float64(math.Float32frombits(dec.order.Uint32(bs))),
-		float64(math.Float32frombits(dec.order.Uint32(bs[4:]))),
-	))
-	return nil
-}
-
-func complex128Decoder(dec *decoder, v reflect.Value) error {
+func complex128Decoder(dec *decoder, p unsafe.Pointer) error {
 	bs := dec.buf[:8]
 	if err := readAtLeast(dec, bs, 8); err != nil {
 		return err
@@ -211,33 +207,27 @@ func complex128Decoder(dec *decoder, v reflect.Value) error {
 	if err := readAtLeast(dec, bs, 8); err != nil {
 		return err
 	}
-	v.SetComplex(complex(f1, math.Float64frombits(dec.order.Uint64(bs))))
+	v := (*complex128)(p)
+	*v = complex(f1, math.Float64frombits(dec.order.Uint64(bs)))
 	return nil
 }
 
 func newDecoder(typ reflect.Type) (typeDecoder, error) {
 	switch typ.Kind() {
-	case reflect.Array, reflect.Slice:
+	case reflect.Array:
+		return arrayDecoder(typ)
+	case reflect.Slice:
 		return sliceDecoder(typ)
 	case reflect.Struct:
 		return structDecoder(typ)
-	case reflect.Int8:
+	case reflect.Int8, reflect.Uint8:
 		return int8Decoder, nil
-	case reflect.Int16:
+	case reflect.Int16, reflect.Uint16:
 		return int16Decoder, nil
-	case reflect.Int32:
+	case reflect.Int32, reflect.Uint32:
 		return int32Decoder, nil
-	case reflect.Int64:
+	case reflect.Int64, reflect.Uint64:
 		return int64Decoder, nil
-
-	case reflect.Uint8:
-		return uint8Decoder, nil
-	case reflect.Uint16:
-		return uint16Decoder, nil
-	case reflect.Uint32:
-		return uint32Decoder, nil
-	case reflect.Uint64:
-		return uint64Decoder, nil
 
 	case reflect.Float32:
 		return float32Decoder, nil
@@ -272,7 +262,7 @@ func makeDecoder(typ reflect.Type) (typeDecoder, error) {
 	return decoder, nil
 }
 
-func valueDecoder(data interface{}) (reflect.Value, typeDecoder, error) {
+func valueDecoder(data interface{}) (unsafe.Pointer, typeDecoder, error) {
 	var v reflect.Value
 	switch d := reflect.ValueOf(data); d.Kind() {
 	case reflect.Ptr:
@@ -280,11 +270,11 @@ func valueDecoder(data interface{}) (reflect.Value, typeDecoder, error) {
 	case reflect.Slice:
 		v = d
 	default:
-		return reflect.Value{}, nil, errors.New("invalid type " + d.Type().String())
+		return nil, nil, errors.New("invalid type " + d.Type().String())
 	}
 	dec, err := makeDecoder(v.Type())
 	if err != nil {
-		return reflect.Value{}, nil, err
+		return nil, nil, err
 	}
-	return v, dec, err
+	return unsafe.Pointer(v.UnsafeAddr()), dec, err
 }

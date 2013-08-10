@@ -19,36 +19,50 @@ package binary
 import (
 	"errors"
 	"reflect"
+	"sync"
 )
+
+var sizes struct {
+	sync.RWMutex
+	cache map[reflect.Type]int
+}
 
 // Size returns how many bytes Write would generate to encode the value v, which
 // must be a fixed-size value or a slice of fixed-size values, or a pointer to such data.
 func Size(v interface{}) int {
-	n, err := dataSize(reflect.Indirect(reflect.ValueOf(v)))
+	n, err := dataSize(reflect.Indirect(reflect.ValueOf(v)).Type())
 	if err != nil {
 		return -1
 	}
 	return n
 }
 
-// dataSize returns the number of bytes the actual data represented by v occupies in memory.
+// dataSize returns the number of bytes the actual data represented by t occupies in memory.
 // For compound structures, it sums the sizes of the elements. Thus, for instance, for a slice
 // it returns the length of the slice times the element size and does not count the memory
 // occupied by the header.
-func dataSize(v reflect.Value) (int, error) {
-	if v.Kind() == reflect.Slice {
-		elem, err := sizeof(v.Type().Elem())
-		if err != nil {
-			return 0, err
+func dataSize(typ reflect.Type) (int, error) {
+	sizes.RLock()
+	size, ok := sizes.cache[typ]
+	sizes.RUnlock()
+	if !ok {
+		var err error
+		if size, err = sizeof(typ); err != nil {
+			return size, err
 		}
-		return v.Len() * elem, nil
+		sizes.Lock()
+		if sizes.cache == nil {
+			sizes.cache = make(map[reflect.Type]int)
+		}
+		sizes.cache[typ] = size
+		sizes.Unlock()
 	}
-	return sizeof(v.Type())
+	return size, nil
 }
 
 func sizeof(t reflect.Type) (int, error) {
 	switch t.Kind() {
-	case reflect.Array:
+	case reflect.Array, reflect.Slice:
 		n, err := sizeof(t.Elem())
 		if err != nil {
 			return 0, err
@@ -58,7 +72,7 @@ func sizeof(t reflect.Type) (int, error) {
 	case reflect.Struct:
 		sum := 0
 		for i, n := 0, t.NumField(); i < n; i++ {
-			s, err := sizeof(t.Field(i).Type)
+			s, err := dataSize(t.Field(i).Type)
 			if err != nil {
 				return 0, err
 			}

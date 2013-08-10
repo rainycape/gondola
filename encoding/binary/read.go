@@ -305,10 +305,11 @@ func Read(r io.Reader, order ByteOrder, data interface{}) error {
 	default:
 		return errors.New("binary.Read: invalid type " + d.Type().String())
 	}
-	if _, err := dataSize(v); err != nil {
+	typ := v.Type()
+	dec, err := makeDecoder(typ)
+	if err != nil {
 		return errors.New("binary.Read: " + err.Error())
 	}
-	d := decoder{coder: coder{order: order}, reader: r}
-	d.value(v)
-	return nil
+	d := &decoder{coder: coder{order: order}, reader: r}
+	return dec(d, v)
 }

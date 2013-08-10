@@ -378,7 +378,7 @@ func BenchmarkReadStruct(b *testing.B) {
 	bsr := &byteSliceReader{}
 	var buf bytes.Buffer
 	Write(&buf, BigEndian, &s)
-	n, _ := dataSize(reflect.ValueOf(s))
+	n, _ := dataSize(reflect.ValueOf(s).Type())
 	b.SetBytes(int64(n))
 	t := s
 	b.ResetTimer()

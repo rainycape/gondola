@@ -249,7 +249,7 @@ func Write(w io.Writer, order ByteOrder, data interface{}) error {
 
 	// Fallback to reflect-based encoding.
 	v := reflect.Indirect(reflect.ValueOf(data))
-	if _, err := dataSize(v); err != nil {
+	if _, err := dataSize(v.Type()); err != nil {
 		return errors.New("binary.Write: " + err.Error())
 	}
 	e := encoder{coder: coder{order: order}, writer: w}

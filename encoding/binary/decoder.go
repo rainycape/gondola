@@ -1,164 +1,262 @@
 package binary
 
 import (
+	"fmt"
 	"io"
+	"io/ioutil"
 	"math"
 	"reflect"
+	"sync"
 )
+
+var decoders struct {
+	sync.RWMutex
+	cache map[reflect.Type]typeDecoder
+}
 
 type decoder struct {
 	coder
 	reader io.Reader
 }
 
-func (d *decoder) read(bs []byte) {
-	if _, err := d.reader.Read(bs); err != nil {
-		panic(err)
+func (d *decoder) read(bs []byte) error {
+	return readAtLeast(d.reader, bs, len(bs))
+}
+
+type typeDecoder func(dec *decoder, v reflect.Value) error
+
+func skipDecoder(typ reflect.Type) (typeDecoder, error) {
+	s, err := dataSize(typ)
+	if err != nil {
+		return nil, err
 	}
+	l := int64(s)
+	return func(dec *decoder, v reflect.Value) error {
+		_, err := io.CopyN(ioutil.Discard, dec.reader, l)
+		return err
+	}, nil
 }
 
-func (d *decoder) uint8() uint8 {
-	bs := d.buf[:1]
-	d.read(bs)
-	return bs[0]
-}
-
-func (d *decoder) uint16() uint16 {
-	bs := d.buf[:2]
-	d.read(bs)
-	return d.order.Uint16(bs)
-}
-
-func (d *decoder) uint32() uint32 {
-	bs := d.buf[:4]
-	d.read(bs)
-	return d.order.Uint32(bs)
-}
-
-func (d *decoder) uint64() uint64 {
-	bs := d.buf[:8]
-	d.read(bs)
-	return d.order.Uint64(bs)
-}
-
-func (d *decoder) int8() int8 { return int8(d.uint8()) }
-
-func (d *decoder) int16() int16 { return int16(d.uint16()) }
-
-func (d *decoder) int32() int32 { return int32(d.uint32()) }
-
-func (d *decoder) int64() int64 { return int64(d.uint64()) }
-
-func (d *decoder) value(v reflect.Value) {
-	switch v.Kind() {
-	case reflect.Array:
-		l := v.Len()
-		for i := 0; i < l; i++ {
-			d.value(v.Index(i))
+func sliceDecoder(typ reflect.Type) (typeDecoder, error) {
+	edec, err := makeDecoder(typ.Elem())
+	if err != nil {
+		return nil, err
+	}
+	return func(dec *decoder, v reflect.Value) error {
+		for ii := 0; ii < v.Len(); ii++ {
+			if err := edec(dec, v.Index(ii)); err != nil {
+				return err
+			}
 		}
+		return nil
+	}, nil
+}
 
+func structDecoder(typ reflect.Type) (typeDecoder, error) {
+	var decoders []typeDecoder
+	var indexes [][]int
+	count := typ.NumField()
+	var dec typeDecoder
+	var err error
+	for ii := 0; ii < count; ii++ {
+		f := typ.Field(ii)
+		ftyp := f.Type
+		if f.Name == "_" {
+			dec, err = skipDecoder(ftyp)
+		} else {
+			if f.PkgPath != "" {
+				continue
+			}
+			dec, err = makeDecoder(ftyp)
+		}
+		if err != nil {
+			return nil, err
+		}
+		decoders = append(decoders, dec)
+		indexes = append(indexes, f.Index)
+	}
+	return func(dec *decoder, v reflect.Value) error {
+		for ii, fdec := range decoders {
+			f := v.FieldByIndex(indexes[ii])
+			if err := fdec(dec, f); err != nil {
+				return err
+			}
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}, nil
+}
+
+func int8Decoder(dec *decoder, v reflect.Value) error {
+	bs := dec.buf[:1]
+	if err := dec.read(bs); err != nil {
+		return err
+	}
+	v.SetInt(int64(bs[0]))
+	return nil
+}
+
+func int16Decoder(dec *decoder, v reflect.Value) error {
+	bs := dec.buf[:2]
+	if err := dec.read(bs); err != nil {
+		return err
+	}
+	v.SetInt(int64(dec.order.Uint16(bs)))
+	return nil
+}
+
+func int32Decoder(dec *decoder, v reflect.Value) error {
+	bs := dec.buf[:4]
+	if err := dec.read(bs); err != nil {
+		return err
+	}
+	v.SetInt(int64(dec.order.Uint32(bs)))
+	return nil
+}
+
+func int64Decoder(dec *decoder, v reflect.Value) error {
+	bs := dec.buf[:8]
+	if err := dec.read(bs); err != nil {
+		return err
+	}
+	v.SetInt(int64(dec.order.Uint64(bs)))
+	return nil
+}
+
+func uint8Decoder(dec *decoder, v reflect.Value) error {
+	bs := dec.buf[:1]
+	if err := dec.read(bs); err != nil {
+		return err
+	}
+	v.SetUint(uint64(bs[0]))
+	return nil
+}
+
+func uint16Decoder(dec *decoder, v reflect.Value) error {
+	bs := dec.buf[:2]
+	if err := dec.read(bs); err != nil {
+		return err
+	}
+	v.SetUint(uint64(dec.order.Uint16(bs)))
+	return nil
+}
+
+func uint32Decoder(dec *decoder, v reflect.Value) error {
+	bs := dec.buf[:4]
+	if err := dec.read(bs); err != nil {
+		return err
+	}
+	v.SetUint(uint64(dec.order.Uint32(bs)))
+	return nil
+}
+
+func uint64Decoder(dec *decoder, v reflect.Value) error {
+	bs := dec.buf[:8]
+	if err := dec.read(bs); err != nil {
+		return err
+	}
+	v.SetUint(uint64(dec.order.Uint64(bs)))
+	return nil
+}
+
+func float32Decoder(dec *decoder, v reflect.Value) error {
+	bs := dec.buf[:4]
+	if err := dec.read(bs); err != nil {
+		return err
+	}
+	v.SetFloat(float64(math.Float32frombits(dec.order.Uint32(bs))))
+	return nil
+}
+
+func float64Decoder(dec *decoder, v reflect.Value) error {
+	bs := dec.buf[:8]
+	if err := dec.read(bs); err != nil {
+		return err
+	}
+	v.SetFloat(float64(math.Float64frombits(dec.order.Uint64(bs))))
+	return nil
+}
+
+func complex64Decoder(dec *decoder, v reflect.Value) error {
+	bs := dec.buf[:8]
+	if err := dec.read(bs); err != nil {
+		return err
+	}
+	v.SetComplex(complex(
+		float64(math.Float32frombits(dec.order.Uint32(bs))),
+		float64(math.Float32frombits(dec.order.Uint32(bs[4:]))),
+	))
+	return nil
+}
+
+func complex128Decoder(dec *decoder, v reflect.Value) error {
+	bs := dec.buf[:8]
+	if err := dec.read(bs); err != nil {
+		return err
+	}
+	f1 := math.Float64frombits(dec.order.Uint64(bs))
+	if err := dec.read(bs); err != nil {
+		return err
+	}
+	v.SetComplex(complex(f1, math.Float64frombits(dec.order.Uint64(bs))))
+	return nil
+}
+
+func newDecoder(typ reflect.Type) (typeDecoder, error) {
+	switch typ.Kind() {
+	case reflect.Array, reflect.Slice:
+		return sliceDecoder(typ)
 	case reflect.Struct:
-		t := v.Type()
-		l := v.NumField()
-		for i := 0; i < l; i++ {
-			// Note: Calling v.CanSet() below is an optimization.
-			// It would be sufficient to check the field name,
-			// but creating the StructField info for each field is
-			// costly (run "go test -bench=ReadStruct" and compare
-			// results when making changes to this code).
-			if v := v.Field(i); v.CanSet() || t.Field(i).Name != "_" {
-				d.value(v)
-			} else {
-				d.skip(v)
-			}
-		}
-
-	case reflect.Slice:
-		// Fast path for basic slice types
-		switch s := v.Interface().(type) {
-		case []int8:
-			for i := range s {
-				s[i] = d.int8()
-			}
-		case []uint8:
-			for i := range s {
-				s[i] = d.uint8()
-			}
-		case []int16:
-			for i := range s {
-				s[i] = d.int16()
-			}
-		case []uint16:
-			for i := range s {
-				s[i] = d.uint16()
-			}
-		case []int32:
-			for i := range s {
-				s[i] = d.int32()
-			}
-		case []uint32:
-			for i := range s {
-				s[i] = d.uint32()
-			}
-		case []int64:
-			for i := range s {
-				s[i] = d.int64()
-			}
-		case []uint64:
-			for i := range s {
-				s[i] = d.uint64()
-			}
-		default:
-			l := v.Len()
-			for i := 0; i < l; i++ {
-				d.value(v.Index(i))
-			}
-		}
-
+		return structDecoder(typ)
 	case reflect.Int8:
-		v.SetInt(int64(d.int8()))
+		return int8Decoder, nil
 	case reflect.Int16:
-		v.SetInt(int64(d.int16()))
+		return int16Decoder, nil
 	case reflect.Int32:
-		v.SetInt(int64(d.int32()))
+		return int32Decoder, nil
 	case reflect.Int64:
-		v.SetInt(d.int64())
+		return int64Decoder, nil
 
 	case reflect.Uint8:
-		v.SetUint(uint64(d.uint8()))
+		return uint8Decoder, nil
 	case reflect.Uint16:
-		v.SetUint(uint64(d.uint16()))
+		return uint16Decoder, nil
 	case reflect.Uint32:
-		v.SetUint(uint64(d.uint32()))
+		return uint32Decoder, nil
 	case reflect.Uint64:
-		v.SetUint(d.uint64())
+		return uint64Decoder, nil
 
 	case reflect.Float32:
-		v.SetFloat(float64(math.Float32frombits(d.uint32())))
+		return float32Decoder, nil
 	case reflect.Float64:
-		v.SetFloat(math.Float64frombits(d.uint64()))
+		return float64Decoder, nil
 
 	case reflect.Complex64:
-		v.SetComplex(complex(
-			float64(math.Float32frombits(d.uint32())),
-			float64(math.Float32frombits(d.uint32())),
-		))
+		return complex64Decoder, nil
 	case reflect.Complex128:
-		v.SetComplex(complex(
-			math.Float64frombits(d.uint64()),
-			math.Float64frombits(d.uint64()),
-		))
+		return complex128Decoder, nil
 	}
+	return nil, fmt.Errorf("can't encode type %v", typ)
 }
 
-func (d *decoder) skip(v reflect.Value) {
-	n, _ := dataSize(v)
-	b := d.buf[:8]
-	for n >= 8 {
-		d.read(b)
-		n -= 8
+func makeDecoder(typ reflect.Type) (typeDecoder, error) {
+	decoders.RLock()
+	decoder := decoders.cache[typ]
+	decoders.RUnlock()
+	if decoder == nil {
+		var err error
+		decoder, err = newDecoder(typ)
+		if err != nil {
+			return nil, err
+		}
+		decoders.Lock()
+		if decoders.cache == nil {
+			decoders.cache = map[reflect.Type]typeDecoder{}
+		}
+		decoders.cache[typ] = decoder
+		decoders.Unlock()
 	}
-	if n > 0 {
-		d.read(b[:n])
-	}
+	return decoder, nil
 }

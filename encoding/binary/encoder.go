@@ -158,7 +158,7 @@ func (e *encoder) value(v reflect.Value) {
 }
 
 func (e *encoder) skip(v reflect.Value) {
-	n, _ := dataSize(v)
+	n, _ := dataSize(v.Type())
 	for ii := 0; ii < 8; ii++ {
 		e.buf[ii] = 0
 	}

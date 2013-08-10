@@ -309,6 +309,6 @@ func Read(r io.Reader, order ByteOrder, data interface{}) error {
 	if err != nil {
 		return errors.New("binary.Read: " + err.Error())
 	}
-	d := &decoder{coder: coder{order: order}, reader: r}
-	return dec(d, v)
+	d := decoder{coder: coder{order: order}, Reader: r}
+	return dec(&d, v)
 }

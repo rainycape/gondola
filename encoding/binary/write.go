@@ -253,6 +253,6 @@ func Write(w io.Writer, order ByteOrder, data interface{}) error {
 	if err != nil {
 		return errors.New("binary.Write: " + err.Error())
 	}
-	e := &encoder{coder: coder{order: order}, writer: w}
-	return enc(e, v)
+	e := encoder{coder: coder{order: order}, Writer: w}
+	return enc(&e, v)
 }

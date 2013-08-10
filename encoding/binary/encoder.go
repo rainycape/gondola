@@ -17,16 +17,16 @@ type typeEncoder func(enc *encoder, v reflect.Value) error
 
 type encoder struct {
 	coder
-	writer io.Writer
+	io.Writer
 }
 
 func (e *encoder) write(bs []byte) error {
-	_, err := e.writer.Write(bs)
+	_, err := e.Write(bs)
 	return err
 }
 
 func skipEncoder(typ reflect.Type) (typeEncoder, error) {
-	s, err := dataSize(typ)
+	s, err := sizeof(typ)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +50,15 @@ func skipEncoder(typ reflect.Type) (typeEncoder, error) {
 }
 
 func sliceEncoder(typ reflect.Type) (typeEncoder, error) {
+	if typ.Kind() == reflect.Slice {
+		switch typ.Elem().Kind() {
+		case reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Uint16, reflect.Int32, reflect.Uint32, reflect.Int64, reflect.Uint64:
+			// Take advantage of the fast path in Write
+			return func(enc *encoder, v reflect.Value) error {
+				return Write(enc, enc.order, v.Interface())
+			}, nil
+		}
+	}
 	eenc, err := makeEncoder(typ.Elem())
 	if err != nil {
 		return nil, err

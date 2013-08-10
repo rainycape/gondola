@@ -37,6 +37,10 @@ type T struct {
 	Array   [4]int
 }
 
+type SliceStruct struct {
+	Ints []int64
+}
+
 type ArrayStruct struct {
 	Ints [1000]int64
 }
@@ -428,7 +432,7 @@ func BenchmarkReadStruct(b *testing.B) {
 	bsr := &byteSliceReader{}
 	var buf bytes.Buffer
 	Write(&buf, BigEndian, &s)
-	n, err := dataSize(reflect.Indirect(reflect.ValueOf(s)).Type())
+	n, err := dataSize(reflect.Indirect(reflect.ValueOf(s)))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -446,12 +450,51 @@ func BenchmarkReadStruct(b *testing.B) {
 }
 
 func BenchmarkWriteStruct(b *testing.B) {
-	n, err := dataSize(reflect.Indirect(reflect.ValueOf(s)).Type())
+	n, err := dataSize(reflect.Indirect(reflect.ValueOf(s)))
 	if err != nil {
 		b.Fatal(err)
 	}
 	b.SetBytes(int64(n))
 	var t interface{} = &s
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Write(ioutil.Discard, BigEndian, t)
+	}
+}
+
+func BenchmarkReadSliceStruct(b *testing.B) {
+	bsr := &byteSliceReader{}
+	var buf bytes.Buffer
+	as := &SliceStruct{
+		Ints: make([]int64, 1000),
+	}
+	for i := range as.Ints {
+		as.Ints[i] = int64(i)
+	}
+	Write(&buf, BigEndian, as)
+	b.SetBytes(int64(buf.Len()))
+	t := as
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		bsr.remain = buf.Bytes()
+		Read(bsr, BigEndian, t)
+	}
+	b.StopTimer()
+	if !reflect.DeepEqual(as, t) {
+		b.Fatal("no match")
+	}
+}
+
+func BenchmarkWriteSliceStruct(b *testing.B) {
+	as := &SliceStruct{
+		Ints: make([]int64, 1000),
+	}
+	n, err := dataSize(reflect.Indirect(reflect.ValueOf(as)))
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(n))
+	var t interface{} = as
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		Write(ioutil.Discard, BigEndian, t)
@@ -481,7 +524,7 @@ func BenchmarkReadArrayStruct(b *testing.B) {
 
 func BenchmarkWriteArrayStruct(b *testing.B) {
 	as := &ArrayStruct{}
-	n, err := dataSize(reflect.Indirect(reflect.ValueOf(as)).Type())
+	n, err := dataSize(reflect.Indirect(reflect.ValueOf(as)))
 	if err != nil {
 		b.Fatal(err)
 	}

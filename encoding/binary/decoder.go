@@ -18,28 +18,31 @@ type typeDecoder func(dec *decoder, v reflect.Value) error
 
 type decoder struct {
 	coder
-	reader io.Reader
-}
-
-func (d *decoder) read(size int) ([]byte, error) {
-	bs := d.buf[:size]
-	err := readAtLeast(d.reader, bs, size)
-	return bs, err
+	io.Reader
 }
 
 func skipDecoder(typ reflect.Type) (typeDecoder, error) {
-	s, err := dataSize(typ)
+	s, err := sizeof(typ)
 	if err != nil {
 		return nil, err
 	}
 	l := int64(s)
 	return func(dec *decoder, v reflect.Value) error {
-		_, err := io.CopyN(ioutil.Discard, dec.reader, l)
+		_, err := io.CopyN(ioutil.Discard, dec, l)
 		return err
 	}, nil
 }
 
 func sliceDecoder(typ reflect.Type) (typeDecoder, error) {
+	if typ.Kind() == reflect.Slice {
+		switch typ.Elem().Kind() {
+		case reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Uint16, reflect.Int32, reflect.Uint32, reflect.Int64, reflect.Uint64:
+			// Take advantage of the fast path in Read
+			return func(dec *decoder, v reflect.Value) error {
+				return Read(dec, dec.order, v.Interface())
+			}, nil
+		}
+	}
 	edec, err := makeDecoder(typ.Elem())
 	if err != nil {
 		return nil, err
@@ -90,8 +93,8 @@ func structDecoder(typ reflect.Type) (typeDecoder, error) {
 }
 
 func int8Decoder(dec *decoder, v reflect.Value) error {
-	bs, err := dec.read(1)
-	if err != nil {
+	bs := dec.buf[:1]
+	if err := readAtLeast(dec, bs, 1); err != nil {
 		return err
 	}
 	v.SetInt(int64(bs[0]))
@@ -99,8 +102,8 @@ func int8Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func int16Decoder(dec *decoder, v reflect.Value) error {
-	bs, err := dec.read(2)
-	if err != nil {
+	bs := dec.buf[:2]
+	if err := readAtLeast(dec, bs, 2); err != nil {
 		return err
 	}
 	v.SetInt(int64(dec.order.Uint16(bs)))
@@ -108,8 +111,8 @@ func int16Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func int32Decoder(dec *decoder, v reflect.Value) error {
-	bs, err := dec.read(4)
-	if err != nil {
+	bs := dec.buf[:4]
+	if err := readAtLeast(dec, bs, 4); err != nil {
 		return err
 	}
 	v.SetInt(int64(dec.order.Uint32(bs)))
@@ -117,8 +120,8 @@ func int32Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func int64Decoder(dec *decoder, v reflect.Value) error {
-	bs, err := dec.read(8)
-	if err != nil {
+	bs := dec.buf[:8]
+	if err := readAtLeast(dec, bs, 8); err != nil {
 		return err
 	}
 	v.SetInt(int64(dec.order.Uint64(bs)))
@@ -126,8 +129,8 @@ func int64Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func uint8Decoder(dec *decoder, v reflect.Value) error {
-	bs, err := dec.read(1)
-	if err != nil {
+	bs := dec.buf[:1]
+	if err := readAtLeast(dec, bs, 1); err != nil {
 		return err
 	}
 	v.SetUint(uint64(bs[0]))
@@ -135,8 +138,8 @@ func uint8Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func uint16Decoder(dec *decoder, v reflect.Value) error {
-	bs, err := dec.read(2)
-	if err != nil {
+	bs := dec.buf[:2]
+	if err := readAtLeast(dec, bs, 2); err != nil {
 		return err
 	}
 	v.SetUint(uint64(dec.order.Uint16(bs)))
@@ -144,8 +147,8 @@ func uint16Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func uint32Decoder(dec *decoder, v reflect.Value) error {
-	bs, err := dec.read(4)
-	if err != nil {
+	bs := dec.buf[:4]
+	if err := readAtLeast(dec, bs, 4); err != nil {
 		return err
 	}
 	v.SetUint(uint64(dec.order.Uint32(bs)))
@@ -153,8 +156,8 @@ func uint32Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func uint64Decoder(dec *decoder, v reflect.Value) error {
-	bs, err := dec.read(8)
-	if err != nil {
+	bs := dec.buf[:8]
+	if err := readAtLeast(dec, bs, 8); err != nil {
 		return err
 	}
 	v.SetUint(uint64(dec.order.Uint64(bs)))
@@ -162,8 +165,8 @@ func uint64Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func float32Decoder(dec *decoder, v reflect.Value) error {
-	bs, err := dec.read(4)
-	if err != nil {
+	bs := dec.buf[:4]
+	if err := readAtLeast(dec, bs, 4); err != nil {
 		return err
 	}
 	v.SetFloat(float64(math.Float32frombits(dec.order.Uint32(bs))))
@@ -171,8 +174,8 @@ func float32Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func float64Decoder(dec *decoder, v reflect.Value) error {
-	bs, err := dec.read(8)
-	if err != nil {
+	bs := dec.buf[:8]
+	if err := readAtLeast(dec, bs, 8); err != nil {
 		return err
 	}
 	v.SetFloat(float64(math.Float64frombits(dec.order.Uint64(bs))))
@@ -180,8 +183,8 @@ func float64Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func complex64Decoder(dec *decoder, v reflect.Value) error {
-	bs, err := dec.read(8)
-	if err != nil {
+	bs := dec.buf[:8]
+	if err := readAtLeast(dec, bs, 8); err != nil {
 		return err
 	}
 	v.SetComplex(complex(
@@ -192,13 +195,12 @@ func complex64Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func complex128Decoder(dec *decoder, v reflect.Value) error {
-	bs, err := dec.read(8)
-	if err != nil {
+	bs := dec.buf[:8]
+	if err := readAtLeast(dec, bs, 8); err != nil {
 		return err
 	}
 	f1 := math.Float64frombits(dec.order.Uint64(bs))
-	bs, err = dec.read(8)
-	if err != nil {
+	if err := readAtLeast(dec, bs, 8); err != nil {
 		return err
 	}
 	v.SetComplex(complex(f1, math.Float64frombits(dec.order.Uint64(bs))))

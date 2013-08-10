@@ -30,7 +30,7 @@ var sizes struct {
 // Size returns how many bytes Write would generate to encode the value v, which
 // must be a fixed-size value or a slice of fixed-size values, or a pointer to such data.
 func Size(v interface{}) int {
-	n, err := dataSize(reflect.Indirect(reflect.ValueOf(v)).Type())
+	n, err := dataSize(reflect.Indirect(reflect.ValueOf(v)))
 	if err != nil {
 		return -1
 	}
@@ -41,14 +41,39 @@ func Size(v interface{}) int {
 // For compound structures, it sums the sizes of the elements. Thus, for instance, for a slice
 // it returns the length of the slice times the element size and does not count the memory
 // occupied by the header.
-func dataSize(typ reflect.Type) (int, error) {
+func dataSize(v reflect.Value) (int, error) {
+	typ := v.Type()
+	if typ.Kind() == reflect.Slice {
+		sl := v.Len()
+		if sl == 0 {
+			return 0, nil
+		}
+		n, err := dataSize(v.Index(0))
+		if err != nil {
+			return 0, err
+		}
+		return sl * n, nil
+	}
 	sizes.RLock()
 	size, ok := sizes.cache[typ]
 	sizes.RUnlock()
 	if !ok {
 		var err error
-		if size, err = sizeof(typ); err != nil {
-			return size, err
+		if typ.Kind() == reflect.Struct {
+			sum := 0
+			for i, n := 0, typ.NumField(); i < n; i++ {
+				s, err := dataSize(v.Field(i))
+				if err != nil {
+					return 0, err
+				}
+				sum += s
+			}
+			return sum, nil
+		} else {
+			size, err = sizeof(typ)
+		}
+		if err != nil {
+			return 0, err
 		}
 		sizes.Lock()
 		if sizes.cache == nil {
@@ -62,7 +87,7 @@ func dataSize(typ reflect.Type) (int, error) {
 
 func sizeof(t reflect.Type) (int, error) {
 	switch t.Kind() {
-	case reflect.Array, reflect.Slice:
+	case reflect.Array:
 		n, err := sizeof(t.Elem())
 		if err != nil {
 			return 0, err
@@ -72,7 +97,7 @@ func sizeof(t reflect.Type) (int, error) {
 	case reflect.Struct:
 		sum := 0
 		for i, n := 0, t.NumField(); i < n; i++ {
-			s, err := dataSize(t.Field(i).Type)
+			s, err := sizeof(t.Field(i).Type)
 			if err != nil {
 				return 0, err
 			}

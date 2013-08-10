@@ -37,6 +37,10 @@ type T struct {
 	Array   [4]int
 }
 
+type ArrayStruct struct {
+	Ints [1000]int64
+}
+
 var s = Struct{
 	0x01,
 	0x0203,
@@ -424,7 +428,10 @@ func BenchmarkReadStruct(b *testing.B) {
 	bsr := &byteSliceReader{}
 	var buf bytes.Buffer
 	Write(&buf, BigEndian, &s)
-	n, _ := dataSize(reflect.ValueOf(s).Type())
+	n, err := dataSize(reflect.Indirect(reflect.ValueOf(s)).Type())
+	if err != nil {
+		b.Fatal(err)
+	}
 	b.SetBytes(int64(n))
 	t := s
 	b.ResetTimer()
@@ -435,6 +442,54 @@ func BenchmarkReadStruct(b *testing.B) {
 	b.StopTimer()
 	if !reflect.DeepEqual(s, t) {
 		b.Fatal("no match")
+	}
+}
+
+func BenchmarkWriteStruct(b *testing.B) {
+	n, err := dataSize(reflect.Indirect(reflect.ValueOf(s)).Type())
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(n))
+	var t interface{} = &s
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Write(ioutil.Discard, BigEndian, t)
+	}
+}
+
+func BenchmarkReadArrayStruct(b *testing.B) {
+	bsr := &byteSliceReader{}
+	var buf bytes.Buffer
+	as := &ArrayStruct{}
+	for i := range as.Ints {
+		as.Ints[i] = int64(i)
+	}
+	Write(&buf, BigEndian, as)
+	b.SetBytes(int64(buf.Len()))
+	t := as
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		bsr.remain = buf.Bytes()
+		Read(bsr, BigEndian, t)
+	}
+	b.StopTimer()
+	if !reflect.DeepEqual(as, t) {
+		b.Fatal("no match")
+	}
+}
+
+func BenchmarkWriteArrayStruct(b *testing.B) {
+	as := &ArrayStruct{}
+	n, err := dataSize(reflect.Indirect(reflect.ValueOf(as)).Type())
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.SetBytes(int64(n))
+	var t interface{} = as
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Write(ioutil.Discard, BigEndian, t)
 	}
 }
 
@@ -490,4 +545,40 @@ func BenchmarkWriteInts(b *testing.B) {
 	if !bytes.Equal(buf.Bytes(), big[:30]) {
 		b.Fatalf("first half doesn't match: %x %x", buf.Bytes(), big[:30])
 	}
+}
+
+func benchmarkPutByteOrder(b *testing.B, order ByteOrder) {
+	bs := make([]byte, 8)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		order.PutUint16(bs, 0)
+		order.PutUint32(bs, 0)
+		order.PutUint64(bs, 0)
+	}
+}
+
+func BenchmarkPutBigEndian(b *testing.B) {
+	benchmarkPutByteOrder(b, BigEndian)
+}
+
+func BenchmarkPutLittleEndian(b *testing.B) {
+	benchmarkPutByteOrder(b, LittleEndian)
+}
+
+func benchmarkReadByteOrder(b *testing.B, order ByteOrder) {
+	bs := make([]byte, 8)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		order.Uint16(bs)
+		order.Uint32(bs)
+		order.Uint64(bs)
+	}
+}
+
+func BenchmarkReadBigEndian(b *testing.B) {
+	benchmarkReadByteOrder(b, BigEndian)
+}
+
+func BenchmarkReadLittleEndian(b *testing.B) {
+	benchmarkReadByteOrder(b, LittleEndian)
 }

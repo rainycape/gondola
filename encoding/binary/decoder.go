@@ -21,8 +21,10 @@ type decoder struct {
 	reader io.Reader
 }
 
-func (d *decoder) read(bs []byte) error {
-	return readAtLeast(d.reader, bs, len(bs))
+func (d *decoder) read(size int) ([]byte, error) {
+	bs := d.buf[:size]
+	err := readAtLeast(d.reader, bs, size)
+	return bs, err
 }
 
 func skipDecoder(typ reflect.Type) (typeDecoder, error) {
@@ -88,8 +90,8 @@ func structDecoder(typ reflect.Type) (typeDecoder, error) {
 }
 
 func int8Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:1]
-	if err := dec.read(bs); err != nil {
+	bs, err := dec.read(1)
+	if err != nil {
 		return err
 	}
 	v.SetInt(int64(bs[0]))
@@ -97,8 +99,8 @@ func int8Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func int16Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:2]
-	if err := dec.read(bs); err != nil {
+	bs, err := dec.read(2)
+	if err != nil {
 		return err
 	}
 	v.SetInt(int64(dec.order.Uint16(bs)))
@@ -106,8 +108,8 @@ func int16Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func int32Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:4]
-	if err := dec.read(bs); err != nil {
+	bs, err := dec.read(4)
+	if err != nil {
 		return err
 	}
 	v.SetInt(int64(dec.order.Uint32(bs)))
@@ -115,8 +117,8 @@ func int32Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func int64Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:8]
-	if err := dec.read(bs); err != nil {
+	bs, err := dec.read(8)
+	if err != nil {
 		return err
 	}
 	v.SetInt(int64(dec.order.Uint64(bs)))
@@ -124,8 +126,8 @@ func int64Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func uint8Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:1]
-	if err := dec.read(bs); err != nil {
+	bs, err := dec.read(1)
+	if err != nil {
 		return err
 	}
 	v.SetUint(uint64(bs[0]))
@@ -133,8 +135,8 @@ func uint8Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func uint16Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:2]
-	if err := dec.read(bs); err != nil {
+	bs, err := dec.read(2)
+	if err != nil {
 		return err
 	}
 	v.SetUint(uint64(dec.order.Uint16(bs)))
@@ -142,8 +144,8 @@ func uint16Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func uint32Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:4]
-	if err := dec.read(bs); err != nil {
+	bs, err := dec.read(4)
+	if err != nil {
 		return err
 	}
 	v.SetUint(uint64(dec.order.Uint32(bs)))
@@ -151,8 +153,8 @@ func uint32Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func uint64Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:8]
-	if err := dec.read(bs); err != nil {
+	bs, err := dec.read(8)
+	if err != nil {
 		return err
 	}
 	v.SetUint(uint64(dec.order.Uint64(bs)))
@@ -160,8 +162,8 @@ func uint64Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func float32Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:4]
-	if err := dec.read(bs); err != nil {
+	bs, err := dec.read(4)
+	if err != nil {
 		return err
 	}
 	v.SetFloat(float64(math.Float32frombits(dec.order.Uint32(bs))))
@@ -169,8 +171,8 @@ func float32Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func float64Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:8]
-	if err := dec.read(bs); err != nil {
+	bs, err := dec.read(8)
+	if err != nil {
 		return err
 	}
 	v.SetFloat(float64(math.Float64frombits(dec.order.Uint64(bs))))
@@ -178,8 +180,8 @@ func float64Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func complex64Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:8]
-	if err := dec.read(bs); err != nil {
+	bs, err := dec.read(8)
+	if err != nil {
 		return err
 	}
 	v.SetComplex(complex(
@@ -190,12 +192,13 @@ func complex64Decoder(dec *decoder, v reflect.Value) error {
 }
 
 func complex128Decoder(dec *decoder, v reflect.Value) error {
-	bs := dec.buf[:8]
-	if err := dec.read(bs); err != nil {
+	bs, err := dec.read(8)
+	if err != nil {
 		return err
 	}
 	f1 := math.Float64frombits(dec.order.Uint64(bs))
-	if err := dec.read(bs); err != nil {
+	bs, err = dec.read(8)
+	if err != nil {
 		return err
 	}
 	v.SetComplex(complex(f1, math.Float64frombits(dec.order.Uint64(bs))))

@@ -17,9 +17,8 @@ import (
 )
 
 type Manager interface {
-	Load(name string) (ReadSeekerCloser, time.Time, error)
-	LoadURL(u *url.URL) (ReadSeekerCloser, time.Time, error)
-	MkTemp(prefix, ext string) (io.WriteCloser, string, error)
+	Load(name string) (loaders.ReadSeekCloser, time.Time, error)
+	LoadURL(u *url.URL) (loaders.ReadSeekCloser, time.Time, error)
 	Create(name string) (io.WriteCloser, error)
 	URL(name string) string
 	Debug() bool
@@ -96,21 +95,17 @@ func (m *AssetsManager) hash(name string) (string, error) {
 	return hashutil.Adler32(b)[:6], nil
 }
 
-func (m *AssetsManager) Load(name string) (ReadSeekerCloser, time.Time, error) {
+func (m *AssetsManager) Load(name string) (loaders.ReadSeekCloser, time.Time, error) {
 	return m.Loader.Load(name)
 }
 
-func (m *AssetsManager) LoadURL(u *url.URL) (ReadSeekerCloser, time.Time, error) {
+func (m *AssetsManager) LoadURL(u *url.URL) (loaders.ReadSeekCloser, time.Time, error) {
 	p := u.Path
 	if !(p[1] == 'f' || p[1] == 'r') && !(p == "/favicon.ico" || p == "/robots.txt") {
 		p = p[m.prefixLength:]
 	}
 	p = filepath.FromSlash(path.Clean("/" + p))
 	return m.Load(p)
-}
-
-func (m *AssetsManager) MkTemp(prefix, ext string) (io.WriteCloser, string, error) {
-	return m.Loader.MkTemp(prefix, ext)
 }
 
 func (m *AssetsManager) Create(name string) (io.WriteCloser, error) {

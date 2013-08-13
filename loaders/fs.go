@@ -1,7 +1,6 @@
 package loaders
 
 import (
-	"gondola/util"
 	"io"
 	"os"
 	"path"
@@ -18,7 +17,7 @@ type fsloader struct {
 	dir string
 }
 
-func (f *fsloader) Load(name string) (ReadSeekerCloser, time.Time, error) {
+func (f *fsloader) Load(name string) (ReadSeekCloser, time.Time, error) {
 	p := filepath.FromSlash(path.Join(f.dir, name))
 	fd, err := os.Open(p)
 	if err != nil {
@@ -30,15 +29,6 @@ func (f *fsloader) Load(name string) (ReadSeekerCloser, time.Time, error) {
 		return nil, time.Time{}, err
 	}
 	return fd, s.ModTime(), nil
-}
-
-func (f *fsloader) MkTemp(prefix, ext string) (io.WriteCloser, string, error) {
-	name := prefix + "t-" + util.RandomString(32) + "." + ext
-	fp, err := f.Create(name)
-	if err != nil {
-		return nil, "", err
-	}
-	return fp, name, nil
 }
 
 func (f *fsloader) Create(name string) (io.WriteCloser, error) {

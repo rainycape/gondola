@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"gondola/mux"
@@ -13,8 +14,6 @@ import (
 	"sort"
 	"strings"
 )
-
-const tabWidth = 8
 
 var (
 	commands = map[string]*command{}
@@ -140,22 +139,37 @@ func commandHelp(name string, maxLen int, w io.Writer) {
 	if maxLen < 0 {
 		maxLen = len(name) + 1
 	}
-	ntabs := (maxLen / tabWidth) - ((len(name) + 1) / tabWidth) + 1
-	tabs := strings.Repeat("\t", ntabs)
-	fmt.Fprintf(w, "%s:%s%s\n", name, tabs, commands[name].help)
+	fmt.Fprintf(w, "%s:%s%s\n", name, strings.Repeat(" ", maxLen-len(name)), commands[name].help)
 	if flags := commands[name].flags; len(flags) > 0 {
-		indent := strings.Repeat("\t", (maxLen/tabWidth)+1)
+		indent := strings.Repeat(" ", maxLen+1)
 		fmt.Fprintf(w, "%sAvailable flags for %v:\n", indent, name)
-		for _, arg := range flags {
-			if arg.help != "" {
-				if arg.typ == typString {
-					fmt.Fprintf(w, "%s-%s=%q:\t%s\n", indent, arg.name, arg.def, arg.help)
-				} else {
-					fmt.Fprintf(w, "%s-%s=%v:\t%s\n", indent, arg.name, arg.def, arg.help)
-				}
+		maxArgLen := -1
+		helps := make([]string, len(flags))
+		for ii, f := range flags {
+			var buf bytes.Buffer
+			buf.WriteByte('-')
+			buf.WriteString(f.name)
+			buf.WriteByte('=')
+			if f.typ == typString {
+				buf.WriteString(fmt.Sprintf("%q", f.def))
 			} else {
-				fmt.Fprintf(w, "%s-%s=%v\n", indent, arg.name, arg.def)
+				buf.WriteString(fmt.Sprintf("%v", f.def))
 			}
+			s := buf.String()
+			if sl := len(s); sl > maxArgLen {
+				maxArgLen = sl
+			}
+			helps[ii] = s
+		}
+		maxArgLen++
+		format := fmt.Sprintf("%% -%ds", maxArgLen)
+		for ii, f := range flags {
+			fmt.Fprintf(w, indent)
+			fmt.Fprintf(w, format, helps[ii])
+			if f.help != "" {
+				fmt.Fprintf(w, f.help)
+			}
+			fmt.Fprintf(w, "\n")
 		}
 	}
 }

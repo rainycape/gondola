@@ -148,7 +148,11 @@ func commandHelp(name string, maxLen int, w io.Writer) {
 		fmt.Fprintf(w, "%sAvailable flags for %v:\n", indent, name)
 		for _, arg := range flags {
 			if arg.help != "" {
-				fmt.Fprintf(w, "%s-%s=%v:\t%s\n", indent, arg.name, arg.def, arg.help)
+				if arg.typ == typString {
+					fmt.Fprintf(w, "%s-%s=%q:\t%s\n", indent, arg.name, arg.def, arg.help)
+				} else {
+					fmt.Fprintf(w, "%s-%s=%v:\t%s\n", indent, arg.name, arg.def, arg.help)
+				}
 			} else {
 				fmt.Fprintf(w, "%s-%s=%v\n", indent, arg.name, arg.def)
 			}

@@ -532,36 +532,40 @@ func (mux *Mux) recover(ctx *Context) {
 			}
 		}
 		if err != nil && !mux.handleError(ctx, err) {
-			stack := ""
-			const size = 4096
-			buf := make([]byte, size)
-			buf = buf[:runtime.Stack(buf, false)]
-			// Remove lines 1 and 2, since they correspond
-			// to this very function and don't add any
-			// useful information
-			lines := strings.Split(string(buf), "\n")
-			if len(lines) > 2 {
-				lines = append(lines[:1], lines[3:]...)
-				stack = strings.Join(lines, "\n")
-			}
-			req := ""
-			dump, derr := httputil.DumpRequest(ctx.R, true)
-			if derr == nil {
-				req = string(dump)
-			}
-			log.Errorf("Panic serving %v %v %v: %v\n\nStack:\n%s\nRequest:\n%s", ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr, err, stack, req)
-			mux.handleHTTPError(ctx, "Internal Server Error", http.StatusInternalServerError)
+			mux.logError(ctx, err)
 		}
 	}
+}
+
+func (mux *Mux) logError(ctx *Context, err interface{}) {
+	stack := ""
+	const size = 4096
+	buf := make([]byte, size)
+	buf = buf[:runtime.Stack(buf, false)]
+	// Remove lines 1 and 2, since they correspond
+	// to this very function and don't add any
+	// useful information
+	lines := strings.Split(string(buf), "\n")
+	if len(lines) > 2 {
+		lines = append(lines[:1], lines[3:]...)
+		stack = strings.Join(lines, "\n")
+	}
+	req := ""
+	dump, derr := httputil.DumpRequest(ctx.R, true)
+	if derr == nil {
+		req = string(dump)
+	}
+	log.Errorf("Panic serving %v %v %v: %v\n\nStack:\n%s\nRequest:\n%s", ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr, err, stack, req)
+	mux.handleHTTPError(ctx, "Internal Server Error", http.StatusInternalServerError)
 }
 
 // ServeHTTP is called from the net/http system. You shouldn't need
 // to call this function
 func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := mux.NewContext(nil)
+	ctx := mux.newContext()
 	ctx.ResponseWriter = w
 	ctx.R = r
-	defer mux.CloseContext(ctx)
+	defer mux.closeContext(ctx)
 	defer mux.recover(ctx)
 	if mux.trustXHeaders {
 		mux.readXHeaders(r)
@@ -595,7 +599,6 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mux.appendSlash = true
 	if mux.appendSlash && (r.Method == "GET" || r.Method == "HEAD") && !strings.HasSuffix(r.URL.Path, "/") {
 		r.URL.Path += "/"
 		match := mux.matchHandler(r, ctx)
@@ -620,13 +623,7 @@ func (mux *Mux) matchHandler(r *http.Request, ctx *Context) *handlerInfo {
 		// Use FindStringSubmatchIndex, since this way we can
 		// reuse the slices used to store context arguments
 		if m := v.re.FindStringSubmatchIndex(p); m != nil {
-			n := v.re.NumSubexp() + 1
-			for ii := 0; ii < n; ii++ {
-				if x := 2 * ii; x < len(m) && m[x] >= 0 {
-					ctx.arguments = append(ctx.arguments, p[m[x]:m[x+1]])
-				}
-			}
-			ctx.re = v.re
+			ctx.reProvider.reset(v.re, p, m)
 			ctx.handlerName = v.name
 			return v
 		}
@@ -634,19 +631,25 @@ func (mux *Mux) matchHandler(r *http.Request, ctx *Context) *handlerInfo {
 	return nil
 }
 
-// NewContext initializes and returns a new context
-// asssocciated with this mux.
-func (mux *Mux) NewContext(args []string) *Context {
+// newContext returns a new context, using the
+// context pool when possible.
+func (mux *Mux) newContext() *Context {
 	var ctx *Context
 	select {
 	case ctx = <-mux.contextPool:
-		ctx.reset(mux.maxArguments)
+		ctx.reset()
 	default:
-		arguments := make([]string, 0, mux.maxArguments)
-		ctx = &Context{arguments: arguments, mux: mux, started: time.Now()}
+		p := &regexpProvider{}
+		ctx = &Context{mux: mux, provider: p, reProvider: p, started: time.Now()}
 	}
-	ctx.arguments = append(ctx.arguments, args...)
 	return ctx
+}
+
+// NewContext initializes and returns a new context
+// asssocciated with this mux using the given ContextProvider
+// to retrieve its arguments.
+func (mux *Mux) NewContext(p ContextProvider) *Context {
+	return &Context{mux: mux, provider: p, started: time.Now()}
 }
 
 // CloseContext closes the passed context, which should have been
@@ -659,22 +662,28 @@ func (mux *Mux) CloseContext(ctx *Context) {
 		v(ctx)
 	}
 	ctx.Close()
-	level := log.LInfo
-	switch {
-	case ctx.statusCode >= 400 && ctx.statusCode < 500:
-		level = log.LWarning
-	case ctx.statusCode >= 500:
-		level = log.LError
-	}
 	if mux.Logger != nil && ctx.R != nil {
+		level := log.LInfo
+		switch {
+		case ctx.statusCode >= 400 && ctx.statusCode < 500:
+			level = log.LWarning
+		case ctx.statusCode >= 500:
+			level = log.LError
+		}
 		mux.Logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.RequestURI, ctx.R.RemoteAddr,
 			strconv.Itoa(ctx.statusCode), ctx.Elapsed().String()}, " "))
 	}
+
+}
+
+// closeContext calls CloseContexts and stores the context in
+// in the pool for reusing it.
+func (mux *Mux) closeContext(ctx *Context) {
+	mux.CloseContext(ctx)
 	select {
 	case mux.contextPool <- ctx:
 	default:
 	}
-
 }
 
 func (mux *Mux) isReservedVariable(va string) bool {

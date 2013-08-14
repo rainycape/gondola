@@ -17,7 +17,6 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -28,9 +27,8 @@ type ContextFinalizer func(*Context)
 type Context struct {
 	http.ResponseWriter
 	R             *http.Request
-	arguments     []string
-	params        map[string]string
-	re            *regexp.Regexp
+	provider      ContextProvider
+	reProvider    *regexpProvider
 	c             *cache.Cache
 	cached        bool
 	fromCache     bool
@@ -45,16 +43,9 @@ type Context struct {
 	Data          interface{} /* Left to the user */
 }
 
-func (c *Context) reset(argcap int) {
+func (c *Context) reset() {
 	c.ResponseWriter = nil
 	c.R = nil
-	if cap(c.arguments) == argcap {
-		c.arguments = c.arguments[:0]
-	} else {
-		c.arguments = make([]string, 0, argcap)
-	}
-	c.params = nil
-	c.re = nil
 	c.cached = false
 	c.fromCache = false
 	c.statusCode = 0
@@ -67,7 +58,7 @@ func (c *Context) reset(argcap int) {
 // Count returns the number of elements captured
 // by the pattern which matched the handler.
 func (c *Context) Count() int {
-	return len(c.arguments) - 1
+	return c.provider.Count()
 }
 
 // IndexValue returns the captured parameter
@@ -75,10 +66,7 @@ func (c *Context) Count() int {
 // such parameter exists. Pass -1 to obtain
 // the whole match.
 func (c *Context) IndexValue(idx int) string {
-	if idx >= -1 && idx < len(c.arguments)-1 {
-		return c.arguments[idx+1]
-	}
-	return ""
+	return c.provider.Arg(idx)
 }
 
 // RequireIndexValue works like IndexValue, but raises
@@ -114,22 +102,7 @@ func (c *Context) MustParseIndexValue(idx int, arg interface{}) {
 // with the given name or an empty string if it
 // does not exist.
 func (c *Context) ParamValue(name string) string {
-	if c.params == nil {
-		if c.re == nil {
-			return ""
-		}
-		params := map[string]string{}
-		for ii, n := range c.re.SubexpNames() {
-			if ii == len(c.arguments) {
-				break
-			}
-			if n != "" {
-				params[n] = c.arguments[ii]
-			}
-		}
-		c.params = params
-	}
-	return c.params[name]
+	return c.provider.Param(name)
 }
 
 // ParseParamValue uses the named captured parameter

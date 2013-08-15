@@ -2,6 +2,7 @@ package mux
 
 import (
 	"fmt"
+	"gondola/loaders"
 	"gondola/template"
 	"io"
 	"net/http"
@@ -22,10 +23,10 @@ type tmpl struct {
 	mux *Mux
 }
 
-func newTemplate(mux *Mux) *tmpl {
+func newTemplate(mux *Mux, loader loaders.Loader) *tmpl {
 	t := &tmpl{}
 	t.mux = mux
-	t.Template = template.New(mux.templatesLoader, mux.assetsManager)
+	t.Template = template.New(loader, mux.assetsManager)
 	t.Template.Funcs(template.FuncMap{
 		"reverse": makeReverse(t),
 	})

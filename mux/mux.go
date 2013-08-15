@@ -350,7 +350,7 @@ func (mux *Mux) LoadTemplate(name string) (Template, error) {
 	tmpl := mux.templatesCache[name]
 	mux.templatesMutex.RUnlock()
 	if tmpl == nil {
-		t := newTemplate(mux)
+		t := newTemplate(mux, mux.templatesLoader)
 		vars := make(template.VarMap, len(mux.templateVars)+len(mux.templateVarFuncs))
 		for k, v := range mux.templateVars {
 			vars[k] = v

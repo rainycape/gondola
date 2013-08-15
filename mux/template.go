@@ -41,6 +41,10 @@ func (t *tmpl) ParseVars(file string, vars template.VarMap) error {
 	return t.Template.ParseVars(file, vars)
 }
 
+func (t *tmpl) Parse(file string) error {
+	return t.ParseVars(file, nil)
+}
+
 func (t *tmpl) execute(w io.Writer, data interface{}, vars template.VarMap) error {
 	var context *Context
 	var request *http.Request

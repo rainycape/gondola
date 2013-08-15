@@ -38,7 +38,7 @@ func FormatCaller(skip int, count int) (location string, source template.HTML) {
 		return
 	}
 	location = fmt.Sprintf("%s, line %d", file, line)
-	source, _ = formatSource(file, line, count)
+	source, _ = FormatSource(file, line, count)
 	return
 }
 

@@ -1,0 +1,31 @@
+{{/*
+  extends: base.html
+*/}}
+{{ define "title" }}Panic{{ end }}
+{{ define "body" }}
+<div class="header error">
+  <h1>Panic</h1>
+  <h3>{{ .Error }}</h3>
+</div>
+{{ if .Location }}
+  <div class="header code">
+    <h3>At {{ .Location }}</h3>
+    {{ with .Code }}
+      <pre><code>{{ . }}</code></pre>
+    {{ end }}
+  </div>
+{{ end }}
+{{ with .Stack }}
+  <div class="header warning">
+  <h3>Stack</h3>
+  <pre><code>{{ . }}</code></pre>
+  </div>
+{{ end }}
+{{ with .Request }}
+  <div class="header info">
+  <h3>Request</h3>
+  <pre><code>{{ . }}</code></pre>
+  </div>
+{{ end }}
+<small>Note: This page is only generared in debug mode. When running in production mode, errors are reported to the administrator email.</small>
+{{ end }}

@@ -12,7 +12,9 @@ import (
 	"gondola/errors"
 	"gondola/loaders"
 	"gondola/log"
+	"gondola/runtimeutil"
 	"gondola/template"
+	"gondola/util"
 	"net/http"
 	"net/http/httputil"
 	"reflect"
@@ -538,25 +540,45 @@ func (mux *Mux) recover(ctx *Context) {
 }
 
 func (mux *Mux) logError(ctx *Context, err interface{}) {
-	stack := ""
-	const size = 4096
-	buf := make([]byte, size)
-	buf = buf[:runtime.Stack(buf, false)]
-	// Remove lines 1 and 2, since they correspond
-	// to this very function and don't add any
-	// useful information
-	lines := strings.Split(string(buf), "\n")
-	if len(lines) > 2 {
-		lines = append(lines[:1], lines[3:]...)
-		stack = strings.Join(lines, "\n")
+	// Always skip 3 stack for formatting the stack
+	skip := 3
+	stack := runtimeutil.FormatStack(skip)
+	if _, ok := err.(runtime.Error); ok {
+		// When err is a runtime.Error, there are two
+		// additional stack frames inside the runtime
+		// which are the ones finally calling panic()
+		skip = 5
 	}
 	req := ""
 	dump, derr := httputil.DumpRequest(ctx.R, true)
 	if derr == nil {
-		req = string(dump)
+		// This cleans up empty lines and replaces \r\n with \n
+		req = util.Lines(string(dump), 0, 10000, true)
 	}
 	log.Errorf("Panic serving %v %v %v: %v\n\nStack:\n%s\nRequest:\n%s", ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr, err, stack, req)
-	mux.handleHTTPError(ctx, "Internal Server Error", http.StatusInternalServerError)
+	if mux.debug {
+		mux.errorPage(ctx, skip, stack, req, err)
+	} else {
+		mux.handleHTTPError(ctx, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func (mux *Mux) errorPage(ctx *Context, skip int, stack, req string, err interface{}) {
+	t := newTemplate(mux, templates)
+	if terr := t.Parse("panic.html"); terr != nil {
+		panic(terr)
+	}
+	// Show 5 lines before and 5 lines after
+	location, code := runtimeutil.FormatCaller(skip+2, 5)
+	ctx.statusCode = -http.StatusInternalServerError
+	data := map[string]interface{}{
+		"Error":    fmt.Sprintf("%v", err),
+		"Location": location,
+		"Code":     code,
+		"Stack":    stack,
+		"Request":  req,
+	}
+	t.MustExecute(ctx, data)
 }
 
 // ServeHTTP is called from the net/http system. You shouldn't need

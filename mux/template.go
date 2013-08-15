@@ -33,8 +33,10 @@ func newTemplate(mux *Mux) *tmpl {
 }
 
 func (t *tmpl) ParseVars(file string, vars template.VarMap) error {
-	for _, k := range reservedVariables {
-		vars[k] = nil
+	if vars != nil {
+		for _, k := range reservedVariables {
+			vars[k] = nil
+		}
 	}
 	return t.Template.ParseVars(file, vars)
 }

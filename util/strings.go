@@ -1,6 +1,7 @@
 package util
 
 import (
+	"io/ioutil"
 	"strings"
 	"unicode"
 )
@@ -63,4 +64,43 @@ func CamelCaseToLower(s string, sep string) string {
 // string, separating the words with sep.
 func CamelCaseToWords(s string, sep string) string {
 	return CamelCaseToString(s, sep, nil)
+}
+
+// Lines returns the lines in text between begin and begin+count,
+// including both. Invalid line numbers (< 0 or > number of lines) are
+// just ignored, so the number of returned lines might be different
+// than count. If nonEmpty is true, empty lines will be removed from
+// the output before selecting the specified lines. The string returned
+// will have its lines separated by just the '\n' character. Any '\r'
+// characters in the provided text will be removed.
+func Lines(text string, begin int, count int, nonEmpty bool) string {
+	s := strings.Replace(text, "\r", "", -1)
+	lines := strings.Split(s, "\n")
+	if nonEmpty {
+		for ii := 0; ii < len(lines); ii++ {
+			if lines[ii] == "" {
+				lines = append(lines[:ii], lines[ii+1:]...)
+				ii--
+			}
+		}
+	}
+	if begin < 0 {
+		count += begin
+		begin = 0
+	}
+	end := begin + count
+	if end > len(lines) {
+		end = len(lines)
+	}
+	return strings.Join(lines[begin:end], "\n")
+}
+
+// FileLines works like lines, but it reads the initial text from the
+// given filename.
+func FileLines(filename string, begin int, count int, nonEmpty bool) (string, error) {
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return Lines(string(b), begin, count, nonEmpty), nil
 }

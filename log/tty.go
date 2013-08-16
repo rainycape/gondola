@@ -1,3 +1,5 @@
+// +build !appengine
+
 package log
 
 // #include <unistd.h>

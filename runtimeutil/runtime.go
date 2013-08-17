@@ -26,7 +26,9 @@ func FormatStack(skip int) string {
 	if end > len(lines) {
 		end = len(lines)
 	}
-	return strings.Join(append(lines[:1], lines[end:]...), "\n")
+	lines = append(lines[:1], lines[end:]...)
+	lines = prettyStack(lines)
+	return strings.Join(lines, "\n")
 }
 
 // FormatCaller finds the caller, skipping skip frames, and then formats

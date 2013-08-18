@@ -54,7 +54,7 @@ func splitFunc(s string) (string, []string) {
 	return f, strings.Split(args, ", ")
 }
 
-func prettyStack(lines []string) []string {
+func prettyStack(lines []string, _html bool) []string {
 	if len(lines) <= 1 {
 		return lines
 	}

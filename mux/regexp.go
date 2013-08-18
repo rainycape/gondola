@@ -7,12 +7,12 @@ import (
 	"strings"
 )
 
-type ArgumentCountError struct {
+type argumentCountError struct {
 	MinArguments int
 	MaxArguments int
 }
 
-func (e *ArgumentCountError) Error() string {
+func (e *argumentCountError) Error() string {
 	return fmt.Sprintf("Invalid number of arguments. Minimum is %d, maximum is %d.", e.MinArguments, e.MaxArguments)
 }
 
@@ -43,13 +43,13 @@ func walk(r *syntax.Regexp, f func(*syntax.Regexp) bool) bool {
 	return stop
 }
 
-func FormatRegexp(r *regexp.Regexp, strict bool, args ...interface{}) (string, error) {
+func formatRegexp(r *regexp.Regexp, strict bool, args ...interface{}) (string, error) {
 	re, _ := syntax.Parse(r.String(), syntax.Perl)
 	max := re.MaxCap()
 	min := minCap(re)
 	l := len(args)
 	if l < min || l > max {
-		return "", &ArgumentCountError{min, max}
+		return "", &argumentCountError{min, max}
 	}
 	var formatted []string
 	var err error

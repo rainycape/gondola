@@ -93,3 +93,15 @@ func FormatRegexp(r *regexp.Regexp, strict bool, args ...interface{}) (string, e
 	}
 	return strings.Join(formatted, ""), nil
 }
+
+func literalRegexp(r *regexp.Regexp) string {
+	re, _ := syntax.Parse(r.String(), syntax.Perl)
+	if re.MaxCap() == 0 && re.Op == syntax.OpConcat && len(re.Sub) == 3 &&
+		re.Sub[0].Op == syntax.OpBeginText &&
+		re.Sub[1].Op == syntax.OpLiteral &&
+		re.Sub[2].Op == syntax.OpEndText {
+
+		return string(re.Sub[1].Rune)
+	}
+	return ""
+}

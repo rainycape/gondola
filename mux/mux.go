@@ -42,10 +42,12 @@ type Handler func(*Context)
 type ErrorHandler func(*Context, string, int) bool
 
 type handlerInfo struct {
-	host    string
-	name    string
-	re      *regexp.Regexp
-	handler Handler
+	host      string
+	name      string
+	path      string
+	pathMatch []int
+	re        *regexp.Regexp
+	handler   Handler
 }
 
 const (
@@ -101,11 +103,16 @@ func (mux *Mux) HandleHostFunc(pattern string, handler Handler, host string) {
 
 // HandleHostNamedFunc works like HandleNamedFunc(), but restricts matches to the given host.
 func (mux *Mux) HandleHostNamedFunc(pattern string, handler Handler, host string, name string) {
+	re := regexp.MustCompile(pattern)
 	info := &handlerInfo{
 		host:    host,
 		name:    name,
-		re:      regexp.MustCompile(pattern),
+		re:      re,
 		handler: handler,
+	}
+	if p := literalRegexp(re); p != "" {
+		info.path = p
+		info.pathMatch = []int{0, len(p)}
 	}
 	mux.handlers = append(mux.handlers, info)
 	if m := info.re.NumSubexp() + 1; m > mux.maxArguments {
@@ -645,12 +652,20 @@ func (mux *Mux) matchHandler(r *http.Request, ctx *Context) *handlerInfo {
 		if v.host != "" && v.host != r.Host {
 			continue
 		}
-		// Use FindStringSubmatchIndex, since this way we can
-		// reuse the slices used to store context arguments
-		if m := v.re.FindStringSubmatchIndex(p); m != nil {
-			ctx.reProvider.reset(v.re, p, m)
-			ctx.handlerName = v.name
-			return v
+		if v.path != "" {
+			if v.path == p {
+				ctx.reProvider.reset(v.re, p, v.pathMatch)
+				ctx.handlerName = v.name
+				return v
+			}
+		} else {
+			// Use FindStringSubmatchIndex, since this way we can
+			// reuse the slices used to store context arguments
+			if m := v.re.FindStringSubmatchIndex(p); m != nil {
+				ctx.reProvider.reset(v.re, p, m)
+				ctx.handlerName = v.name
+				return v
+			}
 		}
 	}
 	return nil

@@ -12,16 +12,23 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"path/filepath"
+	"strconv"
 	"strings"
 )
 
+func pointerRepr(val uint64, _ *gosym.Sym, _ bool) string {
+	if val == 0 {
+		return "= nil"
+	}
+	return "@ 0x" + strconv.FormatUint(val, 16)
+}
+
 func stringRepr(val uint64) string {
-	return pointerRepr(val)
+	return pointerRepr(val, nil, false)
 }
 
 func emptyInterfaceRepr(val1 uint64, val2 uint64) string {
-	return pointerRepr(val2)
+	return pointerRepr(val2, nil, false)
 }
 
 func astTypeName(typ ast.Expr, pkg string) string {

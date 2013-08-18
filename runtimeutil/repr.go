@@ -3,6 +3,7 @@ package runtimeutil
 import (
 	"debug/gosym"
 	"fmt"
+	"gondola/html"
 	"strconv"
 	"strings"
 )
@@ -18,18 +19,11 @@ func basicType(typ string) bool {
 	return false
 }
 
-func pointerRepr(val uint64) string {
-	if val == 0 {
-		return "= nil"
-	}
-	return "@ 0x" + strconv.FormatUint(val, 16)
-}
-
 func interfaceRepr(val1 uint64, val2 uint64) string {
-	return pointerRepr(val2)
+	return pointerRepr(val2, nil, false)
 }
 
-func valRepr(table *gosym.Table, fn *gosym.Func, s *gosym.Sym, tn string, values []string) (string, int) {
+func valRepr(table *gosym.Table, fn *gosym.Func, s *gosym.Sym, tn string, values []string, _html bool) (string, int) {
 	val, _ := strconv.ParseUint(values[0], 0, 64)
 	if basicType(tn) {
 		switch {
@@ -45,7 +39,11 @@ func valRepr(table *gosym.Table, fn *gosym.Func, s *gosym.Sym, tn string, values
 		case tn == "float32":
 		case tn == "float64":
 		case tn == "string":
-			return stringRepr(val), 1
+			s := stringRepr(val)
+			if _html {
+				s = html.Escape(s)
+			}
+			return s, 1
 		}
 	}
 	if len(values) > 1 && values[1] != "..." {
@@ -57,10 +55,10 @@ func valRepr(table *gosym.Table, fn *gosym.Func, s *gosym.Sym, tn string, values
 			return interfaceRepr(val, val2), 2
 		}
 	}
-	return pointerRepr(val), 1
+	return pointerRepr(val, s, _html), 1
 }
 
-func fieldRepr(table *gosym.Table, fn *gosym.Func, s *gosym.Sym, values []string) (repr string, used int, ok bool) {
+func fieldRepr(table *gosym.Table, fn *gosym.Func, s *gosym.Sym, values []string, _html bool) (repr string, used int, ok bool) {
 	tn := typeName(table, fn, s)
 	if tn == "" {
 		return
@@ -68,7 +66,7 @@ func fieldRepr(table *gosym.Table, fn *gosym.Func, s *gosym.Sym, values []string
 	ok = true
 	name := s.Name[strings.IndexByte(s.Name, '.')+1:]
 	var rep string
-	rep, used = valRepr(table, fn, s, tn, values)
+	rep, used = valRepr(table, fn, s, tn, values, _html)
 	if rep != "" {
 		repr = fmt.Sprintf("%s %s %s", name, tn, rep)
 	} else {

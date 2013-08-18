@@ -99,7 +99,7 @@ func prettyStack(lines []string, _html bool) []string {
 				if kk >= len(args) || args[kk] == "..." || strings.Contains(v.Name, ".~anon") {
 					break
 				}
-				repr, used, ok := fieldRepr(table, fn, v, args[kk:])
+				repr, used, ok := fieldRepr(table, fn, v, args[kk:], _html)
 				if ok {
 					args[kk] = repr
 				}

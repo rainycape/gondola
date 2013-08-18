@@ -540,36 +540,39 @@ func (mux *Mux) recover(ctx *Context) {
 }
 
 func (mux *Mux) logError(ctx *Context, err interface{}) {
-	// Always skip 3 stack for formatting the stack
 	skip := 3
-	stack := runtimeutil.FormatStack(skip)
 	if _, ok := err.(runtime.Error); ok {
 		// When err is a runtime.Error, there are two
 		// additional stack frames inside the runtime
 		// which are the ones finally calling panic()
-		skip = 5
+		skip += 2
 	}
+	// Skip 2 frames for formatting the stack: logError and recover
+	stack := runtimeutil.FormatStack(2)
+	location, code := runtimeutil.FormatCaller(skip, 5, true, true)
 	req := ""
 	dump, derr := httputil.DumpRequest(ctx.R, true)
 	if derr == nil {
 		// This cleans up empty lines and replaces \r\n with \n
 		req = util.Lines(string(dump), 0, 10000, true)
 	}
-	log.Errorf("Panic serving %v %v %v: %v\n\nStack:\n%s\nRequest:\n%s", ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr, err, stack, req)
+	log.Errorf("Panic serving %v %v %v: %v\n\n%s\n%s\n\n\nStack:\n%s\nRequest:\n%s",
+		ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr, err, location, code, stack, req)
 	if mux.debug {
-		mux.errorPage(ctx, skip, stack, req, err)
+		mux.errorPage(ctx, skip, req, err)
 	} else {
 		mux.handleHTTPError(ctx, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
 
-func (mux *Mux) errorPage(ctx *Context, skip int, stack, req string, err interface{}) {
+func (mux *Mux) errorPage(ctx *Context, skip int, req string, err interface{}) {
 	t := newTemplate(mux, templates)
 	if terr := t.Parse("panic.html"); terr != nil {
 		panic(terr)
 	}
-	// Show 5 lines before and 5 lines after
-	location, code := runtimeutil.FormatCaller(skip+2, 5)
+	// Skip 3 frames for formatting the stack: errorPage, logError and recover
+	stack := runtimeutil.FormatStackHTML(3)
+	location, code := runtimeutil.FormatCallerHTML(skip+1, 5, true, true)
 	ctx.statusCode = -http.StatusInternalServerError
 	data := map[string]interface{}{
 		"Error":    fmt.Sprintf("%v", err),

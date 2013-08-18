@@ -78,7 +78,14 @@ func testMux(nolog bool) (*Mux, string) {
 	if nolog {
 		mux.Logger = nil
 	}
-	mux.HandleFunc("^/$", func(ctx *Context) {})
+	f := func(ctx *Context) {}
+	mux.HandleFunc("^/foobar/$", f)
+	mux.HandleFunc("^/foobar2/$", f)
+	mux.HandleFunc("^/foobar3/$", f)
+	mux.HandleFunc("^/foobar4/$", f)
+	mux.HandleFunc("^/foobar5/$", f)
+	mux.HandleFunc("^/article/(\\d)$", f)
+	mux.HandleFunc("^/$", f)
 	url := fmt.Sprintf("http://localhost:%d/", defaults.Port())
 	return mux, url
 }
@@ -105,8 +112,11 @@ func BenchmarkServeNoLog(b *testing.B) {
 	benchmarkServe(b, true)
 }
 
-func benchmarkDirect(b *testing.B, nolog bool) {
+func benchmarkDirect(b *testing.B, path string, nolog bool) {
 	mux, url := testMux(nolog)
+	if path != "" {
+		url += path
+	}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		b.Fatal(err)
@@ -118,9 +128,13 @@ func benchmarkDirect(b *testing.B, nolog bool) {
 }
 
 func BenchmarkDirect(b *testing.B) {
-	benchmarkDirect(b, false)
+	benchmarkDirect(b, "", false)
 }
 
 func BenchmarkDirectNoLog(b *testing.B) {
-	benchmarkDirect(b, true)
+	benchmarkDirect(b, "", true)
+}
+
+func BenchmarkDirectReNoLog(b *testing.B) {
+	benchmarkDirect(b, "article/7", true)
 }

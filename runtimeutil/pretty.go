@@ -46,6 +46,9 @@ func funcName(s string) string {
 
 func splitFunc(s string) (string, []string) {
 	pos := strings.LastIndex(s, "(")
+	if pos == -1 {
+		return s, nil
+	}
 	f := s[:pos]
 	args := s[pos+1 : len(s)-1]
 	return f, strings.Split(args, ", ")

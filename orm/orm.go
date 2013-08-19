@@ -8,18 +8,16 @@ import (
 	"gondola/orm/driver"
 	ormsql "gondola/orm/drivers/sql"
 	"gondola/orm/query"
-	"gondola/orm/transaction"
 	"reflect"
 	"strings"
 )
 
 type Orm struct {
-	driver        driver.Driver
-	upserts       bool
-	logger        *log.Logger
-	tags          string
-	inTransaction bool
-	numQueries    int
+	conn       driver.Conn
+	driver     driver.Driver
+	logger     *log.Logger
+	tags       string
+	numQueries int
 	// this field is non-nil iff the ORM driver uses database/sql
 	db *sql.DB
 }
@@ -131,7 +129,7 @@ func (o *Orm) insert(m *model, obj interface{}) (Result, error) {
 		}
 	}
 	o.numQueries++
-	res, err := o.driver.Insert(m, obj)
+	res, err := o.conn.Insert(m, obj)
 	if err == nil && pkVal.IsValid() && pkVal.Int() == 0 {
 		id, err := res.LastInsertId()
 		if err == nil && id != 0 {
@@ -169,7 +167,7 @@ func (o *Orm) MustUpdate(q query.Q, obj interface{}) Result {
 
 func (o *Orm) update(m *model, q query.Q, obj interface{}) (Result, error) {
 	o.numQueries++
-	return o.driver.Update(m, q, obj)
+	return o.conn.Update(m, q, obj)
 }
 
 // Upsert tries to perform an update with the given query
@@ -185,9 +183,9 @@ func (o *Orm) Upsert(q query.Q, obj interface{}) (Result, error) {
 	if err := m.fields.Methods.Save(obj); err != nil {
 		return nil, err
 	}
-	if o.upserts {
+	if o.driver.Upserts() {
 		o.numQueries++
-		return o.driver.Upsert(m, q, obj)
+		return o.conn.Upsert(m, q, obj)
 	}
 	res, err := o.update(m, q, obj)
 	if err != nil {
@@ -338,86 +336,45 @@ func (o *Orm) deleteByPk(m *model, obj interface{}) error {
 
 func (o *Orm) delete(m *model, q query.Q) (Result, error) {
 	o.numQueries++
-	return o.driver.Delete(m, q)
+	return o.conn.Delete(m, q)
 }
 
 // Begin starts a new transaction. If the driver does
-// not support transactions, Begin will just return nil.
-// Calling Begin when a transaction has been already started
-// has no effect.
-func (o *Orm) Begin() error {
-	return o.BeginOptions(transaction.NONE)
+// not support transactions, Begin will return a fake
+// transaction.
+func (o *Orm) Begin() (*Tx, error) {
+	tx, err := o.driver.Begin()
+	if err != nil {
+		return nil, err
+	}
+	return &Tx{
+		Orm: &Orm{
+			conn:   tx,
+			driver: o.driver,
+			logger: o.logger,
+			tags:   o.tags,
+			db:     o.db,
+		},
+		tx: tx,
+	}, nil
 }
 
 // MustBegin works like Begin, but panics if there's an error.
-func (o *Orm) MustBegin() {
-	if err := o.Begin(); err != nil {
+func (o *Orm) MustBegin() *Tx {
+	tx, err := o.Begin()
+	if err != nil {
 		panic(err)
 	}
+	return tx
 }
 
-// BeginOptions works like Begin, but allows specifying
-// transaction options.
-func (o *Orm) BeginOptions(t transaction.Options) error {
-	if !o.inTransaction {
-		err := o.driver.Begin(t)
-		if err != nil {
-			return err
-		}
-		o.inTransaction = true
-	}
-	return nil
-}
-
-// Commit commits the current transaction. If there is no
-// current transaction, it does nothing.
-func (o *Orm) Commit() error {
-	if o.inTransaction {
-		err := o.driver.Commit()
-		if err != nil {
-			return err
-		}
-		o.inTransaction = false
-	}
-	return nil
-}
-
-// MustCommit works like Commit, but panics if there's an error.
-func (o *Orm) MustCommit() {
-	if err := o.Commit(); err != nil {
-		panic(err)
-	}
-}
-
-// Rollback rolls back the current transaction. If there is no
-// current transaction, it does nothing.
-func (o *Orm) Rollback() error {
-	if o.inTransaction {
-		err := o.driver.Rollback()
-		if err != nil {
-			return err
-		}
-		o.inTransaction = false
-	}
-	return nil
-}
-
-// MustRollback works like Rollback, but panics if there's an error.
-func (o *Orm) MustRollback() {
-	if err := o.Rollback(); err != nil {
-		panic(err)
-	}
-}
-
-// Close closes the database connection. Any pending
-// transactions are rolled back before closing the
-// connection.
+// Close closes the database connection. Since the ORM
+// is thread safe and does its own connection pooling
+// you should tipycally never call this function. Instead,
+// create a ORM instance when starting up your application
+// and always use it.
 func (o *Orm) Close() error {
 	if o.driver != nil {
-		if o.inTransaction {
-			o.Rollback()
-			o.inTransaction = false
-		}
 		err := o.driver.Close()
 		o.driver = nil
 		return err
@@ -427,9 +384,13 @@ func (o *Orm) Close() error {
 
 // NumQueries returns the number of queries since the ORM was
 // initialized. Keep in mind that this number might not be
-// completely in all cases accurate, since drivers are free
+// completely accurate, since drivers are free
 // to perform several queries per operation. However, the numbers
-// reported by SQL drivers are currently accurate.
+// reported by SQL drivers are currently accurate. If you're sharing
+// an ORM instance accross multiple goroutines, as the Gondola's mux
+// does in non-debug mode, this number will be just wrong because
+// (for performance reasons) non atomic operations are used to
+// increment the counter.
 func (o *Orm) NumQueries() int {
 	return o.numQueries
 }
@@ -529,6 +490,8 @@ type sqldriver interface {
 	DB() *sql.DB
 }
 
+// Open creates a new ORM using the specified
+// driver and params.
 func Open(name string, params string) (*Orm, error) {
 	opener := driver.Get(name)
 	if opener == nil {
@@ -543,10 +506,10 @@ func Open(name string, params string) (*Orm, error) {
 		db = dbDrv.DB()
 	}
 	return &Orm{
-		driver:  drv,
-		upserts: drv.Upserts(),
-		tags:    strings.Join(drv.Tags(), "-"),
-		db:      db,
+		conn:   drv,
+		driver: drv,
+		tags:   strings.Join(drv.Tags(), "-"),
+		db:     db,
 	}, nil
 }
 

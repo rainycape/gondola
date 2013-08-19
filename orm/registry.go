@@ -104,10 +104,13 @@ func (o *Orm) MustRegister(t interface{}, opt *Options) *Table {
 	return tbl
 }
 
-// CommitTables initializes any tables and indexes required by
-// the registered models. You should call it only after all the
-// models have been registered.
-func (o *Orm) CommitTables() error {
+// Initialize initializes any tables and indexes required by
+// the registered models. You MUST call it AFTER all the
+// models have been registered and BEFORE starting to use the ORM
+// from several goroutines (for performance reasons, the access
+// to some shared resources from several ORM instances is not
+// thread safe).
+func (o *Orm) Initialize() error {
 	nr := _nameRegistry[o.tags]
 	models := make([]driver.Model, 0, len(nr))
 	for _, v := range nr {
@@ -116,10 +119,10 @@ func (o *Orm) CommitTables() error {
 	return o.driver.MakeTables(models)
 }
 
-// MustCommitTables works like CommitTables, but panics if
+// MustInitialize works like Initialize, but panics if
 // there's an error.
-func (o *Orm) MustCommitTables() {
-	if err := o.CommitTables(); err != nil {
+func (o *Orm) MustInitialize() {
+	if err := o.Initialize(); err != nil {
 		panic(err)
 	}
 }

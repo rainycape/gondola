@@ -26,7 +26,7 @@ func (i *Iter) Next(out interface{}) bool {
 			}
 		}
 		i.q.orm.numQueries++
-		i.Iter = i.q.orm.driver.Query(i.q.model, i.q.q, i.limit, i.q.offset, i.q.sortDir, i.q.sortField)
+		i.Iter = i.q.orm.conn.Query(i.q.model, i.q.q, i.limit, i.q.offset, i.q.sortDir, i.q.sortField)
 	}
 	ok := i.Iter.Next(out)
 	if ok {

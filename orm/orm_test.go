@@ -115,7 +115,7 @@ func runTest(t *testing.T, f func(*testing.T, *Orm)) {
 
 func testAutoIncrement(t *testing.T, o *Orm) {
 	o.MustRegister((*AutoIncrement)(nil), nil)
-	o.MustCommitTables()
+	o.MustInitialize()
 	obj := &AutoIncrement{}
 	o.MustSave(obj)
 	if obj.Id != 1 {
@@ -129,7 +129,7 @@ func TestAutoIncrement(t *testing.T) {
 
 func testTime(t *testing.T, o *Orm) {
 	o.MustRegister((*Timestamp)(nil), nil)
-	o.MustCommitTables()
+	o.MustInitialize()
 	now := time.Now()
 	t1 := &Timestamp{}
 	o.MustSave(t1)
@@ -163,7 +163,7 @@ func testSaveDelete(t *testing.T, o *Orm) {
 	SaveTable := o.MustRegister((*Object)(nil), &Options{
 		Table: "test_save",
 	})
-	o.MustCommitTables()
+	o.MustInitialize()
 	obj := &Object{Value: "Foo"}
 	o.MustSaveInto(SaveTable, obj)
 	// This should perform an insert, even when it has a primary key
@@ -224,7 +224,7 @@ func testData(t *testing.T, o *Orm) {
 	o.MustRegister((*Data)(nil), &Options{
 		Table: "test_data",
 	})
-	o.MustCommitTables()
+	o.MustInitialize()
 	data := []byte{1, 2, 3, 4, 5, 6}
 	o.MustSave(&Data{Data: data})
 	var d *Data
@@ -246,7 +246,7 @@ func testInnerPointer(t *testing.T, o *Orm) {
 	o.MustRegister((*Outer)(nil), &Options{
 		Table: "test_outer",
 	})
-	o.MustCommitTables()
+	o.MustInitialize()
 	out := Outer{Key: "foo"}
 	o.MustSave(&out)
 	out2 := Outer{Key: "bar", Inner: &Inner{A: 4, B: 2}}
@@ -285,21 +285,21 @@ func testTransactions(t *testing.T, o *Orm) {
 	table := o.MustRegister((*AutoIncrement)(nil), &Options{
 		Table: "test_transactions",
 	})
-	o.MustCommitTables()
+	o.MustInitialize()
 	obj := &AutoIncrement{}
-	o.MustBegin()
-	o.MustSaveInto(table, obj)
-	o.MustCommit()
+	tx := o.MustBegin()
+	tx.MustSaveInto(table, obj)
+	tx.MustCommit()
 	e, err := o.Exists(table, Eq("Id", obj.Id))
 	if err != nil {
 		t.Error(err)
 	} else if !e {
 		t.Error("commited object does not exist")
 	}
-	o.MustBegin()
+	tx2 := o.MustBegin()
 	obj.Id = 0
-	o.MustSaveInto(table, obj)
-	o.MustRollback()
+	tx2.MustSaveInto(table, obj)
+	tx2.MustRollback()
 	e, err = o.Exists(table, Eq("Id", obj.Id))
 	if err != nil {
 		t.Error(err)
@@ -333,7 +333,7 @@ func testCompositePrimaryKey(t *testing.T, o *Orm) {
 		Table:      "test_composite",
 		PrimaryKey: []string{"Id", "Name"},
 	})
-	o.MustCommitTables()
+	o.MustInitialize()
 	comp := &Composite{
 		Id:    1,
 		Name:  "Foo",

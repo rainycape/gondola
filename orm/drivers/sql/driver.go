@@ -9,7 +9,6 @@ import (
 	"gondola/orm/driver"
 	"gondola/orm/index"
 	"gondola/orm/query"
-	"gondola/orm/transaction"
 	"reflect"
 	"strconv"
 	"strings"
@@ -21,6 +20,7 @@ var (
 
 type Driver struct {
 	db         *db
+	conn       DB
 	logger     *log.Logger
 	backend    Backend
 	transforms map[reflect.Type]struct{}
@@ -518,16 +518,37 @@ func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, 
 	return buf.String(), params, nil
 }
 
-func (d *Driver) Begin(t transaction.Options) error {
-	return d.backend.Begin(d.db, t)
+func (d *Driver) Begin() (driver.Tx, error) {
+	tx, err := d.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	driver := &Driver{
+		logger:     d.logger,
+		backend:    d.backend,
+		transforms: d.transforms,
+	}
+	driver.db = &db{
+		DB:     d.db.DB,
+		tx:     tx,
+		db:     tx,
+		driver: driver,
+	}
+	return driver, nil
 }
 
 func (d *Driver) Commit() error {
-	return d.backend.Commit(d.db)
+	if d.db.tx == nil {
+		return driver.ErrNotInTransaction
+	}
+	return d.db.tx.Commit()
 }
 
 func (d *Driver) Rollback() error {
-	return d.backend.Rollback(d.db)
+	if d.db.tx == nil {
+		return driver.ErrNotInTransaction
+	}
+	return d.db.tx.Rollback()
 }
 
 func NewDriver(b Backend, params string) (*Driver, error) {
@@ -544,6 +565,6 @@ func NewDriver(b Backend, params string) (*Driver, error) {
 		}
 	}
 	driver := &Driver{backend: b, transforms: transforms}
-	driver.db = &db{DB: conn, driver: driver}
+	driver.db = &db{DB: conn, db: conn, driver: driver}
 	return driver, nil
 }

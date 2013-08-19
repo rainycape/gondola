@@ -8,7 +8,6 @@ import (
 	"gondola/orm/driver"
 	"gondola/orm/drivers/sql"
 	"gondola/orm/index"
-	"gondola/orm/transaction"
 	"gondola/types"
 	"reflect"
 	"strings"
@@ -78,32 +77,6 @@ func (b *Backend) Index(db sql.DB, m driver.Model, idx *index.Index, name string
 	buf.Truncate(buf.Len() - 1)
 	buf.WriteString(")")
 	_, err := db.Exec(buf.String())
-	return err
-}
-
-func (b *Backend) Begin(db sql.DB, t transaction.Options) error {
-	if t == 0 {
-		_, err := db.Exec("BEGIN")
-		return err
-	}
-	var buf bytes.Buffer
-	buf.WriteString("BEGIN")
-	if t&transaction.IMMEDIATE != 0 {
-		buf.WriteString(" IMMEDIATE")
-	} else if t&transaction.EXCLUSIVE != 0 {
-		buf.WriteString(" EXCLUSIVE")
-	}
-	_, err := db.Exec(buf.String())
-	return err
-}
-
-func (b *Backend) Commit(db sql.DB) error {
-	_, err := db.Exec("COMMIT")
-	return err
-}
-
-func (b *Backend) Rollback(db sql.DB) error {
-	_, err := db.Exec("ROLLBACK")
 	return err
 }
 

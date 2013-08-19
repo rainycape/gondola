@@ -3,7 +3,6 @@ package sql
 import (
 	"gondola/orm/driver"
 	"gondola/orm/index"
-	"gondola/orm/transaction"
 	"gondola/types"
 	"reflect"
 	"time"
@@ -25,12 +24,6 @@ type Backend interface {
 	Insert(DB, driver.Model, string, ...interface{}) (driver.Result, error)
 	// Index creates and index if it doesn't exist using the provided model, index and name.
 	Index(DB, driver.Model, *index.Index, string) error
-	// Begin starts a new transaction
-	Begin(DB, transaction.Options) error
-	// Commit commits the current transaction
-	Commit(DB) error
-	// Rollback rolls back the current transaction
-	Rollback(DB) error
 	// Returns the db type of the given field (e.g. INTEGER)
 	FieldType(reflect.Type, *types.Tag) (string, error)
 	// Returns the db options for the given field (.e.g PRIMARY KEY AUTOINCREMENT)

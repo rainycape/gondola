@@ -7,11 +7,13 @@ package mux
 import (
 	"fmt"
 	"gondola/assets"
+	"gondola/cache"
 	"gondola/cookies"
 	"gondola/defaults"
 	"gondola/errors"
 	"gondola/loaders"
 	"gondola/log"
+	"gondola/orm"
 	"gondola/runtimeutil"
 	"gondola/template"
 	"gondola/util"
@@ -76,6 +78,9 @@ type Mux struct {
 	templateVars         map[string]interface{}
 	templateVarFuncs     map[string]reflect.Value
 	debug                bool
+	mu                   sync.Mutex
+	c                    *cache.Cache
+	o                    *orm.Orm
 
 	// Logger to use when logging requests. By default, it's
 	// gondola/log/Std, but you can set it to nil to avoid
@@ -491,6 +496,64 @@ func (mux *Mux) MustListenAndServe(port int) {
 	if err != nil {
 		log.Panicf("Error listening on port %d: %s", port, err)
 	}
+}
+
+// Cache returns this mux's cache connection, using
+// cache.NewDefault(). Use gondola/config or gondola/defaults
+// to change the default cache. When the mux
+// is in debug mode, a new cache instance is returned
+// every time. Otherwise, the cache instance is shared
+// among all goroutines. Cache access is thread safe, but
+// some methods (like NumQueries()) will be completely
+// inaccurate because they will count all the queries made
+// since the mux initialization.
+func (mux *Mux) Cache() *cache.Cache {
+	if mux.c == nil {
+		mux.mu.Lock()
+		defer mux.mu.Unlock()
+		if mux.c == nil {
+			mux.c = cache.NewDefault()
+			if mux.debug {
+				c := mux.c
+				mux.c = nil
+				return c
+			}
+		}
+	}
+	return mux.c
+}
+
+// Mux returns this mux's ORM connection, using the
+// default database parameters. Use gondola/config or gondola/defaults
+// to change the default ORM. When the mux is in debug mode, a new
+// ORM instance is returned every time. Otherwise, the mux instance
+// is shared amoung all goroutines. ORM usage is thread safe, but
+// some methods (like NumQueries()) will be completely inaccurate
+// because they wull count all the queries made since the mux
+// initialization.
+func (mux *Mux) Orm() (*orm.Orm, error) {
+	if mux.o == nil {
+		mux.mu.Lock()
+		defer mux.mu.Unlock()
+		if mux.o == nil {
+			driver, source := defaults.DatabaseParameters()
+			if driver == "" {
+				return nil, fmt.Errorf("default database is not set")
+			}
+			var err error
+			mux.o, err = orm.Open(driver, source)
+			if err != nil {
+				return nil, err
+			}
+			if mux.debug {
+				o := mux.o
+				o.SetLogger(log.Std)
+				mux.o = nil
+				return o, nil
+			}
+		}
+	}
+	return mux.o, nil
 }
 
 func (mux *Mux) readXHeaders(r *http.Request) {

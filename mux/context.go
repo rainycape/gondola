@@ -1,23 +1,18 @@
 package mux
 
 import (
-	"bytes"
 	"fmt"
 	"gondola/cache"
 	"gondola/cookies"
-	"gondola/defaults"
 	"gondola/errors"
-	"gondola/log"
 	"gondola/orm"
 	"gondola/serialize"
 	"gondola/types"
 	"gondola/users"
 	"gondola/util"
-	"html/template"
 	"net/http"
 	"net/url"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -29,7 +24,6 @@ type Context struct {
 	R             *http.Request
 	provider      ContextProvider
 	reProvider    *regexpProvider
-	c             *cache.Cache
 	cached        bool
 	fromCache     bool
 	handlerName   string
@@ -38,9 +32,13 @@ type Context struct {
 	customContext interface{}
 	started       time.Time
 	cookies       *cookies.Cookies
-	o             *orm.Orm
 	user          users.User
-	Data          interface{} /* Left to the user */
+	// Used to store data for debugging purposes. Only
+	// used when mux.debug is true.
+	debugStorage map[string]interface{}
+	// Left to users, to store data in their custom
+	// context types.
+	Data interface{}
 }
 
 func (c *Context) reset() {
@@ -52,6 +50,8 @@ func (c *Context) reset() {
 	c.customContext = nil
 	c.started = time.Now()
 	c.cookies = nil
+	c.user = nil
+	c.debugStorage = nil
 	c.Data = nil
 }
 
@@ -178,16 +178,6 @@ func (c *Context) StatusCode() int {
 
 func (c *Context) parseTypedValue(val string, arg interface{}) bool {
 	return types.Parse(val, arg) == nil
-}
-
-// Cache returns the default cache
-// See gondola/cache for a further
-// explanation
-func (c *Context) Cache() *cache.Cache {
-	if c.c == nil {
-		c.c = cache.NewDefault()
-	}
-	return c.c
 }
 
 // Redirect sends an HTTP redirect to the client,
@@ -350,26 +340,32 @@ func (c *Context) Cookies() *cookies.Cookies {
 	return c.cookies
 }
 
-// Orm returns a connection to the ORM using the default database
-// and panics if there's an error. See the the documentation on
-// gondola/defaults/SetDatabase for further information.
-func (c *Context) Orm() *orm.Orm {
-	if c.o == nil {
-		driver, source := defaults.DatabaseParameters()
-		if driver == "" {
-			panic(fmt.Errorf("Default database is not set"))
+// Cache is a shorthand for ctx.Mux().Cache().
+func (c *Context) Cache() *cache.Cache {
+	if c.mux.c == nil {
+		cache := c.mux.Cache()
+		if c.mux.debug {
+			c.storeDebug(debugCacheKey, cache)
+			return cache
 		}
-		log.Debugf("Opening ORM connection %s:%s", driver, source)
-		var err error
-		c.o, err = orm.Open(driver, source)
+	}
+	return c.mux.c
+}
+
+// Orm is a shorthand for ctx.Mux().Orm(), but panics in case
+// of error, rather than returning it.
+func (c *Context) Orm() *orm.Orm {
+	if c.mux.o == nil {
+		o, err := c.mux.Orm()
 		if err != nil {
 			panic(err)
 		}
 		if c.mux.debug {
-			c.o.SetLogger(log.Std)
+			c.storeDebug(debugOrmKey, o)
+			return o
 		}
 	}
-	return c.o
+	return c.mux.o
 }
 
 // Execute loads the template with the given name using the
@@ -429,47 +425,10 @@ func (c *Context) Elapsed() time.Duration {
 	return time.Since(c.started)
 }
 
-// DebugComment returns an HTML comment with some debug information,
-// including the time when the template was rendered, the time it
-// took to serve the request and the number of queries to the cache
-// and the ORM. It is intended to be used in the templates like e.g.
-//
-//    </html>
-//    {{ $Context.DebugComment }}
-func (c *Context) DebugComment() template.HTML {
-	var buf bytes.Buffer
-	buf.WriteString("<!-- generated on ")
-	buf.WriteString(c.started.String())
-	buf.WriteString(" - took ")
-	buf.WriteString(c.Elapsed().String())
-	if c.o != nil {
-		buf.WriteString(" - ")
-		buf.WriteString(strconv.Itoa(c.o.NumQueries()))
-		buf.WriteString(" ORM queries")
-	}
-	if c.c != nil {
-		buf.WriteString(" - ")
-		buf.WriteString(strconv.Itoa(c.c.NumQueries()))
-		buf.WriteString(" cache queries")
-	}
-	buf.WriteString(" -->")
-	return template.HTML(buf.String())
-}
-
-// Close closes any resources opened by the context
-// (for now, the cache connection). It's automatically
-// called by the mux, so you don't need to call it
-// manually
+// Close closes any resources opened by the context.
+// It's automatically called by the mux, so you
+// don't need to call it manually
 func (c *Context) Close() {
-	if c.c != nil {
-		c.c.Close()
-		c.c = nil
-	}
-	if c.o != nil {
-		log.Debug("Closing ORM connection")
-		c.o.Close()
-		c.o = nil
-	}
 }
 
 // Intercept http.ResponseWriter calls to find response

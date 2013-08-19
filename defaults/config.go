@@ -23,7 +23,7 @@ func isNonEmptyString(v reflect.Value) bool {
 
 func setStringDefault(val reflect.Value, name string, f func(string)) {
 	value := val.FieldByName(name)
-	if value.IsValid() {
+	if value.IsValid() && value.String() != "" {
 		f(value.String())
 	}
 }

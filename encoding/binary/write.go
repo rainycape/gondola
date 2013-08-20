@@ -12,7 +12,7 @@ import (
 // and read from successive fields of the data.
 // When writing structs, zero values are written for fields
 // with blank (_) field names.
-func Write(w io.Writer, order ByteOrder, data interface{}) error {
+func Write(w io.Writer, order *ByteOrder, data interface{}) error {
 	// Fast path for basic types and slices of basic types
 	var bs []byte
 	var err error

@@ -41,7 +41,7 @@ func readAtLeast(r io.Reader, buf []byte, min int) error {
 // When reading into structs, the field data for fields with
 // blank (_) field names is skipped; i.e., blank field names
 // may be used for padding.
-func Read(r io.Reader, order ByteOrder, data interface{}) error {
+func Read(r io.Reader, order *ByteOrder, data interface{}) error {
 	// Fast path for basic types and slices of basic types
 	var err error
 	switch v := data.(type) {

@@ -15,8 +15,8 @@ import (
 )
 
 type binaryCoder interface {
-	binaryEncode(w io.Writer, o ByteOrder) error
-	binaryDecode(r io.Reader, o ByteOrder) error
+	binaryEncode(w io.Writer, o *ByteOrder) error
+	binaryDecode(r io.Reader, o *ByteOrder) error
 }
 
 type Struct struct {
@@ -35,7 +35,7 @@ type Struct struct {
 	Array      [4]uint8
 }
 
-func (s *Struct) binaryEncode(w io.Writer, o ByteOrder) error {
+func (s *Struct) binaryEncode(w io.Writer, o *ByteOrder) error {
 	var b [8]byte
 	b[0] = byte(s.Int8)
 	if _, err := w.Write(b[:1]); err != nil {
@@ -102,7 +102,7 @@ func (s *Struct) binaryEncode(w io.Writer, o ByteOrder) error {
 	return err
 }
 
-func (s *Struct) binaryDecode(r io.Reader, o ByteOrder) error {
+func (s *Struct) binaryDecode(r io.Reader, o *ByteOrder) error {
 	var b [8]byte
 	bs := b[:1]
 	if _, err := io.ReadFull(r, bs); err != nil {
@@ -184,7 +184,7 @@ type SliceStruct struct {
 	Ints []int64
 }
 
-func (s *SliceStruct) binaryEncode(w io.Writer, o ByteOrder) error {
+func (s *SliceStruct) binaryEncode(w io.Writer, o *ByteOrder) error {
 	bs := make([]byte, 8)
 	for _, v := range s.Ints {
 		o.PutUint64(bs, uint64(v))
@@ -195,7 +195,7 @@ func (s *SliceStruct) binaryEncode(w io.Writer, o ByteOrder) error {
 	return nil
 }
 
-func (s *SliceStruct) binaryDecode(r io.Reader, o ByteOrder) error {
+func (s *SliceStruct) binaryDecode(r io.Reader, o *ByteOrder) error {
 	bs := make([]byte, 8)
 	for ii := range s.Ints {
 		if _, err := io.ReadFull(r, bs); err != nil {
@@ -273,7 +273,7 @@ var little = []byte{
 var src = []byte{1, 2, 3, 4, 5, 6, 7, 8}
 var res = []int32{0x01020304, 0x05060708}
 
-func checkResult(t *testing.T, dir string, order ByteOrder, err error, have, want interface{}) {
+func checkResult(t *testing.T, dir string, order *ByteOrder, err error, have, want interface{}) {
 	if err != nil {
 		t.Errorf("%v %v: %v", dir, order, err)
 		return
@@ -283,13 +283,13 @@ func checkResult(t *testing.T, dir string, order ByteOrder, err error, have, wan
 	}
 }
 
-func testRead(t *testing.T, order ByteOrder, b []byte, s1 interface{}) {
+func testRead(t *testing.T, order *ByteOrder, b []byte, s1 interface{}) {
 	var s2 Struct
 	err := Read(bytes.NewBuffer(b), order, &s2)
 	checkResult(t, "Read", order, err, s2, s1)
 }
 
-func testWrite(t *testing.T, order ByteOrder, b []byte, s1 interface{}) {
+func testWrite(t *testing.T, order *ByteOrder, b []byte, s1 interface{}) {
 	buf := new(bytes.Buffer)
 	err := Write(buf, order, s1)
 	checkResult(t, "Write", order, err, buf.Bytes(), b)
@@ -613,7 +613,7 @@ func (br *byteSliceReader) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-func benchmarkReadCoder(b *testing.B, c binaryCoder, order ByteOrder) {
+func benchmarkReadCoder(b *testing.B, c binaryCoder, order *ByteOrder) {
 	bsr := &byteSliceReader{}
 	var buf bytes.Buffer
 	c.binaryEncode(&buf, order)
@@ -625,7 +625,7 @@ func benchmarkReadCoder(b *testing.B, c binaryCoder, order ByteOrder) {
 	}
 }
 
-func benchmarkWriteCoder(b *testing.B, c binaryCoder, order ByteOrder) {
+func benchmarkWriteCoder(b *testing.B, c binaryCoder, order *ByteOrder) {
 	var buf bytes.Buffer
 	err := c.binaryEncode(&buf, order)
 	if err != nil {
@@ -821,7 +821,7 @@ func BenchmarkWriteInts(b *testing.B) {
 	}
 }
 
-func benchmarkPutByteOrder(b *testing.B, order ByteOrder) {
+func benchmarkPutByteOrder(b *testing.B, order *ByteOrder) {
 	bs := make([]byte, 8)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -839,7 +839,7 @@ func BenchmarkPutLittleEndian(b *testing.B) {
 	benchmarkPutByteOrder(b, LittleEndian)
 }
 
-func benchmarkReadByteOrder(b *testing.B, order ByteOrder) {
+func benchmarkReadByteOrder(b *testing.B, order *ByteOrder) {
 	bs := make([]byte, 8)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

@@ -5,6 +5,12 @@
 // Package binary implements simple translation between numbers and byte
 // sequences and encoding and decoding of varints.
 //
+// It's a drop in replacement for encoding/binary in the standard library
+// but offers very significant increases in performance. This package is
+// typically 6x-7x faster than encoding/binary. This difference is even
+// bigger when using small data types (like int8 and uint8), in those
+// cases performance is around 350x-450x faster.
+//
 // Numbers are translated by reading and writing fixed-size values.
 // A fixed-size value is either a fixed-size arithmetic
 // type (int8, uint8, int16, float32, complex64, ...)

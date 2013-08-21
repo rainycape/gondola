@@ -13,6 +13,7 @@ package json
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -53,11 +54,17 @@ func (c *codeNodeMethod) F() int {
 	return 0
 }
 
+type SliceStruct struct {
+	Position int   `json:"position"`
+	Data     []int `json:"data"`
+}
+
 var codeJSON []byte
+var codeJSONSlice []byte
 var codeStruct codeResponse
 
-func codeInit() {
-	f, err := os.Open("testdata/code.json.gz")
+func readData(filename string, obj interface{}) []byte {
+	f, err := os.Open(filename)
 	if err != nil {
 		panic(err)
 	}
@@ -71,28 +78,32 @@ func codeInit() {
 		panic(err)
 	}
 
-	codeJSON = data
-
-	if err := Unmarshal(codeJSON, &codeStruct); err != nil {
-		panic("unmarshal code.json: " + err.Error())
+	if err := Unmarshal(data, obj); err != nil {
+		panic(fmt.Errorf("unmarshal %T: %s", obj, err))
 	}
-
-	if data, err = Marshal(&codeStruct); err != nil {
-		panic("marshal code.json: " + err.Error())
+	enc, err := Marshal(obj)
+	if err != nil {
+		panic(fmt.Errorf("marshal %T: %s", obj, err))
 	}
-
-	if !bytes.Equal(data, codeJSON) {
-		println("different lengths", len(data), len(codeJSON))
-		for i := 0; i < len(data) && i < len(codeJSON); i++ {
-			if data[i] != codeJSON[i] {
+	if !bytes.Equal(data, enc) {
+		println("different lengths", len(data), len(enc))
+		for i := 0; i < len(data) && i < len(enc); i++ {
+			if data[i] != enc[i] {
 				println("re-marshal: changed at byte", i)
-				println("orig: ", string(codeJSON[i-10:i+10]))
-				println("new: ", string(data[i-10:i+10]))
+				println("orig: ", string(data[i-10:i+10]))
+				println("new: ", string(enc[i-10:i+10]))
 				break
 			}
 		}
 		panic("re-marshal code.json: different result")
 	}
+	return data
+}
+
+func codeInit() {
+	codeJSON = readData("testdata/code.json.gz", &codeStruct)
+	var s []*SliceStruct
+	codeJSONSlice = readData("testdata/slice.json.gz", &s)
 }
 
 func BenchmarkCodeEncoder(b *testing.B) {
@@ -158,6 +169,17 @@ func BenchmarkCodeUnmarshal(b *testing.B) {
 		}
 	}
 	b.SetBytes(int64(len(codeJSON)))
+}
+
+func BenchmarkCodeUnmarshalSlice(b *testing.B) {
+	initializeCodeBenchmark(b)
+	var s []*SliceStruct
+	for i := 0; i < b.N; i++ {
+		if err := Unmarshal(codeJSONSlice, &s); err != nil {
+			b.Fatal("Unmmarshal slice:", err)
+		}
+	}
+	b.SetBytes(int64(len(codeJSONSlice)))
 }
 
 func BenchmarkCodeUnmarshalInterface(b *testing.B) {

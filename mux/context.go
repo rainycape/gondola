@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"gondola/cache"
 	"gondola/cookies"
-	"gondola/errors"
 	"gondola/orm"
 	"gondola/serialize"
 	"gondola/types"
@@ -75,7 +74,7 @@ func (c *Context) IndexValue(idx int) string {
 func (c *Context) RequireIndexValue(idx int) string {
 	val := c.IndexValue(idx)
 	if val == "" {
-		errors.MissingParameter(fmt.Sprintf("at index %d", idx))
+		MissingParameter(fmt.Sprintf("at index %d", idx))
 	}
 	return val
 }
@@ -131,7 +130,7 @@ func (c *Context) FormValue(name string) string {
 func (c *Context) RequireFormValue(name string) string {
 	val := c.FormValue(name)
 	if val == "" {
-		errors.MissingParameter(name)
+		MissingParameter(name)
 	}
 	return val
 }
@@ -166,7 +165,7 @@ func (c *Context) mustParseValue(name string, idx int, val string, arg interface
 		if name == "" {
 			name = fmt.Sprintf("at index %d", idx)
 		}
-		errors.InvalidParameterType(name, t.String())
+		InvalidParameterType(name, t)
 	}
 }
 

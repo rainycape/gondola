@@ -10,7 +10,6 @@ import (
 	"gondola/cache"
 	"gondola/cookies"
 	"gondola/defaults"
-	"gondola/errors"
 	"gondola/loaders"
 	"gondola/log"
 	"gondola/orm"
@@ -588,7 +587,7 @@ func (mux *Mux) handleHTTPError(ctx *Context, error string, code int) {
 }
 
 func (mux *Mux) handleError(ctx *Context, err interface{}) bool {
-	if gerr, ok := err.(errors.Error); ok {
+	if gerr, ok := err.(Error); ok {
 		mux.handleHTTPError(ctx, gerr.Error(), gerr.StatusCode())
 		return true
 	}

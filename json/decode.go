@@ -249,36 +249,40 @@ func (d *decodeState) scanWhile(op int) int {
 	return newOp
 }
 
+func (d *decodeState) skipValue() {
+	_, rest, err := nextValue(d.data[d.off:], &d.nextscan)
+	if err != nil {
+		d.error(err)
+	}
+	d.off = d.length - len(rest)
+
+	// d.scan thinks we're still at the beginning of the item.
+	// Feed in an empty string - the shortest, simplest value -
+	// so that it knows we got to the end of the value.
+	if d.scan.redo {
+		// rewind.
+		d.scan.redo = false
+		d.scan.step = stateBeginValue
+	}
+	d.scan.step(&d.scan, '"')
+	d.scan.step(&d.scan, '"')
+
+	n := len(d.scan.parseState)
+	if n > 0 && d.scan.parseState[n-1] == parseObjectKey {
+		// d.scan thinks we just read an object key; finish the object
+		d.scan.step(&d.scan, ':')
+		d.scan.step(&d.scan, '"')
+		d.scan.step(&d.scan, '"')
+		d.scan.step(&d.scan, '}')
+	}
+
+}
+
 // value decodes a JSON value from d.data[d.off:] into the value.
 // it updates d.off to point past the decoded value.
 func (d *decodeState) value(v reflect.Value) {
 	if !v.IsValid() {
-		_, rest, err := nextValue(d.data[d.off:], &d.nextscan)
-		if err != nil {
-			d.error(err)
-		}
-		d.off = d.length - len(rest)
-
-		// d.scan thinks we're still at the beginning of the item.
-		// Feed in an empty string - the shortest, simplest value -
-		// so that it knows we got to the end of the value.
-		if d.scan.redo {
-			// rewind.
-			d.scan.redo = false
-			d.scan.step = stateBeginValue
-		}
-		d.scan.step(&d.scan, '"')
-		d.scan.step(&d.scan, '"')
-
-		n := len(d.scan.parseState)
-		if n > 0 && d.scan.parseState[n-1] == parseObjectKey {
-			// d.scan thinks we just read an object key; finish the object
-			d.scan.step(&d.scan, ':')
-			d.scan.step(&d.scan, '"')
-			d.scan.step(&d.scan, '"')
-			d.scan.step(&d.scan, '}')
-		}
-
+		d.skipValue()
 		return
 	}
 

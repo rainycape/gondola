@@ -379,16 +379,20 @@ func (d *decodeState) array(v reflect.Value) {
 	}
 
 	i := 0
+	typ := v.Type()
+	vcap := v.Cap()
 	// Look ahead for ]
 	op := d.scanWhile(scanSkipSpace)
 	if op == scanEndArray {
 		// empty array
-		if v.Kind() == reflect.Slice {
-			v.Set(reflect.MakeSlice(v.Type(), 0, 0))
+		if typ.Kind() == reflect.Slice {
+			if vcap > 0 || v.IsNil() {
+				v.Set(reflect.MakeSlice(typ, 0, 0))
+			}
 		} else {
 			// Array. Zero all elements
-			z := reflect.Zero(v.Type().Elem())
-			for ; i < v.Len(); i++ {
+			z := reflect.Zero(typ.Elem())
+			for ; i < vcap; i++ {
 				v.Index(i).Set(z)
 			}
 		}
@@ -399,52 +403,64 @@ func (d *decodeState) array(v reflect.Value) {
 	d.off--
 	d.scan.undo(op)
 
-	for {
-		// Get element of array, growing if necessary.
-		if v.Kind() == reflect.Slice {
+	if typ.Kind() == reflect.Slice {
+		v.SetLen(vcap)
+		nextCap := vcap + vcap/2
+		if nextCap < 5 {
+			nextCap = 5
+		}
+		for ; ; i++ {
+			// Get element of array, growing if necessary.
 			// Grow slice if necessary
-			if i >= v.Cap() {
-				newcap := v.Cap() + v.Cap()/2
-				if newcap < 4 {
-					newcap = 4
-				}
-				newv := reflect.MakeSlice(v.Type(), v.Len(), newcap)
+			if i >= vcap {
+				newv := reflect.MakeSlice(typ, nextCap, nextCap)
 				reflect.Copy(newv, v)
 				v.Set(newv)
+				vcap = nextCap
+				nextCap += nextCap / 2
 			}
-			if i >= v.Len() {
-				v.SetLen(i + 1)
-			}
-		}
 
-		if i < v.Len() {
 			// Decode into element.
 			d.value(v.Index(i))
-		} else {
-			// Ran out of fixed array: skip.
-			d.value(reflect.Value{})
-		}
-		i++
 
-		// Next token must be , or ].
-		op = d.scanWhile(scanSkipSpace)
-		if op == scanEndArray {
-			break
+			// Next token must be , or ].
+			op = d.scanWhile(scanSkipSpace)
+			if op == scanEndArray {
+				i++
+				break
+			}
+			if op != scanArrayValue {
+				d.error(errPhase)
+			}
 		}
-		if op != scanArrayValue {
-			d.error(errPhase)
+		if i < vcap {
+			v.SetLen(i)
 		}
-	}
-
-	if i < v.Len() {
-		if v.Kind() == reflect.Array {
+	} else {
+		for ; ; i++ {
+			if i >= vcap {
+				// Ran out of fixed array: skip.
+				d.skipValue()
+			} else {
+				// Decode into element.
+				d.value(v.Index(i))
+			}
+			// Next token must be , or ].
+			op = d.scanWhile(scanSkipSpace)
+			if op == scanEndArray {
+				i++
+				break
+			}
+			if op != scanArrayValue {
+				d.error(errPhase)
+			}
+		}
+		if i < vcap {
 			// Array.  Zero the rest.
-			z := reflect.Zero(v.Type().Elem())
-			for ; i < v.Len(); i++ {
+			z := reflect.Zero(typ.Elem())
+			for ; i < vcap; i++ {
 				v.Index(i).Set(z)
 			}
-		} else {
-			v.SetLen(i)
 		}
 	}
 }

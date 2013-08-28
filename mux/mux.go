@@ -484,7 +484,9 @@ func (mux *Mux) ListenAndServe(port int) error {
 	if port <= 0 {
 		port = defaults.Port()
 	}
-	log.Infof("Listening on port %d", port)
+	if mux.Logger != nil {
+		mux.Logger.Infof("Listening on port %d", port)
+	}
 	return http.ListenAndServe(":"+strconv.Itoa(port), mux)
 }
 

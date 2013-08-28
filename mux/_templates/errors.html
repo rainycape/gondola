@@ -1,0 +1,17 @@
+{{/*
+  extends: base.html
+*/}}
+{{ define "title" }}Errors building {{ .Project.Name }}{{ end }}
+{{ define "body" }}
+<div class="header error">
+  <h1>{{ .Count }} errors building {{ .Project.Name }}</h1>
+</div>
+{{ range .Errors }}
+  <div class="header code multi">
+    <h3>At {{ .Location }}: {{ .Error }}</h3>
+    {{ with .Code }}
+      <pre><code>{{ . }}</code></pre>
+    {{ end }}
+  </div>
+{{ end }}
+{{ end }}

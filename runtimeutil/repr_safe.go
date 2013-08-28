@@ -23,8 +23,12 @@ func pointerRepr(val uint64, _ *gosym.Sym, _ bool) string {
 	return "@ 0x" + strconv.FormatUint(val, 16)
 }
 
-func stringRepr(val uint64) string {
-	return pointerRepr(val, nil, false)
+func stringRepr(val1 uint64, val2 uint64) string {
+	r := pointerRepr(val1, nil, false)
+	if val1 != 0 {
+		r += fmt.Sprintf(" (length = %d)", val2)
+	}
+	return r
 }
 
 func emptyInterfaceRepr(val1 uint64, val2 uint64) string {

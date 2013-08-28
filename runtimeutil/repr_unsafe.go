@@ -37,8 +37,12 @@ func reflectType(goType uint64) reflect.Type {
 	return reflect.TypeOf(i)
 }
 
-func stringRepr(val uint64) string {
-	s := (*string)(unsafe.Pointer(uintptr(val)))
+func stringRepr(val1 uint64, val2 uint64) string {
+	sh := &reflect.StringHeader{
+		Data: uintptr(val1),
+		Len:  int(val2),
+	}
+	s := (*string)(unsafe.Pointer(sh))
 	return fmt.Sprintf("= %q", *s)
 }
 

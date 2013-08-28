@@ -97,7 +97,7 @@ func TemplatesMap(ctx *mux.Context) {
 	}
 	var w io.Writer
 	if out != "" {
-		flags := os.O_CREATE | os.O_WRONLY
+		flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
 		var force bool
 		ctx.ParseParamValue("f", &force)
 		if !force {

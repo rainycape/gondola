@@ -12,6 +12,10 @@ type ByteOrder struct {
 	name      string
 }
 
+func (b *ByteOrder) GoString() string {
+	return "binary." + b.name
+}
+
 func (b *ByteOrder) String() string {
 	return b.name
 }

@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"go/build"
 	"gondola/admin"
+	"gondola/config"
 	"gondola/log"
 	"gondola/mux"
 	"gondola/runtimeutil"
 	"html/template"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"net"
 	"os"
@@ -28,6 +30,10 @@ import (
 func exitStatus(p *os.ProcessState) int {
 	ws := p.Sys().(syscall.WaitStatus)
 	return ws.ExitStatus()
+}
+
+func cmdString(cmd *exec.Cmd) string {
+	return strings.Join(cmd.Args, " ")
 }
 
 func randomFreePort() int {
@@ -64,9 +70,11 @@ func (b *BuildError) Code() template.HTML {
 	return s
 }
 
-func NewProject(dir string) *Project {
+func NewProject(dir string, config string, tags string) *Project {
 	p := &Project{
-		dir: dir,
+		dir:    dir,
+		config: config,
+		tags:   tags,
 	}
 	m := mux.New()
 	m.Logger = nil
@@ -81,18 +89,67 @@ func NewProject(dir string) *Project {
 
 type Project struct {
 	sync.Mutex
-	dir      string
-	port     int
-	muxPort  int
-	building bool
-	errors   []*BuildError
-	cmd      *exec.Cmd
-	watcher  *fsnotify.Watcher
-	proxied  map[net.Conn]struct{}
+	dir            string
+	config         string
+	configFilename string
+	tags           string
+	port           int
+	muxPort        int
+	building       bool
+	errors         []*BuildError
+	cmd            *exec.Cmd
+	watcher        *fsnotify.Watcher
+	proxied        map[net.Conn]struct{}
 }
 
 func (p *Project) Name() string {
 	return filepath.Base(p.dir)
+}
+
+func (p *Project) ConfDir() string {
+	return filepath.Join(p.dir, "conf")
+}
+
+func (p *Project) Conf() string {
+	if p.configFilename == "" {
+		p.configFilename = p.configFile()
+	}
+	return p.configFilename
+}
+
+func (p *Project) configFile() string {
+	dir := p.ConfDir()
+	// If a config name was provided, try to use it
+	if p.config != "" {
+		var filename string
+		if filepath.IsAbs(p.config) {
+			filename = p.config
+		} else {
+			filename = filepath.Join(dir, p.config)
+		}
+		if _, err := os.Stat(filename); err == nil {
+			return filename
+		} else {
+			log.Warningf("could not find config file %q (error was %s), ignoring", p.config, err)
+		}
+	}
+	// Otherwise, try development.conf
+	filename := filepath.Join(dir, "development.conf")
+	if _, err := os.Stat(filename); err == nil {
+		return filename
+	}
+	// Grab the first .conf file in the directory
+	if files, err := ioutil.ReadDir(dir); err == nil {
+		for _, v := range files {
+			if strings.ToLower(filepath.Ext(v.Name())) == ".conf" {
+				filename := filepath.Join(dir, v.Name())
+				if _, err := os.Stat(filename); err == nil {
+					return filename
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func (p *Project) importPackage(imported map[string]bool, pkgs *[]*build.Package, path string) error {
@@ -185,7 +242,7 @@ func (p *Project) ProjectCmd() *exec.Cmd {
 	if runtime.GOOS != "windows" {
 		name = "./" + name
 	}
-	cmd := exec.Command(name, "-debug", fmt.Sprintf("-port=%d", p.port))
+	cmd := exec.Command(name, "-debug", "-config", p.Conf(), fmt.Sprintf("-port=%d", p.port))
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -194,9 +251,9 @@ func (p *Project) ProjectCmd() *exec.Cmd {
 }
 
 func (p *Project) Start() error {
-	log.Debugf("Starting %s...", p.Name())
 	p.port = randomFreePort()
 	cmd := p.ProjectCmd()
+	log.Debugf("Starting %s (%s)", p.Name(), cmdString(cmd))
 	p.cmd = cmd
 	err := cmd.Start()
 	go func() {
@@ -227,17 +284,17 @@ func (p *Project) Stop() error {
 }
 
 func (p *Project) GoCmd(args ...string) *exec.Cmd {
-	goCmd, err := exec.LookPath("go")
-	if err != nil {
-		log.Panic(err)
-	}
-	cmd := exec.Command(goCmd, args...)
+	cmd := exec.Command("go", args...)
 	cmd.Dir = p.dir
 	return cmd
 }
 
 func (p *Project) CompilerCmd() *exec.Cmd {
+	// -e reports all the errors
 	args := []string{"build", "-gcflags", "-e"}
+	if p.tags != "" {
+		args = append(args, []string{"-tags", p.tags}...)
+	}
 	lib := filepath.Join(p.dir, "lib")
 	if st, err := os.Stat(lib); err == nil && st.IsDir() {
 		// If there's a lib directory, add it to rpath
@@ -260,10 +317,10 @@ func (p *Project) Compile() {
 	if err := p.Stop(); err != nil {
 		log.Panic(err)
 	}
-	log.Debugf("Building %s...", p.Name())
 	p.errors = nil
-	var buf bytes.Buffer
 	cmd := p.CompilerCmd()
+	log.Debugf("Building %s (%s)", p.Name(), cmdString(cmd))
+	var buf bytes.Buffer
 	cmd.Stderr = &buf
 	err := cmd.Run()
 	if err != nil {
@@ -391,17 +448,32 @@ func (p *Project) ProxyConnection(conn net.Conn, port int) {
 func Dev(ctx *mux.Context) {
 	log.SetLevel(log.LDebug)
 	var dir string
-	var port int
+	var configName string
+	var tags string
 	ctx.ParseParamValue("dir", &dir)
-	ctx.ParseParamValue("port", &port)
-	if port == 0 {
-		port = 8888
-	}
+	ctx.ParseParamValue("config", &configName)
+	ctx.ParseParamValue("tags", &tags)
 	path, err := filepath.Abs(dir)
 	if err != nil {
 		log.Panic(err)
 	}
-	p := NewProject(path)
+	p := NewProject(path, configName, tags)
+	if c := p.Conf(); c == "" {
+		log.Panicf("can't find configuration for %s. Please, create a config file in the directory %s (its extension must be .conf)", p.Name(), p.ConfDir())
+	} else {
+		log.Debugf("Using config file %s", c)
+	}
+	var port int
+	ctx.ParseParamValue("port", &port)
+	if port == 0 {
+		var conf config.Config
+		if err := config.ParseFile(p.Conf(), &conf); err == nil {
+			port = conf.Port
+		}
+		if port == 0 {
+			port = 8888
+		}
+	}
 	go p.Compile()
 	eof := "C"
 	if runtime.GOOS == "windows" {
@@ -427,8 +499,9 @@ func init() {
 		Help: "Starts the development server",
 		Flags: admin.Flags(
 			admin.StringFlag("dir", ".", "Directory of the project"),
-			admin.StringFlag("tags", "", "Go build tags to pass to compiler"),
-			admin.IntFlag("port", 0, "Port to listen on. If zero, the project development configuration is parsed to look for the port. If none is found, 8888 is used."),
+			admin.StringFlag("config", "", "Configuration name to use. If none is provided, development.conf is used."),
+			admin.StringFlag("tags", "", "Go build tags to pass to the compiler"),
+			admin.IntFlag("port", 0, "Port to listen on. If zero, the project configuration is parsed to look for the port. If none is found, 8888 is used."),
 		),
 	})
 }

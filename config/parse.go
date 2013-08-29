@@ -28,7 +28,7 @@ type fieldMap map[string]*fieldValue
 
 func (f fieldMap) Append(name string, value reflect.Value, tag reflect.StructTag) error {
 	if _, ok := f[name]; ok {
-		return fmt.Errorf("Duplicate field name %q", name)
+		return fmt.Errorf("duplicate field name %q", name)
 	}
 	f[name] = &fieldValue{value, tag}
 	return nil
@@ -36,14 +36,23 @@ func (f fieldMap) Append(name string, value reflect.Value, tag reflect.StructTag
 
 type varMap map[string]interface{}
 
+// SetDefaultFilename changes the default filename used by Parse().
 func SetDefaultFilename(name string) {
 	defaultFilename = name
 }
 
+// DefaultFilename returns the default config filename used by Parse().
+// It might changed by calling SetDefaultFilename() or overriden using
+// the -config command line flag (the latter, of present, takes precendence).
+// The initial value is the path conf/current.conf relative to the application
+// binary.
 func DefaultFilename() string {
 	return defaultFilename
 }
 
+// Filename returns the current filename used by Parse(). If the -config command
+// line flag was provided, it returns its value. Otherwise, it returns
+// DefaultFilename().
 func Filename() string {
 	if configName == nil {
 		return defaultFilename
@@ -88,12 +97,47 @@ func parseValue(v reflect.Value, raw string) error {
 	case reflect.String:
 		v.SetString(raw)
 	default:
-		return fmt.Errorf("Can't parse values of type %q", v.Type().Name())
+		return fmt.Errorf("can't parse values of type %q", v.Type().Name())
 	}
 	return nil
 }
 
-func parseConfigFile(r io.Reader, fields fieldMap) error {
+// ParseFile parses the given config file into the given config
+// struct. No signal is emitted. Look at the documentation of
+// Parse() for information on the supported types as well as
+// the name mangling performed in the struct fields to convert
+// them to config file keys.
+func ParseFile(filename string, config interface{}) error {
+	fields, err := configFields(config)
+	if err != nil {
+		return err
+	}
+	return parseFile(filename, fields)
+}
+
+// ParseReader parses the config rom the given io.Reader into
+// the given config struct. No signal is emitted. Look at the documentation
+// of Parse() for information on the supported types as well as
+// the name mangling performed in the struct fields to convert
+// them to config file keys.
+func ParseReader(r io.Reader, config interface{}) error {
+	fields, err := configFields(config)
+	if err != nil {
+		return err
+	}
+	return parseReader(r, fields)
+}
+
+func parseFile(filename string, fields fieldMap) error {
+	f, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return parseReader(f, fields)
+}
+
+func parseReader(r io.Reader, fields fieldMap) error {
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
@@ -117,7 +161,7 @@ func parseConfigFile(r io.Reader, fields fieldMap) error {
 		if raw, ok := values[name]; ok && raw != "" {
 			err := parseValue(v.Value, raw)
 			if err != nil {
-				return fmt.Errorf("Error parsing config file field %q (struct field %q): %s", name, k, err)
+				return fmt.Errorf("error parsing config file field %q (struct field %q): %s", name, k, err)
 			}
 		}
 	}
@@ -147,7 +191,7 @@ func setupFlags(fields fieldMap) (varMap, error) {
 		case reflect.String:
 			p = flag.String(name, val.String(), help)
 		default:
-			return nil, fmt.Errorf("Invalid type in config %s (field %s)", val.Type().Name(), k)
+			return nil, fmt.Errorf("invalid type in config %s (field %s)", val.Type().Name(), k)
 		}
 		m[name] = p
 	}
@@ -189,19 +233,29 @@ func copyFlagValues(fields fieldMap, values varMap) error {
 			value := *(values[name].(*string))
 			val.SetString(value)
 		default:
-			return fmt.Errorf("Invalid type in config %q (field %q)", val.Type().Name(), k)
+			return fmt.Errorf("invalid type in config %q (field %q)", val.Type().Name(), k)
 		}
 	}
 	return nil
 }
 
-func configFields(value reflect.Value) (fieldMap, error) {
+func configFields(config interface{}) (fieldMap, error) {
+	value := reflect.ValueOf(config)
+	for value.Kind() == reflect.Ptr {
+		if value.IsNil() {
+			value.Set(reflect.New(value.Type().Elem()))
+		}
+		value = value.Elem()
+	}
+	if !value.CanAddr() {
+		return nil, fmt.Errorf("config must be a pointer to a struct (it's %T)", config)
+	}
 	fields := make(fieldMap)
 	valueType := value.Type()
 	for ii := 0; ii < value.NumField(); ii++ {
 		field := value.Field(ii)
 		if field.Type().Kind() == reflect.Struct {
-			subfields, err := configFields(field)
+			subfields, err := configFields(field.Addr().Interface())
 			if err != nil {
 				return nil, err
 			}
@@ -216,7 +270,7 @@ func configFields(value reflect.Value) (fieldMap, error) {
 			if def := sfield.Tag.Get("default"); def != "" {
 				err := parseValue(field, def)
 				if err != nil {
-					return nil, fmt.Errorf("Error parsing default value for field %q: %s", sfield.Name, err)
+					return nil, fmt.Errorf("error parsing default value for field %q: %s", sfield.Name, err)
 				}
 			}
 			err := fields.Append(sfield.Name, field, sfield.Tag)
@@ -228,17 +282,48 @@ func configFields(value reflect.Value) (fieldMap, error) {
 	return fields, nil
 }
 
+// Parse parses the application configuration into the given config struct. If
+// the configuration is parsed successfully, the signal signal.CONFIGURED is
+// emitted with the given config as its object (which sets the parameters
+// in gondola/defaults). Check the documentation on the gondola/signal package
+// to learn more about Gondola's signals.
+//
+// Supported types include bool, string, u?int(|8|6|32|62) and float(32|64). If
+// any config field type is not supported, an error is returned. Additionally,
+// two struct tags are taken into account. The "help" tag is used when to provide
+// a help string to the user when defining command like flags, while the "default"
+// tag is used to provide a default value for the field in case it hasn't been
+// provided as a config key nor a command line flag.
+//
+// The parsing process starts by reading the config file returned by Filename()
+// (which might be overriden by the -config command line flag), and then parses
+// any flags provided in the command line. This means any value in the config
+// file might be overriden by a command line flag.
+//
+// Go's idiomatic camel-cased struct field names are mangled into lowercase words
+// to produce the flag names and config fields. e.g. a field named "FooBar" will
+// produce a "-foo-bar" flag and a "foo_bar" config key. Embedded struct are
+// flattened, as if their fields were part of the container struct. Finally, while
+// not mandatory, is very recommended that your config struct embeds config.Config,
+// so the standard parameters for Gondola applications are already defined for you.
+// e.g.
+//
+//  var MyConfig struct {
+//	config.Config
+//	MyStringValue string
+//	MyIntValue int `help:"Some int used for something" default:"42"`
+//  }
+//
+//  func init() {
+//	config.MustParse(&MyConfig)
+//  }
+//  // Besides the Gondola's standard flags and keys, this config would define
+//  // the flags -my-string-value and -my-int-value as well as the config file keys
+//  // my_string_value and my_int_value.
+//
 func Parse(config interface{}) error {
 	configName = flag.String("config", defaultFilename, "Config file name")
-	value := reflect.ValueOf(config)
-	for kind := value.Kind(); kind == reflect.Interface || kind == reflect.Ptr; {
-		value = value.Elem()
-		kind = value.Kind()
-	}
-	if value.Kind() != reflect.Struct {
-		return fmt.Errorf("Config must be a struct or pointer to struct (it's %T)", config)
-	}
-	fields, err := configFields(value)
+	fields, err := configFields(config)
 	if err != nil {
 		return err
 	}
@@ -251,28 +336,22 @@ func Parse(config interface{}) error {
 	flag.Parse()
 	/* Read config file first */
 	if fn := Filename(); fn != "" {
-		f, err := os.Open(fn)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		err = parseConfigFile(f, fields)
-		if err != nil {
+		if err := parseFile(fn, fields); err != nil {
 			return err
 		}
 	}
 	/* Command line overrides config file */
-	err = copyFlagValues(fields, flagValues)
-	if err != nil {
+	if err := copyFlagValues(fields, flagValues); err != nil {
 		return err
 	}
 	signal.Emit(signal.CONFIGURED, config)
 	return nil
 }
 
+// MustParse works like Parse, but panics if there's an error.
 func MustParse(config interface{}) {
 	err := Parse(config)
 	if err != nil {
-		log.Panicf("Error parsing config: %s", err)
+		log.Panicf("error parsing config: %s", err)
 	}
 }

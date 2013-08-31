@@ -12,7 +12,8 @@ type StringFunc func(string) string
 // UnCamelCase separates the a camel-cased string into lowercase
 // using sep as the separator between words. Multiple uppercase
 // characters together are treated as a single word (e.g. TESTFoo
-// is interpreted as the words 'TEST' and 'Foo).
+// is interpreted as the words 'TEST' and 'Foo', while FooBAR is
+// intepreted as 'Foo' and 'BAR').
 func UnCamelCase(s string) []string {
 	ls := len(s)
 	switch ls {
@@ -25,7 +26,7 @@ func UnCamelCase(s string) []string {
 	var words []string
 	idx := 0
 	for ii, v := range runes[1 : ls-1] {
-		if unicode.IsUpper(v) && unicode.IsLower(runes[ii+2]) {
+		if unicode.IsUpper(v) && (unicode.IsLower(runes[ii+2]) || unicode.IsLower(runes[ii])) {
 			n := ii + 1
 			words = append(words, string(runes[idx:n]))
 			idx = n

@@ -27,6 +27,7 @@ func TestCamelCaseToLower(t *testing.T) {
 		"FooBarBaz": "foo_bar_baz",
 		"FOOBarBaz": "foo_bar_baz",
 		"TEST":      "test",
+		"goLANG":    "go_lang",
 		"":          "",
 		"T":         "t",
 		"t":         "t",

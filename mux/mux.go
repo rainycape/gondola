@@ -5,6 +5,7 @@
 package mux
 
 import (
+	"bytes"
 	"fmt"
 	"gondola/assets"
 	"gondola/cache"
@@ -618,17 +619,47 @@ func (mux *Mux) logError(ctx *Context, err interface{}) {
 		// which are the ones finally calling panic()
 		skip += 2
 	}
+	var buf bytes.Buffer
+	if ctx.R != nil {
+		buf.WriteString("Panic serving ")
+		buf.WriteString(ctx.R.Method)
+		buf.WriteByte(' ')
+		buf.WriteString(ctx.R.URL.String())
+		buf.WriteByte(' ')
+		buf.WriteString(ctx.R.RemoteAddr)
+		buf.WriteString(": ")
+	} else {
+		buf.WriteString("Panic: ")
+	}
+	buf.WriteString(fmt.Sprintf("%v", err))
+	buf.WriteByte('\n')
 	// Skip 2 frames for formatting the stack: logError and recover
 	stack := runtimeutil.FormatStack(2)
 	location, code := runtimeutil.FormatCaller(skip, 5, true, true)
-	req := ""
-	dump, derr := httputil.DumpRequest(ctx.R, true)
-	if derr == nil {
-		// This cleans up empty lines and replaces \r\n with \n
-		req = util.Lines(string(dump), 0, 10000, true)
+	if location != "" {
+		buf.WriteString("\n At ")
+		buf.WriteString(location)
+		if code != "" {
+			buf.WriteByte('\n')
+			buf.WriteString(code)
+			buf.WriteByte('\n')
+		}
 	}
-	log.Errorf("Panic serving %v %v %v: %v\n\n%s\n%s\n\n\nStack:\n%s\nRequest:\n%s",
-		ctx.R.Method, ctx.R.URL, ctx.R.RemoteAddr, err, location, code, stack, req)
+	if stack != "" {
+		buf.WriteString("\nStack:\n")
+		buf.WriteString(stack)
+	}
+	req := ""
+	if ctx.R != nil {
+		dump, derr := httputil.DumpRequest(ctx.R, true)
+		if derr == nil {
+			// This cleans up empty lines and replaces \r\n with \n
+			req = util.Lines(string(dump), 0, 10000, true)
+			buf.WriteString("\nRequest:\n")
+			buf.WriteString(req)
+		}
+	}
+	log.Error(buf.String())
 	if mux.debug {
 		mux.errorPage(ctx, skip, req, err)
 	} else {

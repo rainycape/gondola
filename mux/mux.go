@@ -767,12 +767,13 @@ func (mux *Mux) CloseContext(ctx *Context) {
 	}
 	ctx.Close()
 	if mux.Logger != nil && ctx.R != nil {
+		// Log at most with Warning level, to avoid potentially generating
+		// an email to the admin when running in production mode. If there
+		// was an error while processing this request, it has been already
+		// emailed to the admin, along the stack trace, in recover().
 		level := log.LInfo
-		switch {
-		case ctx.statusCode >= 400 && ctx.statusCode < 500:
+		if ctx.statusCode >= 400 {
 			level = log.LWarning
-		case ctx.statusCode >= 500:
-			level = log.LError
 		}
 		mux.Logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.RequestURI, ctx.R.RemoteAddr,
 			strconv.Itoa(ctx.statusCode), ctx.Elapsed().String()}, " "))

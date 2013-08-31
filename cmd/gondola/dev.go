@@ -201,6 +201,7 @@ func (p *Project) StartMonitoring() error {
 			return err
 		}
 	}
+	watcher.Watch(p.Conf())
 	p.watcher = watcher
 	go func() {
 		var t *time.Timer
@@ -214,13 +215,35 @@ func (p *Project) StartMonitoring() error {
 				}
 				ext := filepath.Ext(strings.ToLower(ev.Name))
 				if ext != ".go" && ext != ".h" && ext != ".c" && ext != ".s" && ext != ".cpp" && ext != ".cxx" {
-					continue
+					if ext == ".conf" {
+						if ev.IsModify() {
+							log.Debugf("Config file %s changed, restarting...", p.Conf())
+							if err := p.Stop(); err != nil {
+								log.Errorf("Error stopping %s: %s", p.Name(), err)
+								break
+							}
+							if err := p.Start(); err != nil {
+								log.Panicf("Error starting %s: %s", p.Name(), err)
+							}
+						} else if ev.IsDelete() {
+							// It seems the Watcher stops watching a file
+							// if it receives a DELETE event for it. For some
+							// reason, some editors generate a DELETE event
+							// for a file when saving it, so we must watch the
+							// file again. Since fsnotify is in exp/ and its
+							// API might change, remove the watch first, just
+							// in case.
+							watcher.RemoveWatch(ev.Name)
+							watcher.Watch(ev.Name)
+						}
+					}
+					break
 				}
 				if t != nil {
 					t.Stop()
 				}
 				if p.building {
-					continue
+					break
 				}
 				t = time.AfterFunc(50*time.Millisecond, func() {
 					p.Compile()

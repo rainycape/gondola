@@ -344,6 +344,14 @@ func (p *Project) Compile() {
 			}
 			if strings.HasPrefix(eline, "#") {
 				pkg = strings.TrimSpace(eline[1:])
+			} else if strings.HasPrefix(eline, "\t") {
+				// Info related to the previous error. Let it
+				// crash if we don't have a previous error, just
+				// in case there are any circumstances where a line
+				// starting with \t means something else in the future.
+				// This way the problem will be easier to catch.
+				be := p.errors[len(p.errors)-1]
+				be.Error += fmt.Sprintf(" (%s)", strings.TrimSpace(eline))
 			} else {
 				parts := strings.SplitN(eline, ":", 3)
 				filename := filepath.Clean(filepath.Join(p.dir, parts[0]))

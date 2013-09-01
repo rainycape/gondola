@@ -36,6 +36,10 @@ func cmdString(cmd *exec.Cmd) string {
 	return strings.Join(cmd.Args, " ")
 }
 
+func supportsRace() bool {
+	return runtime.GOARCH == "amd64" && (runtime.GOOS == "linux" || runtime.GOOS == "darwin" || runtime.GOOS == "windows")
+}
+
 func randomFreePort() int {
 	for {
 		mp := rand.Intn(65000)
@@ -70,11 +74,12 @@ func (b *BuildError) Code() template.HTML {
 	return s
 }
 
-func NewProject(dir string, config string, tags string) *Project {
+func NewProject(dir string, config string, tags string, race bool) *Project {
 	p := &Project{
 		dir:    dir,
 		config: config,
 		tags:   tags,
+		race:   race,
 	}
 	m := mux.New()
 	m.Logger = nil
@@ -93,6 +98,7 @@ type Project struct {
 	config         string
 	configFilename string
 	tags           string
+	race           bool
 	port           int
 	muxPort        int
 	building       bool
@@ -315,6 +321,9 @@ func (p *Project) GoCmd(args ...string) *exec.Cmd {
 func (p *Project) CompilerCmd() *exec.Cmd {
 	// -e reports all the errors
 	args := []string{"build", "-gcflags", "-e"}
+	if p.race && supportsRace() {
+		args = append(args, "-race")
+	}
 	if p.tags != "" {
 		args = append(args, []string{"-tags", p.tags}...)
 	}
@@ -405,7 +414,11 @@ func (p *Project) Compile() {
 	}
 	// Build dependencies, to speed up future builds
 	go func() {
-		p.GoCmd("test", "-i").Run()
+		args := []string{"test", "-i"}
+		if p.race && supportsRace() {
+			args = append(args, "-race")
+		}
+		p.GoCmd(args...).Run()
 	}()
 	p.building = false
 }
@@ -481,14 +494,16 @@ func Dev(ctx *mux.Context) {
 	var dir string
 	var configName string
 	var tags string
+	var race bool
 	ctx.ParseParamValue("dir", &dir)
 	ctx.ParseParamValue("config", &configName)
 	ctx.ParseParamValue("tags", &tags)
+	ctx.ParseParamValue("race", &race)
 	path, err := filepath.Abs(dir)
 	if err != nil {
 		log.Panic(err)
 	}
-	p := NewProject(path, configName, tags)
+	p := NewProject(path, configName, tags, race)
 	if c := p.Conf(); c == "" {
 		log.Panicf("can't find configuration for %s. Please, create a config file in the directory %s (its extension must be .conf)", p.Name(), p.ConfDir())
 	} else {
@@ -533,6 +548,7 @@ func init() {
 			admin.StringFlag("config", "", "Configuration name to use. If none is provided, development.conf is used."),
 			admin.StringFlag("tags", "", "Go build tags to pass to the compiler"),
 			admin.IntFlag("port", 0, "Port to listen on. If zero, the project configuration is parsed to look for the port. If none is found, 8888 is used."),
+			admin.BoolFlag("race", false, "Enable -race when building. If the platform does not support -race, this option is ignored."),
 		),
 	})
 }

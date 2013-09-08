@@ -310,8 +310,8 @@ func configFields(config interface{}) (fieldMap, error) {
 //
 //  var MyConfig struct {
 //	config.Config
-//	MyStringValue string
-//	MyIntValue int `help:"Some int used for something" default:"42"`
+//	MyStringValue	string
+//	MyINTValue	int `help:"Some int used for something" default:"42"`
 //  }
 //
 //  func init() {

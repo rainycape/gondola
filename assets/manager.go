@@ -49,8 +49,8 @@ func NewAssetsManager(loader loaders.Loader, prefix string) Manager {
 }
 
 func (m *AssetsManager) watch() {
-	if fsloader, ok := m.Loader.(loaders.FSLoader); ok {
-		watcher, err := NewWatcher(fsloader.Dir(), func(name string, deleted bool) {
+	if dirloader, ok := m.Loader.(loaders.DirLoader); ok {
+		watcher, err := NewWatcher(dirloader.Dir(), func(name string, deleted bool) {
 			m.mutex.RLock()
 			_, ok := m.cache[name]
 			m.mutex.RUnlock()
@@ -70,12 +70,12 @@ func (m *AssetsManager) watch() {
 			}
 		})
 		if err != nil {
-			log.Warningf("Error creating watcher for %s: %s", fsloader.Dir, err)
+			log.Warningf("Error creating watcher for %s: %s", dirloader.Dir, err)
 		} else if watcher != nil {
 			if err := watcher.Watch(); err == nil {
 				m.watcher = watcher
 			} else {
-				log.Warningf("Error watching %s: %s", fsloader.Dir, err)
+				log.Warningf("Error watching %s: %s", dirloader.Dir, err)
 				watcher.Close()
 			}
 		}

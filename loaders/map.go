@@ -8,14 +8,6 @@ import (
 	"time"
 )
 
-type reader struct {
-	*bytes.Reader
-}
-
-func (r *reader) Close() error {
-	return nil
-}
-
 type writer struct {
 	*bytes.Buffer
 	name   string

@@ -556,7 +556,7 @@ func AddFuncs(f FuncMap) {
 // the tmpl directory, relative to the application
 // binary.
 func DefaultTemplateLoader() loaders.Loader {
-	return loaders.NewFSLoader(util.RelativePath("tmpl"))
+	return loaders.FSLoader(util.RelativePath("tmpl"))
 }
 
 // New returns a new template with the given loader and assets

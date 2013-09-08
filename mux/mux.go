@@ -450,7 +450,7 @@ func (mux *Mux) SetPort(port int) {
 // that /favicon.ico and /robots.txt will be handled too, but they
 // will must be in the directory which contains the rest of the assets.
 func (mux *Mux) HandleAssets(prefix string, dir string) {
-	loader := loaders.NewFSLoader(dir)
+	loader := loaders.FSLoader(dir)
 	mux.SetAssetsManager(assets.NewAssetsManager(loader, prefix))
 	assetsHandler := assets.Handler(mux.assetsManager)
 	handler := func(ctx *Context) {

@@ -8,11 +8,6 @@ import (
 	"time"
 )
 
-type FSLoader interface {
-	Loader
-	Dir() string
-}
-
 type fsloader struct {
 	dir string
 }
@@ -36,6 +31,6 @@ func (f *fsloader) Create(name string) (io.WriteCloser, error) {
 	return os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 }
 
-func NewFSLoader(dir string) Loader {
+func FSLoader(dir string) Loader {
 	return &fsloader{dir: dir}
 }

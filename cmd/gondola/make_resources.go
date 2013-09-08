@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/flate"
 	"fmt"
 	"go/build"
 	"go/format"
@@ -14,11 +15,13 @@ import (
 	"strings"
 )
 
-func TemplatesMap(ctx *mux.Context) {
+func MakeResources(ctx *mux.Context) {
 	var dir string
 	var name string
 	extensions := map[string]struct{}{
 		".html": struct{}{},
+		".css":  struct{}{},
+		".js":   struct{}{},
 	}
 	ctx.ParseParamValue("dir", &dir)
 	if dir == "" {
@@ -45,6 +48,8 @@ func TemplatesMap(ctx *mux.Context) {
 	}
 	var out string
 	ctx.ParseParamValue("out", &out)
+	var useFlate bool
+	ctx.ParseParamValue("flate", &useFlate)
 	var buf bytes.Buffer
 	if out != "" {
 		// Try to guess package name. Do it before writing the file, otherwise the package becomes invalid.
@@ -56,7 +61,11 @@ func TemplatesMap(ctx *mux.Context) {
 	}
 	buf.WriteString("import \"gondola/loaders\"\n")
 	buf.WriteString(fmt.Sprintf("// AUTOMATICALLY GENERATED WITH %s. DO NOT EDIT!\n", strings.Join(os.Args, " ")))
-	buf.WriteString(fmt.Sprintf("var %s = loaders.MapLoader(map[string][]byte{\n", name))
+	if useFlate {
+		buf.WriteString(fmt.Sprintf("var %s = loaders.FlateLoader(loaders.MapLoader(map[string][]byte{\n", name))
+	} else {
+		buf.WriteString(fmt.Sprintf("var %s = loaders.MapLoader(map[string][]byte{\n", name))
+	}
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -66,6 +75,20 @@ func TemplatesMap(ctx *mux.Context) {
 				contents, err := ioutil.ReadFile(path)
 				if err != nil {
 					return fmt.Errorf("error reading %s: %s", path, err)
+				}
+				if useFlate {
+					var cbuf bytes.Buffer
+					w, err := flate.NewWriter(&cbuf, flate.BestCompression)
+					if err != nil {
+						return fmt.Errorf("error compressing %s: %s", path, err)
+					}
+					if _, err := w.Write(contents); err != nil {
+						return fmt.Errorf("error compressing %s: %s", path, err)
+					}
+					if err := w.Close(); err != nil {
+						return fmt.Errorf("error compressing %s: %s", path, err)
+					}
+					contents = cbuf.Bytes()
 				}
 				rel := path[len(dir):]
 				if rel[0] == '/' {
@@ -90,7 +113,11 @@ func TemplatesMap(ctx *mux.Context) {
 	if err != nil {
 		panic(err)
 	}
-	buf.WriteString("})\n")
+	buf.WriteString("})")
+	if useFlate {
+		buf.WriteString(")")
+	}
+	buf.WriteString("\n")
 	b, err := format.Source(buf.Bytes())
 	if err != nil {
 		panic(err)
@@ -120,14 +147,15 @@ func TemplatesMap(ctx *mux.Context) {
 }
 
 func init() {
-	admin.Register(TemplatesMap, &admin.Options{
-		Help: "Converts all templates in <dir> into Go code and generates a MapLoader named with <name>",
+	admin.Register(MakeResources, &admin.Options{
+		Help: "Converts all resources in <dir> into Go code and generates a Loader named with <name>",
 		Flags: admin.Flags(
 			admin.StringFlag("dir", "", "Directory with the html templates"),
 			admin.StringFlag("name", "", "Name of the generated MapLoader"),
 			admin.StringFlag("out", "", "Output filename. If empty, output is printed to standard output"),
+			admin.BoolFlag("flate", false, "Compress resources with flate when generating the code"),
 			admin.BoolFlag("f", false, "When creating output file, overwrite any existing file with the same name"),
-			admin.StringFlag("extensions", "", "Additional extensions (besides .html) to include, separated by commas"),
+			admin.StringFlag("extensions", "", "Additional extensions (besides html, css and js) to include, separated by commas"),
 		),
 	})
 }

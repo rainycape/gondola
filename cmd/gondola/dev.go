@@ -83,7 +83,7 @@ func NewProject(dir string, config string, tags string, race bool) *Project {
 	}
 	m := mux.New()
 	m.Logger = nil
-	m.SetTemplatesLoader(templates)
+	m.SetTemplatesLoader(resources)
 	m.HandleFunc("/", p.Handler)
 	m.SetPort(randomFreePort())
 	go func() {

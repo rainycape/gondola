@@ -85,9 +85,9 @@ func NewProject(dir string, config string, tags string, race bool) *Project {
 	m.Logger = nil
 	m.SetTemplatesLoader(templates)
 	m.HandleFunc("/", p.Handler)
-	p.muxPort = randomFreePort()
+	m.SetPort(randomFreePort())
 	go func() {
-		m.MustListenAndServe(p.muxPort)
+		m.MustListenAndServe()
 	}()
 	return p
 }

@@ -78,6 +78,8 @@ type Mux struct {
 	templateVars         map[string]interface{}
 	templateVarFuncs     map[string]reflect.Value
 	debug                bool
+	address              string
+	port                 int
 	mu                   sync.Mutex
 	c                    *cache.Cache
 	o                    *orm.Orm
@@ -409,6 +411,34 @@ func (mux *Mux) SetDebug(debug bool) {
 	mux.debug = debug
 }
 
+// Address returns the address this mux is configured to listen
+// on. By default, it's empty, meaning the mux will listen on
+// all interfaces.
+func (mux *Mux) Address() string {
+	return mux.address
+}
+
+// SetAddress changes the address this mux will listen on.
+func (mux *Mux) SetAddress(address string) {
+	mux.address = address
+}
+
+// Port returns the port this mux is configured to listen on.
+// By default, it's initialized with the value returned by Port()
+// in the defaults package (which can be altered using Gondola's
+// config).
+func (mux *Mux) Port() int {
+	return mux.port
+}
+
+// SetPort sets the port on which this mux will listen on. It's not
+// recommended to call this function manually. Instead, use gondola/config
+// to change the default port before creating the mux. Otherwise, Gondola's
+// development server won't work correctly.
+func (mux *Mux) SetPort(port int) {
+	mux.port = port
+}
+
 // HandleAssets adds several handlers to the mux which handle
 // assets efficiently and allows the use of the "assset"
 // function from the templates. This function will also modify the
@@ -476,27 +506,27 @@ func (mux *Mux) Reverse(name string, args ...interface{}) (string, error) {
 	return "", fmt.Errorf("No handler named %q", name)
 }
 
-// ListenAndServe Starts listening on all the interfaces on the given port.
-// If port is <= 0, defaults.Port() will be used instead
-// If you need more granularity you can use http.ListenAndServe() directly
-// e.g.
-// http.ListenAndServe("127.0.0.1:8000", mymux)
-func (mux *Mux) ListenAndServe(port int) error {
-	if port <= 0 {
-		port = defaults.Port()
-	}
+// ListenAndServe starts listening on the configured address and
+// port (see Address() and Port()).
+// This function is a shortcut for
+// http.ListenAndServe(mux.Address()+":"+strconv.Itoa(mux.Port()), mux)
+func (mux *Mux) ListenAndServe() error {
 	if mux.Logger != nil {
-		mux.Logger.Infof("Listening on port %d", port)
+		if mux.address != "" {
+			mux.Logger.Infof("Listening on %s, port %d", mux.address, mux.port)
+		} else {
+			mux.Logger.Infof("Listening on port %d", mux.port)
+		}
 	}
-	return http.ListenAndServe(":"+strconv.Itoa(port), mux)
+	return http.ListenAndServe(mux.address+":"+strconv.Itoa(mux.port), mux)
 }
 
 // MustListenAndServe works like ListenAndServe, but panics if
 // there's an error
-func (mux *Mux) MustListenAndServe(port int) {
-	err := mux.ListenAndServe(port)
+func (mux *Mux) MustListenAndServe() {
+	err := mux.ListenAndServe()
 	if err != nil {
-		log.Panicf("Error listening on port %d: %s", port, err)
+		log.Panicf("error listening on port %d: %s", mux.port, err)
 	}
 }
 
@@ -836,6 +866,7 @@ func (mux *Mux) isReservedVariable(va string) bool {
 func New() *Mux {
 	return &Mux{
 		debug:          defaults.Debug(),
+		port:           defaults.Port(),
 		secret:         defaults.Secret(),
 		encryptionKey:  defaults.EncryptionKey(),
 		appendSlash:    true,

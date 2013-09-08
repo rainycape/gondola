@@ -92,22 +92,22 @@ type Mux struct {
 
 // HandleFunc adds an anonymous handler. Anonymous handlers can't be reversed.
 func (mux *Mux) HandleFunc(pattern string, handler Handler) {
-	mux.HandleHostNamedFunc(pattern, handler, "", "")
+	mux.HandleHostNamedFunc(pattern, "", "", handler)
 }
 
 // HandleNamedFunc adds named handler. Named handlers can be reversed using
 // Mux.Reverse() or the "reverse" function in the templates.
-func (mux *Mux) HandleNamedFunc(pattern string, handler Handler, name string) {
-	mux.HandleHostNamedFunc(pattern, handler, "", name)
+func (mux *Mux) HandleNamedFunc(pattern string, name string, handler Handler) {
+	mux.HandleHostNamedFunc(pattern, "", name, handler)
 }
 
 // HandleHostFunc works like HandleFunc(), but restricts matches to the given host.
-func (mux *Mux) HandleHostFunc(pattern string, handler Handler, host string) {
-	mux.HandleHostNamedFunc(pattern, handler, host, "")
+func (mux *Mux) HandleHostFunc(pattern string, host string, handler Handler) {
+	mux.HandleHostNamedFunc(pattern, host, "", handler)
 }
 
 // HandleHostNamedFunc works like HandleNamedFunc(), but restricts matches to the given host.
-func (mux *Mux) HandleHostNamedFunc(pattern string, handler Handler, host string, name string) {
+func (mux *Mux) HandleHostNamedFunc(pattern string, host string, name string, handler Handler) {
 	re := regexp.MustCompile(pattern)
 	info := &handlerInfo{
 		host:    host,

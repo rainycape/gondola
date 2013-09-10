@@ -702,7 +702,7 @@ func (mux *Mux) logError(ctx *Context, err interface{}) {
 }
 
 func (mux *Mux) errorPage(ctx *Context, skip int, req string, err interface{}) {
-	t := newTemplate(mux, templates)
+	t := newTemplate(mux, muxAssets)
 	if terr := t.Parse("panic.html"); terr != nil {
 		panic(terr)
 	}

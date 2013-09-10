@@ -225,11 +225,11 @@ func BenchmarkJsonCache(b *testing.B) {
 }
 
 func BenchmarkPrefixCache(b *testing.B) {
-	benchmarkCache(b, "memory://?prefix=foo")
+	benchmarkCache(b, "memory://?prefix=foo&codec=gob")
 }
 
 func BenchmarkPrefixJsonCache(b *testing.B) {
-	benchmarkCache(b, "memory://?prefix=foo&codec=gob")
+	benchmarkCache(b, "memory://?prefix=foo&codec=json")
 }
 
 func init() {

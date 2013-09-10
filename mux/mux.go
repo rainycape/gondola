@@ -539,20 +539,24 @@ func (mux *Mux) MustListenAndServe() {
 // some methods (like NumQueries()) will be completely
 // inaccurate because they will count all the queries made
 // since the mux initialization.
-func (mux *Mux) Cache() *cache.Cache {
+func (mux *Mux) Cache() (*cache.Cache, error) {
 	if mux.c == nil {
 		mux.mu.Lock()
 		defer mux.mu.Unlock()
 		if mux.c == nil {
-			mux.c = cache.NewDefault()
+			var err error
+			mux.c, err = cache.New(defaults.Cache())
+			if err != nil {
+				return nil, err
+			}
 			if mux.debug {
 				c := mux.c
 				mux.c = nil
-				return c
+				return c, nil
 			}
 		}
 	}
-	return mux.c
+	return mux.c, nil
 }
 
 // Mux returns this mux's ORM connection, using the

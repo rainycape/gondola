@@ -339,10 +339,14 @@ func (c *Context) Cookies() *cookies.Cookies {
 	return c.cookies
 }
 
-// Cache is a shorthand for ctx.Mux().Cache().
+// Cache is a shorthand for ctx.Mux().Cache(), but panics in case
+// of error, instead of returning it.
 func (c *Context) Cache() *cache.Cache {
 	if c.mux.c == nil {
-		cache := c.mux.Cache()
+		cache, err := c.mux.Cache()
+		if err != nil {
+			panic(err)
+		}
 		if c.mux.debug {
 			c.storeDebug(debugCacheKey, cache)
 			return cache

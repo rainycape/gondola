@@ -5,9 +5,9 @@ import (
 )
 
 var (
-	JsonCodec = &Codec{Encode: json.Marshal, Decode: json.Unmarshal}
+	jsonCodec = &Codec{Encode: json.Marshal, Decode: json.Unmarshal}
 )
 
 func init() {
-	Register("json", JsonCodec)
+	Register("json", jsonCodec)
 }

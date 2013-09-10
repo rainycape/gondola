@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	GobCodec = &Codec{Encode: gobMarshal, Decode: gobUnmarshal}
+	gobCodec = &Codec{Encode: gobMarshal, Decode: gobUnmarshal}
 )
 
 func gobMarshal(v interface{}) ([]byte, error) {
@@ -22,5 +22,5 @@ func gobUnmarshal(data []byte, v interface{}) error {
 }
 
 func init() {
-	Register("gob", GobCodec)
+	Register("gob", gobCodec)
 }

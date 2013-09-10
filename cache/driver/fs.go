@@ -91,11 +91,13 @@ func (f *FileSystemDriver) Connection() interface{} {
 	return nil
 }
 
+func fsOpener(value string, o Options) (Driver, error) {
+	if !filepath.IsAbs(value) {
+		value = util.RelativePath(value)
+	}
+	return &FileSystemDriver{Root: value}, nil
+}
+
 func init() {
-	Register("file", func(value string, o Options) Driver {
-		if !filepath.IsAbs(value) {
-			value = util.RelativePath(value)
-		}
-		return &FileSystemDriver{Root: value}
-	})
+	Register("file", fsOpener)
 }

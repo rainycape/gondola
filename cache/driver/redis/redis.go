@@ -2,9 +2,9 @@
 package redis
 
 import (
+	"fmt"
 	"github.com/vmihailenco/redis"
 	"gondola/cache/driver"
-	"fmt"
 	"strconv"
 )
 
@@ -63,7 +63,7 @@ func redisOpener(value string, o driver.Options) (driver.Driver, error) {
 	if d := o.Get("db"); d != "" {
 		val, err := strconv.ParseInt(d, 0, 64)
 		if err != nil {
-		    return nil, fmt.Errorf("invalid db %q, must be an integer", d)
+			return nil, fmt.Errorf("invalid db %q, must be an integer", d)
 		}
 		db = val
 	}

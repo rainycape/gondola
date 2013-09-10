@@ -25,12 +25,12 @@ func MakeResources(ctx *mux.Context) {
 	}
 	ctx.ParseParamValue("dir", &dir)
 	if dir == "" {
-		fmt.Fprintf(os.Stderr, "dir can't be empty")
+		fmt.Fprintf(os.Stderr, "dir can't be empty\n")
 		return
 	}
 	ctx.ParseParamValue("name", &name)
 	if name == "" {
-		fmt.Fprintf(os.Stderr, "name can't be empty")
+		fmt.Fprintf(os.Stderr, "name can't be empty\n")
 		return
 	}
 	var exts string

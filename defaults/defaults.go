@@ -8,7 +8,6 @@ package defaults
 
 import (
 	"fmt"
-	"gondola/cache"
 	"gondola/log"
 	"gondola/mail"
 	"gondola/signal"
@@ -24,6 +23,7 @@ var (
 	errorLoggingEnabled = false
 	databaseDriver      = ""
 	databaseSource      = ""
+	cache               = ""
 )
 
 // Port returns the default port used by Mux.
@@ -163,13 +163,13 @@ func SetDatabase(d string) {
 
 // Cache returns the default cache
 func Cache() string {
-	return cache.Default()
+	return cache
 }
 
 // SetCache sets the default cache. See the documentation on
 // gondola/cache for details about the string format.
 func SetCache(value string) {
-	cache.SetDefault(value)
+	cache = value
 }
 
 func enableMailErrorLogging() {

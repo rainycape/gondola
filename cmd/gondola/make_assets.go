@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-func MakeResources(ctx *mux.Context) {
+func MakeAssets(ctx *mux.Context) {
 	var dir string
 	var name string
 	extensions := map[string]struct{}{
@@ -147,8 +147,8 @@ func MakeResources(ctx *mux.Context) {
 }
 
 func init() {
-	admin.Register(MakeResources, &admin.Options{
-		Help: "Converts all resources in <dir> into Go code and generates a Loader named with <name>",
+	admin.Register(MakeAssets, &admin.Options{
+		Help: "Converts all assets in <dir> into Go code and generates a Loader named with <name>",
 		Flags: admin.Flags(
 			admin.StringFlag("dir", "", "Directory with the html templates"),
 			admin.StringFlag("name", "", "Name of the generated MapLoader"),

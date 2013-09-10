@@ -2,8 +2,8 @@ package main
 
 import "gondola/loaders"
 
-// AUTOMATICALLY GENERATED WITH ./gondola make-resources --dir ../../mux/_templates -name resources -f -flate -out resources.go. DO NOT EDIT!
-var resources = loaders.FlateLoader(loaders.MapLoader(map[string][]byte{
+// AUTOMATICALLY GENERATED WITH gondola make-assets --dir ../../mux/_assets -name assets -f -flate -out assets.go. DO NOT EDIT!
+var assets = loaders.FlateLoader(loaders.MapLoader(map[string][]byte{
 	"base.html": []byte{0xBC,
 		0x56, 0x5D, 0x6F, 0xDB, 0x36, 0x17, 0xBE, 0xD7,
 		0xAF, 0x60, 0x53, 0xBC, 0xE8, 0x07, 0x24, 0xCB,

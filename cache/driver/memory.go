@@ -50,7 +50,24 @@ func (d *MemoryDriver) Get(key string) ([]byte, error) {
 }
 
 func (d *MemoryDriver) GetMulti(keys []string) (map[string][]byte, error) {
-	return nil, nil
+	items := make(map[string]*item, len(keys))
+	cache.RLock()
+	for _, v := range keys {
+		items[v] = cache.items[v]
+	}
+	cache.RUnlock()
+	results := make(map[string][]byte, len(keys))
+	now := time.Now().Unix()
+	for k, v := range items {
+		if v != nil {
+			if v.expires != 0 && v.expires < now {
+				d.deleteItem(k, v)
+				continue
+			}
+			results[k] = v.data
+		}
+	}
+	return results, nil
 }
 
 func (d *MemoryDriver) Delete(key string) error {
@@ -60,11 +77,15 @@ func (d *MemoryDriver) Delete(key string) error {
 	if item == nil {
 		return nil
 	}
+	d.deleteItem(key, item)
+	return nil
+}
+
+func (d *MemoryDriver) deleteItem(key string, i *item) {
 	cache.Lock()
 	delete(cache.items, key)
-	cache.size -= uint64(len(item.data))
+	cache.size -= uint64(len(i.data))
 	cache.Unlock()
-	return nil
 }
 
 func (d *MemoryDriver) Close() error {

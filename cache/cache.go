@@ -19,6 +19,9 @@ var (
 )
 
 type Cache struct {
+	// The Logger to log debug messages and, more importantly, errors.
+	// New() initialies the Logger to log.Std.
+	Logger            *log.Logger
 	prefix            string
 	prefixLen         int
 	driver            driver.Driver
@@ -52,7 +55,7 @@ func (c *Cache) Set(key string, object interface{}, timeout int) error {
 			codec: true,
 			err:   err,
 		}
-		log.Error(eerr)
+		c.error(eerr)
 		return eerr
 	}
 	return c.SetBytes(key, b, timeout)
@@ -76,7 +79,7 @@ func (c *Cache) Get(key string, obj interface{}) error {
 			codec: true,
 			err:   cerr,
 		}
-		log.Error(derr)
+		c.error(derr)
 		return derr
 	}
 	return nil
@@ -105,7 +108,7 @@ func (c *Cache) GetMulti(keys []string, obj interface{}) (map[string]interface{}
 			key: strings.Join(keys, ", "),
 			err: err,
 		}
-		log.Error(gerr)
+		c.error(gerr)
 		return nil, gerr
 	}
 	objects := make(map[string]interface{}, len(data))
@@ -132,7 +135,7 @@ func (c *Cache) GetMulti(keys []string, obj interface{}) (map[string]interface{}
 				key: k,
 				err: err,
 			}
-			log.Error(derr)
+			c.error(derr)
 			return nil, derr
 		}
 		objects[c.frontendKey(k)] = object
@@ -155,10 +158,10 @@ func (c *Cache) SetBytes(key string, b []byte, timeout int) error {
 				cb := buf.Bytes()
 				if cl := len(cb); cl < l {
 					b = cb
-					log.Debugf("Compressed key %s from %d bytes to %d bytes", key, l, cl)
+					c.debugf("Compressed key %s from %d bytes to %d bytes", key, l, cl)
 				}
 			} else {
-				log.Warningf("error opening zlib writer: %s", err)
+				c.warningf("error opening zlib writer: %s", err)
 			}
 		}
 	}
@@ -170,10 +173,10 @@ func (c *Cache) SetBytes(key string, b []byte, timeout int) error {
 			key: key,
 			err: err,
 		}
-		log.Error(serr)
+		c.error(serr)
 		return serr
 	}
-	log.Debugf("Set key %s (%d bytes), expiring in %d", k, len(b), timeout)
+	c.debugf("Set key %s (%d bytes), expiring in %d", k, len(b), timeout)
 	return nil
 }
 
@@ -187,7 +190,7 @@ func (c *Cache) GetBytes(key string) ([]byte, error) {
 			key: key,
 			err: err,
 		}
-		log.Error(gerr)
+		c.error(gerr)
 		return nil, gerr
 	}
 	if b == nil {
@@ -222,7 +225,7 @@ func (c *Cache) Delete(key string) error {
 			key: key,
 			err: err,
 		}
-		log.Error(derr)
+		c.error(derr)
 		return derr
 	}
 	return nil
@@ -249,11 +252,30 @@ func (c *Cache) Connection() interface{} {
 	return c.driver.Connection()
 }
 
+func (c *Cache) debugf(format string, arg ...interface{}) {
+	if c.Logger != nil {
+		c.Logger.Debugf(format, arg...)
+	}
+}
+
+func (c *Cache) warningf(format string, arg ...interface{}) {
+	if c.Logger != nil {
+		c.Logger.Warningf(format, arg...)
+	}
+}
+
+func (c *Cache) error(err *cacheError) {
+	if c.Logger != nil {
+		c.Logger.Error(err)
+	}
+}
+
 func newConfig(config *config) (*Cache, error) {
 	if config.Options == nil {
 		config.Options = driver.Options{}
 	}
 	cache := &Cache{
+		Logger:            log.Std,
 		minCompressLength: -1,
 		compressLevel:     zlib.DefaultCompression,
 	}

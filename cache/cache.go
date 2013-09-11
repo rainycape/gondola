@@ -9,7 +9,9 @@ import (
 	"gondola/cache/driver"
 	"gondola/log"
 	"io"
+	"reflect"
 	"strconv"
+	"strings"
 )
 
 var (
@@ -18,6 +20,7 @@ var (
 
 type Cache struct {
 	prefix            string
+	prefixLen         int
 	driver            driver.Driver
 	codec             *codec.Codec
 	minCompressLength int
@@ -25,19 +28,15 @@ type Cache struct {
 	numQueries        int
 }
 
-func (c *Cache) manipulatesKeys() bool {
-	return c.prefix != ""
-}
-
 func (c *Cache) backendKey(key string) string {
-	return c.prefix + key
+	if c.prefixLen > 0 {
+		return c.prefix + key
+	}
+	return key
 }
 
 func (c *Cache) frontendKey(key string) string {
-	if c.prefix != "" {
-		return key[len(c.prefix):]
-	}
-	return key
+	return key[c.prefixLen:]
 }
 
 // Set stores the given object in the cache associated with the
@@ -47,8 +46,14 @@ func (c *Cache) frontendKey(key string) string {
 func (c *Cache) Set(key string, object interface{}, timeout int) error {
 	b, err := c.codec.Encode(object)
 	if err != nil {
-		log.Logf(c.errLevel(err), "error encoding object for key %s: %s", key, err)
-		return err
+		eerr := &cacheError{
+			op:    "encoding object",
+			key:   key,
+			codec: true,
+			err:   err,
+		}
+		log.Error(eerr)
+		return eerr
 	}
 	return c.SetBytes(key, b, timeout)
 }
@@ -63,19 +68,30 @@ func (c *Cache) Get(key string, obj interface{}) error {
 	if err != nil {
 		return err
 	}
-	err = c.codec.Decode(b, obj)
-	if err != nil {
-		log.Logf(c.errLevel(err), "error decoding object for key %s: %s", key, err)
-		return err
+	cerr := c.codec.Decode(b, obj)
+	if cerr != nil {
+		derr := &cacheError{
+			op:    "decoding object",
+			key:   key,
+			codec: true,
+			err:   cerr,
+		}
+		log.Error(derr)
+		return derr
 	}
 	return nil
 }
 
 // GetMulti returns several objects as a map[string]interface{}
-// in only one roundtrip to the cache
-func (c *Cache) GetMulti(keys []string) map[string]interface{} {
+// in only one roundtrip to the cache. The obj parameter is used only
+// to initialize the objects before they're passed to the codec for decoding,
+// since not all codecs include the object type in its serialization (e.g. JSON).
+// If you're using a codec which encodes the object type (e.g. Gob) or you want
+// to decode the objects into a raw interface{} you might pass nil as the second
+// parameter to this function.
+func (c *Cache) GetMulti(keys []string, obj interface{}) (map[string]interface{}, error) {
 	c.numQueries++
-	if c.manipulatesKeys() {
+	if c.prefixLen > 0 {
 		k := make([]string, len(keys))
 		for ii, v := range keys {
 			k[ii] = c.backendKey(v)
@@ -84,32 +100,44 @@ func (c *Cache) GetMulti(keys []string) map[string]interface{} {
 	}
 	data, err := c.driver.GetMulti(keys)
 	if err != nil {
-		log.Logf(c.errLevel(err), "Error querying cache for keys %v: %v", keys, err)
-		return nil
+		gerr := &cacheError{
+			op:  "getting multiple keys",
+			key: strings.Join(keys, ", "),
+			err: err,
+		}
+		log.Error(gerr)
+		return nil, gerr
 	}
 	objects := make(map[string]interface{}, len(data))
-	if c.manipulatesKeys() {
-		for k, v := range data {
-			var object interface{}
-			err := c.codec.Decode(v, &object)
-			if err != nil {
-				log.Logf(c.errLevel(err), "Error decoding object for key %s: %s", k, err)
-				continue
-			}
-			objects[c.frontendKey(k)] = object
+	var typ *reflect.Type
+	if obj != nil {
+		t := reflect.TypeOf(obj)
+		for t.Kind() == reflect.Ptr {
+			t = t.Elem()
 		}
-	} else {
-		for k, v := range data {
-			var object interface{}
-			err := c.codec.Decode(v, &object)
-			if err != nil {
-				log.Logf(c.errLevel(err), "Error decoding object for key %s: %s", k, err)
-				continue
-			}
-			objects[k] = object
-		}
+		typ = &t
 	}
-	return objects
+	for k, v := range data {
+		var object interface{}
+		if typ != nil {
+			p := reflect.New(*typ)
+			err = c.codec.Decode(v, p.Interface())
+			object = p.Elem().Interface()
+		} else {
+			err = c.codec.Decode(v, &object)
+		}
+		if err != nil {
+			derr := &cacheError{
+				op:  "decoding object",
+				key: k,
+				err: err,
+			}
+			log.Error(derr)
+			return nil, derr
+		}
+		objects[c.frontendKey(k)] = object
+	}
+	return objects, nil
 }
 
 // SetBytes stores the given byte array assocciated with
@@ -130,16 +158,23 @@ func (c *Cache) SetBytes(key string, b []byte, timeout int) error {
 					log.Debugf("Compressed key %s from %d bytes to %d bytes", key, l, cl)
 				}
 			} else {
-				log.Warningf("Error opening zlib writer: %s", err)
+				log.Warningf("error opening zlib writer: %s", err)
 			}
 		}
 	}
-	log.Debugf("Setting key %s (%d bytes)", c.backendKey(key), len(b))
-	err := c.driver.Set(c.backendKey(key), b, timeout)
+	k := c.backendKey(key)
+	err := c.driver.Set(k, b, timeout)
 	if err != nil {
-		log.Logf(c.errLevel(err), "Error setting cache key %s: %s", key, err)
+		serr := &cacheError{
+			op:  "setting key",
+			key: key,
+			err: err,
+		}
+		log.Error(serr)
+		return serr
 	}
-	return err
+	log.Debugf("Set key %s (%d bytes), expiring in %d", k, len(b), timeout)
+	return nil
 }
 
 // GetBytes returns the byte array assocciated with the given key
@@ -147,8 +182,13 @@ func (c *Cache) GetBytes(key string) ([]byte, error) {
 	c.numQueries++
 	b, err := c.driver.Get(c.backendKey(key))
 	if err != nil {
-		log.Errorf("error getting cache key %s: %s", key, err)
-		return nil, err
+		gerr := &cacheError{
+			op:  "getting key",
+			key: key,
+			err: err,
+		}
+		log.Error(gerr)
+		return nil, gerr
 	}
 	if b == nil {
 		return nil, ErrNotFound
@@ -177,9 +217,15 @@ func (c *Cache) Delete(key string) error {
 	c.numQueries++
 	err := c.driver.Delete(c.backendKey(key))
 	if err != nil {
-		log.Logf(c.errLevel(err), "error deleting cache key %s: %s", key, err)
+		derr := &cacheError{
+			op:  "deleting",
+			key: key,
+			err: err,
+		}
+		log.Error(derr)
+		return derr
 	}
-	return err
+	return nil
 }
 
 // NumQueries returns the number of queries made to this
@@ -203,16 +249,6 @@ func (c *Cache) Connection() interface{} {
 	return c.driver.Connection()
 }
 
-func (c *Cache) errLevel(err interface{}) log.LLevel {
-	type temporarier interface {
-		Temporary() bool
-	}
-	if terr, ok := err.(temporarier); ok && terr.Temporary() {
-		return log.LWarning
-	}
-	return log.LError
-}
-
 func newConfig(config *config) (*Cache, error) {
 	if config.Options == nil {
 		config.Options = driver.Options{}
@@ -232,6 +268,7 @@ func newConfig(config *config) (*Cache, error) {
 	}
 
 	cache.prefix = config.Get("prefix")
+	cache.prefixLen = len(cache.prefix)
 
 	if mcl := config.Get("min_compress"); mcl != "" {
 		val, err := strconv.Atoi(mcl)

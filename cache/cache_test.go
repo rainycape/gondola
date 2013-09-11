@@ -15,11 +15,14 @@ import (
 type T interface {
 	Error(...interface{})
 	Errorf(string, ...interface{})
+	Logf(string, ...interface{})
 }
 
 var (
 	tests = []func(T, *Cache){
 		testSetGet,
+		testSetGetBasic,
+		testSetGetMulti,
 		testSetExpires,
 		testDelete,
 		testBytes,
@@ -36,6 +39,10 @@ func testPort(port int) bool {
 	}
 	conn.Close()
 	return true
+}
+
+func deepEqual(a interface{}, b interface{}) bool {
+	return reflect.DeepEqual(a, b)
 }
 
 type simple struct {
@@ -60,7 +67,7 @@ func testSetGet(t T, c *Cache) {
 	if err != nil {
 		t.Error(err)
 	} else {
-		if !reflect.DeepEqual(s1, s2) {
+		if !deepEqual(s1, s2) {
 			t.Errorf("different items (object from object): %v and %v", s1, s2)
 		}
 	}
@@ -70,7 +77,7 @@ func testSetGet(t T, c *Cache) {
 	if err != nil {
 		t.Error(err)
 	} else {
-		if !reflect.DeepEqual(s1, s3) {
+		if !deepEqual(s1, s3) {
 			t.Errorf("different items (object from pointer): %v and %v", s1, s3)
 		}
 	}
@@ -80,7 +87,7 @@ func testSetGet(t T, c *Cache) {
 	if err != nil {
 		t.Error(err)
 	} else {
-		if !reflect.DeepEqual(s1, *s4) {
+		if !deepEqual(s1, *s4) {
 			t.Errorf("different items (pointer from object): %v and %v", s1, *s4)
 		}
 	}
@@ -90,8 +97,66 @@ func testSetGet(t T, c *Cache) {
 	if err != nil {
 		t.Error(err)
 	} else {
-		if !reflect.DeepEqual(s1, *s5) {
+		if !deepEqual(s1, *s5) {
 			t.Errorf("different items (pointer from pointer): %v and %v", s1, *s5)
+		}
+	}
+}
+
+func testSetGetBasic(t T, c *Cache) {
+	a1 := 42
+	if err := c.Set("a", a1, 0); err != nil {
+		t.Error(err)
+	}
+	var a2 int
+	if err := c.Get("a", &a2); err != nil {
+		t.Error(err)
+	}
+	if !deepEqual(a1, a2) {
+		t.Errorf("%v != %v", a1, a2)
+	}
+	s1 := "fortytwo"
+	if err := c.Set("s", s1, 0); err != nil {
+		t.Error(err)
+	}
+	var s2 string
+	if err := c.Get("s", &s2); err != nil {
+		t.Error(err)
+	}
+	if !deepEqual(s1, s2) {
+		t.Errorf("%q != %q", s1, s2)
+	}
+}
+
+func testSetGetMulti(t T, c *Cache) {
+	items := [][]int{
+		[]int{0},
+		[]int{1},
+		[]int{2},
+		[]int{3},
+		[]int{4},
+	}
+	keys := make([]string, len(items))
+	for ii, v := range items {
+		key := fmt.Sprintf("i:%d", ii)
+		if err := c.Set(key, v, 0); err != nil {
+			t.Error(err)
+		}
+		keys[ii] = key
+	}
+	objs, err := c.GetMulti(keys, (*[]int)(nil))
+	//objs, err := c.GetMulti(keys, nil)
+	t.Logf("result from multi-get %v", objs)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(objs) != len(items) {
+		t.Errorf("expecting %d items in multi get, got %d", len(items), len(objs))
+	}
+	for ii, v := range items {
+		key := fmt.Sprintf("i:%d", ii)
+		if !deepEqual(v, objs[key]) {
+			t.Errorf("object in multi get different, %v (%T) and %v (%T)", v, v, objs[key], objs[key])
 		}
 	}
 }
@@ -133,7 +198,7 @@ func testBytes(t T, c *Cache) {
 	cb, err := c.GetBytes("b")
 	if err != nil {
 		t.Error(err)
-	} else if !reflect.DeepEqual(b, cb) {
+	} else if !deepEqual(b, cb) {
 		t.Error("cached bytes differ")
 	}
 }
@@ -183,7 +248,7 @@ func TestPrefix(t *testing.T) {
 	err = c2.Get(prefix+key, &s2)
 	if err != nil {
 		t.Error(err)
-	} else if !reflect.DeepEqual(s1, s2) {
+	} else if !deepEqual(s1, s2) {
 		t.Errorf("different objects %v and %v", s1, s2)
 	}
 }

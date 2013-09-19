@@ -56,6 +56,10 @@ const (
 	poolSize = 16
 )
 
+var (
+	devStatusPage = "/_gondola_dev_server_status"
+)
+
 type Mux struct {
 	ContextProcessors    []ContextProcessor
 	ContextFinalizers    []ContextFinalizer
@@ -78,6 +82,7 @@ type Mux struct {
 	templateVars         map[string]interface{}
 	templateVarFuncs     map[string]reflect.Value
 	debug                bool
+	started              time.Time
 	address              string
 	port                 int
 	mu                   sync.Mutex
@@ -512,6 +517,7 @@ func (mux *Mux) Reverse(name string, args ...interface{}) (string, error) {
 // This function is a shortcut for
 // http.ListenAndServe(mux.Address()+":"+strconv.Itoa(mux.Port()), mux)
 func (mux *Mux) ListenAndServe() error {
+	mux.started = time.Now().UTC()
 	if mux.Logger != nil {
 		if mux.address != "" {
 			mux.Logger.Infof("Listening on %s, port %d", mux.address, mux.port)
@@ -717,6 +723,7 @@ func (mux *Mux) errorPage(ctx *Context, skip int, req string, err interface{}) {
 		"Code":     code,
 		"Stack":    stack,
 		"Request":  req,
+		"Started":  strconv.FormatInt(mux.started.Unix(), 10),
 	}
 	t.MustExecute(ctx, data)
 }
@@ -832,7 +839,7 @@ func (mux *Mux) CloseContext(ctx *Context) {
 		v(ctx)
 	}
 	ctx.Close()
-	if mux.Logger != nil && ctx.R != nil {
+	if mux.Logger != nil && ctx.R != nil && ctx.R.URL.Path != devStatusPage {
 		// Log at most with Warning level, to avoid potentially generating
 		// an email to the admin when running in production mode. If there
 		// was an error while processing this request, it has been already
@@ -869,7 +876,7 @@ func (mux *Mux) isReservedVariable(va string) bool {
 // Returns a new Mux initialized with the current default values.
 // See gondola/defaults for further information.
 func New() *Mux {
-	return &Mux{
+	m := &Mux{
 		debug:          defaults.Debug(),
 		port:           defaults.Port(),
 		secret:         defaults.Secret(),
@@ -879,4 +886,15 @@ func New() *Mux {
 		Logger:         log.Std,
 		contextPool:    make(chan *Context, poolSize),
 	}
+	// Used to automatically reload the page on panics when the server
+	// is restarted.
+	if m.debug {
+		m.HandleFunc(devStatusPage, func(ctx *Context) {
+			ctx.WriteJson(map[string]interface{}{
+				"built":   nil,
+				"started": strconv.FormatInt(m.started.Unix(), 10),
+			})
+		})
+	}
+	return m
 }

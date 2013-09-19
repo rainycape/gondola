@@ -27,6 +27,13 @@ import (
 	"time"
 )
 
+func formatTime(t time.Time) interface{} {
+	if t.IsZero() {
+		return nil
+	}
+	return strconv.FormatInt(t.Unix(), 10)
+}
+
 func exitStatus(p *os.ProcessState) int {
 	ws := p.Sys().(syscall.WaitStatus)
 	return ws.ExitStatus()
@@ -76,16 +83,18 @@ func (b *BuildError) Code() template.HTML {
 
 func NewProject(dir string, config string, tags string, race bool) *Project {
 	p := &Project{
-		dir:    dir,
-		config: config,
-		tags:   tags,
-		race:   race,
+		dir:     dir,
+		config:  config,
+		tags:    tags,
+		race:    race,
+		muxPort: randomFreePort(),
 	}
 	m := mux.New()
 	m.Logger = nil
-	m.SetTemplatesLoader(assets)
+	m.SetTemplatesLoader(devAssets)
+	m.HandleFunc("/_gondola_dev_server_status", p.StatusHandler)
 	m.HandleFunc("/", p.Handler)
-	m.SetPort(randomFreePort())
+	m.SetPort(p.muxPort)
 	go func() {
 		m.MustListenAndServe()
 	}()
@@ -106,6 +115,8 @@ type Project struct {
 	cmd            *exec.Cmd
 	watcher        *fsnotify.Watcher
 	proxied        map[net.Conn]struct{}
+	built          time.Time
+	started        time.Time
 }
 
 func (p *Project) Name() string {
@@ -280,6 +291,7 @@ func (p *Project) ProjectCmd() *exec.Cmd {
 }
 
 func (p *Project) Start() error {
+	p.started = time.Now().UTC()
 	p.port = randomFreePort()
 	cmd := p.ProjectCmd()
 	log.Debugf("Starting %s (%s)", p.Name(), cmdString(cmd))
@@ -355,6 +367,7 @@ func (p *Project) Compile() {
 	var buf bytes.Buffer
 	cmd.Stderr = &buf
 	err := cmd.Run()
+	p.built = time.Now().UTC()
 	if err != nil {
 		exitErr, ok := err.(*exec.ExitError)
 		if !ok {
@@ -428,8 +441,19 @@ func (p *Project) Handler(ctx *mux.Context) {
 		"Project": p,
 		"Errors":  p.errors,
 		"Count":   len(p.errors),
+		"Built":   formatTime(p.built),
+		"Started": formatTime(p.started),
 	}
 	ctx.MustExecute("errors.html", data)
+}
+
+func (p *Project) StatusHandler(ctx *mux.Context) {
+	built := formatTime(p.built)
+	started := formatTime(p.started)
+	ctx.WriteJson(map[string]interface{}{
+		"built":   built,
+		"started": started,
+	})
 }
 
 func (p *Project) DropConnections() {

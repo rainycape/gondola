@@ -1,9 +1,9 @@
-package mux
+package main
 
 import "gondola/loaders"
 
-// AUTOMATICALLY GENERATED WITH gondola make-assets -f -flate -dir=_assets -name=muxAssets -out=mux_assets.go. DO NOT EDIT!
-var muxAssets = loaders.FlateLoader(loaders.MapLoader(map[string][]byte{
+// AUTOMATICALLY GENERATED WITH gondola make-assets --dir ../../mux/_assets -name devAssets -f -flate -out dev_assets.go. DO NOT EDIT!
+var devAssets = loaders.FlateLoader(loaders.MapLoader(map[string][]byte{
 	"base.html": []byte{0xBC,
 		0x56, 0x5D, 0x6F, 0xDB, 0x36, 0x17, 0xBE, 0xD7,
 		0xAF, 0x60, 0x53, 0xBC, 0x68, 0x5A, 0xC8, 0x96,

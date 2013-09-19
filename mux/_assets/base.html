@@ -1,3 +1,6 @@
+{{/*
+  include: mux.js
+*/}}
 <!DOCTYPE html>
 <html>
 <head>
@@ -122,5 +125,9 @@ pre abbr {
 </head>
 <body>
 {{ template "body" . }}
+<script type="text/javascript">
+  {{ template "mux.js" . }}
+  pollReload({{ with .Built }}'{{ . }}'{{ else }}null{{ end }}, {{ with .Started }}'{{ . }}'{{ else }}null{{ end }});
+</script>
 </body>
 </html>

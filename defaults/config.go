@@ -1,6 +1,7 @@
 package defaults
 
 import (
+	"gondola/log"
 	"reflect"
 )
 
@@ -51,6 +52,11 @@ func setDefaults(object interface{}) {
 	}
 	if debug := val.FieldByName("Debug"); isBool(debug) {
 		SetDebug(debug.Bool())
+	}
+	if logDebug := val.FieldByName("LogDebug"); logDebug.IsValid() && logDebug.Kind() == reflect.Bool {
+		if logDebug.Bool() {
+			log.SetLevel(log.LDebug)
+		}
 	}
 	if port := val.FieldByName("Port"); isInt(port) || isUint(port) {
 		var p int

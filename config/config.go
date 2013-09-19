@@ -6,6 +6,10 @@ package config
 type Config struct {
 	// Sets gondola/defaults/SetDebug()
 	Debug bool `help:"Enable debug mode"`
+	// If true, sets the log level to DEBUG, without turning on
+	// all the debug machinery (special error pages, etc...). Useful
+	// for debugging issues in production.
+	LogDebug bool `help:"Set the logging level to debug without enabling debug mode"`
 	// Sets gondola/defaults/SetPort()
 	Port int `default:"8888" help:"Port to listen on"`
 	// Sets gondola/defaults/SetDatabase()

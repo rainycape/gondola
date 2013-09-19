@@ -25,7 +25,7 @@ type Manager interface {
 	SetDebug(debug bool)
 }
 
-type AssetsManager struct {
+type assetsManager struct {
 	watcher      *Watcher
 	Loader       loaders.Loader
 	debug        bool
@@ -35,20 +35,20 @@ type AssetsManager struct {
 	mutex        sync.RWMutex
 }
 
-func NewAssetsManager(loader loaders.Loader, prefix string) Manager {
-	m := new(AssetsManager)
+func NewManager(loader loaders.Loader, prefix string) Manager {
+	m := new(assetsManager)
 	m.cache = make(map[string]string)
 	m.Loader = loader
 	m.prefix = prefix
 	m.prefixLength = len(prefix)
-	runtime.SetFinalizer(m, func(manager *AssetsManager) {
+	runtime.SetFinalizer(m, func(manager *assetsManager) {
 		manager.Close()
 	})
 	m.watch()
 	return m
 }
 
-func (m *AssetsManager) watch() {
+func (m *assetsManager) watch() {
 	if dirloader, ok := m.Loader.(loaders.DirLoader); ok {
 		watcher, err := NewWatcher(dirloader.Dir(), func(name string, deleted bool) {
 			m.mutex.RLock()
@@ -82,7 +82,7 @@ func (m *AssetsManager) watch() {
 	}
 }
 
-func (m *AssetsManager) hash(name string) (string, error) {
+func (m *assetsManager) hash(name string) (string, error) {
 	r, _, err := m.Load(name)
 	if err != nil {
 		return "", err
@@ -95,11 +95,11 @@ func (m *AssetsManager) hash(name string) (string, error) {
 	return hashutil.Adler32(b)[:6], nil
 }
 
-func (m *AssetsManager) Load(name string) (loaders.ReadSeekCloser, time.Time, error) {
+func (m *assetsManager) Load(name string) (loaders.ReadSeekCloser, time.Time, error) {
 	return m.Loader.Load(name)
 }
 
-func (m *AssetsManager) LoadURL(u *url.URL) (loaders.ReadSeekCloser, time.Time, error) {
+func (m *assetsManager) LoadURL(u *url.URL) (loaders.ReadSeekCloser, time.Time, error) {
 	p := u.Path
 	if !(p[1] == 'f' || p[1] == 'r') && !(p == "/favicon.ico" || p == "/robots.txt") {
 		p = p[m.prefixLength:]
@@ -108,11 +108,11 @@ func (m *AssetsManager) LoadURL(u *url.URL) (loaders.ReadSeekCloser, time.Time, 
 	return m.Load(p)
 }
 
-func (m *AssetsManager) Create(name string) (io.WriteCloser, error) {
+func (m *assetsManager) Create(name string) (io.WriteCloser, error) {
 	return m.Loader.Create(name)
 }
 
-func (m *AssetsManager) URL(name string) string {
+func (m *assetsManager) URL(name string) string {
 	if strings.HasPrefix(name, "//") || strings.Contains(name, "://") {
 		return name
 	}
@@ -132,15 +132,15 @@ func (m *AssetsManager) URL(name string) string {
 	return clean
 }
 
-func (m *AssetsManager) Debug() bool {
+func (m *assetsManager) Debug() bool {
 	return m.debug
 }
 
-func (m *AssetsManager) SetDebug(debug bool) {
+func (m *assetsManager) SetDebug(debug bool) {
 	m.debug = debug
 }
 
-func (m *AssetsManager) Close() error {
+func (m *assetsManager) Close() error {
 	if m.watcher != nil {
 		err := m.watcher.Close()
 		m.watcher = nil

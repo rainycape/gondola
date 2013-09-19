@@ -451,8 +451,9 @@ func (mux *Mux) SetPort(port int) {
 // will must be in the directory which contains the rest of the assets.
 func (mux *Mux) HandleAssets(prefix string, dir string) {
 	loader := loaders.FSLoader(dir)
-	mux.SetAssetsManager(assets.NewAssetsManager(loader, prefix))
-	assetsHandler := assets.Handler(mux.assetsManager)
+	manager := assets.NewManager(loader, prefix)
+	mux.SetAssetsManager(manager)
+	assetsHandler := assets.Handler(manager)
 	handler := func(ctx *Context) {
 		assetsHandler(ctx, ctx.R)
 	}

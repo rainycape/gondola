@@ -23,7 +23,7 @@ func ExampleNew() {
 func ExamplePassword_Check() {
 	// This will usually come from the database. In this case, the encoded
 	// password is "gondola".
-	encoded := "sha1:GLv5b2P8DvtsPkR4qwDH:6323057cc210364c83020e9715b1877f858a2a6b"
+	encoded := "sha1:4096:JJf2f46fmbw06LwXJ308:9b4d23006b93e1d6bb052c1545d9532d1433736b"
 	// This will usually come from a form, filled in by the user for signing in.
 	plain := "gondola"
 	p := password.Password(encoded)

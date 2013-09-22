@@ -1,10 +1,12 @@
 package password
 
 import (
+	"code.google.com/p/go.crypto/pbkdf2"
 	"crypto"
 	_ "crypto/sha1"
 	_ "crypto/sha256"
 	_ "crypto/sha512"
+	"encoding/hex"
 	"fmt"
 	"hash"
 )
@@ -48,7 +50,16 @@ func (h Hash) Size() int {
 	return crypto.Hash(h).Size()
 }
 
-// New returns a new hash.Hash which calculats the given hash function.
+func (h Hash) RawHash(salt string, plain string, rounds int) []byte {
+	return pbkdf2.Key([]byte(plain), []byte(salt), rounds, h.Size(), h.New)
+}
+
+func (h Hash) Hash(salt string, plain string, rounds int) string {
+	raw := h.RawHash(salt, plain, rounds)
+	return hex.EncodeToString(raw)
+}
+
+// New returns a new hash.Hash which calculates the given hash function.
 func (h Hash) New() hash.Hash {
 	return crypto.Hash(h).New()
 }

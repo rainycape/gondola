@@ -6,15 +6,19 @@ import (
 	"errors"
 	"fmt"
 	"gnd.la/util"
+	"strconv"
 	"strings"
 )
 
 var (
 	ErrNoMatch             = errors.New("password does not match")
-	ErrInvalidFieldCount   = errors.New("encoded password does not have 3 fields")
+	ErrInvalidFieldCount   = errors.New("encoded password does not have 4 fields")
+	ErrInvalidRoundCount   = errors.New("invalid number of rounds")
 	ErrInvalidSaltLength   = errors.New("salt does not have the same length as the hash output")
 	ErrInvalidHashedLength = errors.New("hashed password does not have the same length as the hash output")
 	ErrInvalidHex          = errors.New("hashed password is not properly encoded")
+	// Number of PBKDF2 rounds
+	Rounds int = 4096
 )
 
 // Password represents an encoded password, which can be stored
@@ -36,30 +40,35 @@ func (p Password) field(idx int) string {
 	return string(p)[s : s+c]
 }
 
-func (p Password) validate() ([]byte, Hash, error) {
-	if strings.Count(string(p), ":") != 2 {
-		return nil, 0, ErrInvalidFieldCount
+func (p Password) validate() ([]byte, Hash, string, int, error) {
+	if strings.Count(string(p), ":") != 3 {
+		return nil, 0, "", 0, ErrInvalidFieldCount
 	}
 	h, err := p.Hash()
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, "", 0, err
 	}
-	if len(p.Salt()) != h.Size() {
-		return nil, 0, ErrInvalidSaltLength
-	}
-	decoded, err := hex.DecodeString(p.field(2))
+	rounds, err := p.Rounds()
 	if err != nil {
-		return nil, 0, ErrInvalidHex
+		return nil, 0, "", 0, ErrInvalidRoundCount
+	}
+	salt := p.Salt()
+	if len(salt) != h.Size() {
+		return nil, 0, "", 0, ErrInvalidSaltLength
+	}
+	decoded, err := hex.DecodeString(p.field(3))
+	if err != nil {
+		return nil, 0, "", 0, ErrInvalidHex
 	}
 	if len(decoded) != h.Size() {
-		return nil, 0, ErrInvalidHashedLength
+		return nil, 0, "", 0, ErrInvalidHashedLength
 	}
-	return decoded, h, nil
+	return decoded, h, salt, rounds, nil
 }
 
 // Salt returns the salt used to encode the password.
 func (p Password) Salt() string {
-	return p.field(1)
+	return p.field(2)
 }
 
 // Hash returns the Hash used to encode the password.
@@ -67,7 +76,13 @@ func (p Password) Hash() (Hash, error) {
 	return HashNamed(p.field(0))
 }
 
-// String returns the password string as hash:salt:hex(hash)
+// Rounds returns the number of PBKDF2 rounds used to encode this password.
+func (p Password) Rounds() (int, error) {
+	r := p.field(1)
+	return strconv.Atoi(r)
+}
+
+// String returns the password string as hash:rounds:salt:hex(hash)
 func (p Password) String() string {
 	return string(p)
 }
@@ -76,7 +91,7 @@ func (p Password) String() string {
 // This means it has a hash that is available and the salt and hashed
 // data have the same length as the hash output.
 func (p Password) IsValid() bool {
-	_, _, err := p.validate()
+	_, _, _, _, err := p.validate()
 	return err == nil
 }
 
@@ -85,16 +100,14 @@ func (p Password) IsValid() bool {
 // This function performs a constant time comparison,
 // so it's not vulnerable to timing attacks.
 func (p Password) Check(plain string) error {
-	decoded, hash, err := p.validate()
+	decoded, hash, salt, rounds, err := p.validate()
 	if err != nil {
 		// This does not affect the time-constness of the function
 		// since an invalid Password string will always return at
 		// this point, regardless of the input.
 		return err
 	}
-	h := hash.New()
-	h.Write([]byte(p.Salt() + plain))
-	if subtle.ConstantTimeCompare(decoded, h.Sum(nil)) != 1 {
+	if subtle.ConstantTimeCompare(decoded, hash.RawHash(salt, plain, rounds)) != 1 {
 		return ErrNoMatch
 	}
 	return nil
@@ -120,7 +133,5 @@ func NewHashed(plain string, hash Hash) Password {
 	// Use the same number of bits for the salt and the hash, since
 	// it provides the maximum possible security.
 	salt := util.RandomString(hash.Size())
-	h := hash.New()
-	h.Write([]byte(salt + plain))
-	return Password(fmt.Sprintf("%s:%s:%s", hash.Name(), salt, hex.EncodeToString(h.Sum(nil))))
+	return Password(fmt.Sprintf("%s:%d:%s:%s", hash.Name(), Rounds, salt, hash.Hash(salt, plain, Rounds)))
 }

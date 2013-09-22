@@ -19,6 +19,8 @@ var (
 	ErrInvalidHex          = errors.New("hashed password is not properly encoded")
 	// Number of PBKDF2 rounds
 	Rounds int = 4096
+	// Trying to create or verify a password longer than this will cause an error
+	MaxPasswordLength = 8192
 )
 
 // Password represents an encoded password, which can be stored
@@ -100,6 +102,9 @@ func (p Password) IsValid() bool {
 // This function performs a constant time comparison,
 // so it's not vulnerable to timing attacks.
 func (p Password) Check(plain string) error {
+	if len(plain) > MaxPasswordLength {
+		return ErrNoMatch
+	}
 	decoded, hash, salt, rounds, err := p.validate()
 	if err != nil {
 		// This does not affect the time-constness of the function
@@ -130,6 +135,9 @@ func New(plain string) Password {
 // NewHashed returns a password hashed with the given hash. If
 // the hash is not available or not valid, it will panic.
 func NewHashed(plain string, hash Hash) Password {
+	if len(plain) > MaxPasswordLength {
+		return password.Password("")
+	}
 	// Use the same number of bits for the salt and the hash, since
 	// it provides the maximum possible security.
 	salt := util.RandomString(hash.Size())

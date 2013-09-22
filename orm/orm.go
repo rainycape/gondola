@@ -3,11 +3,11 @@ package orm
 import (
 	"database/sql"
 	"fmt"
-	"gondola/defaults"
-	"gondola/log"
-	"gondola/orm/driver"
-	ormsql "gondola/orm/drivers/sql"
-	"gondola/orm/query"
+	"gnd.la/defaults"
+	"gnd.la/log"
+	"gnd.la/orm/driver"
+	ormsql "gnd.la/orm/drivers/sql"
+	"gnd.la/orm/query"
 	"reflect"
 	"strings"
 )

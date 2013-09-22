@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"gondola/admin"
-	"gondola/mux"
+	"gnd.la/admin"
+	"gnd.la/mux"
 )
 
 func main() {

@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"gondola/util"
+	"gnd.la/util"
 	"io"
 	"io/ioutil"
 	"net/smtp"

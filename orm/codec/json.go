@@ -3,7 +3,7 @@ package codec
 import (
 	"encoding/json"
 	"fmt"
-	"gondola/types"
+	"gnd.la/types"
 	"reflect"
 )
 

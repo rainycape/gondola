@@ -2,8 +2,8 @@ package orm
 
 import (
 	"fmt"
-	_ "gondola/orm/drivers/postgres"
-	_ "gondola/orm/drivers/sqlite"
+	_ "gnd.la/orm/drivers/postgres"
+	_ "gnd.la/orm/drivers/sqlite"
 	"os"
 	"os/exec"
 	"os/user"

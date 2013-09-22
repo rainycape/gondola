@@ -2,7 +2,7 @@ package cache
 
 import (
 	"fmt"
-	"gondola/cache/driver"
+	"gnd.la/cache/driver"
 	"net/url"
 	"strings"
 )

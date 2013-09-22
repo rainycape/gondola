@@ -1,9 +1,9 @@
 package sql
 
 import (
-	"gondola/orm/driver"
-	"gondola/orm/index"
-	"gondola/types"
+	"gnd.la/orm/driver"
+	"gnd.la/orm/index"
+	"gnd.la/types"
 	"reflect"
 	"time"
 )

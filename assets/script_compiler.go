@@ -3,7 +3,7 @@ package assets
 import (
 	"encoding/json"
 	"fmt"
-	"gondola/log"
+	"gnd.la/log"
 	"net/http"
 	"net/url"
 )

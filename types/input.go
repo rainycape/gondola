@@ -1,7 +1,7 @@
 package types
 
 import (
-	"gondola/i18n"
+	"gnd.la/i18n"
 	"reflect"
 	"regexp"
 )

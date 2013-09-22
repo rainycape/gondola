@@ -2,7 +2,7 @@ package signal
 
 import (
 	"errors"
-	"gondola/log"
+	"gnd.la/log"
 	"reflect"
 )
 

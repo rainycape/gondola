@@ -3,9 +3,9 @@ package cache
 import (
 	"encoding/gob"
 	"fmt"
-	_ "gondola/cache/driver/memcache"
-	_ "gondola/cache/driver/redis"
-	"gondola/log"
+	_ "gnd.la/cache/driver/memcache"
+	_ "gnd.la/cache/driver/redis"
+	"gnd.la/log"
 	"net"
 	"reflect"
 	"testing"

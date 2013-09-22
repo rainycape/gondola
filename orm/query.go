@@ -2,7 +2,7 @@ package orm
 
 import (
 	"fmt"
-	"gondola/orm/query"
+	"gnd.la/orm/query"
 )
 
 type Query struct {

@@ -1,7 +1,7 @@
 package mux
 
 import (
-	"gondola/users"
+	"gnd.la/users"
 )
 
 // UserFunc is called when getting the current signed

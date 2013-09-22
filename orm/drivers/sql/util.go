@@ -1,7 +1,7 @@
 package sql
 
 import (
-	"gondola/orm/index"
+	"gnd.la/orm/index"
 	"reflect"
 )
 

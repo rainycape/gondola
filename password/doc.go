@@ -17,7 +17,7 @@
 //  }
 //  // Creating a new user
 //  user := &User{Username:"foo", Password: password.New("bar")}
-//  // o is a gondola/orm.Orm object
+//  // o is a gnd.la/orm.Orm object
 //  o.MustSave(user)
 //  // Signin in an existing user
 //  var user *User

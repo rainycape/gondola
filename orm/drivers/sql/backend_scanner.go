@@ -2,7 +2,7 @@ package sql
 
 import (
 	"fmt"
-	"gondola/types"
+	"gnd.la/types"
 	"reflect"
 	"time"
 )

@@ -5,8 +5,8 @@ package template
 import (
 	"encoding/json"
 	"fmt"
-	"gondola/assets"
-	"gondola/types"
+	"gnd.la/assets"
+	"gnd.la/types"
 	"html/template"
 	"reflect"
 	"strconv"

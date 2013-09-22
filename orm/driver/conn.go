@@ -1,7 +1,7 @@
 package driver
 
 import (
-	"gondola/orm/query"
+	"gnd.la/orm/query"
 )
 
 type Conn interface {

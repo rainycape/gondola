@@ -2,7 +2,7 @@ package assets
 
 import (
 	"fmt"
-	"gondola/log"
+	"gnd.la/log"
 )
 
 type Position int

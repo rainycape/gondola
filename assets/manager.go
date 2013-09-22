@@ -2,9 +2,9 @@ package assets
 
 import (
 	"fmt"
-	"gondola/hashutil"
-	"gondola/loaders"
-	"gondola/log"
+	"gnd.la/hashutil"
+	"gnd.la/loaders"
+	"gnd.la/log"
 	"io"
 	"io/ioutil"
 	"net/url"

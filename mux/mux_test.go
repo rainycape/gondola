@@ -2,7 +2,7 @@ package mux
 
 import (
 	"fmt"
-	"gondola/defaults"
+	"gnd.la/defaults"
 	"net/http"
 	"testing"
 )

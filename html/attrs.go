@@ -1,7 +1,7 @@
 package html
 
 import (
-	"gondola/types"
+	"gnd.la/types"
 	"io"
 	"strings"
 )

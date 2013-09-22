@@ -1,8 +1,8 @@
 package layer
 
 import (
-	"gondola/hashutil"
-	"gondola/mux"
+	"gnd.la/hashutil"
+	"gnd.la/mux"
 	"net/http"
 )
 

@@ -1,7 +1,7 @@
 package util
 
 import (
-	"gondola/util/unidecode"
+	"gnd.la/util/unidecode"
 	"regexp"
 	"strings"
 )

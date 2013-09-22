@@ -2,8 +2,8 @@ package sql
 
 import (
 	"fmt"
-	"gondola/orm/codec"
-	"gondola/types"
+	"gnd.la/orm/codec"
+	"gnd.la/types"
 	"reflect"
 	"time"
 )

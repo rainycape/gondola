@@ -1,7 +1,7 @@
 package bootstrap
 
 import (
-	"gondola/util/paginator"
+	"gnd.la/util/paginator"
 	"strings"
 )
 

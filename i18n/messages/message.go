@@ -3,7 +3,7 @@ package messages
 import (
 	"fmt"
 	"go/token"
-	"gondola/astutil"
+	"gnd.la/astutil"
 	"sort"
 )
 

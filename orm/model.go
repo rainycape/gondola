@@ -1,8 +1,8 @@
 package orm
 
 import (
-	"gondola/orm/driver"
-	"gondola/orm/index"
+	"gnd.la/orm/driver"
+	"gnd.la/orm/index"
 	"reflect"
 )
 

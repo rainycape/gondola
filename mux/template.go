@@ -2,8 +2,8 @@ package mux
 
 import (
 	"fmt"
-	"gondola/loaders"
-	"gondola/template"
+	"gnd.la/loaders"
+	"gnd.la/template"
 	"io"
 	"net/http"
 	"reflect"

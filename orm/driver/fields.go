@@ -1,7 +1,7 @@
 package driver
 
 import (
-	"gondola/types"
+	"gnd.la/types"
 )
 
 type Fields struct {

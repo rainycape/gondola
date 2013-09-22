@@ -1,16 +1,16 @@
 // Package defaults acts like a global storage for
 // default values for other Gondola packages.
-// These values might be altered by gondola/config
+// These values might be altered by gnd.la/config
 // after successfully calling config.Parse().
-// See the documentation on gondola/config to
+// See the documentation on gnd.la/config to
 // learn which values alter these defaults.
 package defaults
 
 import (
 	"fmt"
-	"gondola/log"
-	"gondola/mail"
-	"gondola/signal"
+	"gnd.la/log"
+	"gnd.la/mail"
+	"gnd.la/signal"
 	"strings"
 )
 
@@ -41,13 +41,13 @@ func SetPort(p int) {
 }
 
 // Debug returns the default debug value used by
-// gondola/mux/Mux instances.
+// gnd.la/mux/Mux instances.
 func Debug() bool {
 	return debug
 }
 
 // SetDebug changes the global default for the debug
-// value. Setting it to true also changes the gondola/log
+// value. Setting it to true also changes the gnd.la/log
 // level to LDebug (but setting it to false does not alter
 // the log level). The default is false.
 // Note the this value is set
@@ -61,7 +61,7 @@ func SetDebug(d bool) {
 }
 
 // Secret returns the default secret used by
-// gondola/mux/Mux instances.
+// gnd.la/mux/Mux instances.
 func Secret() string {
 	return secret
 }
@@ -76,7 +76,7 @@ func SetSecret(s string) {
 }
 
 // EncryptionKey returns the default encryption key used
-// by gondola/mux/Mux instances.
+// by gnd.la/mux/Mux instances.
 func EncryptionKey() string {
 	return encryptionKey
 }
@@ -91,14 +91,14 @@ func SetEncryptionKey(k string) {
 }
 
 // MailServer returns the default mail server URL. Note
-// that this function returns gondola/mail/DefaultServer(),
+// that this function returns gnd.la/mail/DefaultServer(),
 // so both functions return the same.
 func MailServer() string {
 	return mail.DefaultServer()
 }
 
 // SetMailServer sets the default mail server URL.
-// See the documentation on gondola/mail/SetDefaultServer()
+// See the documentation on gnd.la/mail/SetDefaultServer()
 // for further details.
 func SetMailServer(s string) {
 	mail.SetDefaultServer(s)
@@ -107,7 +107,7 @@ func SetMailServer(s string) {
 
 // FromEmail returns the default From address used
 // in outgoing emails. Note that this function returns
-// gondola/mail/DefaultFrom(), so both functions
+// gnd.la/mail/DefaultFrom(), so both functions
 // return the same.
 func FromEmail() string {
 	return mail.DefaultFrom()
@@ -167,7 +167,7 @@ func Cache() string {
 }
 
 // SetCache sets the default cache. See the documentation on
-// gondola/cache for details about the string format.
+// gnd.la/cache for details about the string format.
 func SetCache(value string) {
 	cache = value
 }

@@ -2,7 +2,7 @@ package log
 
 import (
 	"fmt"
-	"gondola/mail"
+	"gnd.la/mail"
 	"os"
 )
 

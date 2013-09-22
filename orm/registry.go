@@ -2,11 +2,11 @@ package orm
 
 import (
 	"fmt"
-	"gondola/log"
-	"gondola/orm/codec"
-	"gondola/orm/driver"
-	"gondola/types"
-	"gondola/util"
+	"gnd.la/log"
+	"gnd.la/orm/codec"
+	"gnd.la/orm/driver"
+	"gnd.la/types"
+	"gnd.la/util"
 	"reflect"
 	"strings"
 	"time"

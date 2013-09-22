@@ -1,6 +1,6 @@
 package main
 
-import "gondola/loaders"
+import "gnd.la/loaders"
 
 // AUTOMATICALLY GENERATED WITH gondola make-assets --dir ../../mux/_assets -name devAssets -f -flate -out dev_assets.go. DO NOT EDIT!
 var devAssets = loaders.FlateLoader(loaders.MapLoader(map[string][]byte{

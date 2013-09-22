@@ -1,7 +1,7 @@
 package orm
 
 import (
-	_ "gondola/orm/drivers/sqlite"
+	_ "gnd.la/orm/drivers/sqlite"
 	"reflect"
 	"testing"
 )

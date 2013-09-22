@@ -2,8 +2,8 @@ package orm
 
 import (
 	"bytes"
-	"gondola/log"
-	_ "gondola/orm/drivers/sqlite"
+	"gnd.la/log"
+	_ "gnd.la/orm/drivers/sqlite"
 	"io/ioutil"
 	"os"
 	"testing"

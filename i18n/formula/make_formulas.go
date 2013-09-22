@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
-	"gondola/i18n/formula"
+	"gnd.la/i18n/formula"
 	"html"
 	"io"
 	"io/ioutil"

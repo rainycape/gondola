@@ -1,7 +1,7 @@
 package messages
 
 import (
-	"gondola/log"
+	"gnd.la/log"
 	"os"
 	"testing"
 )

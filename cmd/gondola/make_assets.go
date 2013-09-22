@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"go/build"
 	"go/format"
-	"gondola/admin"
-	"gondola/mux"
+	"gnd.la/admin"
+	"gnd.la/mux"
 	"io"
 	"io/ioutil"
 	"os"
@@ -59,7 +59,7 @@ func MakeAssets(ctx *mux.Context) {
 			buf.WriteString(fmt.Sprintf("package %s\n", p.Name))
 		}
 	}
-	buf.WriteString("import \"gondola/loaders\"\n")
+	buf.WriteString("import \"gnd.la/loaders\"\n")
 	buf.WriteString(fmt.Sprintf("// AUTOMATICALLY GENERATED WITH %s. DO NOT EDIT!\n", strings.Join(os.Args, " ")))
 	if useFlate {
 		buf.WriteString(fmt.Sprintf("var %s = loaders.FlateLoader(loaders.MapLoader(map[string][]byte{\n", name))

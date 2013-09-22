@@ -5,9 +5,9 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"gondola/astutil"
-	"gondola/log"
-	"gondola/pkg"
+	"gnd.la/astutil"
+	"gnd.la/log"
+	"gnd.la/pkg"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,39 +16,39 @@ import (
 func DefaultFunctions() []*Function {
 	return []*Function{
 		// Singular functions without context
-		{Name: "gondola/i18n.T"},
-		{Name: "gondola/i18n.Errorf"},
-		{Name: "gondola/i18n.Sprintf"},
-		{Name: "gondola/i18n.NewError"},
-		{Name: "gondola/mux.Context.T"},
+		{Name: "gnd.la/i18n.T"},
+		{Name: "gnd.la/i18n.Errorf"},
+		{Name: "gnd.la/i18n.Sprintf"},
+		{Name: "gnd.la/i18n.NewError"},
+		{Name: "gnd.la/mux.Context.T"},
 		{Name: "T", Template: true},
 		// Singular functions with context
-		{Name: "gondola/i18n.Tc", Context: true},
-		{Name: "gondola/i18n.Sprintfc", Context: true},
-		{Name: "gondola/i18n.Errorfc", Context: true},
-		{Name: "gondola/i18n.NewErrorc", Context: true},
-		{Name: "gondola/mux.Context.Tc", Context: true},
+		{Name: "gnd.la/i18n.Tc", Context: true},
+		{Name: "gnd.la/i18n.Sprintfc", Context: true},
+		{Name: "gnd.la/i18n.Errorfc", Context: true},
+		{Name: "gnd.la/i18n.NewErrorc", Context: true},
+		{Name: "gnd.la/mux.Context.Tc", Context: true},
 		{Name: "Tc", Template: true, Context: true},
 		// Plural functions without context
-		{Name: "gondola/i18n.Tn", Plural: true},
-		{Name: "gondola/i18n.Sprintfn", Plural: true},
-		{Name: "gondola/i18n.Errorfn", Plural: true},
-		{Name: "gondola/i18n.NewErrorn", Plural: true},
-		{Name: "gondola/mux.Context.Tn", Plural: true},
+		{Name: "gnd.la/i18n.Tn", Plural: true},
+		{Name: "gnd.la/i18n.Sprintfn", Plural: true},
+		{Name: "gnd.la/i18n.Errorfn", Plural: true},
+		{Name: "gnd.la/i18n.NewErrorn", Plural: true},
+		{Name: "gnd.la/mux.Context.Tn", Plural: true},
 		{Name: "Tn", Template: true, Plural: true},
 		// Plural functions with context
-		{Name: "gondola/i18n.Tnc", Context: true, Plural: true},
-		{Name: "gondola/i18n.Errorfnc", Context: true, Plural: true},
-		{Name: "gondola/i18n.Sprintfnc", Context: true, Plural: true},
-		{Name: "gondola/i18n.NewErrornc", Context: true, Plural: true},
-		{Name: "gondola/mux.Context.Tnc", Context: true, Plural: true},
+		{Name: "gnd.la/i18n.Tnc", Context: true, Plural: true},
+		{Name: "gnd.la/i18n.Errorfnc", Context: true, Plural: true},
+		{Name: "gnd.la/i18n.Sprintfnc", Context: true, Plural: true},
+		{Name: "gnd.la/i18n.NewErrornc", Context: true, Plural: true},
+		{Name: "gnd.la/mux.Context.Tnc", Context: true, Plural: true},
 		{Name: "Tnc", Template: true, Context: true, Plural: true},
 	}
 }
 
 func DefaultTypes() []string {
 	return []string{
-		"gondola/i18n.String",
+		"gnd.la/i18n.String",
 	}
 }
 

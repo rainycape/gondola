@@ -3,7 +3,7 @@ package memcache
 
 import (
 	"github.com/bradfitz/gomemcache/memcache"
-	"gondola/cache/driver"
+	"gnd.la/cache/driver"
 	"strings"
 )
 

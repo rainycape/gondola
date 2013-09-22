@@ -2,8 +2,8 @@ package driver
 
 import (
 	"encoding/binary"
-	"gondola/hashutil"
-	"gondola/util"
+	"gnd.la/hashutil"
+	"gnd.la/util"
 	"io/ioutil"
 	"os"
 	"path/filepath"

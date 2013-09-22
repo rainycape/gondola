@@ -2,8 +2,8 @@ package mux
 
 import (
 	"bytes"
-	"gondola/cache"
-	"gondola/orm"
+	"gnd.la/cache"
+	"gnd.la/orm"
 	"html/template"
 	"strconv"
 )

@@ -1,7 +1,7 @@
 package orm
 
 import (
-	"gondola/orm/driver"
+	"gnd.la/orm/driver"
 )
 
 type Sort int

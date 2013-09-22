@@ -1,7 +1,7 @@
 package orm
 
 import (
-	"gondola/orm/query"
+	"gnd.la/orm/query"
 )
 
 func Eq(field string, value interface{}) query.Q {

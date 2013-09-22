@@ -3,8 +3,8 @@ package astutil
 import (
 	"go/ast"
 	"go/token"
-	"gondola/pkg"
-	"gondola/types"
+	"gnd.la/pkg"
+	"gnd.la/types"
 )
 
 type String struct {

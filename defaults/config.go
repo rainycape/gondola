@@ -1,7 +1,7 @@
 package defaults
 
 import (
-	"gondola/log"
+	"gnd.la/log"
 	"reflect"
 )
 

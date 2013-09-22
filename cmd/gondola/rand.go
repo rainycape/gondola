@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"gondola/admin"
-	"gondola/mux"
-	"gondola/util"
+	"gnd.la/admin"
+	"gnd.la/mux"
+	"gnd.la/util"
 )
 
 const (

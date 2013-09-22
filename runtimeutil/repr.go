@@ -3,7 +3,7 @@ package runtimeutil
 import (
 	"debug/gosym"
 	"fmt"
-	"gondola/html"
+	"gnd.la/html"
 	"math"
 	"strconv"
 	"strings"

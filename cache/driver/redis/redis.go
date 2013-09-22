@@ -4,7 +4,7 @@ package redis
 import (
 	"fmt"
 	"github.com/vmihailenco/redis"
-	"gondola/cache/driver"
+	"gnd.la/cache/driver"
 	"strconv"
 )
 

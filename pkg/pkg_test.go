@@ -6,8 +6,8 @@ import (
 
 func TestSplit(t *testing.T) {
 	cases := map[string][]string{
-		"gondola/i18n.T":        {"gondola/i18n", "T"},
-		"gondola/mux.Context.T": {"gondola/mux", "Context.T"},
+		"gnd.la/i18n.T":        {"gnd.la/i18n", "T"},
+		"gnd.la/mux.Context.T": {"gnd.la/mux", "Context.T"},
 	}
 	for k, v := range cases {
 		pkg, name := SplitQualifiedName(k)

@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"gondola/assets"
-	"gondola/loaders"
-	"gondola/log"
-	"gondola/util"
+	"gnd.la/assets"
+	"gnd.la/loaders"
+	"gnd.la/log"
+	"gnd.la/util"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -560,8 +560,8 @@ func DefaultTemplateLoader() loaders.Loader {
 }
 
 // New returns a new template with the given loader and assets
-// manager. Please, refer to the documention in gondola/loaders
-// and gondola/asssets for further information in those types.
+// manager. Please, refer to the documention in gnd.la/loaders
+// and gnd.la/asssets for further information in those types.
 // If the loader is nil, DefaultTemplateLoader() will be used.
 func New(loader loaders.Loader, manager assets.Manager) *Template {
 	if loader == nil {

@@ -3,9 +3,9 @@ package config
 import (
 	"flag"
 	"fmt"
-	"gondola/log"
-	"gondola/signal"
-	"gondola/util"
+	"gnd.la/log"
+	"gnd.la/signal"
+	"gnd.la/util"
 	"io"
 	"io/ioutil"
 	"os"
@@ -285,7 +285,7 @@ func configFields(config interface{}) (fieldMap, error) {
 // Parse parses the application configuration into the given config struct. If
 // the configuration is parsed successfully, the signal signal.CONFIGURED is
 // emitted with the given config as its object (which sets the parameters
-// in gondola/defaults). Check the documentation on the gondola/signal package
+// in gnd.la/defaults). Check the documentation on the gnd.la/signal package
 // to learn more about Gondola's signals.
 //
 // Supported types include bool, string, u?int(|8|6|32|62) and float(32|64). If

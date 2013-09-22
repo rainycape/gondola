@@ -2,7 +2,7 @@ package assets
 
 import (
 	"code.google.com/p/go.exp/fsnotify"
-	"gondola/log"
+	"gnd.la/log"
 	"os"
 	"path/filepath"
 )

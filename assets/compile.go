@@ -2,8 +2,8 @@ package assets
 
 import (
 	"fmt"
-	"gondola/hashutil"
-	"gondola/log"
+	"gnd.la/hashutil"
+	"gnd.la/log"
 	"path"
 	"path/filepath"
 	"strings"

@@ -3,7 +3,7 @@ package types
 import (
 	"errors"
 	"fmt"
-	"gondola/util"
+	"gnd.la/util"
 	"reflect"
 )
 

@@ -2,13 +2,13 @@ package mux
 
 import (
 	"fmt"
-	"gondola/cache"
-	"gondola/cookies"
-	"gondola/orm"
-	"gondola/serialize"
-	"gondola/types"
-	"gondola/users"
-	"gondola/util"
+	"gnd.la/cache"
+	"gnd.la/cookies"
+	"gnd.la/orm"
+	"gnd.la/serialize"
+	"gnd.la/types"
+	"gnd.la/users"
+	"gnd.la/util"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -234,14 +234,14 @@ func (c *Context) SetServedFromCache(b bool) {
 
 // Cached() returns true if the request was
 // cached by a cache layer
-// (see gondola/cache/layer)
+// (see gnd.la/cache/layer)
 func (c *Context) Cached() bool {
 	return c.cached
 }
 
 // ServedFromCache returns true if the request
 // was served by a cache layer
-// (see gondola/cache/layer)
+// (see gnd.la/cache/layer)
 func (c *Context) ServedFromCache() bool {
 	return c.fromCache
 }
@@ -329,7 +329,7 @@ func (c *Context) URL() *url.URL {
 
 // Cookies returns a coookies.Cookies object which
 // can be used to set and delete cookies. See the documentation
-// on gondola/cookies for more information.
+// on gnd.la/cookies for more information.
 func (c *Context) Cookies() *cookies.Cookies {
 	if c.cookies == nil {
 		mux := c.Mux()

@@ -2,7 +2,7 @@
 // stripping any = used for padding, thus producing
 // invalid base64 but saving a few bytes. It's mainly
 // used for encoding values in other parts of gondola
-// (like gondola/cookies), but you can feel free to
+// (like gnd.la/cookies), but you can feel free to
 // use its functions. Just keep in mind that any
 // value encoded with Encode() must be decoded
 // with Decode(), rather than with the standard

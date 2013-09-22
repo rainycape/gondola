@@ -1,7 +1,7 @@
 package assets
 
 import (
-	"gondola/log"
+	"gnd.la/log"
 	"net/http"
 )
 

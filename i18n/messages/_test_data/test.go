@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"gondola/i18n"
-	"gondola/mux"
+	"gnd.la/i18n"
+	"gnd.la/mux"
 )
 
 type Test struct {
@@ -59,7 +59,7 @@ func main() {
 }
 
 func testing(ctx *mux.Context) {
-	/// This is a very long comment to test the 80 columns per line splitting used automatically by gondola/i18n. Isn't it cool?
+	/// This is a very long comment to test the 80 columns per line splitting used automatically by gnd.la/i18n. Isn't it cool?
 	ctx.T("Testing more translations")
 }
 

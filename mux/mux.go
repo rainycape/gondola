@@ -7,16 +7,16 @@ package mux
 import (
 	"bytes"
 	"fmt"
-	"gondola/assets"
-	"gondola/cache"
-	"gondola/cookies"
-	"gondola/defaults"
-	"gondola/loaders"
-	"gondola/log"
-	"gondola/orm"
-	"gondola/runtimeutil"
-	"gondola/template"
-	"gondola/util"
+	"gnd.la/assets"
+	"gnd.la/cache"
+	"gnd.la/cookies"
+	"gnd.la/defaults"
+	"gnd.la/loaders"
+	"gnd.la/log"
+	"gnd.la/orm"
+	"gnd.la/runtimeutil"
+	"gnd.la/template"
+	"gnd.la/util"
 	"net/http"
 	"net/http/httputil"
 	"reflect"
@@ -90,7 +90,7 @@ type Mux struct {
 	o                    *orm.Orm
 
 	// Logger to use when logging requests. By default, it's
-	// gondola/log/Std, but you can set it to nil to avoid
+	// gnd.la/log/Std, but you can set it to nil to avoid
 	// logging at all and gain a bit more of performance.
 	Logger       *log.Logger
 	contextPool  chan *Context
@@ -257,14 +257,14 @@ func (mux *Mux) SetEncryptionKey(key string) {
 
 // DefaultCookieOptions returns the default options
 // used for cookies. This is initialized to the value
-// returned by cookies.Defaults(). See gondola/cookies
+// returned by cookies.Defaults(). See gnd.la/cookies
 // documentation for more details.
 func (mux *Mux) DefaultCookieOptions() *cookies.Options {
 	return mux.defaultCookieOptions
 }
 
 // SetDefaultCookieOptions sets the default cookie options
-// for this mux. See gondola/cookies documentation for more
+// for this mux. See gnd.la/cookies documentation for more
 // details.
 func (mux *Mux) SetDefaultCookieOptions(o *cookies.Options) {
 	mux.defaultCookieOptions = o
@@ -297,7 +297,7 @@ func (mux *Mux) AssetsManager() assets.Manager {
 }
 
 // SetAssetsManager sets the static assets manager for the mux. See
-// the documention on gondola/assets/Manager for further information.
+// the documention on gnd.la/assets/Manager for further information.
 func (mux *Mux) SetAssetsManager(manager assets.Manager) {
 	manager.SetDebug(mux.Debug())
 	mux.assetsManager = manager
@@ -410,7 +410,7 @@ func (mux *Mux) Debug() bool {
 // Context.MustExecute() are recompiled every time
 // they are executed. The default is the value
 // returned by defaults.Debug() when the mux is
-// constructed. See the documentation on gondola/defaults
+// constructed. See the documentation on gnd.la/defaults
 // for further information.
 func (mux *Mux) SetDebug(debug bool) {
 	mux.debug = debug
@@ -437,7 +437,7 @@ func (mux *Mux) Port() int {
 }
 
 // SetPort sets the port on which this mux will listen on. It's not
-// recommended to call this function manually. Instead, use gondola/config
+// recommended to call this function manually. Instead, use gnd.la/config
 // to change the default port before creating the mux. Otherwise, Gondola's
 // development server won't work correctly.
 func (mux *Mux) SetPort(port int) {
@@ -450,7 +450,7 @@ func (mux *Mux) SetPort(port int) {
 // asset loader associated with this mux. prefix might be a relative
 // (e.g. /static/) or absolute (e.g. http://static.example.com/) url
 // while dir should be the path to the directory where the static
-// assets reside. You probably want to use RelativePath() in gondola/util
+// assets reside. You probably want to use RelativePath() in gnd.la/util
 // to define the directory relative to the application binary. Note
 // that /favicon.ico and /robots.txt will be handled too, but they
 // will must be in the directory which contains the rest of the assets.
@@ -538,7 +538,7 @@ func (mux *Mux) MustListenAndServe() {
 }
 
 // Cache returns this mux's cache connection, using
-// cache.NewDefault(). Use gondola/config or gondola/defaults
+// cache.NewDefault(). Use gnd.la/config or gnd.la/defaults
 // to change the default cache. When the mux
 // is in debug mode, a new cache instance is returned
 // every time. Otherwise, the cache instance is shared
@@ -567,7 +567,7 @@ func (mux *Mux) Cache() (*cache.Cache, error) {
 }
 
 // Mux returns this mux's ORM connection, using the
-// default database parameters. Use gondola/config or gondola/defaults
+// default database parameters. Use gnd.la/config or gnd.la/defaults
 // to change the default ORM. When the mux is in debug mode, a new
 // ORM instance is returned every time. Otherwise, the mux instance
 // is shared amoung all goroutines. ORM usage is thread safe, but
@@ -874,7 +874,7 @@ func (mux *Mux) isReservedVariable(va string) bool {
 }
 
 // Returns a new Mux initialized with the current default values.
-// See gondola/defaults for further information.
+// See gnd.la/defaults for further information.
 func New() *Mux {
 	m := &Mux{
 		debug:          defaults.Debug(),

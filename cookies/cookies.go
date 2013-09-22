@@ -10,8 +10,8 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"gondola/base64"
-	"gondola/util"
+	"gnd.la/base64"
+	"gnd.la/util"
 	"net/http"
 	"strings"
 	"time"
@@ -60,7 +60,7 @@ func New(r *http.Request, w http.ResponseWriter, secret string, encryptionKey st
 // Defaults returns the default coookie options, which are:
 // Path: "/"
 // Expires: Permanent (cookie never expires)
-// To change the defaults, see gondola/mux/Mux.SetDefaultCookieOptions()
+// To change the defaults, see gnd.la/mux/Mux.SetDefaultCookieOptions()
 func Defaults() *Options {
 	return &Options{
 		Path:    "/",

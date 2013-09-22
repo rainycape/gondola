@@ -378,14 +378,17 @@ func (t *Template) ParseVars(name string, vars VarMap) error {
 	if err != nil {
 		return err
 	}
+	// Don't define missing templates to be empty, since
+	// it causes more problems than it solves.
+	//
 	// Fill any empty templates, so we allow templates
 	// to be left undefined
-	for _, v := range t.referencedTemplates() {
-		if _, ok := t.Trees[v]; !ok {
-			tree := compileTree(v, "")
-			t.AddParseTree(v, tree)
-		}
-	}
+	//for _, v := range t.referencedTemplates() {
+	//	if _, ok := t.Trees[v]; !ok {
+	//		tree := compileTree(v, "")
+	//		t.AddParseTree(v, tree)
+	//	}
+	//}
 	var templateArgs []parse.Node
 	if n := len(vars); n > 0 {
 		// Modify the parse trees to always define vars

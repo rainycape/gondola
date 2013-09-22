@@ -10,7 +10,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"gnd.la/base64"
+	"gnd.la/encoding/base64"
 	"gnd.la/util"
 	"net/http"
 	"strings"
@@ -209,10 +209,10 @@ func (c *Cookies) decrypter() (transformer, error) {
 
 // Has returns true if a cookie with the given name exists
 func (c *Cookies) Has(name string) bool {
-    // TODO(hierro): This currently generates a *http.Cookie object
-    // which is thrown away. Avoid that unnecessary allocation.
-    cookie, _ := c.GetCookie(name)
-    return cookie != nil
+	// TODO(hierro): This currently generates a *http.Cookie object
+	// which is thrown away. Avoid that unnecessary allocation.
+	cookie, _ := c.GetCookie(name)
+	return cookie != nil
 }
 
 // GetCookie returns the raw *http.Coookie with

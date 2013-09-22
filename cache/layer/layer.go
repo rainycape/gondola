@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	fromLayer = []string{"true"}
+	fromLayer  = []string{"true"}
+	layerCodec = codec.Get("gob")
 )
 
 type cachedResponse struct {
@@ -22,7 +23,7 @@ type cachedResponse struct {
 
 func New(c *cache.Cache, m Mediator) mux.Transformer {
 	if c == nil {
-		c = cache.NewDefault()
+		panic(errors.New("nil cache passed to cache layer"))
 	}
 	if m == nil {
 		panic(errors.New("nil mediator passed to cache layer"))
@@ -34,11 +35,11 @@ func New(c *cache.Cache, m Mediator) mux.Transformer {
 				return
 			}
 			key := m.Key(ctx)
-			data := c.GetBytes(key)
+			data, _ := c.GetBytes(key)
 			if data != nil {
 				// has cached data
 				var response *cachedResponse
-				err := codec.GobCodec.Decode(data, &response)
+				err := layerCodec.Decode(data, &response)
 				if err == nil {
 					ctx.SetServedFromCache(true)
 					header := ctx.Header()
@@ -59,7 +60,7 @@ func New(c *cache.Cache, m Mediator) mux.Transformer {
 			ctx.ResponseWriter = rw
 			if m.Cache(ctx, w.statusCode, w.header) {
 				response := &cachedResponse{w.header, w.statusCode, w.buf.Bytes()}
-				data, err := codec.GobCodec.Encode(response)
+				data, err := layerCodec.Encode(response)
 				if err == nil {
 					ctx.SetCached(true)
 					expiration := m.Expires(ctx, w.statusCode, w.header)

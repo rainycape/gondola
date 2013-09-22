@@ -147,6 +147,10 @@ func (p *Project) configFile() string {
 		if _, err := os.Stat(filename); err == nil {
 			return filename
 		} else {
+			// Try it as a relative path
+			if _, err := os.Stat(p.config); err == nil {
+				return p.config
+			}
 			log.Warningf("could not find config file %q (error was %s), ignoring", p.config, err)
 		}
 	}

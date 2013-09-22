@@ -1,6 +1,0 @@
-PASS
-BenchmarkCodeUnmarshal	      20	  96185943 ns/op	  20.17 MB/s	 4274416 B/op	  195380 allocs/op
-BenchmarkCodeUnmarshalInterface	      20	  91551645 ns/op	  21.20 MB/s	 7934791 B/op	  220395 allocs/op
-BenchmarkCodeUnmarshalMethod	      20	  96602025 ns/op	  20.09 MB/s	 4275061 B/op	  195384 allocs/op
-BenchmarkCodeUnmarshalReuse	      20	  91044282 ns/op	  21.31 MB/s	 2865140 B/op	  179523 allocs/op
-ok  	gondola/json	8.238s

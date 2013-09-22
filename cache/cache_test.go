@@ -204,7 +204,9 @@ func testBytes(t T, c *Cache) {
 }
 
 func testCache(t *testing.T, config string) {
-	log.SetLevel(log.LDebug)
+	if testing.Verbose() {
+		log.SetLevel(log.LDebug)
+	}
 	c, err := New(config)
 	if err != nil {
 		t.Fatal(err)

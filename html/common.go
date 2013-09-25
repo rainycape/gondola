@@ -101,6 +101,6 @@ func Small(text string) *Node {
 	return ttag("small", text)
 }
 
-func Span(text string) *Node {
-	return ttag("span", text)
+func Span(children ...*Node) *Node {
+	return container("span", children)
 }

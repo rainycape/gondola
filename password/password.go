@@ -136,7 +136,7 @@ func New(plain string) Password {
 // the hash is not available or not valid, it will panic.
 func NewHashed(plain string, hash Hash) Password {
 	if len(plain) > MaxPasswordLength {
-		return password.Password("")
+		return Password("")
 	}
 	// Use the same number of bits for the salt and the hash, since
 	// it provides the maximum possible security.

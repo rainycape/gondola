@@ -1,7 +1,8 @@
 package bootstrap
 
 import (
-	"gnd.la/util/paginator"
+	"gnd.la/html"
+	"gnd.la/html/paginator"
 	"strings"
 )
 
@@ -11,33 +12,41 @@ type Pager struct {
 	Alignment Alignment
 }
 
-func (p *Pager) Root() *paginator.Node {
+func (p *Pager) Root() *html.Node {
 	classes := []string{"pagination"}
+	containerStyles := []string{}
 	switch p.Size {
-	case SizeMini:
-		classes = append(classes, "pagination-mini")
+	case SizeExtraSmall:
+		classes = append(classes, "pagination-xs")
 	case SizeSmall:
-		classes = append(classes, "pagination-small")
+		classes = append(classes, "pagination-sm")
 	case SizeLarge:
-		classes = append(classes, "pagination-large")
+		classes = append(classes, "pagination-lg")
 	}
 	switch p.Alignment {
 	case AlignmentCenter:
-		classes = append(classes, "pagination-centered")
+		containerStyles = append(containerStyles, "text-align: center;")
 	case AlignmentRight:
-		classes = append(classes, "pagination-right")
+		containerStyles = append(containerStyles, "text-align: right;")
 	}
-	return &paginator.Node{
-		Tag:        "div",
-		Attributes: paginator.Attributes{"class": strings.Join(classes, " ")},
-		Children:   []*paginator.Node{&paginator.Node{Tag: "ul"}},
+	root := &html.Node{
+		Tag:   "ul",
+		Attrs: html.Attrs{"class": strings.Join(classes, " ")},
 	}
+	if len(containerStyles) > 0 {
+		return &html.Node{
+			Tag:      "div",
+			Attrs:    html.Attrs{"style": strings.Join(containerStyles, " ")},
+			Children: root,
+		}
+	}
+	return root
 }
 
-func (p *Pager) Node(n *paginator.Node, page int, flags int) *paginator.Node {
+func (p *Pager) Node(n *html.Node, page int, flags int) *html.Node {
 	node := p.SimplePager.Node(n, page, flags)
-	if flags&paginator.SEPARATOR != 0 || flags&paginator.CURRENT != 0 {
-		node.Children[0].Tag = "span"
+	if flags&paginator.SEPARATOR != 0 || flags&paginator.CURRENT != 0 && node.Children != nil {
+		node.Children.Tag = "span"
 	}
 	return node
 }

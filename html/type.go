@@ -3,6 +3,6 @@ package html
 type Type uint
 
 const (
-	TAG_NODE Type = iota + 1
+	TAG_NODE Type = iota
 	TEXT_NODE
 )

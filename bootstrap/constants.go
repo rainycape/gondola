@@ -3,7 +3,7 @@ package bootstrap
 type Size int
 
 const (
-	SizeMini Size = iota - 2
+	SizeExtraSmall = iota - 1
 	SizeSmall
 	SizeMedium
 	SizeLarge

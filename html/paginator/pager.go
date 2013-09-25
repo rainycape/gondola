@@ -1,5 +1,9 @@
 package paginator
 
+import (
+	"gnd.la/html"
+)
+
 const (
 	CURRENT   = 1 << 0
 	DISABLED  = 1 << 1
@@ -9,7 +13,7 @@ const (
 )
 
 type Pager interface {
-	Root() *Node
+	Root() *html.Node
 	Href(base string, page int) string
-	Node(n *Node, page int, flags int) *Node
+	Node(n *html.Node, page int, flags int) *html.Node
 }

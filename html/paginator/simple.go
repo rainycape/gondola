@@ -1,6 +1,7 @@
 package paginator
 
 import (
+	"gnd.la/html"
 	"strings"
 )
 
@@ -18,31 +19,31 @@ type SimplePager struct {
 	Func           Func
 }
 
-func (p *SimplePager) Root() *Node {
-	return &Node{Tag: p.Tag}
+func (p *SimplePager) Root() *html.Node {
+	return &html.Node{Tag: p.Tag}
 }
 
 func (p *SimplePager) Href(base string, page int) string {
 	return p.Func(base, page)
 }
 
-func (p *SimplePager) Node(n *Node, page int, flags int) *Node {
+func (p *SimplePager) Node(n *html.Node, page int, flags int) *html.Node {
 	var classes []string
 	if flags&NEXT != 0 {
 		if p.NextClass != "" {
 			classes = append(classes, p.NextClass)
 		}
-		n.Head = p.Next
+		n.Children = html.Text(p.Next)
 	} else if flags&PREVIOUS != 0 {
 		if p.PrevClass != "" {
 			classes = append(classes, p.PrevClass)
 		}
-		n.Head = p.Prev
+		n.Children = html.Text(p.Prev)
 	} else if flags&SEPARATOR != 0 {
 		if p.SeparatorClass != "" {
 			classes = append(classes, p.SeparatorClass)
 		}
-		n.Head = p.Separator
+		n.Children = html.Text(p.Separator)
 	}
 	if flags&CURRENT != 0 {
 		if p.CurrentClass != "" {
@@ -54,17 +55,17 @@ func (p *SimplePager) Node(n *Node, page int, flags int) *Node {
 		}
 	}
 	if p.Wrapper != "" {
-		var attrs Attributes
+		var attrs html.Attrs
 		if classes != nil {
-			attrs = Attributes{"class": strings.Join(classes, " ")}
+			attrs = html.Attrs{"class": strings.Join(classes, " ")}
 		}
-		return &Node{Tag: p.Wrapper, Attributes: attrs, Children: []*Node{n}}
+		return &html.Node{Tag: p.Wrapper, Attrs: attrs, Children: n}
 	}
 	if classes != nil {
-		if n.Attributes == nil {
-			n.Attributes = Attributes{}
+		if n.Attrs == nil {
+			n.Attrs = html.Attrs{}
 		}
-		n.Attributes["class"] = strings.Join(classes, " ")
+		n.Attrs["class"] = strings.Join(classes, " ")
 	}
 	return n
 }

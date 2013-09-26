@@ -9,18 +9,12 @@ const (
 	PASSWORD
 	// <input type="hidden">
 	HIDDEN
-	// <input type="text">
-	INTEGER
-	// <input type="text">
-	UINTEGER
-	// <input type="text">
-	FLOAT
 	// <textarea>
 	TEXTAREA
 	// <input type="checkbox">
 	BOOL
 	// <input type="radio">
-	CHOICES
+	RADIO
 	// <select>
 	SELECT
 )

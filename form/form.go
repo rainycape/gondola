@@ -87,13 +87,15 @@ func (f *Form) fieldByName(id, name string) (*Field, error) {
 	var typ Type
 	if tag.Has("hidden") {
 		typ = HIDDEN
+	} else if tag.Has("radio") {
+		typ = RADIO
+	} else if tag.Has("select") {
+		typ = SELECT
 	} else {
 		switch s.Types[idx].Kind() {
 		case reflect.String:
-			if s.Types[idx] == reflect.TypeOf(password.Password("")) {
+			if s.Types[idx] == reflect.TypeOf(password.Password("")) || tag.Has("password") {
 				typ = PASSWORD
-			} else if tag.Has("hidden") {
-				typ = HIDDEN
 			} else {
 				if ml, ok := tag.MaxLength(); ok && ml > 0 {
 					typ = TEXT
@@ -107,12 +109,19 @@ func (f *Form) fieldByName(id, name string) (*Field, error) {
 			}
 		case reflect.Bool:
 			typ = BOOL
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			typ = INTEGER
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			typ = UINTEGER
-		case reflect.Float32, reflect.Float64:
-			typ = FLOAT
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+			reflect.Float32, reflect.Float64:
+			typ = TEXT
+		default:
+			return nil, fmt.Errorf("field %q has invalid type %v", name, s.Types[idx])
+		}
+	}
+	// Check if the struct imlpements the ChoicesProvider interface
+	if typ == RADIO || typ == SELECT {
+		container := sval.Addr().Interface()
+		if _, ok := container.(ChoicesProvider); !ok {
+			return nil, fmt.Errorf("field %q requires choices, but %T does not implement ChoicesProvider", name, container)
 		}
 	}
 	field := &Field{
@@ -224,30 +233,69 @@ func (f *Form) closeTag(buf *bytes.Buffer, tag string) {
 	f.writeTag(buf, tag, nil, true)
 }
 
-func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
-	var closed bool
-	if field.Type != HIDDEN {
-		closed = field.Type != BOOL
-		if err := f.writeLabel(buf, field, closed); err != nil {
+func (f *Form) prepareFieldAttributes(field *Field, attrs html.Attrs, pos int) error {
+	if f.renderer != nil {
+		fattrs, err := f.renderer.FieldAttributes(field, pos)
+		if err != nil {
 			return err
 		}
-		if r := f.renderer; r != nil {
-			if err := r.BeginInput(buf, field); err != nil {
-				return err
-			}
-			for _, a := range field.addons {
-				if a.Position == AddOnPositionBefore {
-					err := r.WriteAddOn(buf, field, a)
-					if err != nil {
-						return err
-					}
+		for k, v := range fattrs {
+			attrs[k] = v
+		}
+	}
+	return nil
+}
+
+func (f *Form) fieldChoices(field *Field) []*Choice {
+	// The type was asserted on form creation
+	provider := field.sval.Addr().Interface().(ChoicesProvider)
+	return provider.FieldChoices(f.ctx, field)
+}
+
+func (f *Form) beginInput(buf *bytes.Buffer, field *Field, pos int) error {
+	if r := f.renderer; r != nil {
+		if err := r.BeginInput(buf, field, pos); err != nil {
+			return err
+		}
+		for _, a := range field.addons {
+			if a.Position == AddOnPositionBefore {
+				err := r.WriteAddOn(buf, field, a)
+				if err != nil {
+					return err
 				}
 			}
 		}
 	}
+	return nil
+}
+
+func (f *Form) endInput(buf *bytes.Buffer, field *Field, pos int) error {
+	if r := f.renderer; r != nil {
+		for _, a := range field.addons {
+			if a.Position == AddOnPositionAfter {
+				if err := r.WriteAddOn(buf, field, a); err != nil {
+					return err
+				}
+			}
+		}
+		if err := r.EndInput(buf, field, pos); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
+	var closed bool
+	if field.Type != HIDDEN {
+		closed = field.Type != BOOL
+		if err := f.writeLabel(buf, field, field.Id, field.Label, closed, -1); err != nil {
+			return err
+		}
+	}
 	var err error
 	switch field.Type {
-	case TEXT, INTEGER, UINTEGER, FLOAT:
+	case TEXT:
 		err = f.writeInput(buf, "text", field)
 	case PASSWORD:
 		err = f.writeInput(buf, "password", field)
@@ -261,34 +309,92 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 		if _, ok := field.Tag().IntValue("rows"); ok {
 			attrs["rows"] = field.Tag().Value("rows")
 		}
-		if f.renderer != nil {
-			fattrs, err := f.renderer.FieldAttributes(field)
-			if err != nil {
-				return err
-			}
-			for k, v := range fattrs {
-				attrs[k] = v
-			}
+		if err := f.prepareFieldAttributes(field, attrs, -1); err != nil {
+			return err
 		}
 		f.openTag(buf, "textarea", attrs)
-		buf.WriteString(types.ToString(field.Value()))
+		buf.WriteString(html.Escape(types.ToString(field.Value())))
 		f.closeTag(buf, "textarea")
 	case BOOL:
 		err = f.writeInput(buf, "checkbox", field)
-	case CHOICES:
+	case RADIO:
+		for ii, v := range f.fieldChoices(field) {
+			var value interface{}
+			id := fmt.Sprintf("%s_%d", field.Id, ii)
+			if err := f.writeLabel(buf, field, id, v.Name, false, ii); err != nil {
+				return err
+			}
+			if err := f.beginInput(buf, field, ii); err != nil {
+				return err
+			}
+			attrs := html.Attrs{
+				"id":   id,
+				"name": field.Name,
+				"type": "radio",
+			}
+			if v.Value != nil {
+				attrs["value"] = html.Escape(types.ToString(v.Value))
+				value = v.Value
+			} else {
+				value = v.Name
+			}
+			if reflect.DeepEqual(value, field.Value()) {
+				attrs["checked"] = "checked"
+			}
+			if err := f.prepareFieldAttributes(field, attrs, ii); err != nil {
+				return err
+			}
+			f.openTag(buf, "input", attrs)
+			if err := f.endLabel(buf, field, v.Name, ii); err != nil {
+				return err
+			}
+			if err := f.endInput(buf, field, ii); err != nil {
+				return err
+			}
+		}
 	case SELECT:
-	}
-	if field.Type != HIDDEN && !closed {
-		buf.WriteString(html.Escape(field.Label))
-		f.closeTag(buf, "label")
+		attrs := html.Attrs{
+			"id":   field.Id,
+			"name": field.Name,
+		}
+		if field.Tag().Has("multiple") {
+			attrs["multiple"] = "multiple"
+		}
+		if err := f.prepareFieldAttributes(field, attrs, -1); err != nil {
+			return err
+		}
+		f.openTag(buf, "select", attrs)
+		for ii, v := range f.fieldChoices(field) {
+			var value interface{}
+			oattrs := html.Attrs{}
+			if v.Value != nil {
+				oattrs["value"] = html.Escape(types.ToString(v.Value))
+				value = v.Value
+			} else {
+				value = v.Name
+			}
+			if reflect.DeepEqual(value, field.Value()) {
+				oattrs["selected"] = "selected"
+			}
+			if err := f.prepareFieldAttributes(field, attrs, ii); err != nil {
+				return err
+			}
+			f.openTag(buf, "option", oattrs)
+			buf.WriteString(html.Escape(v.Name))
+			f.closeTag(buf, "option")
+		}
+		f.closeTag(buf, "select")
 	}
 	return err
 }
 
-func (f *Form) writeLabel(buf *bytes.Buffer, field *Field, closed bool) error {
+func (f *Form) writeLabel(buf *bytes.Buffer, field *Field, id, label string, closed bool, pos int) error {
 	attrs := html.Attrs{}
-	if f.renderer != nil {
-		lattrs, err := f.renderer.LabelAttributes(field)
+	if r := f.renderer; r != nil {
+		if err := r.BeginLabel(buf, field, pos); err != nil {
+			return err
+		}
+		lattrs, err := r.LabelAttributes(field, pos)
 		if err != nil {
 			return err
 		}
@@ -296,54 +402,71 @@ func (f *Form) writeLabel(buf *bytes.Buffer, field *Field, closed bool) error {
 			attrs[k] = v
 		}
 	}
-	if field.Id != "" {
-		attrs["for"] = field.Id
+	if id != "" {
+		attrs["for"] = id
 	}
 	f.openTag(buf, "label", attrs)
 	if closed {
-		buf.WriteString(html.Escape(field.Label))
-		f.closeTag(buf, "label")
+		return f.endLabel(buf, field, label, pos)
+	}
+	return nil
+}
+
+func (f *Form) endLabel(buf *bytes.Buffer, field *Field, label string, pos int) error {
+	buf.WriteString(html.Escape(label))
+	f.closeTag(buf, "label")
+	if f.renderer != nil {
+		if err := f.renderer.EndLabel(buf, field, pos); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func (f *Form) writeInput(buf *bytes.Buffer, itype string, field *Field) error {
+	if err := f.beginInput(buf, field, -1); err != nil {
+		return err
+	}
 	attrs := html.Attrs{
 		"id":   field.Id,
 		"type": itype,
 		"name": field.Name,
 	}
-	if f.renderer != nil {
-		fattrs, err := f.renderer.FieldAttributes(field)
-		if err != nil {
-			return err
-		}
-		for k, v := range fattrs {
-			attrs[k] = v
-		}
+	if err := f.prepareFieldAttributes(field, attrs, -1); err != nil {
+		return err
 	}
 	switch field.Type {
 	case BOOL:
 		if t, ok := types.IsTrue(field.value.Interface()); t && ok {
 			attrs["checked"] = "checked"
 		}
-	case CHOICES:
-	default:
+	case TEXT, PASSWORD, HIDDEN:
 		attrs["value"] = html.Escape(types.ToString(field.Value()))
 		if field.Placeholder != "" {
-			attrs["placeholder"] = field.Placeholder
+			attrs["placeholder"] = html.Escape(field.Placeholder)
 		}
 		if ml, ok := field.Tag().MaxLength(); ok {
 			attrs["maxlength"] = strconv.Itoa(ml)
 		}
+	default:
+		panic("unreachable")
 	}
 	f.openTag(buf, "input", attrs)
+	if field.Type == BOOL {
+		// Close the label before calling EndInput
+		if err := f.endLabel(buf, field, field.Label, -1); err != nil {
+			return err
+		}
+	}
+	if err := f.endInput(buf, field, -1); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (f *Form) renderField(buf *bytes.Buffer, field *Field) (err error) {
 	if provider, ok := field.sval.Addr().Interface().(AddOnProvider); ok {
-		field.addons = provider.FieldAddOns(field)
+		field.addons = provider.FieldAddOns(f.ctx, field)
 	}
 	r := f.renderer
 	if r != nil {
@@ -357,18 +480,6 @@ func (f *Form) renderField(buf *bytes.Buffer, field *Field) (err error) {
 		return
 	}
 	if r != nil {
-		for _, a := range field.addons {
-			if a.Position == AddOnPositionAfter {
-				err = r.WriteAddOn(buf, field, a)
-				if err != nil {
-					return
-				}
-			}
-		}
-		err = r.EndInput(buf, field)
-		if err != nil {
-			return err
-		}
 		if ferr := field.Err(); ferr != nil {
 			err = r.WriteError(buf, field, ferr)
 			if err != nil {

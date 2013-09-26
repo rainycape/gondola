@@ -2,6 +2,7 @@ package form
 
 import (
 	"gnd.la/html"
+	"gnd.la/mux"
 )
 
 type AddOnPosition int
@@ -17,5 +18,5 @@ type AddOn struct {
 }
 
 type AddOnProvider interface {
-	FieldAddOns(field *Field) []*AddOn
+	FieldAddOns(ctx *mux.Context, field *Field) []*AddOn
 }

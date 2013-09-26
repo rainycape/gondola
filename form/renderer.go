@@ -12,16 +12,27 @@ import (
 type Renderer interface {
 	// BeginField is called before starting to write any field.
 	BeginField(w io.Writer, field *Field) error
+	// BeginLabel is called before writing the label. It might be
+	// called multiple times for radio fields.
+	BeginLabel(w io.Writer, field *Field, pos int) error
 	// LabelAttributes is called just before writing the <label> for the field.
-	LabelAttributes(field *Field) (html.Attrs, error)
-	// BeginInput is called just before writing the <input> or equivalent tag or any addons
-	BeginInput(w io.Writer, field *Field) error
+	LabelAttributes(field *Field, pos int) (html.Attrs, error)
+	// EndLabel is called before writing the end of the label. It might be
+	// called multiple times for radio fields.
+	EndLabel(w io.Writer, field *Field, pos int) error
+	// BeginInput is called just before writing the <input> or equivalent tag
+	// or any addons. For radio fields BeginInput will be called multiple times,
+	// one per option.
+	BeginInput(w io.Writer, field *Field, pos int) error
 	// FieldAttributes is called just before writing the field (input, textarea, etc...)
-	FieldAttributes(field *Field) (html.Attrs, error)
-	// EndInput is called just after writing the <input> or equivalent tag and all the addons
-	EndInput(w io.Writer, field *Field) error
+	FieldAttributes(field *Field, pos int) (html.Attrs, error)
+	// EndInput is called just after writing the <input> or equivalent tag and
+	// all the addons. For radio fields EndInput will be called multiple times,
+	// one per option.
+	EndInput(w io.Writer, field *Field, pos int) error
 	// WriteAddOn might be called multiple times, both before writing the field
-	// and after (depending on the addons' positions).
+	// and after (depending on the addons' positions). All these calls will happen
+	// after BeginInput() and EndInput().
 	WriteAddOn(w io.Writer, field *Field, addon *AddOn) error
 	// WriteError is called only for fields which are in not valid, after
 	// the label and the input have been written.

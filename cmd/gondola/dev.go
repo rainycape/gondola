@@ -210,7 +210,7 @@ func (p *Project) StopMonitoring() {
 
 func (p *Project) StartMonitoring() error {
 	pkgs, err := p.Packages()
-	if err != nil {
+	if len(pkgs) == 0 && err != nil {
 		return err
 	}
 	watcher, err := fsnotify.NewWatcher()

@@ -10,7 +10,7 @@ import (
 	"strconv"
 )
 
-// MathCaptcha provides a simple catpcha
+// MathCaptcha provides a simple captcha
 // which presents a simple arithmetic operation
 // to be solved by the user. This won't protect
 // you from targetted attacks, but it will stop

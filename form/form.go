@@ -22,6 +22,7 @@ type attrMap map[string]html.Attrs
 
 type Form struct {
 	ctx            *mux.Context
+	id             string
 	renderer       Renderer
 	values         []reflect.Value
 	structs        []*types.Struct
@@ -53,7 +54,7 @@ func (f *Form) validate() {
 	}
 }
 
-func (f *Form) fieldByName(id, name string) (*Field, error) {
+func (f *Form) makeField(name string) (*Field, error) {
 	var s *types.Struct
 	idx := -1
 	var fieldValue reflect.Value
@@ -125,13 +126,13 @@ func (f *Form) fieldByName(id, name string) (*Field, error) {
 		}
 	}
 	field := &Field{
-		Id:          id + mangled,
 		Type:        typ,
 		Label:       label,
 		GoName:      name,
 		Name:        mangled,
 		Placeholder: tag.Value("placeholder"),
 		Help:        tag.Value("help"),
+		id:          mangled,
 		value:       fieldValue,
 		s:           s,
 		sval:        sval,
@@ -150,13 +151,10 @@ func (f *Form) lookupField(name string) (*Field, error) {
 }
 
 func (f *Form) makeFields(names []string) error {
-	// Use the form pointer as part of the id, to ensure
-	// uniqueness
-	id := fmt.Sprintf("%p_", f)
 	fields := make([]*Field, len(names))
 	var err error
 	for ii, v := range names {
-		fields[ii], err = f.fieldByName(id, v)
+		fields[ii], err = f.makeField(v)
 		if err != nil {
 			return err
 		}
@@ -289,7 +287,7 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 	var closed bool
 	if field.Type != HIDDEN {
 		closed = field.Type != CHECKBOX
-		if err := f.writeLabel(buf, field, field.Id, field.Label, closed, -1); err != nil {
+		if err := f.writeLabel(buf, field, field.Id(), field.Label, closed, -1); err != nil {
 			return err
 		}
 	}
@@ -303,7 +301,7 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 		err = f.writeInput(buf, "hidden", field)
 	case TEXTAREA:
 		attrs := html.Attrs{
-			"id":   field.Id,
+			"id":   field.Id(),
 			"name": field.Name,
 		}
 		if _, ok := field.Tag().IntValue("rows"); ok {
@@ -354,7 +352,7 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 		}
 	case SELECT:
 		attrs := html.Attrs{
-			"id":   field.Id,
+			"id":   field.Id(),
 			"name": field.Name,
 		}
 		if field.Tag().Has("multiple") {
@@ -428,7 +426,7 @@ func (f *Form) writeInput(buf *bytes.Buffer, itype string, field *Field) error {
 		return err
 	}
 	attrs := html.Attrs{
-		"id":   field.Id,
+		"id":   field.Id(),
 		"type": itype,
 		"name": field.Name,
 	}
@@ -501,6 +499,9 @@ func (f *Form) renderField(buf *bytes.Buffer, field *Field) (err error) {
 }
 
 func (f *Form) render(fields []*Field) (template.HTML, error) {
+	if f.id == "" {
+		f.makeId()
+	}
 	var buf bytes.Buffer
 	var err error
 	for _, v := range fields {
@@ -541,6 +542,30 @@ func (f *Form) RenderExcept(names ...string) (template.HTML, error) {
 	return f.render(fields)
 }
 
+func (f *Form) makeId() {
+	// Use the form pointer to generate the id,
+	// to ensure uniqueness
+	p, _ := strconv.ParseInt(fmt.Sprintf("%p", f), 0, 64)
+	f.SetId(strconv.FormatInt(p%(1024*1024), 36))
+}
+
+// Id returns the prefix added to each field id in this form. Keep in mind
+// that this function will never return an empty string because the form
+// automatically generates a sufficiently unique id on creation.
+func (f *Form) Id() string {
+	return f.id
+}
+
+// SetId sets the prefix to be added to each field
+// id attribute when rendering the form.
+func (f *Form) SetId(id string) {
+	f.id = id
+	p := id + "_"
+	for _, v := range f.fields {
+		v.prefix = p
+	}
+}
+
 // New returns a new form using the given context, renderer and options. If render is
 // nil, BasicRenderer will be used. The values argument must contains pointers to structs.
 // Since any error generated during form creation will be a programming error, New panics
@@ -572,5 +597,6 @@ func New(ctx *mux.Context, r Renderer, opt *Options, values ...interface{}) *For
 	if err != nil {
 		panic(err)
 	}
+	form.makeId()
 	return form
 }

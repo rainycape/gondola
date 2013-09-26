@@ -6,7 +6,6 @@ import (
 )
 
 type Field struct {
-	Id          string
 	Type        Type
 	Label       string
 	GoName      string
@@ -14,12 +13,18 @@ type Field struct {
 	Placeholder string
 	Help        string
 
+	id     string
+	prefix string
 	addons []*AddOn
 	value  reflect.Value
 	s      *types.Struct
 	sval   reflect.Value
 	pos    int
 	err    error
+}
+
+func (f *Field) Id() string {
+	return f.prefix + f.id
 }
 
 func (f *Field) Value() interface{} {

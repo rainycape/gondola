@@ -52,7 +52,7 @@ func afterTask(name string, started time.Time) {
 		log.Error(buf.String())
 	}
 	end := time.Now()
-	log.Debugf("Finished task %s at %v (took %v)", name, end, started.Sub(end))
+	log.Debugf("Finished task %s at %v (took %v)", name, end, end.Sub(started))
 }
 
 func executeTask(m *mux.Mux, task mux.Handler) {

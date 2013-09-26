@@ -7,8 +7,9 @@ import (
 
 // Renderer is the interface implemented to help the form
 // render its elements. Without a Renderer, the form won't
-// render errors nor help messages. Each function is called
-// at most once for each non-hidden field included in the form.
+// render errors nor help messages. Except when noted otherwise,
+// each function is called at most once for each non-hidden field
+// included in the form.
 type Renderer interface {
 	// BeginField is called before starting to write any field.
 	BeginField(w io.Writer, field *Field) error

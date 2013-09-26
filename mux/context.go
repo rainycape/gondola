@@ -428,6 +428,30 @@ func (c *Context) Elapsed() time.Duration {
 	return time.Since(c.started)
 }
 
+// RemoteIP returns the remote IP without the port number.
+func (c *Context) RemoteIP() string {
+	if c.R != nil {
+		addr := c.R.RemoteAddr
+		if strings.Count(addr, ".") == 3 {
+			/* IPv4 e.g. 127.0.0.1:8000 */
+			idx := strings.Index(addr, ":")
+			if idx >= 0 {
+				addr = addr[:idx]
+			}
+		} else {
+			/* IPv6 e.g. [1fff:0:a88:85a3::ac1f]:8001 */
+			if addr != "" && addr[0] == '[' {
+				idx := strings.Index(addr, "]")
+				if idx >= 0 {
+					addr = addr[1:idx]
+				}
+			}
+		}
+		return addr
+	}
+	return ""
+}
+
 // Close closes any resources opened by the context.
 // It's automatically called by the mux, so you
 // don't need to call it manually

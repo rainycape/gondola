@@ -67,7 +67,6 @@ type Mux struct {
 	handlers             []*handlerInfo
 	customContextType    *reflect.Type
 	trustXHeaders        bool
-	keepRemotePort       bool
 	appendSlash          bool
 	errorHandler         ErrorHandler
 	secret               string
@@ -194,21 +193,6 @@ func (mux *Mux) TrustsXHeaders() bool {
 // balancer which sanitizes the input *IS A SECURITY RISK*.
 func (mux *Mux) SetTrustXHeaders(t bool) {
 	mux.trustXHeaders = t
-}
-
-// KeepsRemotePort returns if the mux keeps the remote port
-// in http.Request.RemoteAddr field. See SetKeepRemotePort
-// for a more detailed explanation.
-func (mux *Mux) KeepsRemotePort() bool {
-	return mux.keepRemotePort
-}
-
-// SetKeepRemovePort sets if the mux keeps the remote port
-// in http.Request.RemoteAddr field. Since the remote port
-// is rarely useful, this defaults to false, so RemoteAddr
-// will only contain an address
-func (mux *Mux) SetKeepRemotePort(k bool) {
-	mux.keepRemotePort = k
 }
 
 // AppendSlash returns if the mux will automatically append
@@ -667,7 +651,7 @@ func (mux *Mux) logError(ctx *Context, err interface{}) {
 		buf.WriteByte(' ')
 		buf.WriteString(ctx.R.URL.String())
 		buf.WriteByte(' ')
-		buf.WriteString(ctx.R.RemoteAddr)
+		buf.WriteString(ctx.RemoteIP())
 		buf.WriteString(": ")
 	} else {
 		buf.WriteString("Panic: ")
@@ -738,24 +722,6 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer mux.recover(ctx)
 	if mux.trustXHeaders {
 		mux.readXHeaders(r)
-	}
-	if !mux.keepRemotePort {
-		addr := r.RemoteAddr
-		if strings.Count(addr, ".") == 3 {
-			/* IPv4 e.g. 127.0.0.1:8000 */
-			idx := strings.Index(addr, ":")
-			if idx >= 0 {
-				r.RemoteAddr = addr[:idx]
-			}
-		} else {
-			/* IPv6 e.g. [1fff:0:a88:85a3::ac1f]:8001 */
-			if addr != "" && addr[0] == '[' {
-				idx := strings.Index(addr, "]")
-				if idx >= 0 {
-					r.RemoteAddr = addr[1:idx]
-				}
-			}
-		}
 	}
 	for _, v := range mux.ContextProcessors {
 		if v(ctx) {
@@ -848,7 +814,7 @@ func (mux *Mux) CloseContext(ctx *Context) {
 		if ctx.statusCode >= 400 {
 			level = log.LWarning
 		}
-		mux.Logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.RequestURI, ctx.R.RemoteAddr,
+		mux.Logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.RequestURI, ctx.RemoteIP(),
 			strconv.Itoa(ctx.statusCode), ctx.Elapsed().String()}, " "))
 	}
 

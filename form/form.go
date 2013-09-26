@@ -21,16 +21,17 @@ var (
 type attrMap map[string]html.Attrs
 
 type Form struct {
-	ctx            *mux.Context
-	id             string
-	renderer       Renderer
-	values         []reflect.Value
-	structs        []*types.Struct
-	fields         []*Field
-	attrs          attrMap
-	options        *Options
-	invalid        bool
-	validated      bool
+	ctx       *mux.Context
+	id        string
+	renderer  Renderer
+	values    []reflect.Value
+	structs   []*types.Struct
+	fields    []*Field
+	attrs     attrMap
+	options   *Options
+	invalid   bool
+	validated bool
+	// Don't include the field name in the error
 	NamelessErrors bool
 }
 
@@ -512,10 +513,16 @@ func (f *Form) render(fields []*Field) (template.HTML, error) {
 	return template.HTML(buf.String()), err
 }
 
+// Render renders all the fields in the form, in the order
+// specified during construction.
 func (f *Form) Render() (template.HTML, error) {
 	return f.render(f.fields)
 }
 
+// RenderOnly renders the given fields, identified by their names
+// in the struct. If a field does not exist, an error is returned.
+// Fields are rendered according to the order of the parameters
+// passed to this function.
 func (f *Form) RenderOnly(names ...string) (template.HTML, error) {
 	var fields []*Field
 	for _, v := range names {
@@ -528,6 +535,8 @@ func (f *Form) RenderOnly(names ...string) (template.HTML, error) {
 	return f.render(fields)
 }
 
+// RenderExcept renders all the form's fields except the ones specified
+// in the names parameter.
 func (f *Form) RenderExcept(names ...string) (template.HTML, error) {
 	n := make(map[string]bool, len(names))
 	for _, v := range names {

@@ -377,8 +377,8 @@ func (p *Project) Compile() {
 		if !ok {
 			log.Panic(err)
 		}
-		if exitStatus(exitErr.ProcessState) != 2 {
-			// gc returns 2 when there are compilation errors
+		if es := exitStatus(exitErr.ProcessState); es != 1 && es != 2 {
+			// gc returns 1 when it can't find a package, 2 when there are compilation errors
 			log.Panic(err)
 		}
 		r := bufio.NewReader(bytes.NewReader(buf.Bytes()))

@@ -60,12 +60,15 @@ func (r *Renderer) EndInput(w io.Writer, field *form.Field) error {
 }
 
 func (r *Renderer) WriteAddOn(w io.Writer, field *form.Field, addon *form.AddOn) error {
-	span := &html.Node{
-		Tag:      "span",
-		Attrs:    html.Attrs{"class": "input-group-addon"},
-		Children: addon.Node,
+	node := addon.Node
+	if node.Type == html.TEXT_NODE {
+		node = &html.Node{
+			Tag:      "span",
+			Attrs:    html.Attrs{"class": "input-group-addon"},
+			Children: addon.Node,
+		}
 	}
-	_, err := span.WriteTo(w)
+	_, err := node.WriteTo(w)
 	return err
 }
 

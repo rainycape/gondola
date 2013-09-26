@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/smtp"
 	"strings"
+	"text/template"
 )
 
 var (
@@ -106,6 +107,28 @@ func SendVia(server, from, to, message string, headers Headers, attachments []*A
 // specified by DefaultServer()
 func Send(from, to, message string, headers Headers, attachments []*Attachment) error {
 	return SendVia(defaultServer, from, to, message, headers, attachments)
+}
+
+// SendTemplateVia parses the template from templateFile, executes it
+// with the data argument and then sends the resulting string as
+// the message using SendVia.
+func SendTemplateVia(server, from, to, templateFile string, data interface{}, headers Headers, attachments []*Attachment) error {
+	tmpl, err := template.ParseFiles(templateFile)
+	if err != nil {
+		return err
+	}
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, data)
+	if err != nil {
+		return err
+	}
+	return SendVia(server, from, to, buf.String(), headers, attachments)
+}
+
+// SendTemplate works like SendTemplateVia, but uses the mail
+// server specified by DefaultServer()
+func SendTemplate(from, to, templateFile string, data interface{}, headers Headers, attachments []*Attachment) error {
+	return SendTemplateVia(defaultServer, from, to, templateFile, data, headers, attachments)
 }
 
 // DefaultServer returns the default mail server URL.

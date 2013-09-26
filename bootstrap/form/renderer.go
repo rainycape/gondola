@@ -18,7 +18,7 @@ func (r *Renderer) BeginField(w io.Writer, field *form.Field) error {
 	div.Attrs = attrs
 	div.Open = true
 	_, err := div.WriteTo(w)
-	if err == nil && field.Type == form.BOOL {
+	if err == nil && field.Type == form.CHECKBOX {
 		cb := html.Div()
 		cb.Attrs = html.Attrs{"class": "checkbox"}
 		cb.Open = true
@@ -62,7 +62,7 @@ func (r *Renderer) BeginInput(w io.Writer, field *form.Field, pos int) error {
 }
 
 func (r *Renderer) FieldAttributes(field *form.Field, pos int) (html.Attrs, error) {
-	if field.Type == form.BOOL || (field.Type == form.SELECT && pos != -1) || field.Type == form.RADIO {
+	if field.Type == form.CHECKBOX || (field.Type == form.SELECT && pos != -1) || field.Type == form.RADIO {
 		return nil, nil
 	}
 	return html.Attrs{
@@ -107,7 +107,7 @@ func (r *Renderer) WriteHelp(w io.Writer, field *form.Field) error {
 
 func (r *Renderer) EndField(w io.Writer, field *form.Field) error {
 	_, err := io.WriteString(w, "</div>")
-	if err == nil && field.Type == form.BOOL {
+	if err == nil && field.Type == form.CHECKBOX {
 		_, err = io.WriteString(w, "</div>")
 	}
 	return err

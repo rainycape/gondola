@@ -108,7 +108,7 @@ func (f *Form) fieldByName(id, name string) (*Field, error) {
 				}
 			}
 		case reflect.Bool:
-			typ = BOOL
+			typ = CHECKBOX
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 			reflect.Float32, reflect.Float64:
@@ -288,7 +288,7 @@ func (f *Form) endInput(buf *bytes.Buffer, field *Field, pos int) error {
 func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 	var closed bool
 	if field.Type != HIDDEN {
-		closed = field.Type != BOOL
+		closed = field.Type != CHECKBOX
 		if err := f.writeLabel(buf, field, field.Id, field.Label, closed, -1); err != nil {
 			return err
 		}
@@ -315,7 +315,7 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 		f.openTag(buf, "textarea", attrs)
 		buf.WriteString(html.Escape(types.ToString(field.Value())))
 		f.closeTag(buf, "textarea")
-	case BOOL:
+	case CHECKBOX:
 		err = f.writeInput(buf, "checkbox", field)
 	case RADIO:
 		for ii, v := range f.fieldChoices(field) {
@@ -436,7 +436,7 @@ func (f *Form) writeInput(buf *bytes.Buffer, itype string, field *Field) error {
 		return err
 	}
 	switch field.Type {
-	case BOOL:
+	case CHECKBOX:
 		if t, ok := types.IsTrue(field.value.Interface()); t && ok {
 			attrs["checked"] = "checked"
 		}
@@ -452,7 +452,7 @@ func (f *Form) writeInput(buf *bytes.Buffer, itype string, field *Field) error {
 		panic("unreachable")
 	}
 	f.openTag(buf, "input", attrs)
-	if field.Type == BOOL {
+	if field.Type == CHECKBOX {
 		// Close the label before calling EndInput
 		if err := f.endLabel(buf, field, field.Label, -1); err != nil {
 			return err

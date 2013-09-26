@@ -12,7 +12,7 @@ const (
 	// <textarea>
 	TEXTAREA
 	// <input type="checkbox">
-	BOOL
+	CHECKBOX
 	// <input type="radio">
 	RADIO
 	// <select>

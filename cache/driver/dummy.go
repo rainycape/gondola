@@ -1,5 +1,9 @@
 package driver
 
+import (
+	"gnd.la/config"
+)
+
 var ddrv *DummyDriver
 
 // DummyDriver implements a dummy cache, which doesn't store
@@ -31,7 +35,7 @@ func (d *DummyDriver) Connection() interface{} {
 	return nil
 }
 
-func openDummyDriver(value string, o Options) (Driver, error) {
+func openDummyDriver(value string, o config.Options) (Driver, error) {
 	if ddrv == nil {
 		// No locking, since the worst thing that might
 		// happen is we end up with several DummyDriver

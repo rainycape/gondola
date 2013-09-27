@@ -4,6 +4,7 @@ package memcache
 import (
 	"github.com/bradfitz/gomemcache/memcache"
 	"gnd.la/cache/driver"
+	"gnd.la/config"
 	"strings"
 )
 
@@ -55,7 +56,7 @@ func (c *memcacheDriver) Connection() interface{} {
 	return c.Client
 }
 
-func memcacheOpener(value string, o driver.Options) (driver.Driver, error) {
+func memcacheOpener(value string, o config.Options) (driver.Driver, error) {
 	hosts := strings.Split(value, ",")
 	conns := make([]string, len(hosts))
 	for ii, v := range hosts {

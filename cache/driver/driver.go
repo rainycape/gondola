@@ -1,18 +1,12 @@
 package driver
 
+import (
+	"gnd.la/config"
+)
+
 var (
 	drivers = map[string]Opener{}
 )
-
-// Options is a conveniency type for representing
-// the options passed to the cache and its driver.
-type Options map[string]string
-
-// Get returns the value for the given option, or the
-// empty string if no such option was specified.
-func (o Options) Get(key string) string {
-	return o[key]
-}
 
 // Opener is a function which returns a new Driver connection
 // with the given driver-dependent value and the given options
@@ -20,7 +14,7 @@ func (o Options) Get(key string) string {
 // the Gondola's cache package, while others are driver dependent
 // and are documented in each driver. Drivers should just ignore
 // options which they don't use.
-type Opener func(value string, o Options) (Driver, error)
+type Opener func(value string, o config.Options) (Driver, error)
 
 // Driver is the interface implemented by cache drivers.
 type Driver interface {

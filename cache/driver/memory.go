@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"gnd.la/config"
 	"sync"
 	"time"
 )
@@ -100,7 +101,7 @@ func (d *MemoryDriver) Connection() interface{} {
 	return nil
 }
 
-func openMemoryDriver(value string, o Options) (Driver, error) {
+func openMemoryDriver(value string, o config.Options) (Driver, error) {
 	// Don't do this in init(), since the memory driver
 	// won't be used most of the time and we don't want
 	// the user paying for these two allocations if they're

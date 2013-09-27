@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"gnd.la/cache/codec"
 	"gnd.la/cache/driver"
+	"gnd.la/config"
 	"gnd.la/log"
 	"io"
 	"reflect"
@@ -270,9 +271,9 @@ func (c *Cache) error(err *cacheError) {
 	}
 }
 
-func newConfig(config *config) (*Cache, error) {
-	if config.Options == nil {
-		config.Options = driver.Options{}
+func newConfig(conf *config.URL) (*Cache, error) {
+	if conf.Options == nil {
+		conf.Options = config.Options{}
 	}
 	cache := &Cache{
 		Logger:            log.Std,
@@ -280,7 +281,7 @@ func newConfig(config *config) (*Cache, error) {
 		compressLevel:     zlib.DefaultCompression,
 	}
 
-	if codecName := config.Get("codec"); codecName != "" {
+	if codecName := conf.Get("codec"); codecName != "" {
 		cache.codec = codec.Get(codecName)
 		if cache.codec == nil {
 			return nil, fmt.Errorf("unknown cache codec %q, maybe you forgot an import?", codecName)
@@ -289,10 +290,10 @@ func newConfig(config *config) (*Cache, error) {
 		cache.codec = codec.Get("gob")
 	}
 
-	cache.prefix = config.Get("prefix")
+	cache.prefix = conf.Get("prefix")
 	cache.prefixLen = len(cache.prefix)
 
-	if mcl := config.Get("min_compress"); mcl != "" {
+	if mcl := conf.Get("min_compress"); mcl != "" {
 		val, err := strconv.Atoi(mcl)
 		if err != nil {
 			return nil, fmt.Errorf("invalid min_compress value %q (%s) (must be an integer)", mcl, err)
@@ -300,7 +301,7 @@ func newConfig(config *config) (*Cache, error) {
 		cache.minCompressLength = val
 	}
 
-	if cl := config.Get("compress_level"); cl != "" {
+	if cl := conf.Get("compress_level"); cl != "" {
 		val, err := strconv.Atoi(cl)
 		if err != nil {
 			return nil, fmt.Errorf("invalid compress_level %q (%s) (must be an integer)", cl, err)
@@ -312,25 +313,32 @@ func newConfig(config *config) (*Cache, error) {
 		cache.compressLevel = val
 	}
 	var opener driver.Opener
-	if config.Driver != "" {
-		opener = driver.Get(config.Driver)
+	if conf.Scheme != "" {
+		opener = driver.Get(conf.Scheme)
 		if opener == nil {
-			return nil, fmt.Errorf("unknown cache driver %q, maybe you forgot an import?", config.Driver)
+			return nil, fmt.Errorf("unknown cache driver %q, maybe you forgot an import?", conf.Scheme)
 		}
 	} else {
 		opener = driver.Get("dummy")
 	}
 	var err error
-	if cache.driver, err = opener(config.Value, config.Options); err != nil {
+	if cache.driver, err = opener(conf.Value, conf.Options); err != nil {
 		return nil, err
 	}
 	return cache, nil
 }
 
-func New(config string) (*Cache, error) {
-	cfg, err := parseConfig(config)
-	if err != nil {
-		return nil, err
+func New(conf string) (*Cache, error) {
+	var cfg *config.URL
+	if conf == "" {
+		// Use dummy cache
+		cfg = &config.URL{}
+	} else {
+		var err error
+		cfg, err = config.ParseURL(conf)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing cache config: %s", err)
+		}
 	}
 	return newConfig(cfg)
 }

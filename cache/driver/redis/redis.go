@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/vmihailenco/redis"
 	"gnd.la/cache/driver"
+	"gnd.la/config"
 	"strconv"
 )
 
@@ -57,7 +58,7 @@ func (r *redisDriver) Connection() interface{} {
 	return r.Client
 }
 
-func redisOpener(value string, o driver.Options) (driver.Driver, error) {
+func redisOpener(value string, o config.Options) (driver.Driver, error) {
 	password := o.Get("password")
 	db := int64(-1)
 	if d := o.Get("db"); d != "" {

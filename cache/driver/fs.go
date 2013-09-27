@@ -2,6 +2,7 @@ package driver
 
 import (
 	"encoding/binary"
+	"gnd.la/config"
 	"gnd.la/hashutil"
 	"gnd.la/util"
 	"io/ioutil"
@@ -91,7 +92,7 @@ func (f *FileSystemDriver) Connection() interface{} {
 	return nil
 }
 
-func fsOpener(value string, o Options) (Driver, error) {
+func fsOpener(value string, o config.Options) (Driver, error) {
 	if !filepath.IsAbs(value) {
 		value = util.RelativePath(value)
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gnd.la/blobstore/driver"
 	"gnd.la/config"
+	"io"
 	"reflect"
 )
 
@@ -92,12 +93,15 @@ func (s *Store) CreateId(id string, meta interface{}) (wfile *WFile, err error) 
 			return
 		}
 	}
-	// Reserve 16 bytes for data header
-	if err = bwrite(w, uint64(0)); err != nil {
-		return
-	}
-	if err = bwrite(w, uint64(0)); err != nil {
-		return
+	seeker, ok := w.(io.Seeker)
+	if ok {
+		// Reserve 16 bytes for data header
+		if err = bwrite(w, uint64(0)); err != nil {
+			return
+		}
+		if err = bwrite(w, uint64(0)); err != nil {
+			return
+		}
 	}
 	// File is ready for writing. Hand it to the user.
 	return &WFile{
@@ -105,6 +109,7 @@ func (s *Store) CreateId(id string, meta interface{}) (wfile *WFile, err error) 
 		metadataLength: metadataLength,
 		dataHash:       newHash(),
 		wfile:          w,
+		seeker:         seeker,
 	}, nil
 }
 

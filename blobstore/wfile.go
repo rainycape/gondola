@@ -1,8 +1,10 @@
 package blobstore
 
 import (
+	"bytes"
 	"gnd.la/blobstore/driver"
 	"hash"
+	"io"
 	"os"
 )
 
@@ -12,7 +14,9 @@ type WFile struct {
 	dataLength     uint64
 	dataHash       hash.Hash64
 	wfile          driver.WFile
+	seeker         io.Seeker
 	closed         bool
+	buf            bytes.Buffer
 }
 
 func (w *WFile) Id() string {
@@ -22,22 +26,34 @@ func (w *WFile) Id() string {
 func (w *WFile) Write(p []byte) (int, error) {
 	w.dataHash.Write(p)
 	w.dataLength += uint64(len(p))
-	return w.wfile.Write(p)
+	if w.seeker != nil {
+		return w.wfile.Write(p)
+	}
+	// The underlying driver does not support seeking, buffer
+	// writes.
+	return w.buf.Write(p)
 }
 
 func (w *WFile) Close() error {
 	if !w.closed {
-		// Seek to the end of the metadata to update
-		// data size and data hash. Go back the length
-		// of the data as well as 16 bytes.
-		if _, err := w.wfile.Seek(-int64(w.dataLength+16), os.SEEK_CUR); err != nil {
-			return err
+		if w.seeker != nil {
+			// Seek to the end of the metadata to update the size and hash
+			dataLengthPos := int64(1 + 8 + 8 + 8 + w.metadataLength)
+			if _, err := w.seeker.Seek(dataLengthPos, os.SEEK_SET); err != nil {
+				return err
+			}
 		}
 		if err := bwrite(w.wfile, w.dataLength); err != nil {
 			return err
 		}
 		if err := bwrite(w.wfile, w.dataHash.Sum64()); err != nil {
 			return err
+		}
+		if w.seeker == nil {
+			// No seeking, write buffered data
+			if _, err := w.wfile.Write(w.buf.Bytes()); err != nil {
+				return err
+			}
 		}
 		w.closed = true
 		return w.wfile.Close()

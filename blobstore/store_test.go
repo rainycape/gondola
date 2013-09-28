@@ -1,9 +1,12 @@
 package blobstore
 
 import (
+	"fmt"
 	_ "gnd.la/blobstore/driver/file"
+	_ "gnd.la/blobstore/driver/gridfs"
 	"hash/adler32"
 	"io/ioutil"
+	"net"
 	"os"
 	"testing"
 )
@@ -11,6 +14,15 @@ import (
 const (
 	dataSize = 1 << 20 // 1MiB
 )
+
+func testPort(port int) bool {
+	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
 
 type Meta struct {
 	Foo int
@@ -117,4 +129,11 @@ func TestFileStoreMeta(t *testing.T) {
 	//defer os.RemoveAll(dir)
 	cfg := "file://" + dir
 	testStore(t, &Meta{Foo: 5}, cfg)
+}
+
+func TestGridfs(t *testing.T) {
+	if !testPort(27017) {
+		t.Skip("mongodb is not running. mongodb memcache on localhost to run this test")
+	}
+	testStore(t, nil, "gridfs://localhost/blobstore_test")
 }

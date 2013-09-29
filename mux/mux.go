@@ -609,6 +609,7 @@ func (mux *Mux) readXHeaders(r *http.Request) {
 }
 
 func (mux *Mux) handleHTTPError(ctx *Context, error string, code int) {
+	defer mux.recover(ctx)
 	if mux.errorHandler == nil || !mux.errorHandler(ctx, error, code) {
 		http.Error(ctx, error, code)
 	}

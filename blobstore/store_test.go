@@ -9,6 +9,8 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -56,6 +58,7 @@ func testStore(t *testing.T, meta *Meta, config string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer store.Close()
 	var ids []string
 	var hashes []uint32
 	for ii := 0; ii < 10; ii++ {
@@ -80,6 +83,7 @@ func testStore(t *testing.T, meta *Meta, config string) {
 			t.Error(err)
 			continue
 		}
+		defer f.Close()
 		t.Logf("Opened file %s", v)
 		if f.Size() != dataSize {
 			t.Errorf("Invalid data size for file %s. Want %v, got %v.", v, dataSize, f.Size())
@@ -108,6 +112,25 @@ func testStore(t *testing.T, meta *Meta, config string) {
 		}
 		if h := adler32.Checksum(b); h != hashes[ii] {
 			t.Errorf("invalid hash %v for file %v, expected %v", h, v, hashes[ii])
+		}
+	}
+	// Now remove all the files
+	for _, v := range ids {
+		if err := store.Delete(v); err != nil {
+			t.Error(err)
+		} else {
+			t.Logf("deleted file %s", v)
+		}
+	}
+	// Check that the files do not exist
+	for _, v := range ids {
+		if f, err := store.Open(v); err == nil || f != nil {
+			t.Errorf("expecting nil file and non-nil err, got file %v and err %v instead", f, err)
+			if f == nil {
+				f.Close()
+			}
+		} else {
+			t.Logf("file %s was deleted", v)
 		}
 	}
 }

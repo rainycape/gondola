@@ -22,6 +22,28 @@ func ToString(val interface{}) string {
 	return fmt.Sprintf("%v", val)
 }
 
+// ToInt tries to convert its argument to an integer. It will convert
+// bool, uint and its varities, floats and even strings if it can parse
+// them.
+func ToInt(val interface{}) (int, error) {
+	v := reflect.Indirect(reflect.ValueOf(val))
+	switch v.Kind() {
+	case reflect.String:
+	case reflect.Bool:
+		if v.Bool() {
+			return 1, nil
+		}
+		return 0, nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return int(v.Int()), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return int(v.Uint()), nil
+	case reflect.Float32, reflect.Float64:
+		return int(v.Float()), nil
+	}
+	return 0, fmt.Errorf("can't convert %v to int", v.Type())
+}
+
 // Equal is a shortcut for reflect.DeepEqual.
 func Equal(obj1, obj2 interface{}) bool {
 	return reflect.DeepEqual(obj1, obj2)

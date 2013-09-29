@@ -4,6 +4,7 @@ import (
 	"fmt"
 	_ "gnd.la/blobstore/driver/file"
 	_ "gnd.la/blobstore/driver/gridfs"
+	_ "gnd.la/blobstore/driver/s3"
 	"hash/adler32"
 	"io/ioutil"
 	"net"
@@ -136,4 +137,13 @@ func TestGridfs(t *testing.T) {
 		t.Skip("mongodb is not running. mongodb memcache on localhost to run this test")
 	}
 	testStore(t, nil, "gridfs://localhost/blobstore_test")
+}
+
+func TestS3(t *testing.T) {
+	b, err := ioutil.ReadFile("s3.txt")
+	if err != nil || !strings.HasPrefix(string(b), "s3://") {
+		abs, _ := filepath.Abs("s3.txt")
+		t.Skipf("please, provide a file with a at %s s3 blobstore url to execute this test (e.g. \"s3://my-blobstore-test?access_key=akey&secret_key=some_secret\"", abs)
+	}
+	testStore(t, nil, strings.TrimSpace(string(b)))
 }

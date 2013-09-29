@@ -12,6 +12,7 @@ var (
 	imports = map[string]string{
 		"file":   "gnd.la/blobstore/driver/file",
 		"gridfs": "gnd.la/blobstore/driver/gridfs",
+		"s3":     "gnd.la/blobstore/driver/s3",
 	}
 )
 

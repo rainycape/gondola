@@ -170,24 +170,51 @@ func not(arg interface{}) bool {
 	return !t
 }
 
+func divisible(n interface{}, d interface{}) (bool, error) {
+	ni, err := types.ToInt(n)
+	if err != nil {
+		return false, fmt.Errorf("divisible() invalid number %v: %s", n, err)
+	}
+	di, err := types.ToInt(d)
+	if err != nil {
+		return false, fmt.Errorf("divisible() invalid divisor %v: %s", d, err)
+	}
+	return ni%di == 0, nil
+}
+
+func even(arg interface{}) (bool, error) {
+	return divisible(arg, 2)
+}
+
+func odd(arg interface{}) (bool, error) {
+	res, err := divisible(arg, 2)
+	if err != nil {
+		return false, err
+	}
+	return !res, nil
+}
+
 func now() time.Time {
 	return time.Now()
 }
 
 var templateFuncs template.FuncMap = template.FuncMap{
-	"eq":     eq,
-	"neq":    neq,
-	"json":   _json,
-	"nz":     nz,
-	"lower":  lower,
-	"join":   join,
-	"map":    _map,
-	"mult":   mult,
-	"add":    add,
-	"render": assets.Render,
-	"concat": concat,
-	"and":    and,
-	"or":     or,
-	"not":    not,
-	"now":    now,
+	"eq":        eq,
+	"neq":       neq,
+	"json":      _json,
+	"nz":        nz,
+	"lower":     lower,
+	"join":      join,
+	"map":       _map,
+	"mult":      mult,
+	"divisible": divisible,
+	"add":       add,
+	"even":      even,
+	"odd":       odd,
+	"render":    assets.Render,
+	"concat":    concat,
+	"and":       and,
+	"or":        or,
+	"not":       not,
+	"now":       now,
 }

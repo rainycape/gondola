@@ -30,6 +30,10 @@ func (r *RFile) Read(p []byte) (int, error) {
 	return r.rfile.Read(p)
 }
 
+func (r *RFile) Close() error {
+	return r.rfile.Close()
+}
+
 // ReadAll is a shorthand for ioutil.ReadAll(r)
 func (r *RFile) ReadAll() ([]byte, error) {
 	return ioutil.ReadAll(r)

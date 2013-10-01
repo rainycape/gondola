@@ -51,7 +51,7 @@ func (d *gridfsDriver) Open(id string) (driver.RFile, error) {
 	return d.fs.OpenId(bson.ObjectIdHex(id))
 }
 
-func (d *gridfsDriver) Delete(id string) error {
+func (d *gridfsDriver) Remove(id string) error {
 	return d.fs.RemoveId(bson.ObjectIdHex(id))
 }
 

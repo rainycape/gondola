@@ -67,7 +67,7 @@ func (d *s3Driver) Open(id string) (driver.RFile, error) {
 	return (*rfile)(bytes.NewReader(data)), nil
 }
 
-func (d *s3Driver) Delete(id string) error {
+func (d *s3Driver) Remove(id string) error {
 	return d.bucket.Del(id)
 }
 

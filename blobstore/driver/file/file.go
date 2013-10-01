@@ -3,6 +3,7 @@ package file
 import (
 	"gnd.la/blobstore/driver"
 	"gnd.la/config"
+	"gnd.la/util"
 	"os"
 	"path/filepath"
 )
@@ -43,7 +44,7 @@ func (f *fsDriver) Open(id string) (driver.RFile, error) {
 	return os.Open(f.path(id))
 }
 
-func (f *fsDriver) Delete(id string) error {
+func (f *fsDriver) Remove(id string) error {
 	return os.Remove(f.path(id))
 }
 
@@ -52,6 +53,9 @@ func (f *fsDriver) Close() error {
 }
 
 func fsOpener(value string, o config.Options) (driver.Driver, error) {
+	if !filepath.IsAbs(value) {
+		value = util.RelativePath(value)
+	}
 	tmpDir := filepath.Join(value, "tmp")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return nil, err

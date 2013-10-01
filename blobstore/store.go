@@ -55,7 +55,7 @@ func (s *Store) CreateId(id string, meta interface{}) (wfile *WFile, err error) 
 	defer func() {
 		if err != nil {
 			w.Close()
-			s.drv.Delete(id)
+			s.drv.Remove(id)
 		}
 	}()
 	// Write version number
@@ -183,8 +183,8 @@ func (s *Store) StoreId(id string, b []byte, meta interface{}) (string, error) {
 	return f.Id(), nil
 }
 
-func (s *Store) Delete(id string) error {
-	return s.drv.Delete(id)
+func (s *Store) Remove(id string) error {
+	return s.drv.Remove(id)
 }
 
 func (s *Store) Close() error {

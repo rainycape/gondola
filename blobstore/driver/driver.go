@@ -13,7 +13,7 @@ type Opener func(value string, o config.Options) (Driver, error)
 type Driver interface {
 	Create(id string) (WFile, error)
 	Open(id string) (RFile, error)
-	Delete(id string) error
+	Remove(id string) error
 	Close() error
 }
 

@@ -116,7 +116,7 @@ func testStore(t *testing.T, meta *Meta, config string) {
 	}
 	// Now remove all the files
 	for _, v := range ids {
-		if err := store.Delete(v); err != nil {
+		if err := store.Remove(v); err != nil {
 			t.Error(err)
 		} else {
 			t.Logf("deleted file %s", v)

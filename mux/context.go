@@ -2,6 +2,7 @@ package mux
 
 import (
 	"fmt"
+	"gnd.la/blobstore"
 	"gnd.la/cache"
 	"gnd.la/cookies"
 	"gnd.la/orm"
@@ -353,6 +354,18 @@ func (c *Context) Cache() *cache.Cache {
 		}
 	}
 	return c.mux.c
+}
+
+// Blobstore is a shorthand for ctx.Mux().Blobstore(), but panics in
+// case of error instead of returning it.
+func (c *Context) Blobstore() *blobstore.Store {
+	if c.mux.store == nil {
+		_, err := c.mux.Blobstore()
+		if err != nil {
+			panic(err)
+		}
+	}
+	return c.mux.store
 }
 
 // Orm is a shorthand for ctx.Mux().Orm(), but panics in case

@@ -24,6 +24,7 @@ var (
 	databaseDriver      = ""
 	databaseSource      = ""
 	cache               = ""
+	blobstore           = ""
 )
 
 // Port returns the default port used by Mux.
@@ -170,6 +171,17 @@ func Cache() string {
 // gnd.la/cache for details about the string format.
 func SetCache(value string) {
 	cache = value
+}
+
+// Blobstore returns the default blobstore
+func Blobstore() string {
+	return blobstore
+}
+
+// SetBlobstore sets the default blobstore. See the documentation
+// on gnd.la/blobstore for more information.
+func SetBlobstore(value string) {
+	blobstore = value
 }
 
 func enableMailErrorLogging() {

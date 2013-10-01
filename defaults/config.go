@@ -71,6 +71,7 @@ func setDefaults(object interface{}) {
 	stringDefaults := map[string]func(string){
 		"Database":      SetDatabase,
 		"Cache":         SetCache,
+		"Blobstore":     SetBlobstore,
 		"Secret":        SetSecret,
 		"EncryptionKey": SetEncryptionKey,
 		"MailServer":    SetMailServer,

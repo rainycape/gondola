@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"gnd.la/assets"
+	"gnd.la/blobstore"
 	"gnd.la/cache"
 	"gnd.la/cookies"
 	"gnd.la/defaults"
@@ -87,6 +88,7 @@ type Mux struct {
 	mu                   sync.Mutex
 	c                    *cache.Cache
 	o                    *orm.Orm
+	store                *blobstore.Store
 
 	// Logger to use when logging requests. By default, it's
 	// gnd.la/log/Std, but you can set it to nil to avoid
@@ -581,6 +583,25 @@ func (mux *Mux) Orm() (*orm.Orm, error) {
 		}
 	}
 	return mux.o, nil
+}
+
+// Blobstore returns a blobstore using the default blobstore
+// parameters. Use gnd.la/config or gnd.la/defaults to change
+// the default blobstore. See gnd.la/blobstore for further
+// information on using the blobstore.
+func (mux *Mux) Blobstore() (*blobstore.Store, error) {
+	if mux.store == nil {
+		mux.mu.Lock()
+		defer mux.mu.Unlock()
+		if mux.store == nil {
+			var err error
+			mux.store, err = blobstore.New(defaults.Blobstore())
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return mux.store, nil
 }
 
 func (mux *Mux) readXHeaders(r *http.Request) {

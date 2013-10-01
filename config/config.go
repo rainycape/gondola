@@ -16,6 +16,8 @@ type Config struct {
 	Database string `help:"Default database to use, used by Context.ORM()"`
 	// Sets gnd.la/defaults/SetCache()
 	Cache string `help:"Default cache, returned by Context.Cache()"`
+	// Sets gnd.la/defaults/SetBlobstore()
+	Blobstore string `help:"Default blobstore, returned by Context.Store()"`
 	// Sets gnd.la/defaults/SetSecret()
 	Secret string `help:"Secret used for, among other things, hashing cookies"`
 	// Sets gnd.la/defaults/SetEncryptionKey()

@@ -21,6 +21,9 @@ type Store struct {
 }
 
 func New(conf string) (*Store, error) {
+	if conf == "" {
+		return nil, fmt.Errorf("blobstore is not configured")
+	}
 	cfg, err := config.ParseURL(conf)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing blobstore config: %s", err)

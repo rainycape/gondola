@@ -673,7 +673,7 @@ func (mux *Mux) logError(ctx *Context, err interface{}) {
 		buf.WriteByte(' ')
 		buf.WriteString(ctx.R.URL.String())
 		buf.WriteByte(' ')
-		buf.WriteString(ctx.RemoteIP())
+		buf.WriteString(ctx.RemoteAddress())
 		buf.WriteString(": ")
 	} else {
 		buf.WriteString("Panic: ")
@@ -836,7 +836,7 @@ func (mux *Mux) CloseContext(ctx *Context) {
 		if ctx.statusCode >= 400 {
 			level = log.LWarning
 		}
-		mux.Logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.RequestURI, ctx.RemoteIP(),
+		mux.Logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.RequestURI, ctx.RemoteAddress(),
 			strconv.Itoa(ctx.statusCode), ctx.Elapsed().String()}, " "))
 	}
 

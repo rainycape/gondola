@@ -1,0 +1,62 @@
+{{/*
+  extends: base.html
+  include: d3.v2.js, rickshaw.min.css, rickshaw.min.js, monitor.js
+*/}}
+{{ define "title" }}Status{{ end }}
+{{ define "body" }}
+<style type="text/css">{{ template "rickshaw.min.css" }}</style>
+<style type="text/css">
+  .chart {
+    margin: 20px 0 20px 7%;
+    float: left;
+    position: relative;
+    width: 40%;
+    height: 300px;
+    font-family:  Arial, Helvetica, sans-serif;
+    font-size: 12px;
+  }
+  .chart h3 {
+    margin: -20px 0 0 15px;
+    font-size: 12px;
+  }
+  .chart .axis {
+    position: absolute;
+    z-index: 1000;
+    top: 0;
+    bottom: 0;
+    width: 40px;
+  }
+  .clear {
+    clear: both;
+  }
+  .chart .canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+</style>
+<div class="header warning">
+  <h1>Gondola server status</h1>
+</div>
+<div class="header code multi">
+  <h2>Memory</h2>
+  <div class="chart" data-plot="mem.Alloc">
+    <h3>Currently allocated bytes</h3>
+  </div>
+  <div class="chart" data-plot="mem.HeapObjects">
+    <h3>Live objects</h3>
+  </div>
+  <div class="chart" data-plot="mem.Sys">
+    <h3>Bytes currently taken from system</h3>
+  </div>
+  <div class="chart" data-plot="mem.Mallocs,mem.Frees">
+    <h3>Mallocs and Frees</h3>
+  </div>
+  <div class="clear"></div>
+</div>
+<small>Note: This page is only available in debug mode.</small>
+<script type="text/javascript">{{ template "mux.js" }}</script>
+<script type="text/javascript">{{ template "d3.v2.js" }}</script>
+<script type="text/javascript">{{ template "rickshaw.min.js" }}</script>
+<script type="text/javascript">{{ template "monitor.js" }}</script>
+{{ end }}

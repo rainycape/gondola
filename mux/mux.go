@@ -58,7 +58,9 @@ const (
 )
 
 var (
-	devStatusPage = "/_gondola_dev_server_status"
+	devStatusPage  = "/_gondola_dev_server_status"
+	monitorPage    = "/_gondola_monitor"
+	monitorAPIPage = "/_gondola_monitor_api"
 )
 
 type Mux struct {
@@ -827,7 +829,7 @@ func (mux *Mux) CloseContext(ctx *Context) {
 		v(ctx)
 	}
 	ctx.Close()
-	if mux.Logger != nil && ctx.R != nil && ctx.R.URL.Path != devStatusPage {
+	if mux.Logger != nil && ctx.R != nil && ctx.R.URL.Path != devStatusPage && ctx.R.URL.Path != monitorAPIPage {
 		// Log at most with Warning level, to avoid potentially generating
 		// an email to the admin when running in production mode. If there
 		// was an error while processing this request, it has been already
@@ -883,6 +885,8 @@ func New() *Mux {
 				"started": strconv.FormatInt(m.started.Unix(), 10),
 			})
 		})
+		m.HandleFunc(monitorAPIPage, monitorAPIHandler)
+		m.HandleFunc(monitorPage, monitorHandler)
 	}
 	return m
 }

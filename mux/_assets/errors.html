@@ -1,5 +1,6 @@
 {{/*
   extends: base.html
+  include: reload.html
 */}}
 {{ define "title" }}Errors building {{ .Project.Name }}{{ end }}
 {{ define "body" }}
@@ -14,4 +15,5 @@
     {{ end }}
   </div>
 {{ end }}
+{{ template "reload.html" . }}
 {{ end }}

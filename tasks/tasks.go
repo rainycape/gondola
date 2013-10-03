@@ -68,7 +68,7 @@ func executeTask(m *mux.Mux, task mux.Handler) {
 // Schedule schedules a task to be run at the given interval. If the now parameter
 // is true, the task is also executed right now (in a goroutine), rather than waiting
 // until interval for the first run.
-func Schedule(m *mux.Mux, task mux.Handler, interval time.Duration, now bool) *Task {
+func Schedule(m *mux.Mux, interval time.Duration, now bool, task mux.Handler) *Task {
 	ticker := time.NewTicker(interval)
 	go func() {
 		if now {

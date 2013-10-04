@@ -77,7 +77,7 @@ func (r *reCaptcha) responseIsValid(ctx *mux.Context) (bool, string) {
 	response := ctx.FormValue("recaptcha_response_field")
 	values := url.Values{
 		"privatekey": {r.privateKey},
-		"remoteip":   {ctx.RemoteIP()},
+		"remoteip":   {ctx.RemoteAddress()},
 		"challenge":  {challenge},
 		"response":   {response},
 	}

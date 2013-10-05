@@ -31,5 +31,5 @@ func Cdn(name string) (string, error) {
 			return string(k.ExpandString(dst, v, base, m)), nil
 		}
 	}
-	return "", fmt.Errorf("Could not find CDN URL for %q", name)
+	return "", fmt.Errorf("could not find CDN URL for %q", name)
 }

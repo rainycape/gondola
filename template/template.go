@@ -60,6 +60,32 @@ type Template struct {
 	contentType   string
 }
 
+func (t *Template) evalCommentVar(varname string) (string, error) {
+	return eval(t.vars, varname)
+}
+
+func (t *Template) parseCommentVariables(values []string) ([]string, error) {
+	parsed := make([]string, len(values))
+	for ii, v := range values {
+		s := strings.Index(v, "${")
+		for s >= 0 {
+			end := strings.IndexByte(v[s:], '}')
+			if end < 0 {
+				return nil, fmt.Errorf("unterminated variable %q", v[s:])
+			}
+			varname := v[s+2 : end]
+			value, err := t.evalCommentVar(varname)
+			if err != nil {
+				return nil, fmt.Errorf("error evaluating variable %q: %s", varname, err)
+			}
+			v = v[:s] + value + v[end+1:]
+			s = strings.Index(v, "${")
+		}
+		parsed[ii] = v
+	}
+	return parsed, nil
+}
+
 func (t *Template) parseComment(comment string, file string, included bool) error {
 	// Escaped newlines
 	comment = strings.Replace(comment, "\\\n", " ", -1)
@@ -90,9 +116,13 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 					value = rem
 				}
 			}
-			values, err := textutil.SplitFields(value, ",", "'\"")
+			splitted, err := textutil.SplitFields(value, ",", "'\"")
 			if err != nil {
 				return fmt.Errorf("error parsing value for asset key %q: %s", key, err)
+			}
+			values, err := t.parseCommentVariables(splitted)
+			if err != nil {
+				return fmt.Errorf("error parsing values for asset key %q: %s", key, err)
 			}
 			inc := true
 			switch key {

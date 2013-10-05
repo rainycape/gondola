@@ -2,10 +2,28 @@ package assets
 
 import (
 	"fmt"
+	"gnd.la/util/textutil"
 	"strings"
 )
 
 type Options map[string]string
+
+func ParseOptions(options string) (Options, error) {
+	values, err := textutil.SplitFields(options, ",", "'\"")
+	if err != nil {
+		return nil, fmt.Errorf("error parsing asset options: %s", err)
+	}
+	opts := make(Options)
+	for _, v := range values {
+		eq := strings.IndexByte(v, '=')
+		if eq < 0 {
+			opts[v] = ""
+		} else {
+			opts[v[:eq]] = v[eq+1:]
+		}
+	}
+	return opts, nil
+}
 
 func (o Options) boolOpt(key string) bool {
 	_, ok := o[key]

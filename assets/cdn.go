@@ -9,7 +9,7 @@ import (
 type CdnMap map[*regexp.Regexp]string
 
 var cdnMap = CdnMap{
-	regexp.MustCompile("angular-([\\d\\.]+\\d)"):            "//ajax.googleapis.com/ajax/libs/angularjs/1.0.6/angular.min.js",
+	regexp.MustCompile("angular-([\\d\\.]+\\d)"):            "//ajax.googleapis.com/ajax/libs/angularjs/$1/angular.min.js",
 	regexp.MustCompile("CFInstall-([\\d\\.]+\\d)"):          "//ajax.googleapis.com/ajax/libs/chrome-frame/$1/CFInstall.min.js",
 	regexp.MustCompile("dojo-([\\d\\.]+\\d)"):               "//ajax.googleapis.com/ajax/libs/dojo/$1/dojo/dojo.js",
 	regexp.MustCompile("ext-core-([\\d\\.]+\\d)"):           "//ajax.googleapis.com/ajax/libs/ext-core/$1/ext-core.js",

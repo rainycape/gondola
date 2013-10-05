@@ -26,7 +26,11 @@ func ToString(val interface{}) string {
 // bool, uint and its varities, floats and even strings if it can parse
 // them.
 func ToInt(val interface{}) (int, error) {
-	v := reflect.Indirect(reflect.ValueOf(val))
+	iv := reflect.ValueOf(val)
+	if !iv.IsValid() {
+		return 0, fmt.Errorf("invalid value")
+	}
+	v := reflect.Indirect(iv)
 	switch v.Kind() {
 	case reflect.String:
 	case reflect.Bool:

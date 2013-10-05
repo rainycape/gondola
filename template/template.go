@@ -8,6 +8,7 @@ import (
 	"gnd.la/loaders"
 	"gnd.la/log"
 	"gnd.la/util"
+	"gnd.la/util/textutil"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -59,136 +60,69 @@ type Template struct {
 	contentType   string
 }
 
-func (t *Template) readString(idx *int, s string, stopchars string) (string, error) {
-	var value string
-	start := *idx
-	if s[*idx] == '"' {
-		(*idx)++
-		for ; *idx < len(s); (*idx)++ {
-			if s[*idx] == '"' && s[((*idx)-1)] != '\\' {
-				value = s[start+1 : *idx]
-				break
-			}
-		}
-	} else {
-		for ; *idx < len(s); (*idx)++ {
-			if strings.Contains(stopchars, string(s[*idx])) {
-				value = s[start:*idx]
-				(*idx)--
-				break
-			}
-		}
-	}
-	if value == "" {
-		value = s[start:]
-	}
-	return value, nil
-}
-
-func (t *Template) readAssetNames(value string) []string {
-	value = strings.TrimSpace(value)
-	var names []string
-	for ii := 0; ii < len(value); ii += 2 {
-		name, _ := t.readString(&ii, value, ",")
-		names = append(names, strings.TrimSpace(name))
-	}
-	return names
-}
-
-func (t *Template) parseOptions(idx int, line string, remainder string) (options assets.Options, value string, err error) {
-	options = make(assets.Options)
-	if len(remainder) == 0 || (remainder[0] != ':' && remainder[0] != '/') {
-		err = fmt.Errorf("Malformed asset line %d %q", idx, line)
-		return
-	}
-	var key string
-	for ii := 0; ii < len(remainder); ii++ {
-		ch := remainder[ii]
-		if ch == ':' {
-			if key != "" {
-				options[key] = ""
-				key = ""
-			}
-			value = strings.TrimSpace(remainder[ii+1:])
-			break
-		} else if ch == '/' || ch == ',' {
-			if key != "" {
-				options[key] = ""
-				key = ""
-			}
-			continue
-		} else {
-			if key == "" {
-				key, err = t.readString(&ii, remainder, "=,:")
-				if err != nil {
-					return
-				}
-			} else {
-				var val string
-				if ch == '=' {
-					ii++
-					if ii < len(remainder) {
-						val, err = t.readString(&ii, remainder, ",:")
-						if err != nil {
-							return
-						}
-					}
-				}
-				options[key] = val
-				key = ""
-			}
-		}
-	}
-	return
-}
-
 func (t *Template) parseComment(comment string, file string, included bool) error {
 	// Escaped newlines
 	comment = strings.Replace(comment, "\\\n", " ", -1)
 	lines := strings.Split(comment, "\n")
 	extended := false
-	for ii, v := range lines {
+	for _, v := range lines {
 		m := keyRe.FindStringSubmatchIndex(v)
 		if m != nil && m[0] == 0 && len(m) > 3 {
 			start := m[1] - m[3]
 			end := start + m[2]
 			key := strings.ToLower(strings.TrimSpace(v[start:end]))
-			options, value, err := t.parseOptions(ii, v, v[m[2]+1:])
+			var options assets.Options
+			var value string
+			if len(v) > end {
+				rem := v[end+1:]
+				if v[end] == '/' {
+					// Has options
+					colon := strings.IndexByte(rem, ':')
+					opts := rem[:colon]
+					var err error
+					options, err = assets.ParseOptions(opts)
+					if err != nil {
+						return fmt.Errorf("error parsing options for asset key %q: %s", key, err)
+					}
+					value = rem[colon+1:]
+				} else {
+					// No options
+					value = rem
+				}
+			}
+			values, err := textutil.SplitFields(value, ",", "'\"")
 			if err != nil {
-				return err
+				return fmt.Errorf("error parsing value for asset key %q: %s", key, err)
 			}
 			inc := true
-			if value != "" {
-				switch key {
-				case "extend", "extends":
-					extended = true
-					inc = false
-					fallthrough
-				case "include", "includes":
-					for _, n := range t.readAssetNames(value) {
-						err := t.load(n, inc)
-						if err != nil {
-							return err
-						}
-					}
-				default:
-					if t.AssetsManager == nil {
-						return ErrNoAssetsManager
-					}
-					var names []string
-					for _, n := range t.readAssetNames(value) {
-						names = append(names, strings.TrimSpace(n))
-					}
-					ass, err := assets.Parse(t.AssetsManager, key, names, options)
+			switch key {
+			case "extend", "extends":
+				if extended || len(values) > 1 {
+					return fmt.Errorf("templates can only extend one template")
+				}
+				extended = true
+				inc = false
+				fallthrough
+			case "include", "includes":
+				for _, n := range values {
+					err := t.load(n, inc)
 					if err != nil {
 						return err
 					}
-					for _, a := range ass {
-						if a.Position() == assets.Top {
-							t.topAssets = append(t.topAssets, a)
-						} else {
-							t.bottomAssets = append(t.bottomAssets, a)
-						}
+				}
+			default:
+				if t.AssetsManager == nil {
+					return ErrNoAssetsManager
+				}
+				ass, err := assets.Parse(t.AssetsManager, key, values, options)
+				if err != nil {
+					return err
+				}
+				for _, a := range ass {
+					if a.Position() == assets.Top {
+						t.topAssets = append(t.topAssets, a)
+					} else {
+						t.bottomAssets = append(t.bottomAssets, a)
 					}
 				}
 			}

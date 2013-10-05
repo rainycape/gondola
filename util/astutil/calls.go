@@ -1,9 +1,9 @@
 package astutil
 
 import (
+	"gnd.la/util/pkgutil"
 	"go/ast"
 	"go/token"
-	"gnd.la/pkg"
 	"strings"
 )
 
@@ -11,7 +11,7 @@ import (
 // specified as a qualified name (e.g. gnd.la/i18n.T or
 // gnd.la/mux.Context.T).
 func Calls(fset *token.FileSet, f *ast.File, fn string) ([]*ast.CallExpr, error) {
-	pkg, fname := pkg.SplitQualifiedName(fn)
+	pkg, fname := pkgutil.SplitQualifiedName(fn)
 	pname, ok := Imports(f, pkg)
 	if !ok {
 		// Not imported

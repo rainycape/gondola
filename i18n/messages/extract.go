@@ -2,12 +2,12 @@ package messages
 
 import (
 	"fmt"
+	"gnd.la/log"
+	"gnd.la/util/astutil"
+	"gnd.la/util/pkgutil"
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"gnd.la/astutil"
-	"gnd.la/log"
-	"gnd.la/pkg"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,7 +83,7 @@ func extract(messages messageMap, dir string, functions []*Function, types []str
 		name := v.Name()
 		p := filepath.Join(dir, name)
 		if v.IsDir() {
-			if !pkg.IsPackage(p) {
+			if !pkgutil.IsPackage(p) {
 				if err := extract(messages, p, functions, types, tagFields); err != nil {
 					return err
 				}

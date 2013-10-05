@@ -3,8 +3,8 @@ package driver
 import (
 	"encoding/binary"
 	"gnd.la/config"
-	"gnd.la/hashutil"
 	"gnd.la/util"
+	"gnd.la/util/hashutil"
 	"io/ioutil"
 	"os"
 	"path/filepath"

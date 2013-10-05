@@ -1,10 +1,10 @@
 package astutil
 
 import (
+	"gnd.la/types"
+	"gnd.la/util/pkgutil"
 	"go/ast"
 	"go/token"
-	"gnd.la/pkg"
-	"gnd.la/types"
 )
 
 type String struct {
@@ -29,7 +29,7 @@ func (s *String) Context() string {
 // Strings returns a list of string declarations of the given type
 // (as a qualified name).
 func Strings(fset *token.FileSet, f *ast.File, typ string) ([]*String, error) {
-	pkg, tname := pkg.SplitQualifiedName(typ)
+	pkg, tname := pkgutil.SplitQualifiedName(typ)
 	pname, ok := Imports(f, pkg)
 	if !ok {
 		// Not imported

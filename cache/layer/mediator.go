@@ -1,8 +1,8 @@
 package layer
 
 import (
-	"gnd.la/hashutil"
 	"gnd.la/mux"
+	"gnd.la/util/hashutil"
 	"net/http"
 )
 

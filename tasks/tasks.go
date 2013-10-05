@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"gnd.la/log"
 	"gnd.la/mux"
-	"gnd.la/runtimeutil"
+	"gnd.la/util/runtimeutil"
 	"runtime"
 	"time"
 )

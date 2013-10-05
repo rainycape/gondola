@@ -2,8 +2,8 @@ package messages
 
 import (
 	"fmt"
+	"gnd.la/util/astutil"
 	"go/token"
-	"gnd.la/astutil"
 	"sort"
 )
 

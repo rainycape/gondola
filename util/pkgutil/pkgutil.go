@@ -1,6 +1,6 @@
-// Package pkg contains some small utilities for working
+// Package pkgutil contains some small utilities for working
 // with go packages.
-package pkg
+package pkgutil
 
 import (
 	"os"

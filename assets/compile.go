@@ -1,11 +1,16 @@
 package assets
 
 import (
+	"bytes"
+	"encoding/hex"
+	"errors"
 	"fmt"
-	"gnd.la/hashutil"
 	"gnd.la/log"
+	"hash/fnv"
+	"io"
+	"os"
 	"path"
-	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -13,6 +18,11 @@ const (
 	// If you define your own code types, use numbers > 1000
 	CodeTypeCss        = 1
 	CodeTypeJavascript = 2
+)
+
+var (
+	ErrNoAssets = errors.New("no assets to compile")
+	urlRe       = regexp.MustCompile("i?url\\s*?\\((.*?)\\)")
 )
 
 type CodeAsset interface {
@@ -35,90 +45,116 @@ func (c CodeAssetList) CompiledName(ext string, o Options) string {
 	if len(c) == 0 {
 		return ""
 	}
-	code, _ := Code(c)
-	h := hashutil.Fnv32a(code + o.String())
+	h := fnv.New32a()
+	for _, v := range c {
+		code, err := v.Code()
+		if err != nil {
+			// TODO: Do something better here
+			panic(err)
+		}
+		io.WriteString(h, code)
+	}
+	io.WriteString(h, o.String())
+	sum := hex.EncodeToString(h.Sum(nil))
 	name := c[0].Name()
 	if ext == "" {
-		ext = filepath.Ext(name)
+		ext = path.Ext(name)
 	} else {
 		ext = "." + ext
 	}
-	return path.Join(filepath.Dir(name), "t-"+h+ext)
+	return path.Join(path.Dir(name), "asset-"+sum+ext)
 }
 
-type Compiler func(Manager, []CodeAsset, Options) ([]Asset, error)
-
-var (
-	compilers = map[int]Compiler{}
-)
-
-func RegisterCompiler(c Compiler, codeType int) {
-	registerCompiler(c, codeType, false)
-}
-
-func registerCompiler(c Compiler, codeType int, internal bool) {
-	// Let users override the default compilers
-	if !internal && codeType <= 1000 && compilers[codeType] == nil {
-		panic(fmt.Errorf("Invalid custom code type %d (must be > 1000)", codeType))
-	}
-	compilers[codeType] = c
-}
-
-func CodeAssets(assets []Asset) []CodeAsset {
-	var codeAssets []CodeAsset
-	for _, v := range assets {
-		if c, ok := v.(CodeAsset); ok {
-			codeAssets = append(codeAssets, c)
-		}
-	}
-	return codeAssets
-}
-
-func Code(assets []CodeAsset) (string, error) {
-	var codes []string
-	for _, v := range assets {
-		c, err := v.Code()
-		if err != nil {
-			return "", err
-		}
-		codes = append(codes, c)
-	}
-	return strings.Join(codes, "\n"), nil
-}
-
-func Compile(m Manager, assets []Asset, o Options) ([]Asset, error) {
+func Compile(m Manager, assets []Asset, opts Options) ([]Asset, error) {
 	if len(assets) == 0 {
-		return nil, nil
+		return nil, ErrNoAssets
 	}
-	dirs := make(map[string]struct{})
-	exts := make(map[string]struct{})
-	for _, v := range assets {
-		dirs[filepath.Dir(v.Name())] = struct{}{}
-		exts[filepath.Ext(v.Name())] = struct{}{}
-	}
-	if len(dirs) > 1 {
-		var d []string
-		for k, _ := range dirs {
-			d = append(d, k)
+	var ctype int
+	codeAssets := make(CodeAssetList, len(assets))
+	for ii, v := range assets {
+		c, ok := v.(CodeAsset)
+		if !ok {
+			return nil, fmt.Errorf("asset %q (type %T) does not implement CodeAsset and can't be compiled", v.Name(), v)
 		}
-		log.Warningf("Compiling assets from different directories (%s), relative links might not work.", strings.Join(d, ", "))
-	}
-	if len(exts) > 1 {
-		var e []string
-		for k, _ := range exts {
-			e = append(e, k)
+		if ctype == 0 {
+			ctype = c.CodeType()
+		} else if ctype != c.CodeType() {
+			return nil, fmt.Errorf("asset %q has different code type %d (first asset is of type %d)", v.Name(), c.CodeType(), ctype)
 		}
-		log.Warningf("Compiling assets with different extensions (%s).", strings.Join(e, ", "))
+		codeAssets[ii] = c
 	}
-	codeAssets := CodeAssets(assets)
-	if len(codeAssets) != len(assets) {
-		return nil, fmt.Errorf("Some assets don't implement CodeAsset")
-	}
-	ctype := codeAssets[0].CodeType()
 	compiler := compilers[ctype]
 	if compiler == nil {
-		return nil, fmt.Errorf("No compiler for code type %d", ctype)
+		return nil, fmt.Errorf("no compiler for code type %d", ctype)
 	}
-	log.Debugf("Compiling %v", CodeAssetList(codeAssets).Names())
-	return compiler(m, codeAssets, o)
+	// Prepare the code, changing relative paths if required
+	name := codeAssets.CompiledName(compiler.Ext(), opts)
+	dir := path.Dir(name)
+	var code []string
+	for _, v := range codeAssets {
+		c, err := v.Code()
+		if err != nil {
+			return nil, fmt.Errorf("error getting code for asset %q: %s", v.Name(), err)
+		}
+		if vd := path.Dir(v.Name()); vd != dir {
+			if ctype == CodeTypeCss {
+				log.Debugf("asset %q will move from %v to %v, rewriting relative paths...", v.Name(), vd, dir)
+				c = replaceRelativePaths(c, vd, dir)
+			} else {
+				log.Debugf("asset %q will move from %v to %v, relative paths might not work", v.Name(), vd, dir)
+			}
+		}
+		code = append(code, c)
+	}
+	// Check if the code has been already compiled
+	if _, _, err := m.Load(name); err == nil {
+		log.Debugf("%s already compiled into %s and up to date", codeAssets.Names(), name)
+	} else {
+		log.Debugf("Compiling %v", codeAssets.Names())
+		// Compile to a buf first. We don't want to create
+		// the file if the compilation fails
+		var buf bytes.Buffer
+		reader := strings.NewReader(strings.Join(code, "\n\n"))
+		if err := compiler.Compile(reader, &buf, m, opts); err != nil {
+			return nil, err
+		}
+		w, err := m.Create(name)
+		if err == nil {
+			if _, err := io.Copy(w, bytes.NewReader(buf.Bytes())); err != nil {
+				w.Close()
+				return nil, err
+			}
+			if err := w.Close(); err != nil {
+				return nil, err
+			}
+		} else {
+			// If the file exists, is up to date
+			if !os.IsExist(err) {
+				return nil, err
+			}
+		}
+	}
+	asset, err := compiler.Asset(name, m, opts)
+	if err != nil {
+		return nil, err
+	}
+	return []Asset{asset}, nil
+}
+
+func replaceRelativePaths(code string, dir string, final string) string {
+	return urlRe.ReplaceAllStringFunc(code, func(s string) string {
+		r := urlRe.FindStringSubmatch(s)
+		p := r[1]
+		quote := ""
+		if len(p) > 0 && (p[0] == '\'' || p[0] == '"') {
+			quote = string(p[0])
+			p = p[1 : len(p)-2]
+		}
+		if strings.HasPrefix(p, "//") || strings.HasPrefix(p, "http://") || strings.HasPrefix(p, "https://") || strings.HasPrefix(p, "data:") {
+			return s
+		}
+		old := path.Join(dir, p)
+		newPath := strings.Repeat("../", strings.Count(final, "/")+1) + old
+		return fmt.Sprintf("url(%s%s%s)", quote, newPath, quote)
+	})
 }

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"gnd.la/log"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 )
@@ -12,21 +14,24 @@ import (
 // Accepted options are:
 //  optimize: (simple|advanced) - defaults to simple
 //  compiler_warnings: boolean - defaults to false
-func scriptCompiler(m Manager, name string, assets []CodeAsset, o Options) error {
-	code, err := Code(assets)
+type scriptCompiler struct {
+}
+
+func (c *scriptCompiler) Compile(r io.Reader, w io.Writer, m Manager, opts Options) error {
+	code, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
 	}
 	level := "SIMPLE_OPTIMIZATIONS"
-	if o.StringOpt("optimize", m) == "advanced" {
+	if opts.StringOpt("optimize", m) == "advanced" {
 		level = "ADVANCED_OPTIMIZATIONS"
 	}
 	outputInfo := []string{"compiled_code", "errors", "statistics"}
-	if o.BoolOpt("compiler_warnings", m) {
+	if opts.BoolOpt("compiler_warnings", m) {
 		outputInfo = append(outputInfo, "warnings")
 	}
 	form := url.Values{
-		"js_code":           []string{code},
+		"js_code":           []string{string(code)},
 		"compilation_level": []string{level},
 		"output_format":     []string{"json"},
 		"output_info":       outputInfo,
@@ -43,46 +48,42 @@ func scriptCompiler(m Manager, name string, assets []CodeAsset, o Options) error
 		return err
 	}
 	if se := out["serverErrors"]; se != nil {
-		return fmt.Errorf("Server errors: %v", se)
+		return fmt.Errorf("server errors: %v", se)
 	}
 	if e := out["errors"]; e != nil {
-		return fmt.Errorf("Errors: %v", e)
+		return fmt.Errorf("errors: %v", e)
 	}
 	if w := out["warning"]; w != nil {
-		log.Warningf("Warnings when compiling code: %v", w)
+		log.Warningf("warnings when compiling code: %v", w)
 	}
-	compiled := out["compiledCode"].(string)
-	f, err := m.Create(name)
-	if err != nil {
-		return err
-	}
-	_, err = f.Write([]byte(compiled))
-	if err != nil {
-		return err
-	}
-	f.Close()
 	if stats := out["statistics"]; stats != nil {
 		if statsm, _ := stats.(map[string]interface{}); statsm != nil {
-			log.Debugf("Compressed code from %v to %v (GZIP'ed %v to %v)",
+			log.Debugf("Compressed JS from %v to %v (GZIP'ed %v to %v)",
 				statsm["originalSize"], statsm["compressedSize"],
 				statsm["originalGzipSize"], statsm["compressedGzipSize"])
 		}
 	}
-	return nil
+	compiled := out["compiledCode"].(string)
+	_, err = io.WriteString(w, compiled)
+	return err
 }
 
-func ScriptCompiler(m Manager, assets []CodeAsset, o Options) ([]Asset, error) {
-	name := CodeAssetList(assets).CompiledName("", o)
-	_, _, err := m.Load(name)
+func (c *scriptCompiler) CodeType() int {
+	return CodeTypeJavascript
+}
+
+func (c *scriptCompiler) Ext() string {
+	return "js"
+}
+
+func (c *scriptCompiler) Asset(name string, m Manager, opts Options) (Asset, error) {
+	assets, err := scriptParser(m, []string{name}, opts)
 	if err != nil {
-		err = scriptCompiler(m, name, assets, o)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
-	return ScriptParser(m, []string{name}, o)
+	return assets[0], nil
 }
 
 func init() {
-	registerCompiler(ScriptCompiler, CodeTypeJavascript, true)
+	registerCompiler(&scriptCompiler{}, true)
 }

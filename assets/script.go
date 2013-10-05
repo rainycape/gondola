@@ -4,37 +4,37 @@ import (
 	"gnd.la/log"
 )
 
-type ScriptAsset struct {
+type scriptAsset struct {
 	*CommonAsset
 	position   Position
 	attributes Attributes
 }
 
-func (s *ScriptAsset) Tag() string {
+func (s *scriptAsset) Tag() string {
 	return "script"
 }
 
-func (s *ScriptAsset) Closed() bool {
+func (s *scriptAsset) Closed() bool {
 	return true
 }
 
-func (s *ScriptAsset) Position() Position {
+func (s *scriptAsset) Position() Position {
 	return s.position
 }
 
-func (s *ScriptAsset) Attributes() Attributes {
+func (s *scriptAsset) Attributes() Attributes {
 	return s.attributes
 }
 
-func (s *ScriptAsset) HTML() string {
+func (s *scriptAsset) HTML() string {
 	return ""
 }
 
-func (s *ScriptAsset) CodeType() int {
+func (s *scriptAsset) CodeType() int {
 	return CodeTypeJavascript
 }
 
-func ScriptParser(m Manager, names []string, options Options) ([]Asset, error) {
+func scriptParser(m Manager, names []string, options Options) ([]Asset, error) {
 	common, err := ParseCommonAssets(m, names, options)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func ScriptParser(m Manager, names []string, options Options) ([]Asset, error) {
 		if async {
 			attrs["async"] = "async"
 		}
-		assets[ii] = &ScriptAsset{
+		assets[ii] = &scriptAsset{
 			CommonAsset: v,
 			position:    position,
 			attributes:  attrs,
@@ -75,6 +75,6 @@ func ScriptParser(m Manager, names []string, options Options) ([]Asset, error) {
 }
 
 func init() {
-	Register("script", ScriptParser)
-	Register("scripts", ScriptParser)
+	Register("script", scriptParser)
+	Register("scripts", scriptParser)
 }

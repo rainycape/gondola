@@ -1,35 +1,35 @@
 package assets
 
-type CssAsset struct {
+type cssAsset struct {
 	*CommonAsset
 	attributes Attributes
 }
 
-func (c *CssAsset) Tag() string {
+func (c *cssAsset) Tag() string {
 	return "link"
 }
 
-func (c *CssAsset) Closed() bool {
+func (c *cssAsset) Closed() bool {
 	return false
 }
 
-func (c *CssAsset) Position() Position {
+func (c *cssAsset) Position() Position {
 	return Top
 }
 
-func (c *CssAsset) Attributes() Attributes {
+func (c *cssAsset) Attributes() Attributes {
 	return c.attributes
 }
 
-func (c *CssAsset) HTML() string {
+func (c *cssAsset) HTML() string {
 	return ""
 }
 
-func (c *CssAsset) CodeType() int {
+func (c *cssAsset) CodeType() int {
 	return CodeTypeCss
 }
 
-func CssParser(m Manager, names []string, options Options) ([]Asset, error) {
+func cssParser(m Manager, names []string, options Options) ([]Asset, error) {
 	common, err := ParseCommonAssets(m, names, options)
 	if err != nil {
 		return nil, err
@@ -47,7 +47,7 @@ func CssParser(m Manager, names []string, options Options) ([]Asset, error) {
 			attributes[ak] = av
 		}
 		attributes["href"] = m.URL(v.Name())
-		assets[ii] = &CssAsset{
+		assets[ii] = &cssAsset{
 			CommonAsset: v,
 			attributes:  attributes,
 		}
@@ -56,7 +56,7 @@ func CssParser(m Manager, names []string, options Options) ([]Asset, error) {
 }
 
 func init() {
-	Register("css", CssParser)
-	Register("style", CssParser)
-	Register("styles", CssParser)
+	Register("css", cssParser)
+	Register("style", cssParser)
+	Register("styles", cssParser)
 }

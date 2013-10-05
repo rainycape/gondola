@@ -81,12 +81,13 @@ func (b *BuildError) Code() template.HTML {
 	return s
 }
 
-func NewProject(dir string, config string, tags string, race bool) *Project {
+func NewProject(dir string, config string, tags string, verbose bool, race bool) *Project {
 	p := &Project{
 		dir:     dir,
 		config:  config,
 		tags:    tags,
 		race:    race,
+		verbose: verbose,
 		muxPort: randomFreePort(),
 	}
 	m := mux.New()
@@ -108,6 +109,7 @@ type Project struct {
 	configFilename string
 	tags           string
 	race           bool
+	verbose        bool
 	port           int
 	muxPort        int
 	building       bool
@@ -372,6 +374,9 @@ func (p *Project) Compile() {
 	cmd.Stderr = &buf
 	err := cmd.Run()
 	p.built = time.Now().UTC()
+	if p.verbose {
+		os.Stderr.Write(buf.Bytes())
+	}
 	if err != nil {
 		exitErr, ok := err.(*exec.ExitError)
 		if !ok {
@@ -522,16 +527,18 @@ func Dev(ctx *mux.Context) {
 	var dir string
 	var configName string
 	var tags string
+	var verbose bool
 	var race bool
 	ctx.ParseParamValue("dir", &dir)
 	ctx.ParseParamValue("config", &configName)
 	ctx.ParseParamValue("tags", &tags)
+	ctx.ParseParamValue("v", &verbose)
 	ctx.ParseParamValue("race", &race)
 	path, err := filepath.Abs(dir)
 	if err != nil {
 		log.Panic(err)
 	}
-	p := NewProject(path, configName, tags, race)
+	p := NewProject(path, configName, tags, verbose, race)
 	if c := p.Conf(); c == "" {
 		log.Panicf("can't find configuration for %s. Please, create a config file in the directory %s (its extension must be .conf)", p.Name(), p.ConfDir())
 	} else {
@@ -577,6 +584,7 @@ func init() {
 			admin.StringFlag("tags", "", "Go build tags to pass to the compiler"),
 			admin.IntFlag("port", 0, "Port to listen on. If zero, the project configuration is parsed to look for the port. If none is found, 8888 is used."),
 			admin.BoolFlag("race", false, "Enable -race when building. If the platform does not support -race, this option is ignored."),
+			admin.BoolFlag("v", false, "Enable verbose output"),
 		),
 	})
 }

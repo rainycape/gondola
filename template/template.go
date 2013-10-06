@@ -67,19 +67,29 @@ func (t *Template) evalCommentVar(varname string) (string, error) {
 func (t *Template) parseCommentVariables(values []string) ([]string, error) {
 	parsed := make([]string, len(values))
 	for ii, v := range values {
-		s := strings.Index(v, "${")
+		s := strings.Index(v, "{{")
 		for s >= 0 {
-			end := strings.IndexByte(v[s:], '}')
+			end := strings.Index(v[s:], "}}")
 			if end < 0 {
 				return nil, fmt.Errorf("unterminated variable %q", v[s:])
 			}
-			varname := v[s+2 : end]
+			varname := strings.TrimSpace(v[s+2 : end])
+			if len(varname) == 0 {
+				return nil, fmt.Errorf("empty variable name")
+			}
+			if varname[0] != '$' {
+				return nil, fmt.Errorf("invalid variable name %q, must start with $", varname)
+			}
+			varname = varname[1:]
+			if len(varname) == 0 {
+				return nil, fmt.Errorf("empty variable name")
+			}
 			value, err := t.evalCommentVar(varname)
 			if err != nil {
 				return nil, fmt.Errorf("error evaluating variable %q: %s", varname, err)
 			}
-			v = v[:s] + value + v[end+1:]
-			s = strings.Index(v, "${")
+			v = v[:s] + value + v[end+2:]
+			s = strings.Index(v, "{{")
 		}
 		parsed[ii] = v
 	}

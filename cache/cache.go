@@ -17,6 +17,10 @@ import (
 
 var (
 	ErrNotFound = errors.New("item not found in cache")
+	imports     = map[string]string{
+		"memcache": "gnd.la/driver/memcache",
+		"redis":    "gnd.la/driver/redis",
+	}
 )
 
 type Cache struct {
@@ -284,6 +288,9 @@ func newConfig(conf *config.URL) (*Cache, error) {
 	if codecName := conf.Get("codec"); codecName != "" {
 		cache.codec = codec.Get(codecName)
 		if cache.codec == nil {
+			if imp := imports[codecName]; imp != "" {
+				return nil, fmt.Errorf("please import %q to use the cache driver %q", imp, codecName)
+			}
 			return nil, fmt.Errorf("unknown cache codec %q, maybe you forgot an import?", codecName)
 		}
 	} else {

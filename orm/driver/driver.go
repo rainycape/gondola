@@ -1,8 +1,14 @@
 package driver
 
-var registry = map[string]Opener{}
+import (
+	"gnd.la/config"
+)
 
-type Opener func(params string) (Driver, error)
+var (
+	registry = map[string]Opener{}
+)
+
+type Opener func(url *config.URL) (Driver, error)
 
 type Driver interface {
 	Conn

@@ -13,11 +13,11 @@ type Config struct {
 	// Sets gnd.la/defaults/SetPort()
 	Port int `default:"8888" help:"Port to listen on"`
 	// Sets gnd.la/defaults/SetDatabase()
-	Database string `help:"Default database to use, used by Context.ORM()"`
+	Database *URL `help:"Default database to use, used by Context.ORM()"`
 	// Sets gnd.la/defaults/SetCache()
-	Cache string `help:"Default cache, returned by Context.Cache()"`
+	Cache *URL `help:"Default cache, returned by Context.Cache()"`
 	// Sets gnd.la/defaults/SetBlobstore()
-	Blobstore string `help:"Default blobstore, returned by Context.Store()"`
+	Blobstore *URL `help:"Default blobstore, returned by Context.Store()"`
 	// Sets gnd.la/defaults/SetSecret()
 	Secret string `help:"Secret used for, among other things, hashing cookies"`
 	// Sets gnd.la/defaults/SetEncryptionKey()

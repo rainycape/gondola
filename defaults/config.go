@@ -1,6 +1,7 @@
 package defaults
 
 import (
+	"gnd.la/config"
 	"gnd.la/log"
 	"reflect"
 )
@@ -69,9 +70,6 @@ func setDefaults(object interface{}) {
 	}
 
 	stringDefaults := map[string]func(string){
-		"Database":      SetDatabase,
-		"Cache":         SetCache,
-		"Blobstore":     SetBlobstore,
 		"Secret":        SetSecret,
 		"EncryptionKey": SetEncryptionKey,
 		"MailServer":    SetMailServer,
@@ -80,5 +78,14 @@ func setDefaults(object interface{}) {
 	}
 	for k, v := range stringDefaults {
 		setStringDefault(val, k, v)
+	}
+	urlDefaults := map[string]func(*config.URL){
+		"Database":  SetDatabase,
+		"Cache":     SetCache,
+		"Blobstore": SetBlobstore,
+	}
+	for k, v := range urlDefaults {
+		value := val.FieldByName(k)
+		v(value.Interface().(*config.URL))
 	}
 }

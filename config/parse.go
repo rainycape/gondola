@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gnd.la/log"
 	"gnd.la/signal"
+	"gnd.la/types"
 	"gnd.la/util"
 	"io"
 	"io/ioutil"
@@ -97,7 +98,15 @@ func parseValue(v reflect.Value, raw string) error {
 	case reflect.String:
 		v.SetString(raw)
 	default:
-		return fmt.Errorf("can't parse values of type %q", v.Type().Name())
+		parser, ok := v.Interface().(types.Parser)
+		if !ok {
+			return fmt.Errorf("can't parse value of type %s", v.Type())
+		}
+		if v.Kind() == reflect.Ptr && !v.Elem().IsValid() {
+			v.Set(reflect.New(v.Type().Elem()))
+			parser = v.Interface().(types.Parser)
+		}
+		return parser.Parse(raw)
 	}
 	return nil
 }
@@ -191,7 +200,11 @@ func setupFlags(fields fieldMap) (varMap, error) {
 		case reflect.String:
 			p = flag.String(name, val.String(), help)
 		default:
-			return nil, fmt.Errorf("invalid type in config %s (field %s)", val.Type().Name(), k)
+			if _, ok := val.Interface().(types.Parser); !ok {
+				return nil, fmt.Errorf("config field %q has unsupported type %s", k, val.Type())
+			}
+			// Type implements types.Parser, define it as a string
+			p = flag.String(name, types.ToString(val.Interface()), help)
 		}
 		m[name] = p
 	}

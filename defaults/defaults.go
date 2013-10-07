@@ -7,11 +7,10 @@
 package defaults
 
 import (
-	"fmt"
+	"gnd.la/config"
 	"gnd.la/log"
 	"gnd.la/mail"
 	"gnd.la/signal"
-	"strings"
 )
 
 var (
@@ -21,10 +20,9 @@ var (
 	encryptionKey       = ""
 	adminEmail          = ""
 	errorLoggingEnabled = false
-	databaseDriver      = ""
-	databaseSource      = ""
-	cache               = ""
-	blobstore           = ""
+	_database           *config.URL
+	_cache              *config.URL
+	_blobstore          *config.URL
 )
 
 // Port returns the default port used by Mux.
@@ -136,52 +134,34 @@ func SetAdminEmail(email string) {
 	enableMailErrorLogging()
 }
 
-// Database returns the default database
-func Database() string {
-	if databaseDriver != "" {
-		return fmt.Sprintf("%s:%s", databaseDriver, databaseSource)
-	}
-	return ""
+// Database returns the default database configuration URL.
+func Database() *config.URL {
+	return _database
 }
 
-// DatabaseParameters returns the driver
-// name and the data source as separate
-// strings.
-func DatabaseParameters() (string, string) {
-	return databaseDriver, databaseSource
+// SetDatabase sets the default database.
+func SetDatabase(database *config.URL) {
+	_database = database
 }
 
-// SetDatabase sets the default database. The format of this string
-// is driverName://data (e.g. postgres://user=foo dbname=bar).
-// If the string does not have this format, it will panic.
-func SetDatabase(d string) {
-	p := strings.SplitN(d, "://", 2)
-	if len(p) != 2 {
-		panic(fmt.Errorf("Invalid default database: %s", d))
-	}
-	databaseDriver, databaseSource = p[0], p[1]
+// Cache returns the default cache configuration URL.
+func Cache() *config.URL {
+	return _cache
 }
 
-// Cache returns the default cache
-func Cache() string {
-	return cache
+// SetCache sets the default cache configuration URL.
+func SetCache(cache *config.URL) {
+	_cache = cache
 }
 
-// SetCache sets the default cache. See the documentation on
-// gnd.la/cache for details about the string format.
-func SetCache(value string) {
-	cache = value
+// Blobstore returns the default blobstore configuration URL.
+func Blobstore() *config.URL {
+	return _blobstore
 }
 
-// Blobstore returns the default blobstore
-func Blobstore() string {
-	return blobstore
-}
-
-// SetBlobstore sets the default blobstore. See the documentation
-// on gnd.la/blobstore for more information.
-func SetBlobstore(value string) {
-	blobstore = value
+// SetBlobstore sets the default blobstore configuration URL.
+func SetBlobstore(blobstore *config.URL) {
+	_blobstore = blobstore
 }
 
 func enableMailErrorLogging() {

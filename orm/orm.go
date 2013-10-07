@@ -3,7 +3,7 @@ package orm
 import (
 	"database/sql"
 	"fmt"
-	"gnd.la/defaults"
+	"gnd.la/config"
 	"gnd.la/log"
 	"gnd.la/orm/driver"
 	ormsql "gnd.la/orm/drivers/sql"
@@ -491,15 +491,16 @@ type sqldriver interface {
 }
 
 // Open creates a new ORM using the specified
-// driver and params.
-func Open(name string, params string) (*Orm, error) {
+// configuration URL.
+func New(url *config.URL) (*Orm, error) {
+	name := url.Scheme
 	opener := driver.Get(name)
 	if opener == nil {
 		return nil, fmt.Errorf("no ORM driver named %q", name)
 	}
-	drv, err := opener(params)
+	drv, err := opener(url)
 	if err != nil {
-		return nil, fmt.Errorf("Error opening %q driver: %s", name, err)
+		return nil, fmt.Errorf("error opening ORM driver %q: %s", name, err)
 	}
 	var db *sql.DB
 	if dbDrv, ok := drv.(sqldriver); ok {
@@ -511,9 +512,4 @@ func Open(name string, params string) (*Orm, error) {
 		tags:   strings.Join(drv.Tags(), "-"),
 		db:     db,
 	}, nil
-}
-
-func OpenDefault() (*Orm, error) {
-	drv, source := defaults.DatabaseParameters()
-	return Open(drv, source)
 }

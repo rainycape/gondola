@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"gnd.la/config"
 	"gnd.la/log"
 	"gnd.la/orm/codec"
 	"gnd.la/orm/driver"
@@ -551,8 +552,8 @@ func (d *Driver) Rollback() error {
 	return d.db.tx.Rollback()
 }
 
-func NewDriver(b Backend, params string) (*Driver, error) {
-	conn, err := sql.Open(b.Name(), params)
+func NewDriver(b Backend, url *config.URL) (*Driver, error) {
+	conn, err := sql.Open(b.Name(), url.Value)
 	if err != nil {
 		return nil, err
 	}

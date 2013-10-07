@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	_ "github.com/lib/pq"
+	"gnd.la/config"
 	"gnd.la/orm/codec"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/drivers/sql"
@@ -228,8 +229,8 @@ func (b *Backend) makeplaceholders(n int) string {
 	return buf.String()
 }
 
-func postgresOpener(params string) (driver.Driver, error) {
-	return sql.NewDriver(postgresBackend, params)
+func postgresOpener(url *config.URL) (driver.Driver, error) {
+	return sql.NewDriver(postgresBackend, url)
 }
 
 func init() {

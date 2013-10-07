@@ -567,12 +567,12 @@ func (mux *Mux) Orm() (*orm.Orm, error) {
 		mux.mu.Lock()
 		defer mux.mu.Unlock()
 		if mux.o == nil {
-			driver, source := defaults.DatabaseParameters()
-			if driver == "" {
+			url := defaults.Database()
+			if url == nil {
 				return nil, fmt.Errorf("default database is not set")
 			}
 			var err error
-			mux.o, err = orm.Open(driver, source)
+			mux.o, err = orm.New(url)
 			if err != nil {
 				return nil, err
 			}

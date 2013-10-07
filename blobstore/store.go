@@ -20,24 +20,20 @@ type Store struct {
 	drv driver.Driver
 }
 
-func New(conf string) (*Store, error) {
-	if conf == "" {
+func New(url *config.URL) (*Store, error) {
+	if url == nil {
 		return nil, fmt.Errorf("blobstore is not configured")
 	}
-	cfg, err := config.ParseURL(conf)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing blobstore config: %s", err)
-	}
-	opener := driver.Get(cfg.Scheme)
+	opener := driver.Get(url.Scheme)
 	if opener == nil {
-		if imp := imports[cfg.Scheme]; imp != "" {
-			return nil, fmt.Errorf("please import %q to use the blobstore driver %q", imp, cfg.Scheme)
+		if imp := imports[url.Scheme]; imp != "" {
+			return nil, fmt.Errorf("please import %q to use the blobstore driver %q", imp, url.Scheme)
 		}
-		return nil, fmt.Errorf("unknown blobstore driver %q. Perhaps you forgot an import?", cfg.Scheme)
+		return nil, fmt.Errorf("unknown blobstore driver %q. Perhaps you forgot an import?", url.Scheme)
 	}
-	drv, err := opener(cfg.Value, cfg.Options)
+	drv, err := opener(url.Value, url.Options)
 	if err != nil {
-		return nil, fmt.Errorf("error opening blobstore driver %q: %s", cfg.Scheme, err)
+		return nil, fmt.Errorf("error opening blobstore driver %q: %s", url.Scheme, err)
 	}
 	return &Store{
 		drv: drv,

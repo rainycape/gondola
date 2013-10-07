@@ -335,17 +335,14 @@ func newConfig(conf *config.URL) (*Cache, error) {
 	return cache, nil
 }
 
-func New(conf string) (*Cache, error) {
-	var cfg *config.URL
-	if conf == "" {
+// New returns a new cache instance, using the given
+// configuration URL. If the configuration is nil, a
+// dummy cache is returned, which always returns that the
+// object does not exists in the cache.
+func New(url *config.URL) (*Cache, error) {
+	if url == nil {
 		// Use dummy cache
-		cfg = &config.URL{}
-	} else {
-		var err error
-		cfg, err = config.ParseURL(conf)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing cache config: %s", err)
-		}
+		url = &config.URL{}
 	}
-	return newConfig(cfg)
+	return newConfig(url)
 }

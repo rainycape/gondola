@@ -41,16 +41,15 @@ func (c CodeAssetList) Names() []string {
 	return names
 }
 
-func (c CodeAssetList) CompiledName(ext string, o Options) string {
+func (c CodeAssetList) CompiledName(ext string, o Options) (string, error) {
 	if len(c) == 0 {
-		return ""
+		return "", nil
 	}
 	h := fnv.New32a()
 	for _, v := range c {
 		code, err := v.Code()
 		if err != nil {
-			// TODO: Do something better here
-			panic(err)
+			return "", err
 		}
 		io.WriteString(h, code)
 	}
@@ -62,7 +61,7 @@ func (c CodeAssetList) CompiledName(ext string, o Options) string {
 	} else {
 		ext = "." + ext
 	}
-	return path.Join(path.Dir(name), "asset-"+sum+ext)
+	return path.Join(path.Dir(name), "asset-"+sum+ext), nil
 }
 
 func Compile(m Manager, assets []Asset, opts Options) ([]Asset, error) {
@@ -88,7 +87,10 @@ func Compile(m Manager, assets []Asset, opts Options) ([]Asset, error) {
 		return nil, fmt.Errorf("no compiler for code type %d", ctype)
 	}
 	// Prepare the code, changing relative paths if required
-	name := codeAssets.CompiledName(compiler.Ext(), opts)
+	name, err := codeAssets.CompiledName(compiler.Ext(), opts)
+	if err != nil {
+		return nil, err
+	}
 	dir := path.Dir(name)
 	var code []string
 	for _, v := range codeAssets {

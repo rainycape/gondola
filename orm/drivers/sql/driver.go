@@ -557,6 +557,14 @@ func NewDriver(b Backend, url *config.URL) (*Driver, error) {
 	if err != nil {
 		return nil, err
 	}
+	if opts := url.Options; opts != nil {
+		if mc, ok := opts.Int("max_conns"); ok {
+			setMaxConns(conn, mc)
+		}
+		if mic, ok := opts.Int("max_idle_conns"); ok {
+			conn.SetMaxIdleConns(mic)
+		}
+	}
 	var transforms map[reflect.Type]struct{}
 	if tt := b.Transforms(); len(tt) > 0 {
 		transforms = make(map[reflect.Type]struct{}, len(tt)*2)

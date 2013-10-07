@@ -73,6 +73,8 @@ func (t *Template) parseCommentVariables(values []string) ([]string, error) {
 			if end < 0 {
 				return nil, fmt.Errorf("unterminated variable %q", v[s:])
 			}
+			// Adjust end to be relative to the start of the string
+			end += s
 			varname := strings.TrimSpace(v[s+2 : end])
 			if len(varname) == 0 {
 				return nil, fmt.Errorf("empty variable name")

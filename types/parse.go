@@ -8,16 +8,28 @@ import (
 	"strings"
 )
 
+// Parser is the interface implemented by types
+// that know how to parse themselves from a user
+// provided string.
+type Parser interface {
+	Parse(s string) error
+}
+
 // Parse tries to parse an string into the given argument.
 // e.g.
 //     var f float32
 //     Parse("27.5", &f)
 //     var width uint
 //     Parse("57", &width)
-// Supported types are: bool, u?int(8|16|32|64)? and float(32|64). If
+// Supported types are: string, bool, u?int(8|16|32|64)? and float(32|64). If
 // the parsed value would overflow the given type, the maximum value
 // (or minimum, if it's negative) for the type will be set.
+// If arg implements the Parser interface, its Parse method will
+// be used instead.
 func Parse(val string, arg interface{}) error {
+	if parser, ok := arg.(Parser); ok {
+		return parser.Parse(val)
+	}
 	v, err := SettableValue(arg)
 	if err != nil {
 		return err

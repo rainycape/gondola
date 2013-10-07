@@ -101,7 +101,7 @@ func Compile(m Manager, assets []Asset, opts Options) ([]Asset, error) {
 				log.Debugf("asset %q will move from %v to %v, rewriting relative paths...", v.Name(), vd, dir)
 				c = replaceRelativePaths(c, vd, dir)
 			} else {
-				log.Debugf("asset %q will move from %v to %v, relative paths might not work", v.Name(), vd, dir)
+				log.Warningf("asset %q will move from %v to %v, relative paths might not work", v.Name(), vd, dir)
 			}
 		}
 		code = append(code, c)
@@ -120,7 +120,8 @@ func Compile(m Manager, assets []Asset, opts Options) ([]Asset, error) {
 		}
 		w, err := m.Create(name)
 		if err == nil {
-			if _, err := io.Copy(w, bytes.NewReader(buf.Bytes())); err != nil {
+			s := makeLinksCacheable(m, dir, buf.Bytes())
+			if _, err := io.Copy(w, strings.NewReader(s)); err != nil {
 				w.Close()
 				return nil, err
 			}
@@ -141,20 +142,53 @@ func Compile(m Manager, assets []Asset, opts Options) ([]Asset, error) {
 	return []Asset{asset}, nil
 }
 
+func makeLinksCacheable(m Manager, dir string, b []byte) string {
+	css := string(b)
+	return replaceCssUrls(css, func(s string) string {
+		var suffix string
+		if sep := strings.IndexAny(s, "?#"); sep >= 0 {
+			suffix = s[sep:]
+			s = s[:sep]
+		}
+		p := path.Join(dir, s)
+		base := m.URL(p)
+		if strings.Contains(base, "?") && suffix != "" && suffix[0] == '?' {
+			suffix = "&" + suffix[1:]
+		}
+		repl := base + suffix
+		return repl
+	})
+}
+
 func replaceRelativePaths(code string, dir string, final string) string {
+	count := strings.Count(final, "/") + 1
+	return replaceCssUrls(code, func(s string) string {
+		old := path.Join(dir, s)
+		return strings.Repeat("../", count) + old
+	})
+}
+
+func replaceCssUrls(code string, f func(string) string) string {
 	return urlRe.ReplaceAllStringFunc(code, func(s string) string {
 		r := urlRe.FindStringSubmatch(s)
 		p := r[1]
 		quote := ""
 		if len(p) > 0 && (p[0] == '\'' || p[0] == '"') {
 			quote = string(p[0])
-			p = p[1 : len(p)-2]
+			p = p[1 : len(p)-1]
 		}
-		if strings.HasPrefix(p, "//") || strings.HasPrefix(p, "http://") || strings.HasPrefix(p, "https://") || strings.HasPrefix(p, "data:") {
+		if !urlIsRelative(p) {
 			return s
 		}
-		old := path.Join(dir, p)
-		newPath := strings.Repeat("../", strings.Count(final, "/")+1) + old
-		return fmt.Sprintf("url(%s%s%s)", quote, newPath, quote)
+		repl := f(p)
+		if repl == p {
+			return s
+		}
+		return fmt.Sprintf("url(%s%s%s)", quote, repl, quote)
 	})
+}
+
+func urlIsRelative(u string) bool {
+	return !strings.HasPrefix(u, "//") && !strings.HasPrefix(u, "http://") &&
+		!strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "data:")
 }

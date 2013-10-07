@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -14,6 +15,14 @@ type Options map[string]string
 // empty string if no such option was specified.
 func (o Options) Get(key string) string {
 	return o[key]
+}
+
+// Int returns the int value for the given option. The
+// second return value is true iff the key was present
+// and it could be parsed as an int.
+func (o Options) Int(key string) (int, bool) {
+	val, err := strconv.Atoi(o.Get(key))
+	return val, err == nil
 }
 
 // String returns the options encoded as a query string.

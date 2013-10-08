@@ -7,6 +7,7 @@ import (
 	"gnd.la/signal"
 	"gnd.la/types"
 	"gnd.la/util"
+	"gnd.la/util/textutil"
 	"io"
 	"io/ioutil"
 	"os"
@@ -97,6 +98,40 @@ func parseValue(v reflect.Value, raw string) error {
 		v.SetFloat(value)
 	case reflect.String:
 		v.SetString(raw)
+	case reflect.Slice:
+		fields, err := textutil.SplitFields(raw, ",", "'\"")
+		if err != nil {
+			return fmt.Errorf("error splitting values: %s", err)
+		}
+		count := len(fields)
+		v.Set(reflect.MakeSlice(v.Type(), count, count))
+		for ii, f := range fields {
+			if err := types.Parse(f, v.Index(ii).Addr().Interface()); err != nil {
+				return fmt.Errorf("error parsing field at index %d: %s", ii, err)
+			}
+		}
+	case reflect.Map:
+		fields, err := textutil.SplitFields(raw, ":,", "'\"")
+		if err != nil {
+			return fmt.Errorf("error splitting values: %s", err)
+		}
+		v.Set(reflect.MakeMap(v.Type()))
+		ktyp := v.Type().Key()
+		etyp := v.Type().Elem()
+		for ii := 0; ii < len(fields); ii += 2 {
+			if len(fields) == ii+1 {
+				return fmt.Errorf("missing map value at index %d", ii/2)
+			}
+			k := reflect.New(ktyp)
+			if err := types.Parse(fields[ii], k.Interface()); err != nil {
+				return fmt.Errorf("error parsing key at index %d: %s", ii/2, err)
+			}
+			elem := reflect.New(etyp)
+			if err := types.Parse(fields[ii+1], elem.Interface()); err != nil {
+				return fmt.Errorf("error parsing value at index %d: %s", ii/2, err)
+			}
+			v.SetMapIndex(k.Elem(), elem.Elem())
+		}
 	default:
 		parser, ok := v.Interface().(types.Parser)
 		if !ok {
@@ -199,6 +234,16 @@ func setupFlags(fields fieldMap) (varMap, error) {
 			p = flag.Float64(name, val.Float(), help)
 		case reflect.String:
 			p = flag.String(name, val.String(), help)
+		case reflect.Slice, reflect.Array:
+			if !canParse(val.Type().Elem()) {
+				return nil, fmt.Errorf("config field %q has unsupported type %s", k, val.Type())
+			}
+			p = flag.String(name, sliceToString(val), help)
+		case reflect.Map:
+			if !canParse(val.Type().Elem()) || !canParse(val.Type().Key()) {
+				return nil, fmt.Errorf("config field %q has unsupported type %s", k, val.Type())
+			}
+			p = flag.String(name, mapToString(val), help)
 		default:
 			if _, ok := val.Interface().(types.Parser); !ok {
 				return nil, fmt.Errorf("config field %q has unsupported type %s", k, val.Type())
@@ -293,6 +338,48 @@ func configFields(config interface{}) (fieldMap, error) {
 		}
 	}
 	return fields, nil
+}
+
+func canParse(typ reflect.Type) bool {
+	if types.IsInt(typ) || types.IsUint(typ) || types.IsFloat(typ) {
+		return true
+	}
+	k := typ.Kind()
+	if k == reflect.Bool || k == reflect.String {
+		return true
+	}
+	val := reflect.New(typ)
+	if _, ok := val.Interface().(types.Parser); ok {
+		return true
+	}
+	return false
+}
+
+func quote(v reflect.Value) string {
+	s := types.ToString(v.Interface())
+	if v.Kind() == reflect.String {
+		return fmt.Sprintf("'%s'", s)
+	}
+	return s
+}
+
+func sliceToString(v reflect.Value) string {
+	count := v.Len()
+	s := make([]string, count)
+	for ii := 0; ii < count; ii++ {
+		s[ii] = quote(v.Index(ii))
+	}
+	return strings.Join(s, ", ")
+}
+
+func mapToString(v reflect.Value) string {
+	count := v.Len()
+	s := make([]string, count)
+	for ii, key := range v.MapKeys() {
+		value := v.MapIndex(key)
+		s[ii] = fmt.Sprintf("%s: %s", quote(key), quote(value))
+	}
+	return strings.Join(s, ", ")
 }
 
 // Parse parses the application configuration into the given config struct. If

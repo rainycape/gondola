@@ -84,3 +84,21 @@ func IsTrue(value interface{}) (truth, ok bool) {
 	}
 	return truth, true
 }
+
+// IsInt returns true iff typ is any of the int types.
+func IsInt(typ reflect.Type) bool {
+	k := typ.Kind()
+	return k == reflect.Int || k == reflect.Int8 || k == reflect.Int16 || k == reflect.Int32 || k == reflect.Int64
+}
+
+// IsUint returns true iff typ is any of the uint types.
+func IsUint(typ reflect.Type) bool {
+	k := typ.Kind()
+	return k == reflect.Uint || k == reflect.Uint8 || k == reflect.Uint16 || k == reflect.Uint32 || k == reflect.Uint64
+}
+
+// IsFloat returns true iff typ is any of the float types.
+func IsFloat(typ reflect.Type) bool {
+	k := typ.Kind()
+	return k == reflect.Float32 || k == reflect.Float64
+}

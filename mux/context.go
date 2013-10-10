@@ -5,7 +5,6 @@ import (
 	"gnd.la/blobstore"
 	"gnd.la/cache"
 	"gnd.la/cookies"
-	"gnd.la/orm"
 	"gnd.la/serialize"
 	"gnd.la/types"
 	"gnd.la/users"
@@ -371,7 +370,7 @@ func (c *Context) Blobstore() *blobstore.Store {
 
 // Orm is a shorthand for ctx.Mux().Orm(), but panics in case
 // of error, rather than returning it.
-func (c *Context) Orm() *orm.Orm {
+func (c *Context) Orm() *Orm {
 	if c.mux.o == nil {
 		o, err := c.mux.Orm()
 		if err != nil {
@@ -455,6 +454,14 @@ func (c *Context) RemoteAddress() string {
 // It's automatically called by the mux, so you
 // don't need to call it manually
 func (c *Context) Close() {
+	if c.mux.debug {
+		if o, ok := c.debugStorage[debugOrmKey].(*Orm); ok {
+			o.Close()
+		}
+		if ca, ok := c.debugStorage[debugCacheKey].(*cache.Cache); ok {
+			ca.Close()
+		}
+	}
 }
 
 // Intercept http.ResponseWriter calls to find response

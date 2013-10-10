@@ -89,7 +89,7 @@ type Mux struct {
 	port                 int
 	mu                   sync.Mutex
 	c                    *cache.Cache
-	o                    *orm.Orm
+	o                    *Orm
 	store                *blobstore.Store
 
 	// Logger to use when logging requests. By default, it's
@@ -562,7 +562,7 @@ func (mux *Mux) Cache() (*cache.Cache, error) {
 // some methods (like NumQueries()) will be completely inaccurate
 // because they wull count all the queries made since the mux
 // initialization.
-func (mux *Mux) Orm() (*orm.Orm, error) {
+func (mux *Mux) Orm() (*Orm, error) {
 	if mux.o == nil {
 		mux.mu.Lock()
 		defer mux.mu.Unlock()
@@ -571,11 +571,11 @@ func (mux *Mux) Orm() (*orm.Orm, error) {
 			if url == nil {
 				return nil, fmt.Errorf("default database is not set")
 			}
-			var err error
-			mux.o, err = orm.New(url)
+			o, err := orm.New(url)
 			if err != nil {
 				return nil, err
 			}
+			mux.o = &Orm{Orm: o, debug: mux.debug}
 			if mux.debug {
 				o := mux.o
 				o.SetLogger(log.Std)

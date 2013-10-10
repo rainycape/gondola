@@ -128,7 +128,7 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 					value = rem
 				}
 			}
-			splitted, err := textutil.SplitFields(value, ",", "'\"")
+			splitted, err := textutil.SplitFields(value, ",")
 			if err != nil {
 				return fmt.Errorf("error parsing value for asset key %q: %s", key, err)
 			}

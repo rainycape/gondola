@@ -11,7 +11,7 @@ func TestSplitFields(t *testing.T) {
 		"'fo\"x', 'jum,ps', \"ov',er\"": []string{"fo\"x", "jum,ps", "ov',er"},
 	}
 	for k, v := range cases {
-		fields, err := SplitFields(k, ",", "'\"")
+		fields, err := SplitFields(k, ",")
 		if err != nil {
 			t.Errorf("error splitting %q: %s", k, err)
 			continue

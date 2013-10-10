@@ -9,7 +9,7 @@ import (
 type Options map[string]string
 
 func ParseOptions(options string) (Options, error) {
-	values, err := textutil.SplitFields(options, ",", "'\"")
+	values, err := textutil.SplitFields(options, ",")
 	if err != nil {
 		return nil, fmt.Errorf("error parsing asset options: %s", err)
 	}

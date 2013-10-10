@@ -99,7 +99,7 @@ func parseValue(v reflect.Value, raw string) error {
 	case reflect.String:
 		v.SetString(raw)
 	case reflect.Slice:
-		fields, err := textutil.SplitFields(raw, ",", "'\"")
+		fields, err := textutil.SplitFields(raw, ",")
 		if err != nil {
 			return fmt.Errorf("error splitting values: %s", err)
 		}
@@ -111,7 +111,7 @@ func parseValue(v reflect.Value, raw string) error {
 			}
 		}
 	case reflect.Map:
-		fields, err := textutil.SplitFields(raw, ":,", "'\"")
+		fields, err := textutil.SplitFields(raw, ":,")
 		if err != nil {
 			return fmt.Errorf("error splitting values: %s", err)
 		}

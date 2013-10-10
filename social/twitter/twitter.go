@@ -22,12 +22,9 @@ var (
 )
 
 func parse(raw string, key, secret *string) error {
-	fields, err := textutil.SplitFields(raw, ":", "'\"")
+	fields, err := textutil.SplitFieldsOptions(raw, ":", &textutil.SplitOptions{Count: 2})
 	if err != nil {
 		return err
-	}
-	if len(fields) != 2 {
-		return fmt.Errorf("invalid number of fields %d, must have 2", len(fields))
 	}
 	*key = fields[0]
 	*secret = fields[1]

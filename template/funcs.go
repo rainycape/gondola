@@ -41,6 +41,54 @@ func neq(args ...interface{}) bool {
 	return !eq(args...)
 }
 
+func lt(arg1, arg2 interface{}) (bool, error) {
+	v1 := reflect.ValueOf(arg1)
+	v2 := reflect.ValueOf(arg2)
+	t1 := v1.Type()
+	t2 := v2.Type()
+	switch {
+	case types.IsInt(t1) && types.IsInt(t2):
+		return v1.Int() < v2.Int(), nil
+	case types.IsUint(t1) && types.IsUint(t2):
+		return v1.Uint() < v2.Uint(), nil
+	case types.IsFloat(t1) && types.IsFloat(t2):
+		return v1.Float() < v2.Float(), nil
+	}
+	return false, fmt.Errorf("can't compare %T with %T", arg1, arg2)
+}
+
+func lte(arg1, arg2 interface{}) (bool, error) {
+	lessThan, err := lt(arg1, arg2)
+	if lessThan || err != nil {
+		return lessThan, err
+	}
+	return eq(arg1, arg2), nil
+}
+
+func gt(arg1, arg2 interface{}) (bool, error) {
+	v1 := reflect.ValueOf(arg1)
+	v2 := reflect.ValueOf(arg2)
+	t1 := v1.Type()
+	t2 := v2.Type()
+	switch {
+	case types.IsInt(t1) && types.IsInt(t2):
+		return v1.Int() > v2.Int(), nil
+	case types.IsUint(t1) && types.IsUint(t2):
+		return v1.Uint() > v2.Uint(), nil
+	case types.IsFloat(t1) && types.IsFloat(t2):
+		return v1.Float() > v2.Float(), nil
+	}
+	return false, fmt.Errorf("can't compare %T with %T", arg1, arg2)
+}
+
+func gte(arg1, arg2 interface{}) (bool, error) {
+	greaterThan, err := gt(arg1, arg2)
+	if greaterThan || err != nil {
+		return greaterThan, err
+	}
+	return eq(arg1, arg2), nil
+}
+
 func _json(arg interface{}) string {
 	if arg == nil {
 		return ""
@@ -201,6 +249,10 @@ func now() time.Time {
 var templateFuncs template.FuncMap = template.FuncMap{
 	"eq":        eq,
 	"neq":       neq,
+	"lt":        lt,
+	"lte":       lte,
+	"gt":        lt,
+	"gte":       lte,
 	"json":      _json,
 	"nz":        nz,
 	"lower":     lower,

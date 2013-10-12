@@ -31,6 +31,8 @@ func (i *Iter) Next(out interface{}) bool {
 	ok := i.Iter.Next(out)
 	if ok {
 		i.err = i.q.model.fields.Methods.Load(out)
+	} else {
+		i.Close()
 	}
 	return ok && i.err == nil
 }

@@ -78,6 +78,9 @@ func (q *Query) Sort(field string, dir Sort) *Query {
 func (q *Query) One(out interface{}) error {
 	iter := q.iter(1)
 	if iter.Next(out) {
+		// Must close the iter manually, because we're not
+		// reaching the end.
+		iter.Close()
 		return nil
 	}
 	if err := iter.Err(); err != nil {

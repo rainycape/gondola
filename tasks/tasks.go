@@ -8,6 +8,7 @@ import (
 	"gnd.la/log"
 	"gnd.la/mux"
 	"gnd.la/util/runtimeutil"
+	"reflect"
 	"runtime"
 	"sync"
 	"time"
@@ -15,7 +16,7 @@ import (
 
 var running struct {
 	sync.Mutex
-	tasks map[string]bool
+	tasks map[uintptr]bool
 }
 
 // Task represent a scheduled task.
@@ -72,7 +73,7 @@ func afterTask(task mux.Handler, name string, started time.Time, opts *Options) 
 	log.Debugf("Finished task %s at %v (took %v)", name, end, end.Sub(started))
 	if opts != nil && opts.Unique {
 		running.Lock()
-		delete(running.tasks, name)
+		delete(running.tasks, reflect.ValueOf(task).Pointer())
 		running.Unlock()
 	}
 }
@@ -83,16 +84,17 @@ func executeTask(m *mux.Mux, task mux.Handler, opts *Options) {
 	defer m.CloseContext(ctx)
 	now := time.Now()
 	if opts != nil && opts.Unique {
+		k := reflect.ValueOf(task).Pointer()
 		running.Lock()
-		if running.tasks[name] {
+		if running.tasks[k] {
 			log.Errorf("Not starting task %s because it's already running", name)
 			running.Unlock()
 			return
 		}
 		if running.tasks == nil {
-			running.tasks = make(map[string]bool)
+			running.tasks = make(map[uintptr]bool)
 		}
-		running.tasks[name] = true
+		running.tasks[k] = true
 		running.Unlock()
 	}
 	log.Debugf("Starting task %s at %v", name, now)

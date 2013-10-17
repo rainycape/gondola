@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 )
 
@@ -36,7 +35,7 @@ func GetLinkStats(url string) (*LinkStats, error) {
 	    "key":"p",
 	    "apiVersion":"v1"
 	}]`, url)
-	resp, err := http.Post(rpc, "application/json", strings.NewReader(body))
+	resp, err := Client.Post(rpc, "application/json", strings.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -95,13 +94,17 @@ func GetLinksStats(urls []string) (map[string]*LinkStats, error) {
 		}(v)
 	}
 	results := make(map[string]*LinkStats, count)
+	var err error
 	for ii := 0; ii < len(urls); ii++ {
 		res := <-ch
 		if res.err != nil {
-			return nil, res.err
+			if err == nil {
+				err = res.err
+			}
+		} else {
+			results[res.url] = res.stats
 		}
-		results[res.url] = res.stats
 	}
 	close(ch)
-	return results, nil
+	return results, err
 }

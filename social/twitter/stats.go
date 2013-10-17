@@ -3,7 +3,6 @@ package twitter
 import (
 	"encoding/json"
 	"errors"
-	"net/http"
 	"net/url"
 	"strings"
 )
@@ -22,7 +21,7 @@ func GetLinkStats(u string) (*LinkStats, error) {
 	if !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
 		u = "http://" + u
 	}
-	resp, err := http.Get(endPoint + url.QueryEscape(u))
+	resp, err := Client.Get(endPoint + url.QueryEscape(u))
 	if err != nil {
 		return nil, err
 	}
@@ -66,13 +65,17 @@ func GetLinksStats(urls []string) (map[string]*LinkStats, error) {
 		}(v)
 	}
 	results := make(map[string]*LinkStats, count)
+	var err error
 	for ii := 0; ii < len(urls); ii++ {
 		res := <-ch
 		if res.err != nil {
-			return nil, res.err
+			if err == nil {
+				err = res.err
+			}
+		} else {
+			results[res.url] = res.stats
 		}
-		results[res.url] = res.stats
 	}
 	close(ch)
-	return results, nil
+	return results, err
 }

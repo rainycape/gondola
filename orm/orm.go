@@ -355,6 +355,7 @@ func (o *Orm) Begin() (*Tx, error) {
 			tags:   o.tags,
 			db:     o.db,
 		},
+		o:  o,
 		tx: tx,
 	}, nil
 }

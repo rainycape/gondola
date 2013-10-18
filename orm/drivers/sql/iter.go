@@ -49,7 +49,10 @@ func (i *Iter) Err() error {
 }
 
 func (i *Iter) Close() error {
-	return i.rows.Close()
+	if i.rows != nil {
+		return i.rows.Close()
+	}
+	return nil
 }
 
 func NewIter(m driver.Model, d driver.Driver, r *sql.Rows, err error) driver.Iter {

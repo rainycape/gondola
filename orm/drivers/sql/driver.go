@@ -74,7 +74,6 @@ func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int, sort in
 	if err != nil {
 		return &Iter{err: err}
 	}
-	d.debugq(query, params)
 	rows, err := d.db.Query(query, params...)
 	if err != nil {
 		return &Iter{err: err}

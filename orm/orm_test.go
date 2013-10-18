@@ -2,6 +2,7 @@ package orm
 
 import (
 	"bytes"
+	"gnd.la/config"
 	"gnd.la/log"
 	_ "gnd.la/orm/drivers/sqlite"
 	"io/ioutil"
@@ -71,11 +72,11 @@ type Composite struct {
 	Value string
 }
 
-func newOrm(t T, drv, name string, logging bool) *Orm {
+func newOrm(t T, url string, logging bool) *Orm {
 	// Clear registry
 	_nameRegistry = map[string]nameRegistry{}
 	_typeRegistry = map[string]typeRegistry{}
-	o, err := Open(drv, name)
+	o, err := New(config.MustParseURL(url))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,13 +96,13 @@ func newTmpOrm(t T) (string, *Orm) {
 		t.Fatal(err)
 	}
 	f.Close()
-	o := newOrm(t, "sqlite", f.Name(), true)
+	o := newOrm(t, "sqlite://"+f.Name(), true)
 	o.SqlDB().Exec("PRAGMA journal_mode = WAL")
 	return f.Name(), o
 }
 
 func newMemoryOrm(t T) *Orm {
-	o := newOrm(t, "sqlite", ":memory:", true)
+	o := newOrm(t, "sqlite://:memory:", true)
 	o.SqlDB().Exec("PRAGMA journal_mode = WAL")
 	return o
 }

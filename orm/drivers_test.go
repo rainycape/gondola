@@ -44,7 +44,7 @@ func TestPostgres(t *testing.T) {
 	}
 	exec.Command("dropdb", "gotest").Run()
 	exec.Command("createdb", "gotest").Run()
-	o := newOrm(t, "postgres", fmt.Sprintf("dbname=gotest user=%v password=%v", u.Username, u.Username), true)
+	o := newOrm(t, fmt.Sprintf("postgres://dbname=gotest user=%v password=%v", u.Username, u.Username), true)
 	testOrm(t, o)
 	o.Close()
 }

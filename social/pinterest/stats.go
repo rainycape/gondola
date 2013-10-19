@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"net/http"
 	"net/url"
 	"strings"
 )
@@ -23,7 +22,7 @@ func GetLinkStats(u string) (*LinkStats, error) {
 	if !strings.HasPrefix(u, "http://") && !strings.HasPrefix(u, "https://") {
 		u = "http://" + u
 	}
-	resp, err := http.Get(endPoint + url.QueryEscape(u))
+	resp, err := Client.Get(endPoint + url.QueryEscape(u))
 	if err != nil {
 		return nil, err
 	}

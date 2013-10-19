@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	endPoint           = "http://api.pinterest.com/v1/urls/count.json?callback=&url="
+	// callback can't be empty
+	endPoint           = "http://api.pinterest.com/v1/urls/count.json?callback=cb&url="
 	errInvalidResponse = errors.New("invalid JSON response")
 )
 
@@ -36,7 +37,7 @@ func GetLinkStats(u string) (*LinkStats, error) {
 	if len(d) < 2 {
 		return nil, errInvalidResponse
 	}
-	d = d[1 : len(d)-1]
+	d = d[3 : len(d)-1]
 	var res map[string]interface{}
 	if err := json.Unmarshal(d, &res); err != nil {
 		return nil, err

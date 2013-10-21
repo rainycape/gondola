@@ -6,21 +6,21 @@ import (
 )
 
 func Render(a Asset) (template.HTML, error) {
-	html := a.HTML()
+	html := a.AssetHTML()
 	if html == "" {
-		tag := a.Tag()
+		tag := a.AssetTag()
 		if tag == "" {
-			return "", fmt.Errorf("Asset of type %T does not specify HTML() nor Tag()", a)
+			return "", fmt.Errorf("asset of type %T does not specify HTML() nor Tag()", a)
 		}
 		attributes := ""
-		if attr := a.Attributes(); attr != nil {
+		if attr := a.AssetAttributes(); attr != nil {
 			attributes = attr.String()
 		}
-		if a.Closed() {
+		if a.AssetClosed() {
 			html = fmt.Sprintf("<%s %s></%s>", tag, attributes, tag)
 		} else {
 			html = fmt.Sprintf("<%s %s>", tag, attributes)
 		}
 	}
-	return Conditional(a.Condition(), a.ConditionVersion(), html), nil
+	return Conditional(a.AssetCondition(), html), nil
 }

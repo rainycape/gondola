@@ -1,55 +1,62 @@
 package assets
 
-type cssAsset struct {
-	*CommonAsset
+type Css struct {
+	Common
+	Media      string
+	Href       string
 	attributes Attributes
 }
 
-func (c *cssAsset) Tag() string {
+func (c *Css) AssetTag() string {
 	return "link"
 }
 
-func (c *cssAsset) Closed() bool {
+func (c *Css) AssetClosed() bool {
 	return false
 }
 
-func (c *cssAsset) Position() Position {
+func (c *Css) AssetPosition() Position {
 	return Top
 }
 
-func (c *cssAsset) Attributes() Attributes {
+func (c *Css) AssetAttributes() Attributes {
+	if c.attributes == nil {
+		c.attributes = Attributes{"rel": "stylesheet", "type": "text/css"}
+		if c.Media != "" {
+			c.attributes["media"] = c.Media
+		}
+		if c.Href != "" {
+			c.attributes["href"] = c.Href
+		}
+	}
 	return c.attributes
 }
 
-func (c *cssAsset) HTML() string {
+func (c *Css) AssetHTML() string {
 	return ""
 }
 
-func (c *cssAsset) CodeType() int {
+func (c *Css) CodeType() int {
 	return CodeTypeCss
 }
 
 func cssParser(m Manager, names []string, options Options) ([]Asset, error) {
-	common, err := ParseCommonAssets(m, names, options)
+	common, err := ParseCommon(m, names, options)
 	if err != nil {
 		return nil, err
 	}
-	attrs := Attributes{"rel": "stylesheet", "type": "text/css"}
+	var media string
 	for k, v := range options {
 		if k == "media" {
-			attrs[k] = v
+			media = v
 		}
 	}
 	assets := make([]Asset, len(common))
 	for ii, v := range common {
-		attributes := make(Attributes, len(attrs)+1)
-		for ak, av := range attrs {
-			attributes[ak] = av
-		}
-		attributes["href"] = m.URL(v.Name())
-		assets[ii] = &cssAsset{
-			CommonAsset: v,
-			attributes:  attributes,
+		assets[ii] = &Css{
+			Common: *v,
+			Media:  media,
+			Href:   m.URL(v.Name),
 		}
 	}
 	return assets, nil

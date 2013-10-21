@@ -11,30 +11,35 @@ var (
 	conditionalRe = regexp.MustCompile("(?i:^!?ie((?:l|g)te?)?(\\d+)?$)")
 )
 
-type Condition int
+type Comparison int
 
-const (
-	ConditionNone Condition = iota
-	ConditionIf
-	ConditionIfNot
-	ConditionIfEqual
-	ConditionIfLessThan
-	ConditionIfLessThanOrEqual
-	ConditionIfGreaterThan
-	ConditionIfGreaterThanOrEqual
-)
-
-var conditions = map[Condition]string{
-	ConditionIfEqual:              "",
-	ConditionIfLessThan:           "lt ",
-	ConditionIfLessThanOrEqual:    "lte ",
-	ConditionIfGreaterThan:        "gt ",
-	ConditionIfGreaterThanOrEqual: "gte ",
+type Condition struct {
+	Comparison Comparison
+	Version    int
 }
 
-func ParseCondition(val string) (Condition, int, error) {
+const (
+	ComparisonNone Comparison = iota
+	ComparisonIf
+	ComparisonIfNot
+	ComparisonIfEqual
+	ComparisonIfLessThan
+	ComparisonIfLessThanOrEqual
+	ComparisonIfGreaterThan
+	ComparisonIfGreaterThanOrEqual
+)
+
+var comparisons = map[Comparison]string{
+	ComparisonIfEqual:              "",
+	ComparisonIfLessThan:           "lt ",
+	ComparisonIfLessThanOrEqual:    "lte ",
+	ComparisonIfGreaterThan:        "gt ",
+	ComparisonIfGreaterThanOrEqual: "gte ",
+}
+
+func ParseCondition(val string) (*Condition, error) {
 	if val == "" {
-		return ConditionNone, 0, nil
+		return nil, nil
 	}
 	if conditionalRe.MatchString(val) {
 		m := conditionalRe.FindStringSubmatch(val)
@@ -44,46 +49,52 @@ func ParseCondition(val string) (Condition, int, error) {
 			if v := m[len(m)-1]; v != "" {
 				version, err = strconv.Atoi(m[len(m)-1])
 				if err != nil {
-					return ConditionNone, 0, err
+					return nil, err
 				}
 			}
-			var cond Condition
+			var cmp Comparison
 			switch m[1] {
 			case "lt":
-				cond = ConditionIfLessThan
+				cmp = ComparisonIfLessThan
 			case "lte":
-				cond = ConditionIfLessThanOrEqual
+				cmp = ComparisonIfLessThanOrEqual
 			case "gt":
-				cond = ConditionIfGreaterThan
+				cmp = ComparisonIfGreaterThan
 			case "gte":
-				cond = ConditionIfGreaterThanOrEqual
+				cmp = ComparisonIfGreaterThanOrEqual
 			case "":
-				cond = ConditionIfEqual
+				cmp = ComparisonIfEqual
 			default:
-				return ConditionNone, 0, fmt.Errorf("Invalid condition %q", val)
+				return nil, fmt.Errorf("invalid condition %q", val)
 			}
-			return cond, version, nil
+			return &Condition{
+				Comparison: cmp,
+				Version:    version,
+			}, nil
 		}
 	}
-	return ConditionNone, 0, fmt.Errorf("Invalid condition %q", val)
+	return nil, fmt.Errorf("invalid condition %q", val)
 }
 
-func Conditional(cond Condition, version int, html string) template.HTML {
+func Conditional(c *Condition, html string) template.HTML {
+	if c == nil {
+		return template.HTML(html)
+	}
 	var conditional string
 	var cmp string
 	var vers string
-	switch cond {
-	case ConditionNone:
+	switch c.Comparison {
+	case ComparisonNone:
 		conditional = html
-	case ConditionIfNot:
+	case ComparisonIfNot:
 		conditional = fmt.Sprintf("<!--[if !IE]> -->%s<!-- <![endif]-->", html)
 	default:
-		cmp = conditions[cond]
-		if version != 0 {
-			vers = fmt.Sprintf(" %d", version)
+		cmp = comparisons[c.Comparison]
+		if c.Version != 0 {
+			vers = fmt.Sprintf(" %d", c.Version)
 		}
 		fallthrough
-	case ConditionIf:
+	case ComparisonIf:
 		conditional = fmt.Sprintf("<!--[if %sIE%s]>%s<![endif]-->", cmp, vers, html)
 	}
 	return template.HTML(conditional)

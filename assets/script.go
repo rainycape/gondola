@@ -4,38 +4,46 @@ import (
 	"gnd.la/log"
 )
 
-type scriptAsset struct {
-	*CommonAsset
-	position   Position
+type Script struct {
+	Common
+	Position   Position
+	Async      bool
+	Src        string
 	attributes Attributes
 }
 
-func (s *scriptAsset) Tag() string {
+func (s *Script) AssetTag() string {
 	return "script"
 }
 
-func (s *scriptAsset) Closed() bool {
+func (s *Script) AssetClosed() bool {
 	return true
 }
 
-func (s *scriptAsset) Position() Position {
-	return s.position
+func (s *Script) AssetPosition() Position {
+	return s.Position
 }
 
-func (s *scriptAsset) Attributes() Attributes {
+func (s *Script) AssetAttributes() Attributes {
+	if s.attributes == nil {
+		s.attributes = Attributes{"type": "text/javascript", "src": s.Src}
+		if s.Async {
+			s.attributes["async"] = "async"
+		}
+	}
 	return s.attributes
 }
 
-func (s *scriptAsset) HTML() string {
+func (s *Script) AssetHTML() string {
 	return ""
 }
 
-func (s *scriptAsset) CodeType() int {
+func (s *Script) CodeType() int {
 	return CodeTypeJavascript
 }
 
 func scriptParser(m Manager, names []string, options Options) ([]Asset, error) {
-	common, err := ParseCommonAssets(m, names, options)
+	common, err := ParseCommon(m, names, options)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +56,7 @@ func scriptParser(m Manager, names []string, options Options) ([]Asset, error) {
 	async := options.BoolOpt("async", m)
 	for ii, v := range common {
 		var src string
-		name := v.Name()
+		name := v.Name
 		if cdn {
 			var err error
 			src, err = Cdn(name)
@@ -61,14 +69,11 @@ func scriptParser(m Manager, names []string, options Options) ([]Asset, error) {
 		if src == "" {
 			src = m.URL(name)
 		}
-		attrs := Attributes{"type": "text/javascript", "src": src}
-		if async {
-			attrs["async"] = "async"
-		}
-		assets[ii] = &scriptAsset{
-			CommonAsset: v,
-			position:    position,
-			attributes:  attrs,
+		assets[ii] = &Script{
+			Common:   *v,
+			Position: position,
+			Async:    async,
+			Src:      src,
 		}
 	}
 	return assets, nil

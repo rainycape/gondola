@@ -16,26 +16,22 @@ func (a Attributes) String() string {
 	return strings.Join(attrs, " ")
 }
 
-type CommonAsset struct {
-	Manager          Manager
-	name             string
-	condition        Condition
-	conditionVersion int
+type Common struct {
+	Manager   Manager
+	Name      string
+	Condition *Condition
 }
 
-func (c *CommonAsset) Name() string {
-	return c.name
+func (c *Common) AssetName() string {
+	return c.Name
 }
 
-func (c *CommonAsset) Condition() Condition {
-	return c.condition
+func (c *Common) AssetCondition() *Condition {
+	return c.Condition
 }
 
-func (c *CommonAsset) ConditionVersion() int {
-	return c.conditionVersion
-}
-func (c *CommonAsset) Code() (string, error) {
-	f, _, err := c.Manager.Load(c.Name())
+func (c *Common) Code() (string, error) {
+	f, _, err := c.Manager.Load(c.Name)
 	if err != nil {
 		return "", err
 	}
@@ -47,23 +43,21 @@ func (c *CommonAsset) Code() (string, error) {
 	return string(data), nil
 }
 
-func ParseCommonAssets(m Manager, names []string, options Options) ([]*CommonAsset, error) {
-	cond := ConditionNone
-	vers := 0
+func ParseCommon(m Manager, names []string, options Options) ([]*Common, error) {
+	var cond *Condition
 	if ifopt := options["if"]; ifopt != "" {
 		var err error
-		cond, vers, err = ParseCondition(ifopt)
+		cond, err = ParseCondition(ifopt)
 		if err != nil {
 			return nil, err
 		}
 	}
-	common := make([]*CommonAsset, len(names))
+	common := make([]*Common, len(names))
 	for ii, v := range names {
-		common[ii] = &CommonAsset{
-			Manager:          m,
-			name:             v,
-			condition:        cond,
-			conditionVersion: vers,
+		common[ii] = &Common{
+			Manager:   m,
+			Name:      v,
+			Condition: cond,
 		}
 	}
 	return common, nil

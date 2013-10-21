@@ -19,20 +19,19 @@ var (
 type AssetParser func(m Manager, names []string, options Options) ([]Asset, error)
 
 type Asset interface {
-	Name() string
-	Position() Position
-	Condition() Condition
-	ConditionVersion() int
-	Tag() string
-	Closed() bool
-	Attributes() Attributes
-	HTML() string
+	AssetName() string
+	AssetPosition() Position
+	AssetCondition() *Condition
+	AssetTag() string
+	AssetClosed() bool
+	AssetAttributes() Attributes
+	AssetHTML() string
 }
 
 func Parse(m Manager, name string, names []string, o Options) ([]Asset, error) {
 	parser := parsers[name]
 	if parser == nil {
-		return nil, fmt.Errorf("Unknown asset type %s", name)
+		return nil, fmt.Errorf("unknown asset type %s", name)
 	}
 	// Check for debug and !debug assets
 	if (m.Debug() && o.NoDebug()) || (!m.Debug() && o.Debug()) {
@@ -40,7 +39,7 @@ func Parse(m Manager, name string, names []string, o Options) ([]Asset, error) {
 	}
 	assets, err := parser(m, names, o)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error parsing asset %q: %s", name, err)
 	}
 	if o.BoolOpt("compile", m) {
 		cassets, err := Compile(m, assets, o)

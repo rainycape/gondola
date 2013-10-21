@@ -36,7 +36,7 @@ type CodeAssetList []CodeAsset
 func (c CodeAssetList) Names() []string {
 	var names []string
 	for _, v := range c {
-		names = append(names, v.Name())
+		names = append(names, v.AssetName())
 	}
 	return names
 }
@@ -55,7 +55,7 @@ func (c CodeAssetList) CompiledName(ext string, o Options) (string, error) {
 	}
 	io.WriteString(h, o.String())
 	sum := hex.EncodeToString(h.Sum(nil))
-	name := c[0].Name()
+	name := c[0].AssetName()
 	if ext == "" {
 		ext = path.Ext(name)
 	} else {
@@ -73,12 +73,12 @@ func Compile(m Manager, assets []Asset, opts Options) ([]Asset, error) {
 	for ii, v := range assets {
 		c, ok := v.(CodeAsset)
 		if !ok {
-			return nil, fmt.Errorf("asset %q (type %T) does not implement CodeAsset and can't be compiled", v.Name(), v)
+			return nil, fmt.Errorf("asset %q (type %T) does not implement CodeAsset and can't be compiled", v.AssetName(), v)
 		}
 		if ctype == 0 {
 			ctype = c.CodeType()
 		} else if ctype != c.CodeType() {
-			return nil, fmt.Errorf("asset %q has different code type %d (first asset is of type %d)", v.Name(), c.CodeType(), ctype)
+			return nil, fmt.Errorf("asset %q has different code type %d (first asset is of type %d)", v.AssetName(), c.CodeType(), ctype)
 		}
 		codeAssets[ii] = c
 	}
@@ -96,14 +96,14 @@ func Compile(m Manager, assets []Asset, opts Options) ([]Asset, error) {
 	for _, v := range codeAssets {
 		c, err := v.Code()
 		if err != nil {
-			return nil, fmt.Errorf("error getting code for asset %q: %s", v.Name(), err)
+			return nil, fmt.Errorf("error getting code for asset %q: %s", v.AssetName(), err)
 		}
-		if vd := path.Dir(v.Name()); vd != dir {
+		if vd := path.Dir(v.AssetName()); vd != dir {
 			if ctype == CodeTypeCss {
-				log.Debugf("asset %q will move from %v to %v, rewriting relative paths...", v.Name(), vd, dir)
+				log.Debugf("asset %q will move from %v to %v, rewriting relative paths...", v.AssetName(), vd, dir)
 				c = replaceRelativePaths(c, vd, dir)
 			} else {
-				log.Warningf("asset %q will move from %v to %v, relative paths might not work", v.Name(), vd, dir)
+				log.Warningf("asset %q will move from %v to %v, relative paths might not work", v.AssetName(), vd, dir)
 			}
 		}
 		code = append(code, c)

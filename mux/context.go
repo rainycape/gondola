@@ -444,7 +444,10 @@ func (c *Context) Elapsed() time.Duration {
 // RemoteAddress returns the remote IP without the port number.
 func (c *Context) RemoteAddress() string {
 	if c.R != nil {
-		addr, _, _ := net.SplitHostPort(c.R.RemoteAddr)
+		addr := c.R.RemoteAddr
+		if addr != "" && (addr[0] == '[' || strings.IndexByte(addr, ':') > 0) {
+			addr, _, _ = net.SplitHostPort(addr)
+		}
 		return addr
 	}
 	return ""

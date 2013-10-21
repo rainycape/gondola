@@ -161,7 +161,7 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 					return err
 				}
 				for _, a := range ass {
-					if a.Position() == assets.Top {
+					if a.AssetPosition() == assets.Top {
 						t.topAssets = append(t.topAssets, a)
 					} else {
 						t.bottomAssets = append(t.bottomAssets, a)

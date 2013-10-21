@@ -135,6 +135,10 @@ func _map(args ...interface{}) (map[string]interface{}, error) {
 	return m, nil
 }
 
+func _slice(args ...interface{}) []interface{} {
+	return args
+}
+
 func mult(args ...interface{}) (float64, error) {
 	val := 1.0
 	for ii, v := range args {
@@ -258,6 +262,7 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"lower":     lower,
 	"join":      join,
 	"map":       _map,
+	"slice":     _slice,
 	"mult":      mult,
 	"divisible": divisible,
 	"add":       add,

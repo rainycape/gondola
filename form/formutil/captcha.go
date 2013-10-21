@@ -25,7 +25,7 @@ func MathCaptcha() interface{} {
 type mathCaptcha struct {
 	MathCaptchaA  int    `form:",hidden"`
 	MathCaptchaB  int    `form:",hidden"`
-	CaptchaResult string `form:",optional,max_length:2,label:Are you human?,help:This is used to prevent spam,placeholder:Result"`
+	CaptchaResult string `form:",optional,max_length=2,label=Are you human?,help=This is used to prevent spam,placeholder=Result"`
 }
 
 func (s *mathCaptcha) ValidateCaptchaResult() error {

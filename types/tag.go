@@ -126,7 +126,7 @@ func splitFields(tag string) (string, map[string]string, error) {
 				prevState = state
 				state = stateEscape
 			}
-		case ':':
+		case '=':
 			if state == stateKey {
 				key = buf.String()
 				buf.Reset()

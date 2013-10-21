@@ -37,7 +37,7 @@ const (
 var (
 	ErrNoAssetsManager = errors.New("Template does not have an assets manager")
 	commentRe          = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
-	keyRe              = regexp.MustCompile(`(?s:\s*([\w\-_])+?(:|/))`)
+	keyRe              = regexp.MustCompile(`(?s:\s*([\w\-_])+?(:|\|))`)
 	defineRe           = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
 	topTree            = compileTree(TopAssetsTmplName, topAssetsBoilerplate)
 	bottomTree         = compileTree(BottomAssetsTmplName, bottomAssetsBoilerplate)
@@ -113,7 +113,7 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 			var value string
 			if len(v) > end {
 				rem := v[end+1:]
-				if v[end] == '/' {
+				if v[end] == '|' {
 					// Has options
 					colon := strings.IndexByte(rem, ':')
 					opts := rem[:colon]

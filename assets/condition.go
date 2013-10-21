@@ -3,12 +3,8 @@ package assets
 import (
 	"fmt"
 	"html/template"
-	"regexp"
 	"strconv"
-)
-
-var (
-	conditionalRe = regexp.MustCompile("(?i:^!?ie((?:l|g)te?)?(\\d+)?$)")
+	"strings"
 )
 
 type Comparison int
@@ -16,85 +12,88 @@ type Comparison int
 type Condition struct {
 	Comparison Comparison
 	Version    int
+	NonIE      bool
 }
 
 const (
 	ComparisonNone Comparison = iota
-	ComparisonIf
-	ComparisonIfNot
-	ComparisonIfEqual
-	ComparisonIfLessThan
-	ComparisonIfLessThanOrEqual
-	ComparisonIfGreaterThan
-	ComparisonIfGreaterThanOrEqual
+	ComparisonEqual
+	ComparisonLessThan
+	ComparisonLessThanOrEqual
+	ComparisonGreaterThan
+	ComparisonGreaterThanOrEqual
 )
 
 var comparisons = map[Comparison]string{
-	ComparisonIfEqual:              "",
-	ComparisonIfLessThan:           "lt ",
-	ComparisonIfLessThanOrEqual:    "lte ",
-	ComparisonIfGreaterThan:        "gt ",
-	ComparisonIfGreaterThanOrEqual: "gte ",
+	ComparisonEqual:              "",
+	ComparisonLessThan:           "lt ",
+	ComparisonLessThanOrEqual:    "lte ",
+	ComparisonGreaterThan:        "gt ",
+	ComparisonGreaterThanOrEqual: "gte ",
 }
 
 func ParseCondition(val string) (*Condition, error) {
 	if val == "" {
 		return nil, nil
 	}
-	if conditionalRe.MatchString(val) {
-		m := conditionalRe.FindStringSubmatch(val)
+	parts := strings.Split(val, "-")
+	if len(parts) <= 3 && (parts[0] == "ie" || parts[0] == "~ie") {
 		var version int
 		var err error
-		if len(m) == 3 {
-			if v := m[len(m)-1]; v != "" {
-				version, err = strconv.Atoi(m[len(m)-1])
-				if err != nil {
-					return nil, err
-				}
-			}
-			var cmp Comparison
-			switch m[1] {
-			case "lt":
-				cmp = ComparisonIfLessThan
-			case "lte":
-				cmp = ComparisonIfLessThanOrEqual
-			case "gt":
-				cmp = ComparisonIfGreaterThan
-			case "gte":
-				cmp = ComparisonIfGreaterThanOrEqual
-			case "":
-				cmp = ComparisonIfEqual
-			default:
-				return nil, fmt.Errorf("invalid condition %q", val)
-			}
-			return &Condition{
-				Comparison: cmp,
-				Version:    version,
-			}, nil
+		versionIdx := -1
+		cmpIdx := -1
+		switch len(parts) {
+		case 2:
+			versionIdx = 1
+		case 3:
+			cmpIdx = 1
+			versionIdx = 2
 		}
+		cmp := ComparisonEqual
+		if versionIdx > 0 {
+			version, err = strconv.Atoi(parts[versionIdx])
+			if err != nil {
+				return nil, fmt.Errorf("invalid version number %q: %s", parts[versionIdx], err)
+			}
+		}
+		if cmpIdx > 0 {
+			switch parts[cmpIdx] {
+			case "lt":
+				cmp = ComparisonLessThan
+			case "lte":
+				cmp = ComparisonLessThanOrEqual
+			case "gt":
+				cmp = ComparisonGreaterThan
+			case "gte":
+				cmp = ComparisonGreaterThanOrEqual
+			case "eq":
+				cmp = ComparisonEqual
+			default:
+				return nil, fmt.Errorf("invalid comparison %q", val)
+			}
+		}
+		return &Condition{
+			Comparison: cmp,
+			Version:    version,
+			NonIE:      parts[0][0] == '~',
+		}, nil
 	}
 	return nil, fmt.Errorf("invalid condition %q", val)
 }
 
 func Conditional(c *Condition, html string) template.HTML {
-	if c == nil {
+	if c == nil || c.Comparison == ComparisonNone {
 		return template.HTML(html)
 	}
 	var conditional string
-	var cmp string
 	var vers string
-	switch c.Comparison {
-	case ComparisonNone:
-		conditional = html
-	case ComparisonIfNot:
-		conditional = fmt.Sprintf("<!--[if !IE]> -->%s<!-- <![endif]-->", html)
-	default:
-		cmp = comparisons[c.Comparison]
-		if c.Version != 0 {
-			vers = fmt.Sprintf(" %d", c.Version)
-		}
-		fallthrough
-	case ComparisonIf:
+	cmp := comparisons[c.Comparison]
+	if c.Version != 0 {
+		vers = fmt.Sprintf(" %d", c.Version)
+	}
+	if c.NonIE {
+		conditional = fmt.Sprintf("<!--[if %sIE%s]><!-->%s<!--<![endif]-->", cmp, vers, html)
+	} else {
 		conditional = fmt.Sprintf("<!--[if %sIE%s]>%s<![endif]-->", cmp, vers, html)
 	}
 	return template.HTML(conditional)

@@ -26,7 +26,7 @@ func writeString(w io.Writer, prefix, str string) error {
 	if _, err := io.WriteString(w, fmt.Sprintf("%s \"\"\n", prefix)); err != nil {
 		return err
 	}
-	quoted = quoted[1 : len(quoted)-2]
+	quoted = quoted[1 : len(quoted)-1]
 	return writeSuffixLines(w, "\"", "\"", quoted)
 }
 

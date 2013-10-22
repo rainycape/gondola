@@ -5,12 +5,15 @@ import (
 	"gnd.la/log"
 	"gnd.la/util/astutil"
 	"gnd.la/util/pkgutil"
+	"gnd.la/util/templateutil"
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template/parse"
 )
 
 func DefaultFunctions() []*Function {
@@ -91,7 +94,11 @@ func extract(messages messageMap, dir string, functions []*Function, types []str
 			continue
 		}
 		switch strings.ToLower(filepath.Ext(name)) {
-		// TODO: templates, strings files
+		// TODO: text and strings files
+		case ".html":
+			if err := extractTemplateMessages(messages, p, functions); err != nil {
+				return err
+			}
 		case ".go":
 			if err := extractGoMessages(messages, p, functions, types, tagFields); err != nil {
 				return err
@@ -226,4 +233,100 @@ func extractGoTagField(messages messageMap, fset *token.FileSet, f *ast.File, ta
 		}
 	}
 	return nil
+}
+
+func extractTemplateMessages(messages messageMap, path string, functions []*Function) error {
+	log.Debugf("Extracting messages from template file %s", path)
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	funcs := make(map[string]*Function)
+	for _, v := range functions {
+		if v.Template {
+			funcs[v.Name] = v
+		}
+	}
+	text := string(b)
+	treeSet, err := templateutil.Parse(path, text)
+	if err != nil {
+		return err
+	}
+	for _, v := range treeSet {
+		templateutil.WalkTree(v, func(n, p parse.Node) {
+			var fname string
+			switch n.Type() {
+			case parse.NodeIdentifier:
+				fname = n.(*parse.IdentifierNode).Ident
+			case parse.NodeField:
+				ident := n.(*parse.FieldNode).Ident
+				if len(ident) > 1 {
+					fname = ident[len(ident)-1]
+				}
+			case parse.NodeVariable:
+				ident := n.(*parse.VariableNode).Ident
+				if len(ident) > 1 {
+					fname = ident[len(ident)-1]
+				}
+			}
+			if fname != "" {
+				f := funcs[fname]
+				if f != nil {
+					count := 1
+					if f.Context {
+						count++
+					}
+					if f.Plural {
+						count++
+					}
+					cmd := p.(*parse.CommandNode)
+					// First argument is the function name
+					if c := len(cmd.Args) - 1; c != count {
+						log.Debugf("Skipping function %s (%v) - want %d arguments, got %d", f.Name, n.Position(), count, c)
+						return
+					}
+					var s []string
+					for ii := 1; ii < len(cmd.Args); ii++ {
+						if sn, ok := cmd.Args[ii].(*parse.StringNode); ok {
+							s = append(s, sn.Text)
+						} else {
+							log.Debugf("Skipping function %s (%v) - non-string argument at position %d", f.Name, n.Position(), ii)
+							return
+						}
+					}
+					message := &Message{}
+					switch len(s) {
+					case 1:
+						message.Singular = s[0]
+					case 2:
+						if f.Context {
+							message.Context = s[0]
+							message.Singular = s[1]
+						} else {
+							message.Singular = s[0]
+							message.Plural = s[1]
+						}
+					case 3:
+						message.Context = s[0]
+						message.Singular = s[1]
+						message.Plural = s[2]
+					}
+					// TODO: The line number doesn't match exactly because of the
+					// prepended variables
+					pos := templatePosition(path, text, n)
+					if err = messages.Add(message, pos, ""); err != nil {
+						return
+					}
+				}
+			}
+		})
+	}
+	return err
+}
+
+func templatePosition(name string, text string, n parse.Node) *token.Position {
+	return &token.Position{
+		Filename: name,
+		Line:     strings.Count(text[:int(n.Position())], "\n") + 1,
+	}
 }

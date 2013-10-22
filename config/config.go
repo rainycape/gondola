@@ -10,6 +10,8 @@ type Config struct {
 	// all the debug machinery (special error pages, etc...). Useful
 	// for debugging issues in production.
 	LogDebug bool `help:"Set the logging level to debug without enabling debug mode"`
+	// Sets gnd.la/defaults/SetLanguage()
+	Language string `help:"Set the default language for translating strings"`
 	// Sets gnd.la/defaults/SetPort()
 	Port int `default:"8888" help:"Port to listen on"`
 	// Sets gnd.la/defaults/SetDatabase()

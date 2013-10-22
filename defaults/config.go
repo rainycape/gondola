@@ -70,6 +70,7 @@ func setDefaults(object interface{}) {
 	}
 
 	stringDefaults := map[string]func(string){
+		"Language":      SetLanguage,
 		"Secret":        SetSecret,
 		"EncryptionKey": SetEncryptionKey,
 		"MailServer":    SetMailServer,

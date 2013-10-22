@@ -16,6 +16,7 @@ import (
 var (
 	port                = 8888
 	debug               = false
+	language            = ""
 	secret              = ""
 	encryptionKey       = ""
 	adminEmail          = ""
@@ -57,6 +58,18 @@ func SetDebug(d bool) {
 	if d {
 		log.SetLevel(log.LDebug)
 	}
+}
+
+// Language returns the default language used when translating
+// strings.
+func Language() string {
+	return language
+}
+
+// SetLanguage sets the default language used when translating
+// strings.
+func SetLanguage(lang string) {
+	language = lang
 }
 
 // Secret returns the default secret used by

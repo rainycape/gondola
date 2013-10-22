@@ -1,0 +1,100 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"PO-Revision-Date: 2013-07-18 12:24+0200\n"
+"Last-Translator: fiam <fiam@ubuntu>\n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ASCII\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: _test_data/test.go:45
+msgid "Bye wor\"ld"
+msgstr ""
+
+#. This constant string is created by concatenating two strings.
+#: _test_data/test.go:21
+msgid "Concatenated constant string"
+msgstr ""
+
+#. This whole comment is part of the translation
+#. comment.
+#. And it keeps newlines, but strips leading whitespace.
+#: _test_data/test.go:52
+msgid "Hello again world"
+msgstr ""
+
+#. Using i18n.Sprintfn. The format string is fixed by i18n.Sprintfn
+#. so it doesn't show any extra arguments.
+#: _test_data/test.go:57
+msgid "Hello one world"
+msgid_plural "Hello %d worlds"
+msgstr[0] ""
+msgstr[1] ""
+
+#. Please, translate this.
+#. This comment is still part of the translation comment.
+#: _test_data/test.go:34
+msgid "Hello world\n"
+msgstr ""
+
+#. This translation has a context
+#: _test_data/test.go:37
+msgctxt "second"
+msgid "Hello world\n"
+msgstr ""
+
+#. This field should get its help extracted
+#: _test_data/test.go:14
+msgid "Identifier"
+msgstr ""
+
+#. This is a long translation, to test line splitting in quoted strings.
+#: _test_data/test.go:40
+msgid ""
+"Lorem ipsum dolor sit amet, consectetur adipiscing elit. In sed ante ut "
+"massa ultrices auctor. Vivamus rutrum ut ante et aliquet. Proin ut rutrum "
+"enim, a elementum ligula. Morbi malesuada"
+msgstr ""
+
+#. This is a constant translatable string
+#: _test_data/test.go:19
+msgid "Testing constant string"
+msgstr ""
+
+#: _test_data/test.go:67
+msgid "Testing even more translations"
+msgstr ""
+
+#. This is a very long comment to test the 80 columns per line splitting used 
+#. automatically by gondola/i18n. Isn't it cool?
+#: _test_data/test.go:63
+msgid "Testing more translations"
+msgstr ""
+
+#. This is a var string declared via cast
+#: _test_data/test.go:28
+msgid "Testing var casted string"
+msgstr ""
+
+#. (_test_data/test.go:25) This is a var string declared via type
+#. (_test_data/test.go:70) This is a var string declared via cast
+#: _test_data/test.go:25 _test_data/test.go:70
+msgid "Testing var string"
+msgstr ""
+
+#. This field should get its help extracted
+#: _test_data/test.go:14
+msgid "This is the user id"
+msgstr ""
+
+#. Translatable string via field tag
+#: _test_data/test.go:12
+msgid "Username"
+msgstr ""
+
+#: _test_data/test.go:68
+msgid "Var inside function"
+msgstr ""

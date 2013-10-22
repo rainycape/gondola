@@ -44,6 +44,11 @@ type Handler func(*Context)
 // no further data is sent to the client.
 type ErrorHandler func(*Context, string, int) bool
 
+// LanguageHandler is use to determine the language
+// when serving a request. See function SetLanguageHandler()
+// in Mux.
+type LanguageHandler func(*Context) string
+
 type handlerInfo struct {
 	host      string
 	name      string
@@ -72,8 +77,10 @@ type Mux struct {
 	trustXHeaders        bool
 	appendSlash          bool
 	errorHandler         ErrorHandler
+	languageHandler      LanguageHandler
 	secret               string
 	encryptionKey        string
+	defaultLanguage      string
 	defaultCookieOptions *cookies.Options
 	userFunc             UserFunc
 	assetsManager        assets.Manager
@@ -269,6 +276,22 @@ func (mux *Mux) ErrorHandler() ErrorHandler {
 // detailed description.
 func (mux *Mux) SetErrorHandler(handler ErrorHandler) {
 	mux.errorHandler = handler
+}
+
+// LanguageHandler returns the language handler for this
+// mux. See SetLanguageHandler() for further information
+// about language handlers.
+func (mux *Mux) LanguageHandler() LanguageHandler {
+	return mux.languageHandler
+}
+
+// SetLanguageHandler sets the language handler for this mux.
+// The LanguageHandler is responsible for determining the language
+// used in translations for a request. If the empty string is returned
+// the strings won't be translated. Finally, when a mux does not have
+// a language handler it uses the language specified by gnd.la/defaults.
+func (mux *Mux) SetLanguageHandler(handler LanguageHandler) {
+	mux.languageHandler = handler
 }
 
 func (mux *Mux) UserFunc() UserFunc {
@@ -864,17 +887,21 @@ func (mux *Mux) isReservedVariable(va string) bool {
 }
 
 // Returns a new Mux initialized with the current default values.
-// See gnd.la/defaults for further information.
+// See gnd.la/defaults for further information. Keep in mind that,
+// for performance reasons, the values from gnd.la/defaults are
+// copied to the mux when it's created, so any changes made to
+// gnd.la/defaults after mux creation won't have any effect on it.
 func New() *Mux {
 	m := &Mux{
-		debug:          defaults.Debug(),
-		port:           defaults.Port(),
-		secret:         defaults.Secret(),
-		encryptionKey:  defaults.EncryptionKey(),
-		appendSlash:    true,
-		templatesCache: make(map[string]Template),
-		Logger:         log.Std,
-		contextPool:    make(chan *Context, poolSize),
+		debug:           defaults.Debug(),
+		port:            defaults.Port(),
+		secret:          defaults.Secret(),
+		encryptionKey:   defaults.EncryptionKey(),
+		defaultLanguage: defaults.Language(),
+		appendSlash:     true,
+		templatesCache:  make(map[string]Template),
+		Logger:          log.Std,
+		contextPool:     make(chan *Context, poolSize),
 	}
 	// Used to automatically reload the page on panics when the server
 	// is restarted.

@@ -94,6 +94,6 @@ func makeReverse(t *tmpl) func(string, ...interface{}) (string, error) {
 		if t.mux != nil {
 			return t.mux.Reverse(name, args...)
 		}
-		return "", fmt.Errorf("Can't reverse %s because the mux is not available", name)
+		return "", fmt.Errorf("can't reverse %s because the mux is not available", name)
 	}
 }

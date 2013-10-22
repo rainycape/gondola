@@ -9,7 +9,7 @@ import (
 	"reflect"
 )
 
-var reservedVariables = []string{"Context", "Request"}
+var reservedVariables = []string{"Ctx", "Request"}
 
 type Template interface {
 	Execute(w io.Writer, data interface{}) error
@@ -53,7 +53,7 @@ func (t *tmpl) execute(w io.Writer, data interface{}, vars template.VarMap) erro
 		request = context.R
 	}
 	va := map[string]interface{}{
-		"Context": context,
+		"Ctx":     context,
 		"Request": request,
 	}
 	for k, v := range t.mux.templateVars {

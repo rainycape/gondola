@@ -154,7 +154,7 @@ func init() {
 			admin.StringFlag("name", "", "Name of the generated MapLoader"),
 			admin.StringFlag("out", "", "Output filename. If empty, output is printed to standard output"),
 			admin.BoolFlag("flate", false, "Compress resources with flate when generating the code"),
-			admin.BoolFlag("f", false, "When creating output file, overwrite any existing file with the same name"),
+			admin.BoolFlag("f", false, "When creating the output file, overwrite any existing file with the same name"),
 			admin.StringFlag("extensions", "", "Additional extensions (besides html, css and js) to include, separated by commas"),
 		),
 	})

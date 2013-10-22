@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"gnd.la/admin"
 	"gnd.la/mux"
+	"gnd.la/util"
 	"go/build"
 	"go/format"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -122,26 +122,9 @@ func MakeAssets(ctx *mux.Context) {
 	if err != nil {
 		panic(err)
 	}
-	var w io.Writer
-	if out != "" {
-		flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
-		var force bool
-		ctx.ParseParamValue("f", &force)
-		if !force {
-			flags |= os.O_EXCL
-		}
-		f, err := os.OpenFile(out, flags, 0644)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error creating output file %q: %s\n", out, err)
-			return
-		}
-		defer f.Close()
-		w = f
-	} else {
-		w = os.Stdout
-	}
-	_, err = w.Write(b)
-	if err != nil {
+	var force bool
+	ctx.ParseParamValue("f", &force)
+	if err := util.WriteFile(out, b, force, 0644); err != nil {
 		panic(err)
 	}
 }

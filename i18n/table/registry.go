@@ -4,10 +4,14 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 )
 
 var (
-	registry = map[string]*TranslationTable{}
+	registry = make(map[string][]byte)
+	decoded  = make(map[string]*Table)
+	cache    = make(map[string]*Table)
+	mu       sync.RWMutex
 )
 
 // Register registers a new binary table for the given language.
@@ -22,15 +26,44 @@ var (
 // a table registered for the given language, it will be updated with
 // the new table, adding or updating entries as required.
 func Register(lang string, data []byte) {
+	if err := register(lang, data); err != nil {
+		panic(err)
+	}
+}
+
+func languageKey(k string) string {
+	return strings.ToUpper(strings.Replace(k, "_", "-", -1))
+}
+
+func register(lang string, data []byte) error {
 	if len(lang) != 2 && len(lang) != 5 {
-		panic(fmt.Errorf("invalid language code %q, please see the documentation for Register()", lang))
+		return fmt.Errorf("invalid language code %q, please see the documentation for Register()", lang)
 	}
 	if len(data) == 0 {
-		panic(fmt.Errorf("invalid table for language %q, no data", lang))
+		return fmt.Errorf("invalid table for language %q, no data", lang)
 	}
-	if data[0] != BZIP2 {
-		panic(fmt.Errorf("invalid table compression %d for language %q", data[0], lang))
+	key := languageKey(lang)
+	if prev := registry[key]; prev == nil {
+		registry[key] = data
+	} else {
+		prevt, err := Decode(prev)
+		if err != nil {
+			return err
+		}
+		cur, err := Decode(data)
+		if err != nil {
+			return err
+		}
+		if err := prevt.Update(cur); err != nil {
+			return err
+		}
+		compressed, err := prevt.Encode()
+		if err != nil {
+			return err
+		}
+		registry[key] = compressed
 	}
+	return nil
 }
 
 func Registered() []string {
@@ -50,9 +83,58 @@ func Registered() []string {
 	return entries
 }
 
-func Table(lang string) *TranslationTable {
-	t := registry[lang]
-	if t == nil {
+func Get(lang string) *Table {
+	mu.RLock()
+	t, ok := cache[lang]
+	mu.RUnlock()
+	if ok {
+		return t
 	}
+	key := languageKey(lang)
+	t = getSkippingCache(key)
+	if t == nil {
+		// Check if any of the registered tables are suitable
+		// for this language
+		if len(key) == 2 {
+			for k := range registry {
+				if key == k[:2] {
+					t = getSkippingCache(k)
+					break
+				}
+			}
+		} else if len(key) == 5 {
+			sk := key[:2]
+			for k := range registry {
+				if sk == k {
+					t = getSkippingCache(k)
+					break
+				}
+				if sk == k[:2] {
+					t = getSkippingCache(k)
+				}
+			}
+		}
+	}
+	mu.Lock()
+	cache[lang] = t
+	mu.Unlock()
+	// Try to decompress
 	return t
+}
+
+func getSkippingCache(key string) *Table {
+	if t := decoded[key]; t != nil {
+		return t
+	}
+	if d := registry[key]; d != nil {
+		t, err := Decode(d)
+		if err != nil {
+			panic(err)
+		}
+		mu.Lock()
+		decoded[key] = t
+		mu.Unlock()
+		return t
+	}
+	return nil
 }

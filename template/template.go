@@ -8,6 +8,7 @@ import (
 	"gnd.la/loaders"
 	"gnd.la/log"
 	"gnd.la/util"
+	"gnd.la/util/templateutil"
 	"gnd.la/util/textutil"
 	"html/template"
 	"io"
@@ -243,45 +244,13 @@ func (t *Template) load(name string, included bool) error {
 	return nil
 }
 
-func (t *Template) walkNode(node parse.Node, nt parse.NodeType, f func(parse.Node)) {
-	if node == nil {
-		return
-	}
-	if node.Type() == nt {
-		f(node)
-	}
-	switch x := node.(type) {
-	case *parse.ListNode:
-		for _, v := range x.Nodes {
-			t.walkNode(v, nt, f)
-		}
-	case *parse.IfNode:
-		if x.List != nil {
-			t.walkNode(x.List, nt, f)
-		}
-		if x.ElseList != nil {
-			t.walkNode(x.ElseList, nt, f)
-		}
-	case *parse.WithNode:
-		if x.List != nil {
-			t.walkNode(x.List, nt, f)
-		}
-		if x.ElseList != nil {
-			t.walkNode(x.ElseList, nt, f)
-		}
-	case *parse.RangeNode:
-		if x.List != nil {
-			t.walkNode(x.List, nt, f)
-		}
-		if x.ElseList != nil {
-			t.walkNode(x.ElseList, nt, f)
-		}
-	}
-}
-
 func (t *Template) walkTrees(nt parse.NodeType, f func(parse.Node)) {
 	for _, v := range t.Trees {
-		t.walkNode(v.Root, nt, f)
+		templateutil.WalkTree(v, func(n, p parse.Node) {
+			if n.Type() == nt {
+				f(n)
+			}
+		})
 	}
 }
 

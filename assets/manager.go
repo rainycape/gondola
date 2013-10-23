@@ -105,7 +105,7 @@ func (m *assetsManager) LoadURL(u *url.URL) (loaders.ReadSeekCloser, time.Time, 
 	if !(p[1] == 'f' || p[1] == 'r') && !(p == "/favicon.ico" || p == "/robots.txt") {
 		p = p[m.prefixLength:]
 	}
-	p = filepath.FromSlash(path.Clean("/" + p))
+	p = filepath.FromSlash(path.Clean(p))
 	return m.Load(p)
 }
 

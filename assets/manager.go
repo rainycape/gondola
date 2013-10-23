@@ -37,6 +37,9 @@ type assetsManager struct {
 }
 
 func NewManager(loader loaders.Loader, prefix string) Manager {
+	if prefix != "" && prefix[len(prefix)-1] != '/' {
+		prefix = prefix + "/"
+	}
 	m := new(assetsManager)
 	m.cache = make(map[string]string)
 	m.Loader = loader

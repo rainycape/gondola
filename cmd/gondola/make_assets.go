@@ -5,6 +5,7 @@ import (
 	"compress/flate"
 	"fmt"
 	"gnd.la/admin"
+	"gnd.la/log"
 	"gnd.la/mux"
 	"gnd.la/util"
 	"go/build"
@@ -128,6 +129,7 @@ func MakeAssets(ctx *mux.Context) {
 	if err := util.WriteFile(out, b, force, 0644); err != nil {
 		panic(err)
 	}
+	log.Debugf("Assets written to %s (%d bytes)", out, len(b))
 }
 
 func init() {

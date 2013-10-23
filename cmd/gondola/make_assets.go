@@ -60,7 +60,7 @@ func MakeAssets(ctx *mux.Context) {
 		}
 	}
 	buf.WriteString("import \"gnd.la/loaders\"\n")
-	buf.WriteString(fmt.Sprintf("// AUTOMATICALLY GENERATED WITH %s. DO NOT EDIT!\n", strings.Join(os.Args, " ")))
+	buf.WriteString(autogenString())
 	if useFlate {
 		buf.WriteString(fmt.Sprintf("var %s = loaders.FlateLoader(loaders.MapLoader(map[string][]byte{\n", name))
 	} else {
@@ -124,6 +124,7 @@ func MakeAssets(ctx *mux.Context) {
 	}
 	var force bool
 	ctx.ParseParamValue("f", &force)
+	force = force || isAutogen(out)
 	if err := util.WriteFile(out, b, force, 0644); err != nil {
 		panic(err)
 	}

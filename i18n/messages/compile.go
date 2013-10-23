@@ -21,7 +21,7 @@ func Compile(filename string, overwrite bool, translations []*po.Po) error {
 		buf.WriteString(fmt.Sprintf("package %s\n", p.Name))
 	}
 	buf.WriteString("import \"gnd.la/i18n/table\"\n")
-	buf.WriteString(fmt.Sprintf("// AUTOMATICALLY GENERATED WITH %s. DO NOT EDIT!\n", strings.Join(os.Args, " ")))
+	buf.WriteString(fmt.Sprintf("// AUTOMATICALLY GENERATED WITH %s -- DO NOT EDIT!\n", strings.Join(os.Args, " ")))
 	buf.WriteString("func init() {\n")
 	for _, v := range translations {
 		table := poToTable(v)

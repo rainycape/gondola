@@ -58,6 +58,7 @@ func CompileMessages(ctx *mux.Context) {
 	var force bool
 	ctx.ParseParamValue("o", &out)
 	ctx.ParseParamValue("f", &force)
+	force = force || isAutogen(out)
 	if err := messages.Compile(out, force, pos); err != nil {
 		panic(err)
 	}

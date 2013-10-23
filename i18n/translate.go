@@ -1,9 +1,5 @@
 package i18n
 
-import (
-	"gnd.la/i18n/table"
-)
-
 // T returns the given string translated into the language
 // returned by lang.
 func T(str string, lang Languager) string {
@@ -23,7 +19,7 @@ func Tn(singular string, plural string, n int, lang Languager) string {
 // differentiating strings with the same singular form but different
 // translation depending on the context.
 func Tc(context string, str string, lang Languager) string {
-	if translations := table.Get(lang.Language()); translations != nil {
+	if translations := getTable(lang); translations != nil {
 		return translations.Singular(context, str)
 	}
 	return str
@@ -34,7 +30,7 @@ func Tc(context string, str string, lang Languager) string {
 // translation depending on the context. See the documentation for Tn for
 // information about which form (singular or plural) is chosen.
 func Tnc(context string, singular string, plural string, n int, lang Languager) string {
-	if translations := table.Get(lang.Language()); translations != nil {
+	if translations := getTable(lang); translations != nil {
 		return translations.Plural(context, singular, plural, n)
 	}
 	if n == 1 {

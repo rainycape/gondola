@@ -47,7 +47,7 @@ func MakeAssets(ctx *mux.Context) {
 		}
 	}
 	var out string
-	ctx.ParseParamValue("out", &out)
+	ctx.ParseParamValue("o", &out)
 	var useFlate bool
 	ctx.ParseParamValue("flate", &useFlate)
 	var buf bytes.Buffer
@@ -136,7 +136,7 @@ func init() {
 		Flags: admin.Flags(
 			admin.StringFlag("dir", "", "Directory with the html templates"),
 			admin.StringFlag("name", "", "Name of the generated MapLoader"),
-			admin.StringFlag("out", "", "Output filename. If empty, output is printed to standard output"),
+			admin.StringFlag("o", "", "Output filename. If empty, output is printed to standard output"),
 			admin.BoolFlag("flate", false, "Compress resources with flate when generating the code"),
 			admin.BoolFlag("f", false, "When creating the output file, overwrite any existing file with the same name"),
 			admin.StringFlag("extensions", "", "Additional extensions (besides html, css and js) to include, separated by commas"),

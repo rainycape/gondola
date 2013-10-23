@@ -38,7 +38,7 @@ type Form struct {
 func (f *Form) validate() {
 	for _, v := range f.fields {
 		input := f.ctx.FormValue(v.Name)
-		label := v.Label
+		label := v.Label.TranslatedString(f.ctx)
 		if f.NamelessErrors {
 			label = ""
 		}
@@ -128,11 +128,11 @@ func (f *Form) makeField(name string) (*Field, error) {
 	}
 	field := &Field{
 		Type:        typ,
-		Label:       label,
-		GoName:      name,
 		Name:        mangled,
-		Placeholder: tag.Value("placeholder"),
-		Help:        tag.Value("help"),
+		GoName:      name,
+		Label:       i18n.String(label),
+		Placeholder: i18n.String(tag.Value("placeholder")),
+		Help:        i18n.String(tag.Value("help")),
 		id:          mangled,
 		value:       fieldValue,
 		s:           s,
@@ -253,7 +253,8 @@ func (f *Form) fieldChoices(field *Field) []*Choice {
 
 func (f *Form) beginInput(buf *bytes.Buffer, field *Field, pos int) error {
 	if r := f.renderer; r != nil {
-		if err := r.BeginInput(buf, field, pos); err != nil {
+		placeholder := field.Placeholder.TranslatedString(f.ctx)
+		if err := r.BeginInput(buf, field, placeholder, pos); err != nil {
 			return err
 		}
 		for _, a := range field.addons {
@@ -288,7 +289,8 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 	var closed bool
 	if field.Type != HIDDEN {
 		closed = field.Type != CHECKBOX
-		if err := f.writeLabel(buf, field, field.Id(), field.Label, closed, -1); err != nil {
+		label := field.Label.TranslatedString(f.ctx)
+		if err := f.writeLabel(buf, field, field.Id(), label, closed, -1); err != nil {
 			return err
 		}
 	}
@@ -390,7 +392,8 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 func (f *Form) writeLabel(buf *bytes.Buffer, field *Field, id, label string, closed bool, pos int) error {
 	attrs := html.Attrs{}
 	if r := f.renderer; r != nil {
-		if err := r.BeginLabel(buf, field, pos); err != nil {
+		label := field.Label.TranslatedString(f.ctx)
+		if err := r.BeginLabel(buf, field, label, pos); err != nil {
 			return err
 		}
 		lattrs, err := r.LabelAttributes(field, pos)
@@ -442,7 +445,7 @@ func (f *Form) writeInput(buf *bytes.Buffer, itype string, field *Field) error {
 	case TEXT, PASSWORD, HIDDEN:
 		attrs["value"] = html.Escape(types.ToString(field.Value()))
 		if field.Placeholder != "" {
-			attrs["placeholder"] = html.Escape(field.Placeholder)
+			attrs["placeholder"] = html.Escape(field.Placeholder.TranslatedString(f.ctx))
 		}
 		if ml, ok := field.Tag().MaxLength(); ok {
 			attrs["maxlength"] = strconv.Itoa(ml)
@@ -453,7 +456,7 @@ func (f *Form) writeInput(buf *bytes.Buffer, itype string, field *Field) error {
 	f.openTag(buf, "input", attrs)
 	if field.Type == CHECKBOX {
 		// Close the label before calling EndInput
-		if err := f.endLabel(buf, field, field.Label, -1); err != nil {
+		if err := f.endLabel(buf, field, field.Label.TranslatedString(f.ctx), -1); err != nil {
 			return err
 		}
 	}
@@ -480,13 +483,14 @@ func (f *Form) renderField(buf *bytes.Buffer, field *Field) (err error) {
 	}
 	if r != nil {
 		if ferr := field.Err(); ferr != nil {
+			ferr = i18n.TranslatedError(ferr, f.ctx)
 			err = r.WriteError(buf, field, ferr)
 			if err != nil {
 				return
 			}
 		}
 		if field.Help != "" {
-			err = r.WriteHelp(buf, field)
+			err = r.WriteHelp(buf, field, field.Help.TranslatedString(f.ctx))
 			if err != nil {
 				return
 			}

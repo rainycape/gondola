@@ -27,7 +27,7 @@ func (r *Renderer) BeginField(w io.Writer, field *form.Field) error {
 	return err
 }
 
-func (r *Renderer) BeginLabel(w io.Writer, field *form.Field, pos int) error {
+func (r *Renderer) BeginLabel(w io.Writer, field *form.Field, label string, pos int) error {
 	var err error
 	if field.Type == form.RADIO && pos >= 0 {
 		div := html.Div()
@@ -50,7 +50,7 @@ func (r *Renderer) EndLabel(w io.Writer, field *form.Field, pos int) error {
 	return err
 }
 
-func (r *Renderer) BeginInput(w io.Writer, field *form.Field, pos int) error {
+func (r *Renderer) BeginInput(w io.Writer, field *form.Field, placeholder string, pos int) error {
 	var err error
 	if field.HasAddOns() && pos == -1 {
 		div := html.Div()
@@ -98,8 +98,8 @@ func (r *Renderer) WriteError(w io.Writer, field *form.Field, err error) error {
 	return werr
 }
 
-func (r *Renderer) WriteHelp(w io.Writer, field *form.Field) error {
-	span := html.Span(html.Text(field.Help))
+func (r *Renderer) WriteHelp(w io.Writer, field *form.Field, help string) error {
+	span := html.Span(html.Text(help))
 	span.Attrs = html.Attrs{"class": "help-block"}
 	_, err := span.WriteTo(w)
 	return err

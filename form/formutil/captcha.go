@@ -25,12 +25,12 @@ func MathCaptcha() interface{} {
 type mathCaptcha struct {
 	MathCaptchaA  int    `form:",hidden"`
 	MathCaptchaB  int    `form:",hidden"`
-	CaptchaResult string `form:",optional,max_length=2,label=Are you human?,help=This is used to prevent spam,placeholder=Result"`
+	CaptchaResult string `form:",optional,max_length=2,label=formutil|Are you human?,help=formutil|This is used to prevent spam,placeholder=formutil|Result"`
 }
 
 func (s *mathCaptcha) ValidateCaptchaResult() error {
 	if s.CaptchaResult == "" {
-		return i18n.Errorf("please, enter the result of the operation")
+		return i18n.Errorfc("formutil", "please, enter the result of the operation")
 	}
 	r := -1
 	p, err := strconv.Atoi(s.CaptchaResult)
@@ -38,7 +38,7 @@ func (s *mathCaptcha) ValidateCaptchaResult() error {
 		r = p
 	}
 	if r != s.MathCaptchaA+s.MathCaptchaB {
-		return i18n.Errorf("incorrect result")
+		return i18n.Errorfc("formutil", "incorrect result")
 	}
 	return nil
 }

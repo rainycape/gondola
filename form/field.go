@@ -1,17 +1,18 @@
 package form
 
 import (
+	"gnd.la/i18n"
 	"gnd.la/types"
 	"reflect"
 )
 
 type Field struct {
 	Type        Type
-	Label       string
-	GoName      string
 	Name        string
-	Placeholder string
-	Help        string
+	GoName      string
+	Label       i18n.String
+	Placeholder i18n.String
+	Help        i18n.String
 
 	id     string
 	prefix string

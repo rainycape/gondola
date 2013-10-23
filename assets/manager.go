@@ -23,6 +23,7 @@ type Manager interface {
 	URL(name string) string
 	Debug() bool
 	SetDebug(debug bool)
+	Prefix() string
 }
 
 type assetsManager struct {
@@ -138,6 +139,10 @@ func (m *assetsManager) Debug() bool {
 
 func (m *assetsManager) SetDebug(debug bool) {
 	m.debug = debug
+}
+
+func (m *assetsManager) Prefix() string {
+	return m.prefix
 }
 
 func (m *assetsManager) Close() error {

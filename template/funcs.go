@@ -135,8 +135,27 @@ func _map(args ...interface{}) (map[string]interface{}, error) {
 	return m, nil
 }
 
-func _slice(args ...interface{}) []interface{} {
-	return args
+// this returns *[]interface{} so append works on
+// slices declared in templates
+func _slice(args ...interface{}) *[]interface{} {
+	return &args
+}
+
+func _append(items interface{}, args ...interface{}) (string, error) {
+	val := reflect.ValueOf(items)
+	if !val.IsValid() || val.Kind() != reflect.Ptr || val.Elem().Kind() != reflect.Slice {
+		return "", fmt.Errorf("first argument to append must be pointer to slice, it's %T", items)
+	}
+	sl := val.Elem()
+	for _, v := range args {
+		vval := reflect.ValueOf(v)
+		if !vval.Type().AssignableTo(sl.Type().Elem()) {
+			return "", fmt.Errorf("can't append %s to %s", vval.Type(), sl.Type())
+		}
+		sl = reflect.Append(sl, vval)
+	}
+	val.Elem().Set(sl)
+	return "", nil
 }
 
 func mult(args ...interface{}) (float64, error) {
@@ -263,6 +282,7 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"join":      join,
 	"map":       _map,
 	"slice":     _slice,
+	"append":    _append,
 	"mult":      mult,
 	"divisible": divisible,
 	"add":       add,

@@ -521,7 +521,6 @@ func (p *Project) ProxyConnection(conn net.Conn, port int) {
 }
 
 func Dev(ctx *mux.Context) {
-	log.SetLevel(log.LDebug)
 	var dir string
 	var configName string
 	var tags string

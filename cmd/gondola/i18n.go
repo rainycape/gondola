@@ -4,7 +4,6 @@ import (
 	"gnd.la/admin"
 	"gnd.la/i18n/messages"
 	"gnd.la/i18n/po"
-	"gnd.la/log"
 	"gnd.la/mux"
 	"os"
 	"path/filepath"
@@ -12,7 +11,6 @@ import (
 )
 
 func MakeMessages(ctx *mux.Context) {
-	log.SetLevel(log.LDebug)
 	m, err := messages.Extract(".", messages.DefaultFunctions(), messages.DefaultTypes(), messages.DefaultTagFields())
 	if err != nil {
 		panic(err)

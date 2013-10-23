@@ -1,0 +1,25 @@
+#: captcha.go:28
+msgctxt "formutil"
+msgid "Are you human?"
+msgstr ""
+
+#: captcha.go:28
+msgctxt "formutil"
+msgid "Result"
+msgstr ""
+
+#: captcha.go:28
+msgctxt "formutil"
+msgid "This is used to prevent spam"
+msgstr ""
+
+#: captcha.go:41
+msgctxt "formutil"
+msgid "incorrect result"
+msgstr ""
+
+#: captcha.go:33
+msgctxt "formutil"
+msgid "please, enter the result of the operation"
+msgstr ""
+

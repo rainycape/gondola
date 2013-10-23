@@ -28,12 +28,22 @@ type Error interface {
 
 // translatableError implements the Error interface.
 type translatableError struct {
-	Format string
-	Args   []interface{}
+	Context      string
+	Format       string
+	PluralFormat string
+	N            int
+	Args         []interface{}
+}
+
+func (e *translatableError) sprintf(languager Languager) string {
+	if e.PluralFormat != "" {
+		return Sprintfnc(e.Context, e.Format, e.PluralFormat, e.N, languager, e.Args...)
+	}
+	return Sprintfc(e.Context, e.Format, languager, e.Args...)
 }
 
 func (e *translatableError) Error() string {
-	return Sprintf(e.Format, nil, e.Args...)
+	return e.sprintf(nil)
 }
 
 func (e *translatableError) Err(languager Languager) error {
@@ -41,9 +51,10 @@ func (e *translatableError) Err(languager Languager) error {
 }
 
 func (e *translatableError) TranslatedError(languager Languager) string {
-	return Sprintf(e.Format, languager, e.Args...)
+	return e.sprintf(languager)
 }
 
+// Implement TranslatableString too
 func (e *translatableError) TranslatedString(languager Languager) string {
 	return e.TranslatedError(languager)
 }
@@ -52,7 +63,48 @@ func (e *translatableError) TranslatedString(languager Languager) string {
 // returned Error uses Sprintf internally, which means it will
 // translate any argument which supports translation.
 func Errorf(format string, args ...interface{}) Error {
-	return &translatableError{format, args}
+	return &translatableError{
+		Format: format,
+		Args:   args,
+	}
+}
+
+// Errorfc returns a error with the given context, format and arguments. The
+// returned Error uses Sprintf internally, which means it will
+// translate any argument which supports translation.
+func Errorfc(ctx string, format string, args ...interface{}) Error {
+	return &translatableError{
+		Context: ctx,
+		Format:  format,
+		Args:    args,
+	}
+}
+
+// Errorfn returns a error with the given singular and plural forms as
+// well as the given and arguments. The returned Error uses Sprintf
+// internally, which means it will translate any argument which supports
+// translation.
+func Errorfn(singular string, plural string, n int, args ...interface{}) Error {
+	return &translatableError{
+		Format:       singular,
+		PluralFormat: plural,
+		N:            n,
+		Args:         args,
+	}
+}
+
+// Errorfnc returns a error with the given conext, singular and plural forms as
+// well as the given and arguments. The returned Error uses Sprintf
+// internally, which means it will translate any argument which supports
+// translation.
+func Errorfnc(ctx string, singular string, plural string, n int, args ...interface{}) Error {
+	return &translatableError{
+		Context:      ctx,
+		Format:       singular,
+		PluralFormat: plural,
+		N:            n,
+		Args:         args,
+	}
 }
 
 // NewError returns an Error with the given message.

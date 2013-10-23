@@ -3,8 +3,10 @@ package cache
 import (
 	"encoding/gob"
 	"fmt"
+	_ "gnd.la/cache/codec/msgpack"
 	_ "gnd.la/cache/driver/memcache"
 	_ "gnd.la/cache/driver/redis"
+	"gnd.la/config"
 	"gnd.la/log"
 	"net"
 	"reflect"
@@ -31,6 +33,10 @@ var (
 		testSetGet,
 	}
 )
+
+func newCache(url string) (*Cache, error) {
+	return New(config.MustParseURL(url))
+}
 
 func testPort(port int) bool {
 	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
@@ -203,11 +209,11 @@ func testBytes(t T, c *Cache) {
 	}
 }
 
-func testCache(t *testing.T, config string) {
+func testCache(t *testing.T, url string) {
 	if testing.Verbose() {
 		log.SetLevel(log.LDebug)
 	}
-	c, err := New(config)
+	c, err := newCache(url)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,17 +230,21 @@ func TestJsonCodec(t *testing.T) {
 	testCache(t, "memory://?codec=json")
 }
 
+func TestMsgpackCodec(t *testing.T) {
+	testCache(t, "memory://?codec=msgpack")
+}
+
 func TestCompress(t *testing.T) {
 	testCache(t, "memory://?min_compress=0&compress_level=9")
 }
 
 func TestPrefix(t *testing.T) {
 	prefix := "foo"
-	c1, err := New("memory://?prefix=" + prefix)
+	c1, err := newCache("memory://?prefix=" + prefix)
 	if err != nil {
 		t.Fatal(err)
 	}
-	c2, err := New("memory://")
+	c2, err := newCache("memory://")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,7 +280,7 @@ func TestRedis(t *testing.T) {
 }
 
 func benchmarkCache(b *testing.B, config string) {
-	c, err := New(config)
+	c, err := newCache(config)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -291,12 +301,26 @@ func BenchmarkJsonCache(b *testing.B) {
 	benchmarkCache(b, "memory://?codec=json")
 }
 
-func BenchmarkPrefixCache(b *testing.B) {
-	benchmarkCache(b, "memory://?prefix=foo&codec=gob")
+func BenchmarkMemcacheCache(b *testing.B) {
+	if !testPort(11211) {
+		b.Skip("memcache is not running. start memcache on localhost to run this test")
+	}
+	benchmarkCache(b, "memcache://?codec=json")
 }
 
-func BenchmarkPrefixJsonCache(b *testing.B) {
-	benchmarkCache(b, "memory://?prefix=foo&codec=json")
+func BenchmarkRedisCache(b *testing.B) {
+	if !testPort(6379) {
+		b.Skip("redis is not running. start redis on localhost to run this test")
+	}
+	benchmarkCache(b, "redis://?codec=json")
+}
+
+func BenchmarkMsgpackCache(b *testing.B) {
+	benchmarkCache(b, "memory://?codec=msgpack")
+}
+
+func BenchmarkPrefixCache(b *testing.B) {
+	benchmarkCache(b, "memory://?prefix=foo&codec=gob")
 }
 
 func init() {

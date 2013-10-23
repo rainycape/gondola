@@ -28,8 +28,18 @@ func Sprintf(format string, lang Languager, args ...interface{}) string {
 	return sprintf(lang, format, args)
 }
 
+func Sprintfc(ctx string, format string, lang Languager, args ...interface{}) string {
+	format = Tc(ctx, format, lang)
+	return sprintf(lang, format, args)
+}
+
 func Sprintfn(singular string, plural string, n int, lang Languager, args ...interface{}) string {
 	format := Tn(singular, plural, n, lang)
+	return sprintf(lang, format, args)
+}
+
+func Sprintfnc(ctx string, singular string, plural string, n int, lang Languager, args ...interface{}) string {
+	format := Tnc(ctx, singular, plural, n, lang)
 	return sprintf(lang, format, args)
 }
 

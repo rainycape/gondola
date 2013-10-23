@@ -374,9 +374,7 @@ func (p *Project) Compile() {
 	cmd.Stderr = &buf
 	err := cmd.Run()
 	p.built = time.Now().UTC()
-	if p.verbose {
-		os.Stderr.Write(buf.Bytes())
-	}
+	os.Stderr.Write(buf.Bytes())
 	if err != nil {
 		exitErr, ok := err.(*exec.ExitError)
 		if !ok {

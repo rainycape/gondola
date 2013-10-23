@@ -67,7 +67,7 @@ func init() {
 	admin.Register(MakeMessages, &admin.Options{
 		Help: "Generate strings files from the current package (including its non-package subdirectories, like templates)",
 		Flags: admin.Flags(
-			admin.StringFlag("o", "_messages"+filepath.Separator+"messages.pot", "Output filename. If empty, messages are printed to stdout."),
+			admin.StringFlag("o", "_messages"+string(filepath.Separator)+"messages.pot", "Output filename. If empty, messages are printed to stdout."),
 		),
 	})
 	admin.Register(CompileMessages, &admin.Options{

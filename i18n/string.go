@@ -1,5 +1,9 @@
 package i18n
 
+import (
+	"gnd.la/util/textutil"
+)
+
 // TranslatableString is the interface implemented
 // by strings that can be translated.
 type TranslatableString interface {
@@ -19,5 +23,15 @@ func (s String) String() string {
 // TranslatedString returns the string translated into
 // the language returned by lang.
 func (s String) TranslatedString(lang Languager) string {
+	if string(s) == "" {
+		return ""
+	}
+	fields, _ := textutil.SplitFields(string(s), "|")
+	if len(fields) > 1 {
+		return Tc(fields[0], fields[1], lang)
+	}
+	if len(fields) > 0 {
+		return T(fields[0], lang)
+	}
 	return T(string(s), lang)
 }

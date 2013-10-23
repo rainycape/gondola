@@ -1,8 +1,11 @@
 package main
 
 import (
+	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/flate"
+	"compress/gzip"
 	"fmt"
 	"gnd.la/admin"
 	"gnd.la/log"
@@ -15,6 +18,91 @@ import (
 	"path/filepath"
 	"strings"
 )
+
+func writeBytes(buf *bytes.Buffer, data []byte, raw bool) {
+	if raw {
+		buf.WriteString(fmt.Sprintf("loaders.RawString(%q)", string(data)))
+	} else {
+		buf.WriteString("[]byte{")
+		for ii, v := range data {
+			s := fmt.Sprintf("%q,", v)
+			if len(s) > 3 {
+				if s[2] == 'u' {
+					s = "'\\x" + s[5:]
+				} else if s == "'\\x00'," {
+					s = "0,"
+				}
+			}
+			buf.WriteString(s)
+			if ii%16 == 0 && ii != len(data)-1 {
+				buf.WriteByte('\n')
+			}
+		}
+		buf.Truncate(buf.Len() - 1)
+		buf.WriteString("}")
+	}
+}
+
+func flateCompress(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	w, err := flate.NewWriter(&buf, flate.BestCompression)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := w.Write(data); err != nil {
+		return nil, err
+	}
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func zipCompress(files map[string][]byte) ([]byte, error) {
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	for k, v := range files {
+		f, err := w.Create(k)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := f.Write(v); err != nil {
+			return nil, err
+		}
+	}
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func tgzCompress(files map[string][]byte) ([]byte, error) {
+	var buf bytes.Buffer
+	z, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	if err != nil {
+		return nil, err
+	}
+	w := tar.NewWriter(z)
+	for k, v := range files {
+		hdr := &tar.Header{
+			Name: k,
+			Size: int64(len(v)),
+		}
+		if err := w.WriteHeader(hdr); err != nil {
+			return nil, err
+		}
+		if _, err := w.Write(v); err != nil {
+			return nil, err
+		}
+	}
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+	if err := z.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
 
 func MakeAssets(ctx *mux.Context) {
 	var dir string
@@ -47,26 +135,7 @@ func MakeAssets(ctx *mux.Context) {
 			}
 		}
 	}
-	var out string
-	ctx.ParseParamValue("o", &out)
-	var useFlate bool
-	ctx.ParseParamValue("flate", &useFlate)
-	var buf bytes.Buffer
-	if out != "" {
-		// Try to guess package name. Do it before writing the file, otherwise the package becomes invalid.
-		odir := filepath.Dir(out)
-		p, err := build.ImportDir(odir, 0)
-		if err == nil {
-			buf.WriteString(fmt.Sprintf("package %s\n", p.Name))
-		}
-	}
-	buf.WriteString("import \"gnd.la/loaders\"\n")
-	buf.WriteString(autogenString())
-	if useFlate {
-		buf.WriteString(fmt.Sprintf("var %s = loaders.FlateLoader(loaders.MapLoader(map[string][]byte{\n", name))
-	} else {
-		buf.WriteString(fmt.Sprintf("var %s = loaders.MapLoader(map[string][]byte{\n", name))
-	}
+	files := make(map[string][]byte)
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -77,36 +146,11 @@ func MakeAssets(ctx *mux.Context) {
 				if err != nil {
 					return fmt.Errorf("error reading %s: %s", path, err)
 				}
-				if useFlate {
-					var cbuf bytes.Buffer
-					w, err := flate.NewWriter(&cbuf, flate.BestCompression)
-					if err != nil {
-						return fmt.Errorf("error compressing %s: %s", path, err)
-					}
-					if _, err := w.Write(contents); err != nil {
-						return fmt.Errorf("error compressing %s: %s", path, err)
-					}
-					if err := w.Close(); err != nil {
-						return fmt.Errorf("error compressing %s: %s", path, err)
-					}
-					contents = cbuf.Bytes()
-				}
 				rel := path[len(dir):]
 				if rel[0] == '/' {
 					rel = rel[1:]
 				}
-				buf.WriteString(fmt.Sprintf("%q", rel))
-				buf.WriteByte(':')
-				buf.WriteString(" []byte{")
-				for ii, v := range contents {
-					buf.WriteString(fmt.Sprintf("0x%02X", v))
-					buf.WriteByte(',')
-					if ii%8 == 0 {
-						buf.WriteByte('\n')
-					}
-				}
-				buf.Truncate(buf.Len() - 1)
-				buf.WriteString("},\n")
+				files[rel] = contents
 			}
 		}
 		return nil
@@ -114,11 +158,62 @@ func MakeAssets(ctx *mux.Context) {
 	if err != nil {
 		panic(err)
 	}
-	buf.WriteString("})")
-	if useFlate {
-		buf.WriteString(")")
+	var out string
+	ctx.ParseParamValue("o", &out)
+	var compression string
+	ctx.ParseParamValue("c", &compression)
+	var buf bytes.Buffer
+	odir := filepath.Dir(out)
+	p, err := build.ImportDir(odir, 0)
+	if err == nil {
+		buf.WriteString(fmt.Sprintf("package %s\n", p.Name))
 	}
-	buf.WriteString("\n")
+	buf.WriteString("import \"gnd.la/loaders\"\n")
+	buf.WriteString(autogenString())
+	switch compression {
+	case "tgz":
+		buf.WriteString(fmt.Sprintf("var %s = loaders.TgzLoader(", name))
+		data, err := tgzCompress(files)
+		if err != nil {
+			panic(fmt.Errorf("error compressing tgz: %s", err))
+		}
+		log.Debugf("Compressed with tgz to %d bytes", len(data))
+		writeBytes(&buf, data, true)
+		buf.WriteString(")\n")
+	case "zip":
+		buf.WriteString(fmt.Sprintf("var %s = loaders.ZipLoader(", name))
+		data, err := zipCompress(files)
+		if err != nil {
+			panic(fmt.Errorf("error compressing zip: %s", err))
+		}
+		log.Debugf("Compressed with zip to %d bytes", len(data))
+		writeBytes(&buf, data, true)
+		buf.WriteString(")\n")
+	case "flate":
+		buf.WriteString(fmt.Sprintf("var %s = loaders.FlateLoader(loaders.MapLoader(map[string][]byte{\n", name))
+		for k, v := range files {
+			buf.WriteString(fmt.Sprintf("%q", k))
+			buf.WriteString(": ")
+			cmp, err := flateCompress(v)
+			if err != nil {
+				panic(fmt.Errorf("error compressing %s with flate: %s", k, err))
+			}
+			writeBytes(&buf, cmp, false)
+			buf.WriteString(",\n")
+		}
+		buf.WriteString("}))\n")
+	case "none":
+		buf.WriteString(fmt.Sprintf("var %s = loaders.MapLoader(map[string][]byte{\n", name))
+		for k, v := range files {
+			buf.WriteString(fmt.Sprintf("%q", k))
+			buf.WriteString(": ")
+			writeBytes(&buf, v, false)
+			buf.WriteString(",\n")
+		}
+		buf.WriteString("})\n")
+	default:
+		panic(fmt.Errorf("invalid compression method %q", compression))
+	}
 	b, err := format.Source(buf.Bytes())
 	if err != nil {
 		panic(err)
@@ -139,7 +234,7 @@ func init() {
 			admin.StringFlag("dir", "", "Directory with the html templates"),
 			admin.StringFlag("name", "", "Name of the generated MapLoader"),
 			admin.StringFlag("o", "", "Output filename. If empty, output is printed to standard output"),
-			admin.BoolFlag("flate", false, "Compress resources with flate when generating the code"),
+			admin.StringFlag("c", "tgz", "Compress type to use. tgz|zip|flate|none"),
 			admin.BoolFlag("f", false, "When creating the output file, overwrite any existing file with the same name"),
 			admin.StringFlag("extensions", "", "Additional extensions (besides html, css and js) to include, separated by commas"),
 		),

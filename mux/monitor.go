@@ -5,7 +5,7 @@ import (
 )
 
 func monitorHandler(ctx *Context) {
-	t := newTemplate(ctx.mux, muxAssets)
+	t := newInternalTemplate(ctx.mux)
 	if err := t.Parse("monitor.html"); err != nil {
 		panic(err)
 	}

@@ -2,6 +2,7 @@ package mux
 
 import (
 	"fmt"
+	"gnd.la/assets"
 	"gnd.la/loaders"
 	"gnd.la/template"
 	"io"
@@ -23,14 +24,26 @@ type tmpl struct {
 	mux *Mux
 }
 
-func newTemplate(mux *Mux, loader loaders.Loader) *tmpl {
+func newTemplate(mux *Mux, loader loaders.Loader, manager assets.Manager) *tmpl {
 	t := &tmpl{}
 	t.mux = mux
-	t.Template = template.New(loader, mux.assetsManager)
+	t.Template = template.New(loader, manager)
 	t.Template.Funcs(template.FuncMap{
 		"reverse": makeReverse(t),
 	})
 	return t
+}
+
+func newMuxTemplate(mux *Mux) *tmpl {
+	return newTemplate(mux, mux.templatesLoader, mux.assetsManager)
+}
+
+func internalAssetsManager() assets.Manager {
+	return assets.NewManager(muxAssets, assetsPrefix)
+}
+
+func newInternalTemplate(mux *Mux) *tmpl {
+	return newTemplate(mux, muxAssets, internalAssetsManager())
 }
 
 func (t *tmpl) ParseVars(file string, vars template.VarMap) error {

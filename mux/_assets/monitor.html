@@ -1,10 +1,9 @@
 {{/*
   extends: base.html
-  include: d3.v2.js, rickshaw.min.css, rickshaw.min.js, monitor.js
 */}}
 {{ define "title" }}Status{{ end }}
 {{ define "body" }}
-<style type="text/css">{{ template "rickshaw.min.css" }}</style>
+<link rel="stylesheet" type="text/css" href="{{ asset "rickshaw.min.css" }}">
 <style type="text/css">
   .chart {
     margin: 20px 0 20px 7%;
@@ -55,8 +54,8 @@
   <div class="clear"></div>
 </div>
 <small>Note: This page is only available in debug mode.</small>
-<script type="text/javascript">{{ template "mux.js" }}</script>
-<script type="text/javascript">{{ template "d3.v2.js" }}</script>
-<script type="text/javascript">{{ template "rickshaw.min.js" }}</script>
-<script type="text/javascript">{{ template "monitor.js" }}</script>
+<script type="text/javascript" src="{{ asset "mux.js" }}"></script>
+<script type="text/javascript" src="{{ asset "d3.v2.js" }}"></script>
+<script type="text/javascript" src="{{ asset "rickshaw.min.js" }}"></script>
+<script type="text/javascript" src="{{ asset "monitor.js" }}"></script>
 {{ end }}

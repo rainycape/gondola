@@ -66,6 +66,7 @@ var (
 	devStatusPage  = "/_gondola_dev_server_status"
 	monitorPage    = "/_gondola_monitor"
 	monitorAPIPage = "/_gondola_monitor_api"
+	assetsPrefix   = "/_gondola_assets"
 )
 
 type Mux struct {
@@ -382,7 +383,7 @@ func (mux *Mux) LoadTemplate(name string) (Template, error) {
 	tmpl := mux.templatesCache[name]
 	mux.templatesMutex.RUnlock()
 	if tmpl == nil {
-		t := newTemplate(mux, mux.templatesLoader)
+		t := newMuxTemplate(mux)
 		vars := make(template.VarMap, len(mux.templateVars)+len(mux.templateVarFuncs))
 		for k, v := range mux.templateVars {
 			vars[k] = v
@@ -469,13 +470,19 @@ func (mux *Mux) HandleAssets(prefix string, dir string) {
 	loader := loaders.FSLoader(dir)
 	manager := assets.NewManager(loader, prefix)
 	mux.SetAssetsManager(manager)
+	mux.addAssetsManager(manager, true)
+}
+
+func (mux *Mux) addAssetsManager(manager assets.Manager, main bool) {
 	assetsHandler := assets.Handler(manager)
 	handler := func(ctx *Context) {
 		assetsHandler(ctx, ctx.R)
 	}
-	mux.HandleFunc("^"+prefix, handler)
-	mux.HandleFunc("^/favicon.ico$", handler)
-	mux.HandleFunc("^/robots.txt$", handler)
+	mux.HandleFunc("^"+manager.Prefix(), handler)
+	if main {
+		mux.HandleFunc("^/favicon.ico$", handler)
+		mux.HandleFunc("^/robots.txt$", handler)
+	}
 }
 
 // MustReverse calls Reverse and panics if it finds an error. See
@@ -740,7 +747,7 @@ func (mux *Mux) logError(ctx *Context, err interface{}) {
 }
 
 func (mux *Mux) errorPage(ctx *Context, skip int, req string, err interface{}) {
-	t := newTemplate(mux, muxAssets)
+	t := newInternalTemplate(mux)
 	if terr := t.Parse("panic.html"); terr != nil {
 		panic(terr)
 	}
@@ -914,6 +921,7 @@ func New() *Mux {
 		})
 		m.HandleFunc(monitorAPIPage, monitorAPIHandler)
 		m.HandleFunc(monitorPage, monitorHandler)
+		m.addAssetsManager(internalAssetsManager(), false)
 	}
 	return m
 }

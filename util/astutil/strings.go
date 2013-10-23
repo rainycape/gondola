@@ -3,6 +3,7 @@ package astutil
 import (
 	"gnd.la/types"
 	"gnd.la/util/pkgutil"
+	"gnd.la/util/textutil"
 	"go/ast"
 	"go/token"
 )
@@ -12,17 +13,36 @@ type String struct {
 	Position *token.Position
 }
 
-// TODO: Allow context and plural to be specified with |
+func (s *String) fields() []string {
+	fields, err := textutil.SplitFields(s.Value, "|")
+	if err != nil {
+		// TODO: Do something better here
+		panic(err)
+	}
+	return fields
+}
 
 func (s *String) Singular() string {
-	return s.Value
+	fields := s.fields()
+	if len(fields) == 1 {
+		return fields[0]
+	}
+	return fields[1]
 }
 
 func (s *String) Plural() string {
+	fields := s.fields()
+	if len(fields) > 2 {
+		return fields[2]
+	}
 	return ""
 }
 
 func (s *String) Context() string {
+	fields := s.fields()
+	if len(fields) > 1 {
+		return fields[0]
+	}
 	return ""
 }
 

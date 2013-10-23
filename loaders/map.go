@@ -38,7 +38,7 @@ func (m *mapLoader) Load(name string) (ReadSeekCloser, time.Time, error) {
 	m.RLock()
 	item := m.items[name]
 	m.RUnlock()
-	if m == nil {
+	if item == nil {
 		return nil, time.Time{}, fmt.Errorf("resource %q does not exist", name)
 	}
 	return &reader{bytes.NewReader(item.data)}, item.mtime, nil

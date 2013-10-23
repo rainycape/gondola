@@ -5,6 +5,7 @@ import (
 	"gnd.la/blobstore"
 	"gnd.la/cache"
 	"gnd.la/cookies"
+	"gnd.la/i18n/table"
 	"gnd.la/serialize"
 	"gnd.la/types"
 	"gnd.la/users"
@@ -21,18 +22,20 @@ type ContextFinalizer func(*Context)
 
 type Context struct {
 	http.ResponseWriter
-	R             *http.Request
-	provider      ContextProvider
-	reProvider    *regexpProvider
-	cached        bool
-	fromCache     bool
-	handlerName   string
-	mux           *Mux
-	statusCode    int
-	customContext interface{}
-	started       time.Time
-	cookies       *cookies.Cookies
-	user          users.User
+	R               *http.Request
+	provider        ContextProvider
+	reProvider      *regexpProvider
+	cached          bool
+	fromCache       bool
+	handlerName     string
+	mux             *Mux
+	statusCode      int
+	customContext   interface{}
+	started         time.Time
+	cookies         *cookies.Cookies
+	user            users.User
+	translations    *table.Table
+	hasTranslations bool
 	// Used to store data for debugging purposes. Only
 	// used when mux.debug is true.
 	debugStorage map[string]interface{}
@@ -51,6 +54,8 @@ func (c *Context) reset() {
 	c.started = time.Now()
 	c.cookies = nil
 	c.user = nil
+	c.translations = nil
+	c.hasTranslations = false
 	c.debugStorage = nil
 	c.Data = nil
 }

@@ -2,6 +2,7 @@ package mux
 
 import (
 	"gnd.la/i18n"
+	"gnd.la/i18n/table"
 )
 
 func (c *Context) Language() string {
@@ -9,6 +10,14 @@ func (c *Context) Language() string {
 		return c.mux.languageHandler(c)
 	}
 	return c.mux.defaultLanguage
+}
+
+func (c *Context) TranslationTable() *table.Table {
+	if !c.hasTranslations {
+		c.translations = table.Get(c.Language())
+		c.hasTranslations = true
+	}
+	return c.translations
 }
 
 func (c *Context) T(str string) string {

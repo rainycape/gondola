@@ -18,8 +18,9 @@ import (
 var (
 	ErrNotFound = errors.New("item not found in cache")
 	imports     = map[string]string{
-		"memcache": "gnd.la/driver/memcache",
-		"redis":    "gnd.la/driver/redis",
+		"memcache": "gnd.la/cache/driver/memcache",
+		"redis":    "gnd.la/cache/driver/redis",
+		"msgpack":  "gnd.la/cache/codec/msgpack",
 	}
 )
 
@@ -289,7 +290,7 @@ func newConfig(conf *config.URL) (*Cache, error) {
 		cache.codec = codec.Get(codecName)
 		if cache.codec == nil {
 			if imp := imports[codecName]; imp != "" {
-				return nil, fmt.Errorf("please import %q to use the cache driver %q", imp, codecName)
+				return nil, fmt.Errorf("please import %q to use the cache codec %q", imp, codecName)
 			}
 			return nil, fmt.Errorf("unknown cache codec %q, maybe you forgot an import?", codecName)
 		}
@@ -323,6 +324,9 @@ func newConfig(conf *config.URL) (*Cache, error) {
 	if conf.Scheme != "" {
 		opener = driver.Get(conf.Scheme)
 		if opener == nil {
+			if imp := imports[conf.Scheme]; imp != "" {
+				return nil, fmt.Errorf("please import %q to use the cache driver %q", imp, conf.Scheme)
+			}
 			return nil, fmt.Errorf("unknown cache driver %q, maybe you forgot an import?", conf.Scheme)
 		}
 	} else {

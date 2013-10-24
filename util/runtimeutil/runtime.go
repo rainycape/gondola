@@ -129,3 +129,31 @@ func formatSource(filename string, line int, count int, numbers bool, highlight 
 	}
 	return strings.Join(slines, "\n"), nil
 }
+
+// GetPanic returns the number of frames to skip and the PC
+// for the uppermost panic if the call stack (there might be
+// multiple panics when a recover() catches a panic and then
+// panics again). The last return value indicates a frame
+// could be found.
+func GetPanic() (int, uintptr, bool) {
+	skip := 0
+	callers := make([]uintptr, 10)
+	for {
+		calls := callers[:runtime.Callers(skip, callers)]
+		c := len(calls)
+		if c == 0 {
+			break
+		}
+		for ii := c - 1; ii >= 0; ii-- {
+			f := runtime.FuncForPC(calls[ii])
+			if f != nil {
+				name := f.Name()
+				if strings.HasPrefix(name, "runtime.") && strings.Contains(name, "panic") {
+					return skip + ii - 1, calls[ii], true
+				}
+			}
+		}
+		skip += c
+	}
+	return 0, 0, false
+}

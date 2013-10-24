@@ -1,0 +1,51 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"PO-Revision-Date: 2013-10-24 20:53+0200\n"
+"Last-Translator: Alberto García Hierro <alberto@garciahierro.com>\n"
+"Language-Team: Portuguese\n"
+"Language: pt\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: input.go:38
+msgctxt "form"
+msgid "%s is required"
+msgstr "%s é obrigatório"
+
+#: input.go:44
+msgctxt "form"
+msgid "%s is too long (maximum length is %d)"
+msgstr "%s é demasiado longo (a longitude máxima é %d)"
+
+#: input.go:50
+msgctxt "form"
+msgid "%s is too short (minimum length is %d)"
+msgstr "%s é demasiado curto (a longitude mínima é %d)"
+
+#: input.go:56
+msgctxt "form"
+msgid "%s must be alphanumeric"
+msgstr "%s tem que ser alfanumérico"
+
+#: input.go:58
+msgctxt "form"
+msgid "must be alphanumeric"
+msgstr "tem que ser alfanumérico"
+
+#: input.go:40
+msgctxt "form"
+msgid "required"
+msgstr "obrigatório"
+
+#: input.go:46
+msgctxt "form"
+msgid "too long (maximum length is %d)"
+msgstr "demasiado longo (a longitude máxima é %d)"
+
+#: input.go:52
+msgctxt "form"
+msgid "too short (minimum length is %d)"
+msgstr "demasiado curto (a longitude mínima é %d)"

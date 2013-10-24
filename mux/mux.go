@@ -22,7 +22,6 @@ import (
 	"net/http/httputil"
 	"reflect"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -691,13 +690,7 @@ func (mux *Mux) recover(ctx *Context) {
 }
 
 func (mux *Mux) logError(ctx *Context, err interface{}) {
-	skip := 3
-	if _, ok := err.(runtime.Error); ok {
-		// When err is a runtime.Error, there are two
-		// additional stack frames inside the runtime
-		// which are the ones finally calling panic()
-		skip += 2
-	}
+	skip, _, _ := runtimeutil.GetPanic()
 	var buf bytes.Buffer
 	if ctx.R != nil {
 		buf.WriteString("Panic serving ")
@@ -712,8 +705,7 @@ func (mux *Mux) logError(ctx *Context, err interface{}) {
 	}
 	buf.WriteString(fmt.Sprintf("%v", err))
 	buf.WriteByte('\n')
-	// Skip 2 frames for formatting the stack: logError and recover
-	stack := runtimeutil.FormatStack(2)
+	stack := runtimeutil.FormatStack(skip - 2)
 	location, code := runtimeutil.FormatCaller(skip, 5, true, true)
 	if location != "" {
 		buf.WriteString("\n At ")
@@ -751,8 +743,7 @@ func (mux *Mux) errorPage(ctx *Context, skip int, req string, err interface{}) {
 	if terr := t.Parse("panic.html"); terr != nil {
 		panic(terr)
 	}
-	// Skip 3 frames for formatting the stack: errorPage, logError and recover
-	stack := runtimeutil.FormatStackHTML(3)
+	stack := runtimeutil.FormatStackHTML(skip - 1)
 	location, code := runtimeutil.FormatCallerHTML(skip+1, 5, true, true)
 	ctx.statusCode = -http.StatusInternalServerError
 	data := map[string]interface{}{

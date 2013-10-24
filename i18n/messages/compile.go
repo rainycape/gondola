@@ -40,7 +40,7 @@ func Compile(filename string, overwrite bool, translations []*po.Po) error {
 			}
 		}
 		buf.Truncate(buf.Len() - 1)
-		buf.WriteString("})")
+		buf.WriteString("})\n")
 	}
 	buf.WriteString("\n}\n")
 	b, err := format.Source(buf.Bytes())

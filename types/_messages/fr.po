@@ -1,0 +1,43 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"PO-Revision-Date: 2013-10-27 22:53+0100\n"
+"Last-Translator: fiam <alberto@garciahierro.com>\n"
+"Language-Team: French\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: input.go:38
+msgid "%s is required"
+msgstr "%s est requis"
+
+#: input.go:44
+msgid "%s is too long (maximum length is %d)"
+msgstr "%s est trop long (longueur max. : %d)"
+
+#: input.go:50
+msgid "%s is too short (minimum length is %d)"
+msgstr "%s est trop court (longueur min. : %d)"
+
+#: input.go:56
+msgid "%s must be alphanumeric"
+msgstr "%s doit être alphanumérique"
+
+#: input.go:58
+msgid "must be alphanumeric"
+msgstr "doit être alphanumérique"
+
+#: input.go:40
+msgid "required"
+msgstr "requis"
+
+#: input.go:46
+msgid "too long (maximum length is %d)"
+msgstr "trop long (longueur max. : %d)"
+
+#: input.go:52
+msgid "too short (minimum length is %d)"
+msgstr "trop court (longueur min. : %d)"

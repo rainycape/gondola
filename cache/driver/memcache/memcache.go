@@ -2,7 +2,7 @@
 package memcache
 
 import (
-	"github.com/bradfitz/gomemcache/memcache"
+	"github.com/rainycape/gomemcache/memcache"
 	"gnd.la/cache/driver"
 	"gnd.la/config"
 	"strings"

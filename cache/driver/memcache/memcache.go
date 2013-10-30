@@ -48,10 +48,6 @@ func (c *memcacheDriver) Delete(key string) error {
 	return nil
 }
 
-func (c *memcacheDriver) Close() error {
-	return nil
-}
-
 func (c *memcacheDriver) Connection() interface{} {
 	return c.Client
 }

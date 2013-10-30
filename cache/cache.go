@@ -246,8 +246,8 @@ func (c *Cache) NumQueries() int {
 // Close closes the cache connection. If you're using a cache
 // using mux.Context helper methods, the cache will be closed
 // for you.
-func (c *Cache) Close() {
-	c.driver.Close()
+func (c *Cache) Close() error {
+	return c.driver.Close()
 }
 
 // Connection returns a interface{} wrapping the native connection

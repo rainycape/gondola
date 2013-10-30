@@ -6,6 +6,7 @@ import (
 	"gnd.la/cache/driver"
 	"gnd.la/config"
 	"strings"
+	"time"
 )
 
 type memcacheDriver struct {
@@ -59,6 +60,12 @@ func memcacheOpener(value string, o config.Options) (driver.Driver, error) {
 		conns[ii] = driver.DefaultPort(v, 11211)
 	}
 	client := memcache.New(conns...)
+	if tm, ok := o.Int("timeout"); ok {
+		client.SetTimeout(time.Millisecond * time.Duration(tm))
+	}
+	if maxIdle, ok := o.Int("max_idle"); ok {
+		client.SetMaxIdleConnsPerAddr(maxIdle)
+	}
 	return &memcacheDriver{Client: client}, nil
 }
 

@@ -95,7 +95,7 @@ type Mux struct {
 	address              string
 	port                 int
 	mu                   sync.Mutex
-	c                    *cache.Cache
+	c                    *Cache
 	o                    *Orm
 	store                *blobstore.Store
 
@@ -563,16 +563,16 @@ func (mux *Mux) MustListenAndServe() {
 // some methods (like NumQueries()) will be completely
 // inaccurate because they will count all the queries made
 // since the mux initialization.
-func (mux *Mux) Cache() (*cache.Cache, error) {
+func (mux *Mux) Cache() (*Cache, error) {
 	if mux.c == nil {
 		mux.mu.Lock()
 		defer mux.mu.Unlock()
 		if mux.c == nil {
-			var err error
-			mux.c, err = cache.New(defaults.Cache())
+			c, err := cache.New(defaults.Cache())
 			if err != nil {
 				return nil, err
 			}
+			mux.c = &Cache{Cache: c, debug: mux.debug}
 			if mux.debug {
 				c := mux.c
 				mux.c = nil

@@ -3,7 +3,6 @@ package mux
 import (
 	"fmt"
 	"gnd.la/blobstore"
-	"gnd.la/cache"
 	"gnd.la/cookies"
 	"gnd.la/i18n/table"
 	"gnd.la/serialize"
@@ -347,7 +346,7 @@ func (c *Context) Cookies() *cookies.Cookies {
 
 // Cache is a shorthand for ctx.Mux().Cache(), but panics in case
 // of error, instead of returning it.
-func (c *Context) Cache() *cache.Cache {
+func (c *Context) Cache() *Cache {
 	if c.mux.c == nil {
 		cache, err := c.mux.Cache()
 		if err != nil {
@@ -466,7 +465,7 @@ func (c *Context) Close() {
 		if o, ok := c.debugStorage[debugOrmKey].(*Orm); ok {
 			o.Close()
 		}
-		if ca, ok := c.debugStorage[debugCacheKey].(*cache.Cache); ok {
+		if ca, ok := c.debugStorage[debugCacheKey].(*Cache); ok {
 			ca.Close()
 		}
 	}

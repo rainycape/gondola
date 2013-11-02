@@ -482,6 +482,10 @@ func (c *Context) WriteHeader(code int) {
 	c.ResponseWriter.WriteHeader(code)
 }
 
+func (c *Context) WriteString(s string) (int, error) {
+	return c.Write([]byte(s))
+}
+
 func (c *Context) Write(data []byte) (int, error) {
 	if c.statusCode == 0 {
 		c.statusCode = http.StatusOK

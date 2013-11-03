@@ -12,6 +12,14 @@ import (
 	"strings"
 )
 
+var (
+	imports = map[string]string{
+		"postgres": "gnd.la/orm/driver/postgres",
+		"sqlite":   "gnd.la/orm/driver/sqlite",
+		"sqlite3":  "gnd.la/orm/driver/sqlite",
+	}
+)
+
 type Orm struct {
 	conn       driver.Conn
 	driver     driver.Driver
@@ -497,6 +505,9 @@ func New(url *config.URL) (*Orm, error) {
 	name := url.Scheme
 	opener := driver.Get(name)
 	if opener == nil {
+		if imp, ok := imports[name]; ok {
+			return nil, fmt.Errorf("please, import package %q to use driver %q", imp, name)
+		}
 		return nil, fmt.Errorf("no ORM driver named %q", name)
 	}
 	drv, err := opener(url)

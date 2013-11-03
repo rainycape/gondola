@@ -16,18 +16,18 @@ type HasUnexported struct {
 
 type InvalidCodec1 struct {
 	// A codec which doesn't exist
-	Value []int64 `orm:",codec:nonexistent"`
+	Value []int64 `orm:",codec=nonexistent"`
 }
 
 // The following two types try to use a codec with
 // structs with unexported fields, which is not allowed.
 
 type InvalidCodec2 struct {
-	Value []HasUnexported `orm:",codec:json"`
+	Value []HasUnexported `orm:",codec=json"`
 }
 
 type InvalidCodec3 struct {
-	Value []HasUnexported `orm:",codec:gob"`
+	Value []HasUnexported `orm:",codec=gob"`
 }
 
 // This type can be correctly encoded by codecs
@@ -39,12 +39,12 @@ type Rect struct {
 
 type JsonEncoded struct {
 	Id    int64  `orm:",primary_key,auto_increment"`
-	Rects []Rect `orm:",codec:json"`
+	Rects []Rect `orm:",codec=json"`
 }
 
 type GobEncoded struct {
 	Id    int64  `orm:",primary_key,auto_increment"`
-	Rects []Rect `orm:",codec:gob"`
+	Rects []Rect `orm:",codec=gob"`
 }
 
 func TestInvalidCodecs(t *testing.T) {

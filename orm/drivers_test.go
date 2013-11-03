@@ -2,8 +2,8 @@ package orm
 
 import (
 	"fmt"
-	_ "gnd.la/orm/drivers/postgres"
-	_ "gnd.la/orm/drivers/sqlite"
+	_ "gnd.la/orm/driver/postgres"
+	_ "gnd.la/orm/driver/sqlite"
 	"os"
 	"os/exec"
 	"os/user"

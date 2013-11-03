@@ -1,7 +1,7 @@
 package orm
 
 import (
-	_ "gnd.la/orm/drivers/sqlite"
+	_ "gnd.la/orm/driver/sqlite"
 	"reflect"
 	"testing"
 )

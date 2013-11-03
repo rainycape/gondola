@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"gnd.la/config"
 	"gnd.la/log"
-	_ "gnd.la/orm/drivers/sqlite"
+	_ "gnd.la/orm/driver/sqlite"
 	"io/ioutil"
 	"os"
 	"testing"

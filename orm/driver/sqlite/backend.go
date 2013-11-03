@@ -7,7 +7,7 @@ import (
 	"gnd.la/config"
 	"gnd.la/orm/codec"
 	"gnd.la/orm/driver"
-	"gnd.la/orm/drivers/sql"
+	"gnd.la/orm/driver/sql"
 	"gnd.la/orm/index"
 	"gnd.la/types"
 	"reflect"

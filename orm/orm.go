@@ -6,7 +6,7 @@ import (
 	"gnd.la/config"
 	"gnd.la/log"
 	"gnd.la/orm/driver"
-	ormsql "gnd.la/orm/drivers/sql"
+	ormsql "gnd.la/orm/driver/sql"
 	"gnd.la/orm/query"
 	"reflect"
 	"strings"

@@ -47,7 +47,7 @@ func (s *Sharer) Schedule(m *mux.Mux, interval time.Duration) {
 		s.task.Stop()
 	}
 	s.interval = interval
-	s.task = tasks.Schedule(m, pollInterval, &tasks.Options{Unique: true}, s.share)
+	s.task = tasks.Schedule(m, pollInterval, nil, s.share)
 }
 
 func (s *Sharer) Stop() {

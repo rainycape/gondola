@@ -5,6 +5,7 @@ type Service int
 const (
 	Facebook Service = iota + 1
 	Twitter
+	Pinterest
 )
 
 func (s Service) String() string {
@@ -13,6 +14,8 @@ func (s Service) String() string {
 		return "Facebook"
 	case Twitter:
 		return "Twitter"
+	case Pinterest:
+		return "Pinterest"
 	}
 	return ""
 }

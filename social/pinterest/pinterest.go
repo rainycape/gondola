@@ -227,7 +227,7 @@ func Boards(session *Session) ([]*Board, error) {
 	data := map[string]interface{}{
 		"options": map[string]string{},
 		"module": map[string]interface{}{
-			"name":    "PinCreate2",
+			"name":    "PinCreate",
 			"options": map[string]interface{}{},
 			"append":  false,
 		},
@@ -248,21 +248,16 @@ func Boards(session *Session) ([]*Board, error) {
 				return nil, err
 			}
 			var boards []*Board
-			var id string
 			var f func(*html.Node)
 			f = func(n *html.Node) {
 				if n.Type == html.ElementNode {
-					if n.Data == "div" && nodeAttr(n, "class") == "boardListItem" {
-						id = nodeAttr(n, "data-id")
-					} else if n.Data == "span" && nodeAttr(n, "class") == "boardName" {
-						if id != "" {
-							name := strings.TrimSpace(nodeText(n))
-							boards = append(boards, &Board{
-								Id:   id,
-								Name: name,
-							})
-							id = ""
-						}
+					if n.Data == "li" && nodeAttr(n, "class") == "boardPickerItem" {
+						id := nodeAttr(n, "data-id")
+						name := strings.TrimSpace(nodeText(n))
+						boards = append(boards, &Board{
+							Id:   id,
+							Name: name,
+						})
 					}
 				}
 				for c := n.FirstChild; c != nil; c = c.NextSibling {

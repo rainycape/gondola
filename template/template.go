@@ -478,8 +478,8 @@ func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error
 		header.Set("Content-Type", t.contentType)
 		header.Set("Content-Length", strconv.Itoa(buf.Len()))
 	}
-	w.Write(buf.Bytes())
-	return nil
+	_, err = w.Write(buf.Bytes())
+	return err
 }
 
 // MustExecute works like Execute, but panics if there's an error

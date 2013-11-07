@@ -48,14 +48,7 @@ func Write(w io.Writer, value interface{}, f SerializationFormat) (int, error) {
 		header.Set("Content-Type", contentType)
 		header.Set("Content-Length", strconv.Itoa(total))
 	}
-	for c := 0; c < total; {
-		n, err := w.Write(data)
-		c += n
-		if err != nil {
-			return c, err
-		}
-	}
-	return total, nil
+	return w.Write(data)
 }
 
 // WriteJson is equivalent to Write(w, value, Json)

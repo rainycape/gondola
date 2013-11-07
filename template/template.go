@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"gnd.la/assets"
+	"gnd.la/html"
 	"gnd.la/loaders"
 	"gnd.la/log"
 	"gnd.la/util"
@@ -51,6 +52,7 @@ type Template struct {
 	Loader        loaders.Loader
 	AssetsManager assets.Manager
 	Trees         map[string]*parse.Tree
+	Minify        bool
 	funcMap       FuncMap
 	root          string
 	topAssets     []assets.Asset
@@ -453,7 +455,6 @@ func (t *Template) Execute(w io.Writer, data interface{}) error {
 
 func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error {
 	// TODO: Make sure vars is the same as the vars that were compiled in
-	var buf bytes.Buffer
 	var templateData interface{}
 	if len(vars) > 0 {
 		combined := make(map[string]interface{}, len(t.vars))
@@ -469,9 +470,24 @@ func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error
 	} else {
 		templateData = data
 	}
+	var buf bytes.Buffer
 	err := t.ExecuteTemplate(&buf, t.root, templateData)
 	if err != nil {
 		return err
+	}
+	if t.Minify {
+		// Instead of using a new Buffer, make a copy of the []byte and Reset
+		// buf. This minimizes the number of allocations while momentarily
+		// using a bit more of memory than we need (exactly one byte per space
+		// removed in the output).
+		b := buf.Bytes()
+		bc := make([]byte, len(b))
+		copy(bc, b)
+		r := bytes.NewReader(bc)
+		buf.Reset()
+		if err := html.Minify(&buf, r); err != nil {
+			return err
+		}
 	}
 	if rw, ok := w.(http.ResponseWriter); ok {
 		header := rw.Header()

@@ -52,6 +52,15 @@ func Parse(m Manager, name string, names []string, o Options) ([]Asset, error) {
 	return assets, nil
 }
 
+func singleParser(parser AssetParser) AssetParser {
+	return func(m Manager, names []string, options Options) ([]Asset, error) {
+		if len(names) != 1 {
+			return nil, fmt.Errorf("this asset accepts only one argument (%d given)", len(names))
+		}
+		return parser(m, names, options)
+	}
+}
+
 func Register(name string, parser AssetParser) {
 	parsers[name] = parser
 }

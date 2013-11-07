@@ -9,6 +9,7 @@ type Script struct {
 	Position   Position
 	Async      bool
 	Src        string
+	Script     string
 	attributes Attributes
 }
 
@@ -35,7 +36,7 @@ func (s *Script) AssetAttributes() Attributes {
 }
 
 func (s *Script) AssetHTML() string {
-	return ""
+	return s.Script
 }
 
 func (s *Script) CodeType() int {

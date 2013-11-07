@@ -38,10 +38,7 @@ func Cdn(name string) (string, error) {
 }
 
 func cdnScriptParser(k, orig string) func(m Manager, names []string, options Options) ([]Asset, error) {
-	return func(m Manager, names []string, options Options) ([]Asset, error) {
-		if len(names) > 1 {
-			return nil, fmt.Errorf("must specify only one version")
-		}
+	fn := func(m Manager, names []string, options Options) ([]Asset, error) {
 		common, err := ParseCommon(m, names, options)
 		if err != nil {
 			return nil, err
@@ -64,6 +61,7 @@ func cdnScriptParser(k, orig string) func(m Manager, names []string, options Opt
 			},
 		}, nil
 	}
+	return singleParser(fn)
 }
 
 func walk(r *syntax.Regexp, f func(*syntax.Regexp) bool) bool {

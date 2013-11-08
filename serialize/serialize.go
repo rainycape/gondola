@@ -3,10 +3,12 @@
 package serialize
 
 import (
+	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"io"
 	"net/http"
+	"runtime"
 	"strconv"
 )
 
@@ -17,22 +19,73 @@ const (
 	Xml
 )
 
+// JSONWriter is the interface implemented by types which
+// can write themselves as JSON into an io.Writer. You can
+// use the gondola command for generating the code to implement
+// this interface in your own types.
+type JSONWriter interface {
+	WriteJSON(w io.Writer) (int, error)
+}
+
+const bufSize = 4096
+
+var (
+	buffers = make(chan *bytes.Buffer, runtime.GOMAXPROCS(0))
+)
+
+func getBuffer() *bytes.Buffer {
+	var buf *bytes.Buffer
+	select {
+	case buf = <-buffers:
+		buf.Reset()
+	default:
+		buf = new(bytes.Buffer)
+		buf.Grow(bufSize)
+	}
+	return buf
+}
+
+func putBuffer(buf *bytes.Buffer) {
+	if buf.Len() <= bufSize {
+		select {
+		case buffers <- buf:
+		default:
+		}
+	}
+}
+
 // Write serializes value using the SerializationFormat f and writes it
 // to w. If w also implements http.ResponseWriter, it sets the appropiate
 // headers too. Returns the number of bytes written and any error that might
 // occur while serializing or writing the serialized data.
 func Write(w io.Writer, value interface{}, f SerializationFormat) (int, error) {
-	data, _ := value.([]byte)
+	var data []byte
 	var contentType string
 	var err error
 	switch f {
 	case Json:
-		if data == nil {
+		switch v := value.(type) {
+		case []byte:
+			data = v
+		case JSONWriter:
+			buf := getBuffer()
+			_, err = v.WriteJSON(buf)
+			data = buf.Bytes()
+			defer putBuffer(buf)
+		default:
+			// Unfortunately, there's no way to tell encoding/json
+			// to use our own buffer. It will use its own and then
+			// copy the result to our buffer, which is kinda
+			// useless. Use value rather than v to avoid another
+			// empty interface boxing.
 			data, err = json.Marshal(value)
 		}
 		contentType = "application/json"
 	case Xml:
-		if data == nil {
+		switch v := value.(type) {
+		case []byte:
+			data = v
+		default:
 			data, err = xml.Marshal(value)
 		}
 		contentType = "application/xml"

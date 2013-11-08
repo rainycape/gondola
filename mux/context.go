@@ -5,7 +5,7 @@ import (
 	"gnd.la/blobstore"
 	"gnd.la/cookies"
 	"gnd.la/i18n/table"
-	"gnd.la/serialize"
+	"gnd.la/mux/serialize"
 	"gnd.la/types"
 	"gnd.la/users"
 	"gnd.la/util"

@@ -8,11 +8,10 @@ import (
 	"compress/gzip"
 	"fmt"
 	"gnd.la/admin"
+	"gnd.la/gen"
 	"gnd.la/log"
 	"gnd.la/mux"
-	"gnd.la/util"
 	"go/build"
-	"go/format"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -169,7 +168,7 @@ func MakeAssets(ctx *mux.Context) {
 		buf.WriteString(fmt.Sprintf("package %s\n", p.Name))
 	}
 	buf.WriteString("import \"gnd.la/loaders\"\n")
-	buf.WriteString(autogenString())
+	buf.WriteString(gen.AutogenString())
 	switch compression {
 	case "tgz":
 		buf.WriteString(fmt.Sprintf("var %s = loaders.TgzLoader(", name))
@@ -214,17 +213,10 @@ func MakeAssets(ctx *mux.Context) {
 	default:
 		panic(fmt.Errorf("invalid compression method %q", compression))
 	}
-	b, err := format.Source(buf.Bytes())
-	if err != nil {
+	if err := gen.WriteAutogen(out, buf.Bytes()); err != nil {
 		panic(err)
 	}
-	var force bool
-	ctx.ParseParamValue("f", &force)
-	force = force || isAutogen(out)
-	if err := util.WriteFile(out, b, force, 0644); err != nil {
-		panic(err)
-	}
-	log.Debugf("Assets written to %s (%d bytes)", out, len(b))
+	log.Debugf("Assets written to %s (%d bytes)", out, buf.Len())
 }
 
 func init() {
@@ -235,7 +227,6 @@ func init() {
 			admin.StringFlag("name", "", "Name of the generated MapLoader"),
 			admin.StringFlag("o", "", "Output filename. If empty, output is printed to standard output"),
 			admin.StringFlag("c", "tgz", "Compress type to use. tgz|zip|flate|none"),
-			admin.BoolFlag("f", false, "When creating the output file, overwrite any existing file with the same name"),
 			admin.StringFlag("extensions", "", "Additional extensions (besides html, css and js) to include, separated by commas"),
 		),
 	})

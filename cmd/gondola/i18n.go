@@ -53,11 +53,8 @@ func CompileMessages(ctx *mux.Context) {
 		pos[ii] = p
 	}
 	var out string
-	var force bool
 	ctx.ParseParamValue("o", &out)
-	ctx.ParseParamValue("f", &force)
-	force = force || isAutogen(out)
-	if err := messages.Compile(out, force, pos); err != nil {
+	if err := messages.Compile(out, pos); err != nil {
 		panic(err)
 	}
 }
@@ -73,7 +70,6 @@ func init() {
 		Help: "Compiles all po files from the current directory and its subdirectories",
 		Flags: admin.Flags(
 			admin.StringFlag("o", "messages.go", "Output filename. Can't be empty."),
-			admin.BoolFlag("f", false, "When creating the output file, overwrite any existing file with the same name."),
 		),
 	})
 }

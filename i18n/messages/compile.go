@@ -3,17 +3,14 @@ package messages
 import (
 	"bytes"
 	"fmt"
+	"gnd.la/gen"
 	"gnd.la/i18n/po"
 	"gnd.la/i18n/table"
-	"gnd.la/util"
 	"go/build"
-	"go/format"
-	"os"
 	"path/filepath"
-	"strings"
 )
 
-func Compile(filename string, overwrite bool, translations []*po.Po) error {
+func Compile(filename string, translations []*po.Po) error {
 	var buf bytes.Buffer
 	dir := filepath.Dir(filename)
 	p, err := build.ImportDir(dir, 0)
@@ -21,7 +18,7 @@ func Compile(filename string, overwrite bool, translations []*po.Po) error {
 		buf.WriteString(fmt.Sprintf("package %s\n", p.Name))
 	}
 	buf.WriteString("import \"gnd.la/i18n/table\"\n")
-	buf.WriteString(fmt.Sprintf("// AUTOMATICALLY GENERATED WITH %s -- DO NOT EDIT!\n", strings.Join(os.Args, " ")))
+	buf.WriteString(gen.AutogenString())
 	buf.WriteString("func init() {\n")
 	for _, v := range translations {
 		table := poToTable(v)
@@ -43,14 +40,7 @@ func Compile(filename string, overwrite bool, translations []*po.Po) error {
 		buf.WriteString("})\n")
 	}
 	buf.WriteString("\n}\n")
-	b, err := format.Source(buf.Bytes())
-	if err != nil {
-		return err
-	}
-	if err := util.WriteFile(filename, b, overwrite, 0644); err != nil {
-		return err
-	}
-	return nil
+	return gen.WriteAutogen(filename, buf.Bytes())
 }
 
 func poToTable(p *po.Po) *table.Table {

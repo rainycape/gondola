@@ -42,11 +42,10 @@ func Write(w io.Writer, value interface{}, f SerializationFormat) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	total := len(data)
 	if rw, ok := w.(http.ResponseWriter); ok {
 		header := rw.Header()
 		header.Set("Content-Type", contentType)
-		header.Set("Content-Length", strconv.Itoa(total))
+		header.Set("Content-Length", strconv.Itoa(len(data)))
 	}
 	return w.Write(data)
 }

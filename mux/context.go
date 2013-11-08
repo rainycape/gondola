@@ -3,8 +3,8 @@ package mux
 import (
 	"fmt"
 	"gnd.la/blobstore"
-	"gnd.la/cookies"
 	"gnd.la/i18n/table"
+	"gnd.la/mux/cookies"
 	"gnd.la/mux/serialize"
 	"gnd.la/types"
 	"gnd.la/users"

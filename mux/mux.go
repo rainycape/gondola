@@ -669,6 +669,7 @@ func (mux *Mux) handleHTTPError(ctx *Context, error string, code int) {
 
 func (mux *Mux) handleError(ctx *Context, err interface{}) bool {
 	if gerr, ok := err.(Error); ok {
+		log.Debugf("HTTP error: %s (%d)", gerr.Error(), gerr.StatusCode())
 		mux.handleHTTPError(ctx, gerr.Error(), gerr.StatusCode())
 		return true
 	}

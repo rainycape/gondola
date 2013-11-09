@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Package represents a parsed package with all its
@@ -71,9 +72,24 @@ func NewPackage(path string) (*Package, error) {
 	context := types.Config{
 		Import: imp.Import,
 	}
-	tpkg, err := context.Check(p.Path, p.fset, p.astFiles, nil)
+	ipath := pkg.ImportPath
+	if ipath == "." {
+		// Check won't accept a "." import
+		abs, err := filepath.Abs(pkg.Dir)
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range strings.Split(build.Default.GOPATH, ":") {
+			src := filepath.Join(v, "src")
+			if strings.HasPrefix(abs, src) {
+				ipath = abs[len(src)+1:]
+				break
+			}
+		}
+	}
+	tpkg, err := context.Check(ipath, p.fset, p.astFiles, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error checking package: %s", err)
 	}
 	return &Package{
 		Package: tpkg,

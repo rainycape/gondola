@@ -2,6 +2,7 @@ package table
 
 import (
 	"bytes"
+	"strings"
 	"compress/gzip"
 	"gnd.la/encoding/binary"
 	"gnd.la/i18n/formula"
@@ -36,35 +37,35 @@ func (t *Table) Plural(ctx string, singular string, plural string, n int) string
 	return plural
 }
 
-func (t *Table) Encode() ([]byte, error) {
+func (t *Table) Encode() (string, error) {
 	var buf bytes.Buffer
 	w, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	if err := writeString(w, t.formulaText); err != nil {
-		return nil, err
+		return "", err
 	}
 	if err := binary.Write(w, binary.BigEndian, int32(len(t.translations))); err != nil {
-		return nil, err
+		return "", err
 	}
 	for k, v := range t.translations {
 		if err := writeString(w, k); err != nil {
-			return nil, err
+			return "", err
 		}
 		if err := binary.Write(w, binary.BigEndian, int32(len(v))); err != nil {
-			return nil, err
+			return "", err
 		}
 		for _, s := range v {
 			if err := writeString(w, s); err != nil {
-				return nil, err
+				return "", err
 			}
 		}
 	}
 	if err := w.Close(); err != nil {
-		return nil, err
+		return "", err
 	}
-	return buf.Bytes(), nil
+	return buf.String(), nil
 }
 
 func (t *Table) Update(other *Table) error {
@@ -78,8 +79,8 @@ func (t *Table) Update(other *Table) error {
 	return nil
 }
 
-func Decode(data []byte) (*Table, error) {
-	r, err := gzip.NewReader(bytes.NewReader(data))
+func Decode(data string) (*Table, error) {
+	r, err := gzip.NewReader(strings.NewReader(data))
 	if err != nil {
 		return nil, err
 	}

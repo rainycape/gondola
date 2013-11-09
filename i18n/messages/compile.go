@@ -28,16 +28,7 @@ func Compile(filename string, translations []*po.Po) error {
 		}
 		buf.WriteString("table.Register(\"")
 		buf.WriteString(v.Attrs["Language"])
-		buf.WriteString("\", []byte{")
-		for ii, b := range data {
-			buf.WriteString(fmt.Sprintf("0x%02X", b))
-			buf.WriteByte(',')
-			if ii%8 == 0 && ii != len(data)-1 {
-				buf.WriteByte('\n')
-			}
-		}
-		buf.Truncate(buf.Len() - 1)
-		buf.WriteString("})\n")
+		buf.WriteString(fmt.Sprintf("\", %q)\n", data))
 	}
 	buf.WriteString("\n}\n")
 	return gen.WriteAutogen(filename, buf.Bytes())

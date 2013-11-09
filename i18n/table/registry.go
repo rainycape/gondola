@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	registry = make(map[string][]byte)
+	registry = make(map[string]string)
 	decoded  = make(map[string]*Table)
 	cache    = make(map[string]*Table)
 	mu       sync.RWMutex
@@ -25,7 +25,7 @@ var (
 // The second parameter is a compressed language table. If there's already
 // a table registered for the given language, it will be updated with
 // the new table, adding or updating entries as required.
-func Register(lang string, data []byte) {
+func Register(lang string, data string) {
 	if err := register(lang, data); err != nil {
 		panic(err)
 	}
@@ -35,7 +35,7 @@ func languageKey(k string) string {
 	return strings.ToUpper(strings.Replace(k, "_", "-", -1))
 }
 
-func register(lang string, data []byte) error {
+func register(lang string, data string) error {
 	if len(lang) != 2 && len(lang) != 5 {
 		return fmt.Errorf("invalid language code %q, please see the documentation for Register()", lang)
 	}
@@ -43,7 +43,7 @@ func register(lang string, data []byte) error {
 		return fmt.Errorf("invalid table for language %q, no data", lang)
 	}
 	key := languageKey(lang)
-	if prev := registry[key]; prev == nil {
+	if prev := registry[key]; prev == "" {
 		registry[key] = data
 	} else {
 		prevt, err := Decode(prev)
@@ -126,7 +126,7 @@ func getSkippingCache(key string) *Table {
 	if t := decoded[key]; t != nil {
 		return t
 	}
-	if d := registry[key]; d != nil {
+	if d := registry[key]; d != "" {
 		t, err := Decode(d)
 		if err != nil {
 			panic(err)

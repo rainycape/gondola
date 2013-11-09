@@ -61,7 +61,7 @@ func (c CodeAssetList) CompiledName(ext string, o Options) (string, error) {
 	} else {
 		ext = "." + ext
 	}
-	return path.Join(path.Dir(name), "asset-"+sum+ext), nil
+	return path.Join(path.Dir(name), "bundle."+sum+ext), nil
 }
 
 func Compile(m Manager, assets []Asset, opts Options) ([]Asset, error) {

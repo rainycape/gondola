@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -25,6 +26,50 @@ type Package struct {
 // Dir returns the package source directory.
 func (p *Package) Dir() string {
 	return p.dir
+}
+
+func (p *Package) types(exported bool, include *regexp.Regexp, exclude *regexp.Regexp) []*types.Named {
+	var packageTypes []*types.Named
+	scope := p.Scope()
+	prefix := p.Name() + "."
+	for _, v := range scope.Names() {
+		obj := scope.Lookup(v)
+		if exported && !obj.IsExported() {
+			continue
+		}
+		if _, ok := obj.(*types.Const); ok {
+			continue
+		}
+		if _, ok := obj.(*types.Var); ok {
+			continue
+		}
+		if named, ok := obj.Type().(*types.Named); ok {
+			name := named.String()
+			if strings.HasPrefix(name, prefix) {
+				local := name[len(prefix):]
+				if exclude != nil && exclude.MatchString(local) {
+					continue
+				}
+				if include != nil && !include.MatchString(local) {
+					continue
+				}
+				packageTypes = append(packageTypes, named)
+			}
+		}
+	}
+	return packageTypes
+}
+
+// Types returns the types declared in the package which match the required constraints.
+// If excluded != nil, any type matching it gets excluded. If include != nil, only types
+// matching it are returned.
+func (p *Package) Types(include *regexp.Regexp, exclude *regexp.Regexp) []*types.Named {
+	return p.types(false, include, exclude)
+}
+
+// ExportedTypes works like Types, but only returns types that are exported.
+func (p *Package) ExportedTypes(include *regexp.Regexp, exclude *regexp.Regexp) []*types.Named {
+	return p.types(true, include, exclude)
 }
 
 type _package struct {

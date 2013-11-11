@@ -8,7 +8,6 @@ import (
 	"go/build"
 	"go/parser"
 	"go/token"
-	"honnef.co/go/importer"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -112,10 +111,11 @@ func NewPackage(path string) (*Package, error) {
 		p.files[v] = f
 		p.astFiles[ii] = f.ast
 	}
-	imp := importer.New()
+	imp := newImporter()
 	imp.Config.UseGcFallback = true
 	context := types.Config{
-		Import: imp.Import,
+		Import:      imp.Import,
+		FakeImportC: true,
 	}
 	ipath := pkg.ImportPath
 	if ipath == "." {
@@ -134,7 +134,10 @@ func NewPackage(path string) (*Package, error) {
 	}
 	tpkg, err := context.Check(ipath, p.fset, p.astFiles, nil)
 	if err != nil {
-		return nil, fmt.Errorf("error checking package: %s", err)
+		// This error is caused by using fields in C structs, ignore it
+		if !strings.Contains(err.Error(), "(variable of type *invalid type)") {
+			return nil, fmt.Errorf("error checking package: %s", err)
+		}
 	}
 	return &Package{
 		Package: tpkg,

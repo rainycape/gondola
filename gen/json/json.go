@@ -34,7 +34,6 @@ import (
 	gtypes "gnd.la/types"
 	"path/filepath"
 	"regexp"
-	"strings"
 )
 
 type Method struct {
@@ -81,22 +80,20 @@ func Gen(pkgName string, opts *Options) error {
 	}
 	buf.WriteString(")\n")
 	buf.WriteString("var _ = strconv.FormatBool\n")
-	scope := pkg.Scope()
+	var include *regexp.Regexp
+	var exclude *regexp.Regexp
+	if opts != nil {
+		include = opts.Include
+		exclude = opts.Exclude
+	}
 	var methods bytes.Buffer
-	prefix := pkg.Name() + "."
-	for _, v := range scope.Names() {
+	for _, v := range pkg.ExportedTypes(include, exclude) {
 		methods.Reset()
-		obj := scope.Lookup(v)
-		if !obj.IsExported() {
+		if err := jsonMarshal(v, opts, &methods); err != nil {
+			log.Warningf("Skipping type %s: %s", v.Obj().Name(), err)
 			continue
 		}
-		if named, ok := obj.Type().(*types.Named); ok && strings.HasPrefix(named.String(), prefix) && isIncluded(named.String()[len(prefix):], opts) {
-			if err := jsonMarshal(obj, named, opts, &methods); err != nil {
-				log.Warningf("Skipping type %s: %s", obj.Name(), err)
-				continue
-			}
-			buf.WriteString(methods.String())
-		}
+		buf.WriteString(methods.String())
 	}
 	buf.WriteString(encode_go)
 	buf.WriteString(buffer_go)
@@ -105,21 +102,9 @@ func Gen(pkgName string, opts *Options) error {
 	return genutil.WriteAutogen(out, buf.Bytes())
 }
 
-func isIncluded(name string, opts *Options) bool {
-	if opts != nil {
-		if opts.Exclude != nil && opts.Exclude.MatchString(name) {
-			return false
-		}
-		if opts.Include != nil {
-			return opts.Include.MatchString(name)
-		}
-	}
-	return true
-}
-
-func jsonMarshal(obj types.Object, typ types.Type, opts *Options, buf *bytes.Buffer) error {
-	tname := obj.Name()
-	if _, ok := typ.(*types.Struct); ok {
+func jsonMarshal(typ *types.Named, opts *Options, buf *bytes.Buffer) error {
+	tname := typ.Obj().Name()
+	if _, ok := typ.Underlying().(*types.Struct); ok {
 		tname = "*" + tname
 	}
 	if opts != nil && opts.MarshalJSON {

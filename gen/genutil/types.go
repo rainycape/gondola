@@ -135,7 +135,7 @@ func NewPackage(path string) (*Package, error) {
 	tpkg, err := context.Check(ipath, p.fset, p.astFiles, nil)
 	if err != nil {
 		// This error is caused by using fields in C structs, ignore it
-		if !strings.Contains(err.Error(), "(variable of type *invalid type)") {
+		if !strings.Contains(err.Error(), "invalid type") {
 			return nil, fmt.Errorf("error checking package: %s", err)
 		}
 	}

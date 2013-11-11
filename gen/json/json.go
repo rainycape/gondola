@@ -66,13 +66,14 @@ func Gen(pkgName string, opts *Options) error {
 	buf.WriteString("var _ = strconv.FormatBool\n")
 	scope := pkg.Scope()
 	var methods bytes.Buffer
+	prefix := pkg.Name() + "."
 	for _, v := range scope.Names() {
 		methods.Reset()
 		obj := scope.Lookup(v)
 		if !obj.IsExported() {
 			continue
 		}
-		if named, ok := obj.Type().(*types.Named); ok {
+		if named, ok := obj.Type().(*types.Named); ok && strings.HasPrefix(named.String(), prefix) {
 			if err := jsonMarshal(obj, named.Underlying(), opts, &methods); err != nil {
 				log.Warningf("Skipping type %s: %s", obj.Name(), err)
 				continue

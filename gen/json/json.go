@@ -124,12 +124,15 @@ func jsonStruct(st *types.Struct, name string, opts *Options, buf *bytes.Buffer)
 	for ii := 0; ii < count; ii++ {
 		field := st.Field(ii)
 		if field.IsExported() {
-			if hasFields {
-				buf.WriteString("buf.WriteByte(',')\n")
-			}
-			hasFields = true
-			if err := jsonField(field, name+"."+field.Name(), st.Tag(ii), opts, buf); err != nil {
-				return err
+			tag := st.Tag(ii)
+			if !jsonFieldIgnored(tag) {
+				if hasFields {
+					buf.WriteString("buf.WriteByte(',')\n")
+				}
+				hasFields = true
+				if err := jsonField(field, name+"."+field.Name(), st.Tag(ii), opts, buf); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -149,6 +152,13 @@ func jsonSlice(sl *types.Slice, name string, opts *Options, buf *bytes.Buffer) e
 	buf.WriteString("}\n")
 	buf.WriteString("buf.WriteByte(']')\n")
 	return nil
+}
+
+func jsonFieldIgnored(tag string) bool {
+	if gtag := gtypes.NewStringTagNamed(tag, "json"); gtag != nil {
+		return gtag.Name() == "-"
+	}
+	return false
 }
 
 func jsonField(field *types.Var, name string, tag string, opts *Options, buf *bytes.Buffer) error {

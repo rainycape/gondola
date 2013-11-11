@@ -8,9 +8,13 @@ package gen
 import (
 	"fmt"
 	"github.com/kylelemons/go-gypsy/yaml"
+	"gnd.la/gen/genutil"
 	"gnd.la/gen/json"
+	"gnd.la/gen/strings"
+	"path/filepath"
 	"regexp"
 	"strconv"
+	str "strings"
 )
 
 // Gen generates code according to the given config file. If the config file
@@ -42,6 +46,14 @@ func Gen(pkgName string, config string) error {
 				return err
 			}
 			if err := json.Gen(pkgName, opts); err != nil {
+				return err
+			}
+		case "strings":
+			opts, err := stringsOptions(v)
+			if err != nil {
+				return err
+			}
+			if err := strings.Gen(pkgName, opts); err != nil {
 				return err
 			}
 		}
@@ -105,6 +117,62 @@ func jsonOptions(node yaml.Node) (*json.Options, error) {
 	return nil, nil
 }
 
+func stringsOptions(node yaml.Node) (*strings.Options, error) {
+	if m, ok := node.(yaml.Map); ok {
+		opts := &strings.Options{}
+		for k, v := range m {
+			switch k {
+			case "include":
+				if val := nodeToString(v); val != "" {
+					include, err := regexp.Compile(val)
+					if err != nil {
+						return nil, err
+					}
+					opts.Include = include
+				}
+			case "exclude":
+				if val := nodeToString(v); val != "" {
+					exclude, err := regexp.Compile(val)
+					if err != nil {
+						return nil, err
+					}
+					opts.Exclude = exclude
+				}
+			case "options":
+				if options, ok := v.(yaml.Map); ok {
+					opts.TypeOptions = make(map[string]*strings.TypeOptions)
+					for typeName, val := range options {
+						valMap, ok := val.(yaml.Map)
+						if !ok {
+							return nil, fmt.Errorf("%s type options must be a map", typeName)
+						}
+						typeOptions := &strings.TypeOptions{}
+						tr := nodeToString(valMap["transform"])
+						switch tr {
+						case "":
+						case "uppercase":
+							typeOptions.Transform = strings.ToUpper
+						case "lowercase":
+							typeOptions.Transform = strings.ToLower
+						default:
+							return nil, fmt.Errorf("invalid transform %q", tr)
+						}
+						if slice := valMap["slice"]; slice != nil {
+							var err error
+							if typeOptions.SliceBegin, typeOptions.SliceEnd, err = parseSlice(slice); err != nil {
+								return nil, err
+							}
+						}
+						opts.TypeOptions[typeName] = typeOptions
+					}
+				}
+			}
+		}
+		return opts, nil
+	}
+	return nil, nil
+}
+
 func nodeToBool(node yaml.Node) bool {
 	switch n := node.(type) {
 	case yaml.List:
@@ -123,4 +191,42 @@ func nodeToString(node yaml.Node) string {
 		return s.String()
 	}
 	return ""
+}
+
+func parseSlice(node yaml.Node) (int, int, error) {
+	switch n := node.(type) {
+	case yaml.Scalar:
+		return _parseSlice(n.String())
+	case yaml.Map:
+		if len(n) == 1 {
+			for k, v := range n {
+				if v == nil {
+					v = yaml.Scalar("0")
+				}
+				return _parseSlice(fmt.Sprintf("%v:%v", k, v))
+			}
+		}
+	}
+	return 0, 0, fmt.Errorf("invalid slice spec %v", node)
+}
+
+func _parseSlice(s string) (int, int, error) {
+	idx := str.Index(s, ":")
+	if idx < 0 {
+		return 0, 0, fmt.Errorf("slice spec must contain :")
+	}
+	begin := s[:idx]
+	end := s[idx+1:]
+	b, err := strconv.Atoi(begin)
+	if err != nil {
+		return 0, 0, err
+	}
+	if end == "" {
+		return b, 0, nil
+	}
+	e, err := strconv.Atoi(end)
+	if err != nil {
+		return 0, 0, err
+	}
+	return b, e, nil
 }

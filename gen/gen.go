@@ -64,10 +64,27 @@ func Gen(pkgName string, config string) error {
 func jsonOptions(node yaml.Node) (*json.Options, error) {
 	if m, ok := node.(yaml.Map); ok {
 		opts := &json.Options{}
+		var err error
 		for k, v := range m {
 			switch k {
 			case "marshal-json":
 				opts.MarshalJSON = nodeToBool(v)
+			case "buffer-size":
+				if opts.BufferSize, err = nodeToInt(v); err != nil {
+					return nil, err
+				}
+			case "max-buffer-size":
+				if opts.MaxBufferSize, err = nodeToInt(v); err != nil {
+					return nil, err
+				}
+			case "buffer-count":
+				if opts.BufferCount, err = nodeToInt(v); err != nil {
+					return nil, err
+				}
+			case "buffers-per-proc":
+				if opts.BuffersPerProc, err = nodeToInt(v); err != nil {
+					return nil, err
+				}
 			case "include":
 				if val := nodeToString(v); val != "" {
 					include, err := regexp.Compile(val)
@@ -191,6 +208,14 @@ func nodeToString(node yaml.Node) string {
 		return s.String()
 	}
 	return ""
+}
+
+func nodeToInt(node yaml.Node) (int, error) {
+	switch n := node.(type) {
+	case yaml.Scalar:
+		return strconv.Atoi(n.String())
+	}
+	return 0, fmt.Errorf("invalid int node %v", node)
 }
 
 func parseSlice(node yaml.Node) (int, int, error) {

@@ -2,29 +2,26 @@
 
 package json
 
-// TODO: Make this configurable?
-const bufSize = 8192
-
 var (
-	buffers = make(chan *bytes.Buffer, runtime.GOMAXPROCS(0))
+	jsonBuffers = make(chan *bytes.Buffer, jsonBufferCount)
 )
 
 func jsonGetBuffer() *bytes.Buffer {
 	var buf *bytes.Buffer
 	select {
-	case buf = <-buffers:
+	case buf = <-jsonBuffers:
 		buf.Reset()
 	default:
 		buf = new(bytes.Buffer)
-		buf.Grow(bufSize)
+		buf.Grow(jsonBufSize)
 	}
 	return buf
 }
 
 func jsonPutBuffer(buf *bytes.Buffer) {
-	if buf.Len() <= bufSize {
+	if buf.Len() <= jsonMaxBufSize {
 		select {
-		case buffers <- buf:
+		case jsonBuffers <- buf:
 		default:
 		}
 	}

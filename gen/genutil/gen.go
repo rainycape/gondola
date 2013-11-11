@@ -1,5 +1,5 @@
-// Package gen contains helper functions for autogenerating code.
-package gen
+// Package genutil contains helper functions for autogenerating code.
+package genutil
 
 import (
 	"bytes"

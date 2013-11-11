@@ -8,7 +8,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"gnd.la/admin"
-	"gnd.la/gen"
+	"gnd.la/gen/genutil"
 	"gnd.la/log"
 	"gnd.la/mux"
 	"go/build"
@@ -168,7 +168,7 @@ func MakeAssets(ctx *mux.Context) {
 		buf.WriteString(fmt.Sprintf("package %s\n", p.Name))
 	}
 	buf.WriteString("import \"gnd.la/loaders\"\n")
-	buf.WriteString(gen.AutogenString())
+	buf.WriteString(genutil.AutogenString())
 	switch compression {
 	case "tgz":
 		buf.WriteString(fmt.Sprintf("var %s = loaders.TgzLoader(", name))
@@ -213,7 +213,7 @@ func MakeAssets(ctx *mux.Context) {
 	default:
 		panic(fmt.Errorf("invalid compression method %q", compression))
 	}
-	if err := gen.WriteAutogen(out, buf.Bytes()); err != nil {
+	if err := genutil.WriteAutogen(out, buf.Bytes()); err != nil {
 		panic(err)
 	}
 	log.Debugf("Assets written to %s (%d bytes)", out, buf.Len())

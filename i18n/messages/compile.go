@@ -3,7 +3,7 @@ package messages
 import (
 	"bytes"
 	"fmt"
-	"gnd.la/gen"
+	"gnd.la/gen/genutil"
 	"gnd.la/i18n/po"
 	"gnd.la/i18n/table"
 	"go/build"
@@ -18,7 +18,7 @@ func Compile(filename string, translations []*po.Po) error {
 		buf.WriteString(fmt.Sprintf("package %s\n", p.Name))
 	}
 	buf.WriteString("import \"gnd.la/i18n/table\"\n")
-	buf.WriteString(gen.AutogenString())
+	buf.WriteString(genutil.AutogenString())
 	buf.WriteString("func init() {\n")
 	for _, v := range translations {
 		table := poToTable(v)
@@ -31,7 +31,7 @@ func Compile(filename string, translations []*po.Po) error {
 		buf.WriteString(fmt.Sprintf("\", %q)\n", data))
 	}
 	buf.WriteString("\n}\n")
-	return gen.WriteAutogen(filename, buf.Bytes())
+	return genutil.WriteAutogen(filename, buf.Bytes())
 }
 
 func poToTable(p *po.Po) *table.Table {

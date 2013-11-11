@@ -7,7 +7,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"gnd.la/gen"
+	"gnd.la/gen/genutil"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -41,7 +41,7 @@ func main() {
 		name := strings.Replace(filepath.Base(filename), ".", "_", -1)
 		buf.WriteString(fmt.Sprintf("const %s = `%s`\n", name, file.String()))
 	}
-	if err := gen.WriteAutogen("-", buf.Bytes()); err != nil {
+	if err := genutil.WriteAutogen("-", buf.Bytes()); err != nil {
 		panic(err)
 	}
 }

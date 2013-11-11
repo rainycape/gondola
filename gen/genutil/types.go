@@ -108,9 +108,12 @@ func findPackage(path string) (*build.Package, error) {
 }
 
 func packageFiles(pkg *build.Package) []string {
-	files := make([]string, len(pkg.GoFiles))
-	for ii, v := range pkg.GoFiles {
-		files[ii] = filepath.Join(pkg.Dir, v)
+	var files []string
+	for _, v := range pkg.GoFiles {
+		files = append(files, filepath.Join(pkg.Dir, v))
+	}
+	for _, v := range pkg.CgoFiles {
+		files = append(files, filepath.Join(pkg.Dir, v))
 	}
 	return files
 }

@@ -504,9 +504,6 @@ func (f *Form) renderField(buf *bytes.Buffer, field *Field) (err error) {
 }
 
 func (f *Form) render(fields []*Field) (template.HTML, error) {
-	if f.id == "" {
-		f.makeId()
-	}
 	var buf bytes.Buffer
 	var err error
 	for _, v := range fields {

@@ -302,7 +302,9 @@ func (c *Context) MustRedirectReverse(permanent bool, name string, args ...inter
 // or the previous page was from another host, a redirect to / is issued.
 func (c *Context) RedirectBack() {
 	if c.R != nil {
-		us := c.URL().String()
+		u := *c.R.URL
+		u.Host = c.R.Host
+		us := u.String()
 		redir := "/"
 		// from parameter is used when redirecting to sign in page
 		from := c.FormValue("from")
@@ -310,6 +312,10 @@ func (c *Context) RedirectBack() {
 			redir = from
 		} else if ref := c.R.Referer(); ref != "" && util.EqualHosts(ref, us) {
 			redir = ref
+		}
+		// us will be protocol relative in most cases
+		if us == redir || strings.HasPrefix(us, "//") && u.Host == urlHost(redir) {
+			redir = "/"
 		}
 		c.Redirect(redir, false)
 	}
@@ -494,4 +500,11 @@ func (c *Context) Write(data []byte) (int, error) {
 		c.WriteHeader(0)
 	}
 	return c.ResponseWriter.Write(data)
+}
+
+func urlHost(u string) string {
+	if u, _ := url.Parse(u); u != nil {
+		return u.Host
+	}
+	return ""
 }

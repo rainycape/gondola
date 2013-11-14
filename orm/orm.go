@@ -317,7 +317,8 @@ func (o *Orm) DeleteFromTable(t *Table, q query.Q) (Result, error) {
 }
 
 // Delete removes the given object, which must be of a type
-// previously registered as a table and must have a primary key
+// previously registered as a table and must have a primary key,
+// either simple or composite.
 func (o *Orm) Delete(obj interface{}) error {
 	m, err := o.model(obj)
 	if err != nil {
@@ -340,11 +341,23 @@ func (o *Orm) DeleteFrom(t *Table, obj interface{}) error {
 }
 
 func (o *Orm) deleteByPk(m *model, obj interface{}) error {
-	pkName, pkVal := o.primaryKey(m.fields, obj)
-	if !pkVal.IsValid() || pkName == "" {
+	var q query.Q
+	if m.fields.PrimaryKey >= 0 {
+		pkName, pkVal := o.primaryKey(m.fields, obj)
+		if pkVal.IsValid() && pkName != "" {
+			q = Eq(pkName, pkVal.Interface())
+		}
+	} else if len(m.fields.CompositePrimaryKey) > 0 {
+		names, values := o.compositePrimaryKey(m.fields, obj)
+		conditions := make([]query.Q, len(names))
+		for ii, v := range names {
+			conditions[ii] = Eq(v, values[ii].Interface())
+		}
+		q = And(conditions...)
+	}
+	if q == nil {
 		return fmt.Errorf("type %T does not have a primary key", obj)
 	}
-	q := Eq(pkName, pkVal.Interface())
 	_, err := o.delete(m, q)
 	return err
 }

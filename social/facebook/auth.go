@@ -10,10 +10,10 @@ import (
 	"time"
 )
 
-func FacebookAuthUrl(clientId string, redirectUri string, permissions []string, state string) string {
+func FacebookAuthUrl(app *App, redirectUri string, permissions []string, state string) string {
 	scope := strings.Join(permissions, ",")
 	facebookUrl := fmt.Sprintf("https://www.facebook.com/dialog/oauth?client_id=%v&redirect_uri=%v&scope=%v&state=%v",
-		clientId, url.QueryEscape(redirectUri), scope, state)
+		app.Id, url.QueryEscape(redirectUri), scope, state)
 	return facebookUrl
 }
 
@@ -21,10 +21,9 @@ func RequestFacebookCode(r *http.Request) string {
 	return r.FormValue("code")
 }
 
-func ExchangeCode(code, redirectUri, clientId, clientSecret string) (*Token, error) {
-
+func ExchangeCode(app *App, code string, redirectUri string, extend bool) (*Token, error) {
 	exchangeUrl := fmt.Sprintf("https://graph.facebook.com/oauth/access_token?client_id=%v&redirect_uri=%v&client_secret=%v&code=%v",
-		clientId, url.QueryEscape(redirectUri), clientSecret, code)
+		app.Id, url.QueryEscape(redirectUri), app.Secret, code)
 	resp, err := http.Get(exchangeUrl)
 	if err != nil {
 		return nil, err
@@ -38,12 +37,15 @@ func ExchangeCode(code, redirectUri, clientId, clientSecret string) (*Token, err
 		return nil, err
 	}
 	token, err := ParseToken(string(b))
+	if err == nil && extend {
+		token, err = ExtendToken(app, token)
+	}
 	return token, err
 }
 
-func ExtendToken(token *Token, clientId, clientSecret string) (*Token, error) {
+func ExtendToken(app *App, token *Token) (*Token, error) {
 	requestUrl := fmt.Sprintf("https://graph.facebook.com/oauth/access_token?client_id=%v&client_secret=%v&grant_type=fb_exchange_token&fb_exchange_token=%v",
-		clientId, clientSecret, token.Key)
+		app.Id, app.Secret, token.Key)
 	resp, err := http.Get(requestUrl)
 	if err != nil {
 		return nil, err

@@ -326,6 +326,13 @@ func (o *Orm) Delete(obj interface{}) error {
 	return o.deleteByPk(m, obj)
 }
 
+// MustDelete works like Delete, but panics if there's an error.
+func (o *Orm) MustDelete(obj interface{}) {
+	if err := o.Delete(obj); err != nil {
+		panic(err)
+	}
+}
+
 // DeleteFrom works like Delete, but deletes from the given table
 // (as returned by Register)
 func (o *Orm) DeleteFrom(t *Table, obj interface{}) error {

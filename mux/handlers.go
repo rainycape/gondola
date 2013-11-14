@@ -19,8 +19,10 @@ func RedirectHandler(destination string, permanent bool) Handler {
 
 // SignOutHandler can be added directly to a mux. It signs out the
 // current user (if any) and redirects back to the previous
-// page.
+// page unless the request was made via ajax.
 func SignOutHandler(ctx *Context) {
 	ctx.SignOut()
-	ctx.RedirectBack()
+	if !ctx.IsAjax() {
+		ctx.RedirectBack()
+	}
 }

@@ -9,6 +9,7 @@ import (
 	"gnd.la/orm/codec"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/index"
+	"gnd.la/orm/operation"
 	"gnd.la/orm/query"
 	"reflect"
 	"strconv"
@@ -126,6 +127,53 @@ func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error)
 	buf.WriteString(d.backend.Placeholders(len(fields)))
 	buf.WriteByte(')')
 	return d.backend.Insert(d.db, m, buf.String(), values...)
+}
+
+func (d *Driver) Operate(m driver.Model, q query.Q, op *operation.Operation) (driver.Result, error) {
+	fields := m.Fields()
+	dbName, _, err := fields.Map(op.Field)
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	buf.WriteString("UPDATE ")
+	buf.WriteByte('"')
+	buf.WriteString(m.Table())
+	buf.WriteByte('"')
+	buf.WriteString(" SET ")
+	buf.WriteString(dbName)
+	buf.WriteByte('=')
+	var params []interface{}
+	switch op.Operator {
+	    case operation.Add, operation.Sub:
+		buf.WriteString(dbName)
+		if op.Operator == operation.Add {
+		    buf.WriteByte('+')
+		} else {
+		    buf.WriteByte('-')
+		}
+		buf.WriteString(d.backend.Placeholder(1))
+		params = append(params, op.Value)
+	    case operation.Set:
+		if f, ok := op.Value.(operation.Field); ok {
+		    buf.WriteString(string(f))
+		} else {
+		    buf.WriteString(d.backend.Placeholder(1))
+		    params = append(params, op.Value)
+		}
+	    default:
+		return nil, fmt.Errorf("operator %d is not supported", op.Operator)
+	}
+	where, qParams, err := d.where(m, q, len(params))
+	if err != nil {
+		return nil, err
+	}
+	if where != "" {
+		buf.WriteString(" WHERE ")
+		buf.WriteString(where)
+	}
+	params = append(params, qParams...)
+	return d.db.Exec(buf.String(), params...)
 }
 
 func (d *Driver) Update(m driver.Model, q query.Q, data interface{}) (driver.Result, error) {

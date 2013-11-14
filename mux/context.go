@@ -463,6 +463,12 @@ func (c *Context) RemoteAddress() string {
 	return ""
 }
 
+// IsAjax returns wheter the request was made via ajax. Internally,
+// it uses X-Requested-With, which is set by all major JS libraries.
+func (c *Context) IsAjax() bool {
+	return c.R != nil && c.R.Header.Get("X-Requested-With") == "XMLHttpRequest"
+}
+
 // Close closes any resources opened by the context.
 // It's automatically called by the mux, so you
 // don't need to call it manually

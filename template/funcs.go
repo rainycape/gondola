@@ -294,4 +294,15 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"or":        or,
 	"not":       not,
 	"now":       now,
+
+	// Go builtins
+	"call":     call,
+	"html":     template.HTMLEscaper,
+	"index":    index,
+	"js":       template.JSEscaper,
+	"len":      length,
+	"print":    fmt.Sprint,
+	"printf":   fmt.Sprintf,
+	"println":  fmt.Sprintln,
+	"urlquery": template.URLQueryEscaper,
 }

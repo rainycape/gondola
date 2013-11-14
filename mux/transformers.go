@@ -12,9 +12,9 @@ type Transformer func(Handler) Handler
 
 // SignedIn returns a new Handler which requires a signed in
 // user to be executed. If there's no signed in user, it returns
-// a redirect to the handler named "signin", indicating the
+// a redirect to the handler named "sign-in", indicating the
 // previous url in the "from" parameter. If there's no handler
-// named "signin", it panics. It also adds "Cookie" to the Vary
+// named "sign-in", it panics. It also adds "Cookie" to the Vary
 // header, and "private" to the Cache-Control header.
 func SignedIn(handler Handler) Handler {
 	return func(ctx *Context) {
@@ -22,7 +22,7 @@ func SignedIn(handler Handler) Handler {
 		h.Add("Vary", "Cookie")
 		h.Add("Cache-Control", "private")
 		if ctx.User() == nil {
-			signIn := ctx.MustReverse("signin")
+			signIn := ctx.MustReverse("sign-in")
 			u, err := url.Parse(signIn)
 			if err != nil {
 				panic(err)

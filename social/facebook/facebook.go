@@ -36,7 +36,7 @@ func parseComment(data interface{}) *Comment {
 	/* replies lack like_count */
 	likeCount, _ := c["like_count"].(float64)
 	cr := c["created_time"].(string)
-	created, err := ParseFacebookTime(cr)
+	created, err := parseFacebookTime(cr)
 	if err != nil {
 		return nil
 	}

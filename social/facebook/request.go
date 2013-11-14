@@ -27,8 +27,8 @@ func graphRead(resp *http.Response, err error) (map[string]interface{}, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if ResponseHasError(resp) {
-		return nil, DecodeResponseError(resp)
+	if responseHasError(resp) {
+		return nil, decodeResponseError(resp)
 	}
 	var m map[string]interface{}
 	decoder := json.NewDecoder(resp.Body)

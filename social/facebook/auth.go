@@ -30,8 +30,8 @@ func ExchangeCode(code, redirectUri, clientId, clientSecret string) (*Token, err
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if ResponseHasError(resp) {
-		return nil, DecodeResponseError(resp)
+	if responseHasError(resp) {
+		return nil, decodeResponseError(resp)
 	}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -49,8 +49,8 @@ func ExtendToken(token *Token, clientId, clientSecret string) (*Token, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if ResponseHasError(resp) {
-		return nil, DecodeResponseError(resp)
+	if responseHasError(resp) {
+		return nil, decodeResponseError(resp)
 	}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

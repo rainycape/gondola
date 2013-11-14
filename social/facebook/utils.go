@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func ParseFacebookTime(timeVal string) (time.Time, error) {
+func parseFacebookTime(timeVal string) (time.Time, error) {
 	replaced := strings.Replace(timeVal, "+0000", "Z", -1)
 	parsed, err := time.Parse(time.RFC3339, replaced)
 	if err != nil {
@@ -17,11 +17,11 @@ func ParseFacebookTime(timeVal string) (time.Time, error) {
 	return parsed, nil
 }
 
-func ResponseHasError(resp *http.Response) bool {
+func responseHasError(resp *http.Response) bool {
 	return resp.StatusCode == http.StatusBadRequest
 }
 
-func DecodeResponseError(resp *http.Response) error {
+func decodeResponseError(resp *http.Response) error {
 	c := &ErrorContainer{}
 	decoder := json.NewDecoder(resp.Body)
 	err := decoder.Decode(&c)

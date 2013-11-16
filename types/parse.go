@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"gnd.la/i18n"
 	"math"
 	"reflect"
 	"strconv"
@@ -46,8 +47,12 @@ func parse(val string, v reflect.Value) error {
 	switch v.Type().Kind() {
 	case reflect.Bool:
 		res := false
-		if val != "" && val != "0" && strings.ToLower(val) != "false" {
+		switch strings.ToLower(val) {
+		case "", "f", "false", "0", "off":
+		case "t", "true", "1", "on":
 			res = true
+		default:
+			return i18n.Errorf("invalid boolean value %q", val)
 		}
 		v.SetBool(res)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:

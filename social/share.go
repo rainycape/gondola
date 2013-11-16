@@ -27,7 +27,7 @@ func Share(s Service, item *Item, config interface{}) (interface{}, error) {
 			buf.WriteByte(' ')
 			buf.WriteString(v.String())
 		}
-		tweet, err := twitter.Update(buf.String(), conf.App, conf.Token, &twitter.TweetOptions{Truncate: true})
+		tweet, err := conf.App.Update(buf.String(), conf.Token, &twitter.TweetOptions{Truncate: true})
 		return tweet, err
 	case Pinterest:
 		conf := config.(*PinterestConfig)

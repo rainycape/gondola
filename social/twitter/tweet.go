@@ -50,7 +50,7 @@ type TweetOptions struct {
 
 // Update sends a tweet with the given text, using the provided app and token.
 // Options are optional, you might pass nil.
-func Update(text string, app *App, token *Token, opts *TweetOptions) (*Tweet, error) {
+func (app *App) Update(text string, token *Token, opts *TweetOptions) (*Tweet, error) {
 	count := countCharacters(text)
 	if count > MAX_TWEET_LENGTH {
 		if opts == nil || !opts.Truncate {
@@ -76,13 +76,9 @@ func Update(text string, app *App, token *Token, opts *TweetOptions) (*Tweet, er
 			values["place_id"] = opts.PlaceId
 		}
 	}
-	resp, err := post(app, token, STATUS_URL, values)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 	var tw Tweet
-	if err := parseTwitterResponse(resp, &tw); err != nil {
+	err := sendReq(app, token, "POST", statusPath, values, &tw)
+	if err != nil {
 		return nil, err
 	}
 	return &tw, nil

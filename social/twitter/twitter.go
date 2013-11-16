@@ -4,19 +4,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	oauth "github.com/fiam/goauth"
+	"gnd.la/util/oauth"
 	"gnd.la/util/textutil"
 	"net/http"
+	"net/url"
 )
 
 const (
-	REQUEST_TOKEN_URL = "http://twitter.com/oauth/request_token"
-	ACCESS_TOKEN_URL  = "http://twitter.com/oauth/access_token"
-	AUTHORIZATION_URL = "http://twitter.com/oauth/authorize"
-	STATUS_URL        = "http://api.twitter.com/1.1/statuses/update.json"
+	REQUEST_TOKEN_URL  = "https://twitter.com/oauth/request_token"
+	ACCESS_TOKEN_URL   = "https://twitter.com/oauth/access_token"
+	AUTHORIZATION_URL  = "https://twitter.com/oauth/authorize"
+	AUTHENTICATION_URL = "https://twitter.com/oauth/authenticate"
+	API_BASE_URL       = "https://api.twitter.com/1.1/"
 )
 
 var (
+	statusPath = "statuses/update.json"
+	verifyPath = "account/verify_credentials.json"
+	STATUS_URL = API_BASE_URL + "statuses/update.json"
 	errNoApp   = errors.New("missing app")
 	errNoToken = errors.New("missing token")
 )
@@ -76,30 +81,34 @@ func (t *TwitterError) Error() string {
 	return fmt.Sprintf("%s (code %d, status code %d)", t.Message, t.Code, t.StatusCode)
 }
 
-func post(app *App, token *Token, url string, data map[string]string) (*http.Response, error) {
-	if app == nil {
-		return nil, errNoApp
-	}
-	if token == nil {
-		return nil, errNoToken
-	}
-	conn := &oauth.OAuthConsumer{
+func newConsumer(app *App) *oauth.Consumer {
+	return &oauth.Consumer{
+		Key:              app.Key,
+		Secret:           app.Secret,
 		Service:          "twitter",
 		RequestTokenURL:  REQUEST_TOKEN_URL,
 		AccessTokenURL:   ACCESS_TOKEN_URL,
 		AuthorizationURL: AUTHORIZATION_URL,
-		ConsumerKey:      app.Key,
-		ConsumerSecret:   app.Secret,
-		CallBackURL:      "oob",
+		CallbackURL:      "oob",
 	}
-	params := oauth.Params{}
-	for k, v := range data {
-		params = append(params, &oauth.Pair{Key: k, Value: v})
+}
+
+func sendReq(app *App, token *Token, method string, path string, data map[string]string, out interface{}) error {
+	if app == nil {
+		return errNoApp
 	}
-	return conn.Post(STATUS_URL, params, &oauth.AccessToken{
-		Token:  token.Key,
+	if token == nil {
+		return errNoToken
+	}
+	c := newConsumer(app)
+	resp, err := c.SendRequest(method, API_BASE_URL+path, asValues(data), &oauth.Token{
+		Key:    token.Key,
 		Secret: token.Secret,
 	})
+	if err != nil {
+		return err
+	}
+	return parseTwitterResponse(resp, out)
 }
 
 type twitterError struct {
@@ -132,4 +141,12 @@ func parseTwitterResponse(resp *http.Response, out interface{}) error {
 		return err
 	}
 	return nil
+}
+
+func asValues(data map[string]string) url.Values {
+	values := make(url.Values)
+	for k, v := range data {
+		values.Add(k, v)
+	}
+	return values
 }

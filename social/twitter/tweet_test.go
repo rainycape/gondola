@@ -46,7 +46,7 @@ func TestTweet(t *testing.T) {
 		Truncate: true,
 	}
 	for k := range tests {
-		tw, err := Update(k, app, token, opts)
+		tw, err := app.Update(k, token, opts)
 		if err != nil {
 			t.Error(err)
 			continue

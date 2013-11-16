@@ -3,9 +3,11 @@ package template
 // Functions available to gondola templates
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"gnd.la/assets"
+	"gnd.la/mux/serialize"
 	"gnd.la/types"
 	"html/template"
 	"reflect"
@@ -89,15 +91,19 @@ func gte(arg1, arg2 interface{}) (bool, error) {
 	return eq(arg1, arg2), nil
 }
 
-func _json(arg interface{}) string {
-	if arg == nil {
-		return ""
+func jsons(arg interface{}) (string, error) {
+	if jw, ok := arg.(serialize.JSONWriter); ok {
+		var buf bytes.Buffer
+		_, err := jw.WriteJSON(&buf)
+		return buf.String(), err
 	}
 	b, err := json.Marshal(arg)
-	if err == nil {
-		return string(b)
-	}
-	return ""
+	return string(b), err
+}
+
+func _json(arg interface{}) (template.JS, error) {
+	s, err := jsons(arg)
+	return template.JS(s), err
 }
 
 func nz(x interface{}) bool {
@@ -277,6 +283,7 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"gt":        lt,
 	"gte":       lte,
 	"json":      _json,
+	"jsons":     jsons,
 	"nz":        nz,
 	"lower":     lower,
 	"join":      join,

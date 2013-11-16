@@ -38,8 +38,9 @@ func Parse(val string, arg interface{}) error {
 }
 
 func parse(val string, v reflect.Value) error {
-	// If val is empty, do nothing
+	// If val is empty, set the value to zero
 	if val == "" {
+		v.Set(reflect.Zero(v.Type()))
 		return nil
 	}
 	switch v.Type().Kind() {

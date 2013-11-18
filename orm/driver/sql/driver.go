@@ -523,7 +523,9 @@ func (d *Driver) indexName(m driver.Model, idx *index.Index) (string, error) {
 			return "", err
 		}
 		buf.WriteByte('_')
-		buf.WriteString(dbName)
+		// dbName is quoted and includes the table name
+		// extract the unquoted field name.
+		buf.WriteString(unquote(dbName))
 	}
 	return buf.String(), nil
 }
@@ -684,4 +686,10 @@ func NewDriver(b Backend, url *config.URL) (*Driver, error) {
 	driver := &Driver{backend: b, transforms: transforms}
 	driver.db = &db{sqlDb: conn, db: conn, driver: driver}
 	return driver, nil
+}
+
+// Assume s is quoted
+func unquote(s string) string {
+	p := strings.Index(s, ".")
+	return s[p+3 : len(s)-1]
 }

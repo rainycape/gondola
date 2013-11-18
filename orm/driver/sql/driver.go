@@ -57,7 +57,7 @@ func (d *Driver) MakeTables(ms []driver.Model) error {
 			if err != nil {
 				return err
 			}
-			tableFields = append(tableFields, fmt.Sprintf("FOREIGN KEY(%s) REFERENCES %s(%s)", fk, v.Model.Table(), tk))
+			tableFields = append(tableFields, fmt.Sprintf("FOREIGN KEY(\"%s\") REFERENCES \"%s\"(\"%s\")", fk, v.Model.Table(), tk))
 		}
 		sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS \"%s\" (\n%s\n);", v.Table(), strings.Join(tableFields, ",\n"))
 		_, err = d.db.Exec(sql)

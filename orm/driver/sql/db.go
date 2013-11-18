@@ -11,7 +11,7 @@ type DB interface {
 }
 
 type db struct {
-	*sql.DB
+	sqlDb  *sql.DB
 	tx     *sql.Tx
 	db     DB
 	driver *Driver

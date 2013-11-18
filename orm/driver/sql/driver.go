@@ -240,7 +240,7 @@ func (d *Driver) Delete(m driver.Model, q query.Q) (driver.Result, error) {
 }
 
 func (d *Driver) Close() error {
-	return d.db.Close()
+	return d.db.sqlDb.Close()
 }
 
 func (d *Driver) Upserts() bool {
@@ -252,7 +252,7 @@ func (d *Driver) Tags() []string {
 }
 
 func (d *Driver) DB() *sql.DB {
-	return d.db.DB
+	return d.db.sqlDb
 }
 
 func (d *Driver) DBBackend() Backend {
@@ -628,7 +628,7 @@ func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, 
 }
 
 func (d *Driver) Begin() (driver.Tx, error) {
-	tx, err := d.db.Begin()
+	tx, err := d.db.sqlDb.Begin()
 	if err != nil {
 		return nil, err
 	}
@@ -638,7 +638,7 @@ func (d *Driver) Begin() (driver.Tx, error) {
 		transforms: d.transforms,
 	}
 	driver.db = &db{
-		DB:     d.db.DB,
+		sqlDb:  d.db.sqlDb,
 		tx:     tx,
 		db:     tx,
 		driver: driver,
@@ -682,6 +682,6 @@ func NewDriver(b Backend, url *config.URL) (*Driver, error) {
 		}
 	}
 	driver := &Driver{backend: b, transforms: transforms}
-	driver.db = &db{DB: conn, db: conn, driver: driver}
+	driver.db = &db{sqlDb: conn, db: conn, driver: driver}
 	return driver, nil
 }

@@ -2,17 +2,21 @@ package orm
 
 import (
 	"fmt"
+	"gnd.la/orm/driver"
 	"gnd.la/orm/query"
 )
 
 type Query struct {
 	orm       *Orm
-	model     *model
+	model     *joinModel
+	methods   []*driver.Methods
+	jtype     JoinType
 	q         query.Q
 	limit     int
 	offset    int
 	sortField string
 	sortDir   int
+	depth     int
 	err       error
 }
 
@@ -31,6 +35,11 @@ func (q *Query) ensureTable(f string) error {
 // of errors.
 func (q *Query) Table(t *Table) *Query {
 	q.model = t.model
+	return q
+}
+
+func (q *Query) Join(jt JoinType) *Query {
+	q.jtype = jt
 	return q
 }
 
@@ -75,9 +84,9 @@ func (q *Query) Sort(field string, dir Sort) *Query {
 
 // One fetches the first result for this query. If there
 // are no results, it returns ErrNotFound.
-func (q *Query) One(out interface{}) error {
+func (q *Query) One(out ...interface{}) error {
 	iter := q.iter(1)
-	if iter.Next(out) {
+	if iter.Next(out...) {
 		// Must close the iter manually, because we're not
 		// reaching the end.
 		iter.Close()
@@ -125,6 +134,10 @@ func (q *Query) MustCount() uint64 {
 	return c
 }
 
+func (q *Query) SetDepth(depth int) {
+	q.depth = depth
+}
+
 // Clone returns a copy of the query.
 func (q *Query) Clone() *Query {
 	return &Query{
@@ -135,6 +148,7 @@ func (q *Query) Clone() *Query {
 		offset:    q.offset,
 		sortField: q.sortField,
 		sortDir:   q.sortDir,
+		depth:     q.depth,
 		err:       q.err,
 	}
 }

@@ -36,8 +36,8 @@ func (m *Methods) method(idx int, obj interface{}) error {
 	return nil
 }
 
-func MakeMethods(typ reflect.Type) (m Methods, err error) {
-	m = Methods{-1, -1}
+func MakeMethods(typ reflect.Type) (m *Methods, err error) {
+	m = &Methods{-1, -1}
 	// Get pointer methods
 	if typ.Kind() != reflect.Ptr {
 		typ = reflect.PtrTo(typ)

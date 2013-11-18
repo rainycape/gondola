@@ -8,6 +8,10 @@ type Q interface {
 	q()
 }
 
+// F represents a reference to a field. This is used to disambiguate
+// when the value in a Q refers to a string or a field.
+type F string
+
 type Field struct {
 	Field string
 	Value interface{}
@@ -57,4 +61,10 @@ type And struct {
 
 type Or struct {
 	Combinator
+}
+
+type Join struct {
+    Model interface{}
+    Field string
+    Query Q
 }

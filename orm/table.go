@@ -1,5 +1,25 @@
 package orm
 
+import (
+	"gnd.la/orm/query"
+)
+
 type Table struct {
-	model *model
+	model *joinModel
+}
+
+func (t *Table) Join(table *Table, q query.Q, jt JoinType) (*Table, error) {
+	join := t.model.clone()
+	if err := join.joinWith(table.model.model, q, jt); err != nil {
+		return nil, err
+	}
+	return &Table{model: join}, nil
+}
+
+func (t *Table) MustJoin(table *Table, q query.Q, jt JoinType) *Table {
+	tbl, err := t.Join(table, q, jt)
+	if err != nil {
+		panic(err)
+	}
+	return tbl
 }

@@ -4,8 +4,16 @@ import (
 	"gnd.la/types"
 )
 
+type Reference struct {
+    Model Model
+    Field string
+}
+
 type Fields struct {
 	*types.Struct
+	// Quoted mangled names of the fields, including the table
+	// name (e.g. "table"."field").
+	QuotedNames []string
 	// Fields which should be omitted when they are empty
 	OmitEmpty []bool
 	// Fields which should become null when they are empty
@@ -17,7 +25,10 @@ type Fields struct {
 	// The fields which make the composite primary key, if any
 	CompositePrimaryKey []int
 	// Model methods called by the ORM
-	Methods Methods
+	Methods *Methods
+	// Other models referenced by this model. The key
+	// is the field name in this model.
+	References map[string]*Reference
 }
 
 func (f *Fields) IsSubfield(field, parent []int) bool {

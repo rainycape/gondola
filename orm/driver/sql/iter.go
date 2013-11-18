@@ -13,31 +13,62 @@ type Iter struct {
 	err    error
 }
 
-func (i *Iter) Next(out interface{}) bool {
+func (i *Iter) Next(out ...interface{}) bool {
 	if i.err == nil && i.rows != nil && i.rows.Next() {
-		var val reflect.Value
-		var fields *driver.Fields
+		var vals []reflect.Value
+		var fields []*driver.Fields
 		var values []interface{}
-		var scanners []scanner
-		val, fields, values, scanners, i.err = i.driver.outValues(i.model, out)
-		if i.err == nil {
-			i.err = i.rows.Scan(values...)
+		var scanners [][]scanner
+		model := i.model
+		for _, v := range out {
+			val, vfields, vvalues, vscanners, err := i.driver.outValues(model, v)
+			if err != nil {
+				i.err = err
+				return false
+			}
+			vals = append(vals, val)
+			fields = append(fields, vfields)
+			values = append(values, vvalues...)
+			scanners = append(scanners, vscanners)
+			if j := model.Join(); j != nil {
+				model = j.Model()
+			}
 		}
-		for _, p := range fields.Pointers {
-			isNil := true
-			for ii, v := range fields.Indexes {
-				if fields.IsSubfield(v, p) && !scanners[ii].IsNil() {
-					isNil = false
-					break
+		i.err = i.rows.Scan(values...)
+		for ii, f := range fields {
+			vscanners := scanners[ii]
+			nilVal := true
+			for _, p := range f.Pointers {
+				isNil := true
+				for jj, v := range f.Indexes {
+					if f.IsSubfield(v, p) && !vscanners[jj].IsNil() {
+						isNil = false
+						nilVal = false
+						break
+					}
+				}
+				if isNil {
+					fval := i.driver.fieldByIndex(vals[ii], p, false)
+					fval.Set(reflect.Zero(fval.Type()))
 				}
 			}
-			if isNil {
-				fval := i.driver.fieldByIndex(val, p, false)
-				fval.Set(reflect.Zero(fval.Type()))
+			if nilVal {
+				for _, v := range vscanners {
+					if !v.IsNil() {
+						nilVal = false
+						break
+					}
+				}
+			}
+			if nilVal {
+				val := reflect.ValueOf(out[ii]).Elem()
+				val.Set(reflect.Zero(val.Type()))
 			}
 		}
-		for _, v := range scanners {
-			v.Put()
+		for _, s := range scanners {
+			for _, v := range s {
+				v.Put()
+			}
 		}
 		return i.err == nil
 	}

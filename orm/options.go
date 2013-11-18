@@ -15,6 +15,11 @@ type Options struct {
 	// omit the package name (e.g. Foo becomes foo,
 	// not main_foo).
 	Table string
+	// Name is the model name which is going to be registered
+	// by default, it's the type name in its package. The
+	// model name is used when specifying relations and when
+	// disambiguating field names.
+	Name string
 	// Any indexes that can't be declared using field tags
 	// (most of the time because they index multiple fields
 	// or require special flags).
@@ -26,5 +31,8 @@ type Options struct {
 	// defined in both the a field tag and using this field, an
 	// error will be returned when registering the model.
 	PrimaryKey []string
-	Relations  []*Relation
+	// Default indicates if the model should override any previously
+	// registered models and become the default model for its type.
+	// (otherwise, the first registered model is the default for the type).
+	Default bool
 }

@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	"gnd.la/config"
@@ -26,8 +27,9 @@ type Orm struct {
 	logger     *log.Logger
 	tags       string
 	numQueries int
-	// this field is non-nil iff the ORM driver uses database/sql
-	db *sql.DB
+	// these fields are non-nil iff the ORM driver uses database/sql
+	db        *sql.DB
+	sqlDriver *ormsql.Driver
 }
 
 // Table returns a Query object initialized with the given table.
@@ -72,8 +74,8 @@ func (o *Orm) Query(q query.Q) *Query {
 }
 
 // One is a shorthand for Query(q).One(&out)
-func (o *Orm) One(q query.Q, out interface{}) error {
-	return o.Query(q).One(out)
+func (o *Orm) One(q query.Q, out ...interface{}) error {
+	return o.Query(q).One(out...)
 }
 
 // All is a shorthand for Query(nil)
@@ -112,7 +114,7 @@ func (o *Orm) InsertInto(t *Table, obj interface{}) (Result, error) {
 	if err := t.model.fields.Methods.Save(obj); err != nil {
 		return nil, err
 	}
-	return o.insert(t.model, obj)
+	return o.insert(t.model.model, obj)
 }
 
 // MustInsertInto works like InsertInto, but panics if there's
@@ -254,7 +256,7 @@ func (o *Orm) SaveInto(t *Table, obj interface{}) (Result, error) {
 	if err := t.model.fields.Methods.Save(obj); err != nil {
 		return nil, err
 	}
-	return o.save(t.model, obj)
+	return o.save(t.model.model, obj)
 }
 
 // MustSaveInto works like SaveInto, but panics if there's an error.
@@ -313,7 +315,7 @@ func (o *Orm) save(m *model, obj interface{}) (Result, error) {
 // DeleteFromTable removes all objects from the given table matching
 // the query.
 func (o *Orm) DeleteFromTable(t *Table, q query.Q) (Result, error) {
-	return o.delete(t.model, q)
+	return o.delete(t.model.model, q)
 }
 
 // Delete removes the given object, which must be of a type
@@ -337,7 +339,7 @@ func (o *Orm) MustDelete(obj interface{}) {
 // DeleteFrom works like Delete, but deletes from the given table
 // (as returned by Register)
 func (o *Orm) DeleteFrom(t *Table, obj interface{}) error {
-	return o.deleteByPk(t.model, obj)
+	return o.deleteByPk(t.model.model, obj)
 }
 
 func (o *Orm) deleteByPk(m *model, obj interface{}) error {
@@ -439,12 +441,20 @@ func (o *Orm) SqlDB() *sql.DB {
 // SqlQuery performs the given query on the database/sql backend and
 // returns and iter with the results. If the underlying connection is
 // not using database/sql, the returned Iter will have no results and
-// will report the error ErrNoSql.
+// will report the error ErrNoSql. Note that the SELECT <fields> part
+// of the query will be prepended by the ORM, so your query should not
+// include it.
 func (o *Orm) SqlQuery(t *Table, query string, args ...interface{}) *Iter {
 	if o.db == nil {
 		return &Iter{err: ErrNoSql}
 	}
-	rows, err := o.db.Query(query, args...)
+	var buf bytes.Buffer
+	if err := o.sqlDriver.SelectStmt(nil, true, t.model, &buf, &args); err != nil {
+		return &Iter{err: err}
+	}
+	buf.WriteByte(' ')
+	buf.WriteString(query)
+	rows, err := o.db.Query(buf.String(), args...)
 	return &Iter{
 		Iter: ormsql.NewIter(t.model, o.driver, rows, err),
 		q:    &Query{model: t.model},
@@ -477,6 +487,22 @@ func (o *Orm) model(obj interface{}) (*model, error) {
 		return nil, fmt.Errorf("no model registered for type %v with tags %q", t, o.tags)
 	}
 	return model, nil
+}
+
+func (o *Orm) models(objs []interface{}, jt JoinType) (*joinModel, []*driver.Methods, error) {
+	jm := &joinModel{}
+	var methods []*driver.Methods
+	for _, v := range objs {
+		vm, err := o.model(v)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := jm.joinWith(vm, nil, jt); err != nil {
+			return nil, nil, err
+		}
+		methods = append(methods, vm.fields.Methods)
+	}
+	return jm, methods, nil
 }
 
 func (o *Orm) fieldByIndex(val reflect.Value, indexes []int) reflect.Value {
@@ -515,10 +541,6 @@ func (o *Orm) compositePrimaryKey(f *driver.Fields, obj interface{}) ([]string, 
 	return names, values
 }
 
-type sqldriver interface {
-	DB() *sql.DB
-}
-
 // Open creates a new ORM using the specified
 // configuration URL.
 func New(url *config.URL) (*Orm, error) {
@@ -534,14 +556,14 @@ func New(url *config.URL) (*Orm, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error opening ORM driver %q: %s", name, err)
 	}
-	var db *sql.DB
-	if dbDrv, ok := drv.(sqldriver); ok {
-		db = dbDrv.DB()
-	}
-	return &Orm{
+	o := &Orm{
 		conn:   drv,
 		driver: drv,
 		tags:   strings.Join(drv.Tags(), "-"),
-		db:     db,
-	}, nil
+	}
+	if sqlDriver, ok := drv.(*ormsql.Driver); ok {
+		o.sqlDriver = sqlDriver
+		o.db = sqlDriver.DB()
+	}
+	return o, nil
 }

@@ -72,6 +72,11 @@ type Composite struct {
 	Value string
 }
 
+func equalTimes(t1, t2 time.Time) bool {
+	// Compare seconds, since some backends (like sqlite) loss subsecond precission
+	return t1.Truncate(time.Second).Equal(t2.Truncate(time.Second))
+}
+
 func newOrm(t T, url string, logging bool) *Orm {
 	// Clear registry
 	_nameRegistry = map[string]nameRegistry{}
@@ -149,8 +154,7 @@ func testTime(t *testing.T, o *Orm) {
 	if err != nil {
 		t.Error(err)
 	} else {
-		// Compare seconds, since some backends (like sqlite) loss subsecond precission
-		if !t1.Timestamp.Truncate(time.Second).Equal(now.Truncate(time.Second)) {
+		if !equalTimes(t1.Timestamp, now) {
 			t.Errorf("invalid timestamp %v, expected %v.", t1.Timestamp, now)
 		}
 	}

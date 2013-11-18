@@ -14,23 +14,32 @@ type Iter struct {
 // Next advances the iter to the next result,
 // filling the fields in the out parameter. It
 // returns true iff there was a result.
-func (i *Iter) Next(out interface{}) bool {
+func (i *Iter) Next(out ...interface{}) bool {
 	if i.err != nil {
 		return false
 	}
 	if i.Iter == nil {
 		if i.q.model == nil {
-			i.q.model, i.err = i.q.orm.model(out)
-			if i.q.model == nil {
+			i.q.model, i.q.methods, i.err = i.q.orm.models(out, i.q.jtype)
+			if i.err != nil {
 				return false
+			}
+		} else {
+			i.q.methods = append(i.q.methods, i.q.model.fields.Methods)
+			for cur := i.q.model.join; cur != nil; cur = cur.model.join {
+				i.q.methods = append(i.q.methods, cur.model.fields.Methods)
 			}
 		}
 		i.q.orm.numQueries++
 		i.Iter = i.q.orm.conn.Query(i.q.model, i.q.q, i.limit, i.q.offset, i.q.sortDir, i.q.sortField)
 	}
-	ok := i.Iter.Next(out)
+	ok := i.Iter.Next(out...)
 	if ok {
-		i.err = i.q.model.fields.Methods.Load(out)
+		for ii, v := range out {
+			if i.err = i.q.methods[ii].Load(v); i.err != nil {
+				break
+			}
+		}
 	} else {
 		i.Close()
 	}
@@ -77,8 +86,12 @@ func (i *Iter) P() {
 // Close manually to avoid leaking resources. Close is idempotent.
 func (i *Iter) Close() error {
 	if i.Iter != nil {
+		ierr := i.Iter.Err()
 		err := i.Iter.Close()
 		i.Iter = nil
+		if ierr != nil {
+			i.err = ierr
+		}
 		return err
 	}
 	return nil

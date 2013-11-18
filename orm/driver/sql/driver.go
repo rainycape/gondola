@@ -30,7 +30,6 @@ type Driver struct {
 
 func (d *Driver) MakeTables(ms []driver.Model) error {
 	// Create tables
-	// TODO: References
 	for _, v := range ms {
 		tableFields, err := d.tableFields(v)
 		if err != nil {
@@ -40,13 +39,25 @@ func (d *Driver) MakeTables(ms []driver.Model) error {
 			log.Debugf("Skipping collection %s (model %v) because it has no fields", v.Table, v)
 			continue
 		}
-		if cpk := v.Fields().CompositePrimaryKey; len(cpk) > 0 {
+		fields := v.Fields()
+		if cpk := fields.CompositePrimaryKey; len(cpk) > 0 {
 			var pkFields []string
 			qnames := v.Fields().MNames
 			for _, f := range cpk {
 				pkFields = append(pkFields, fmt.Sprintf("\"%s\"", qnames[f]))
 			}
 			tableFields = append(tableFields, fmt.Sprintf("PRIMARY KEY(%s)", strings.Join(pkFields, ",")))
+		}
+		for k, v := range fields.References {
+			fk, _, err := fields.Map(k)
+			if err != nil {
+				return err
+			}
+			tk, _, err := v.Model.Fields().Map(v.Field)
+			if err != nil {
+				return err
+			}
+			tableFields = append(tableFields, fmt.Sprintf("FOREIGN KEY(%s) REFERENCES %s(%s)", fk, v.Model.Table(), tk))
 		}
 		sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS \"%s\" (\n%s\n);", v.Table(), strings.Join(tableFields, ",\n"))
 		_, err = d.db.Exec(sql)
@@ -71,7 +82,7 @@ func (d *Driver) MakeTables(ms []driver.Model) error {
 }
 
 func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) driver.Iter {
-	query, params, err := d.Select(m.Fields().MNames, true, m, q, limit, offset, sort, sortField)
+	query, params, err := d.Select(nil, true, m, q, limit, offset, sort, sortField)
 	if err != nil {
 		return &Iter{err: err}
 	}
@@ -130,8 +141,7 @@ func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error)
 }
 
 func (d *Driver) Operate(m driver.Model, q query.Q, op *operation.Operation) (driver.Result, error) {
-	fields := m.Fields()
-	dbName, _, err := fields.Map(op.Field)
+	dbName, _, err := m.Map(op.Field)
 	if err != nil {
 		return nil, err
 	}
@@ -145,23 +155,23 @@ func (d *Driver) Operate(m driver.Model, q query.Q, op *operation.Operation) (dr
 	buf.WriteByte('=')
 	var params []interface{}
 	switch op.Operator {
-	    case operation.Add, operation.Sub:
+	case operation.Add, operation.Sub:
 		buf.WriteString(dbName)
 		if op.Operator == operation.Add {
-		    buf.WriteByte('+')
+			buf.WriteByte('+')
 		} else {
-		    buf.WriteByte('-')
+			buf.WriteByte('-')
 		}
 		buf.WriteString(d.backend.Placeholder(1))
 		params = append(params, op.Value)
-	    case operation.Set:
+	case operation.Set:
 		if f, ok := op.Value.(operation.Field); ok {
-		    buf.WriteString(string(f))
+			buf.WriteString(string(f))
 		} else {
-		    buf.WriteString(d.backend.Placeholder(1))
-		    params = append(params, op.Value)
+			buf.WriteString(d.backend.Placeholder(1))
+			params = append(params, op.Value)
 		}
-	    default:
+	default:
 		return nil, fmt.Errorf("operator %d is not supported", op.Operator)
 	}
 	where, qParams, err := d.where(m, q, len(params))
@@ -255,7 +265,7 @@ func (d *Driver) SetLogger(logger *log.Logger) {
 
 func (d *Driver) debugq(sql string, args []interface{}) {
 	if d.logger != nil {
-		d.logger.Debugf("SQL %q with arguments %v", sql, args)
+		d.logger.Debugf("SQL: %s with arguments %v", sql, args)
 	}
 }
 
@@ -355,7 +365,7 @@ func (d *Driver) outValues(m driver.Model, out interface{}) (reflect.Value, *dri
 	val := reflect.ValueOf(out)
 	vt := val.Type()
 	if vt.Kind() != reflect.Ptr {
-		return reflect.Value{}, nil, nil, nil, fmt.Errorf("can't set object of type %t. Please, pass a %v rather than a %v", out, reflect.PtrTo(vt), vt)
+		return reflect.Value{}, nil, nil, nil, fmt.Errorf("can't set object of type %T. Please, pass a %v rather than a %v", out, reflect.PtrTo(vt), vt)
 	}
 	if vt.Elem().Kind() == reflect.Ptr && vt.Elem().Elem().Kind() == reflect.Struct {
 		// Received a pointer to pointer. Always create a new object,
@@ -414,42 +424,42 @@ func (d *Driver) tableFields(m driver.Model) ([]string, error) {
 
 func (d *Driver) where(m driver.Model, q query.Q, begin int) (string, []interface{}, error) {
 	var params []interface{}
-	clause, err := d.condition(m.Fields(), q, &params, begin)
+	clause, err := d.condition(m, q, &params, begin)
 	return clause, params, err
 }
 
-func (d *Driver) condition(fields *driver.Fields, q query.Q, params *[]interface{}, begin int) (string, error) {
+func (d *Driver) condition(m driver.Model, q query.Q, params *[]interface{}, begin int) (string, error) {
 	var clause string
 	var err error
 	switch x := q.(type) {
 	case *query.Eq:
 		if isNil(x.Value) {
 			x.Value = nil
-			clause, err = d.clause(fields, "%s IS NULL", &x.Field, params, begin)
+			clause, err = d.clause(m, "%s IS NULL", &x.Field, params, begin)
 		} else {
-			clause, err = d.clause(fields, "%s = %s", &x.Field, params, begin)
+			clause, err = d.clause(m, "%s = %s", &x.Field, params, begin)
 		}
 	case *query.Neq:
 		if isNil(x.Value) {
 			x.Value = nil
-			clause, err = d.clause(fields, "%s IS NOT NULL", &x.Field, params, begin)
+			clause, err = d.clause(m, "%s IS NOT NULL", &x.Field, params, begin)
 		} else {
-			clause, err = d.clause(fields, "%s != %s", &x.Field, params, begin)
+			clause, err = d.clause(m, "%s != %s", &x.Field, params, begin)
 		}
 	case *query.Lt:
-		clause, err = d.clause(fields, "%s < %s", &x.Field, params, begin)
+		clause, err = d.clause(m, "%s < %s", &x.Field, params, begin)
 	case *query.Lte:
-		clause, err = d.clause(fields, "%s <= %s", &x.Field, params, begin)
+		clause, err = d.clause(m, "%s <= %s", &x.Field, params, begin)
 	case *query.Gt:
-		clause, err = d.clause(fields, "%s > %s", &x.Field, params, begin)
+		clause, err = d.clause(m, "%s > %s", &x.Field, params, begin)
 	case *query.Gte:
-		clause, err = d.clause(fields, "%s >= %s", &x.Field, params, begin)
+		clause, err = d.clause(m, "%s >= %s", &x.Field, params, begin)
 	case *query.In:
 		value := reflect.ValueOf(x.Value)
 		if value.Type().Kind() != reflect.Slice {
 			return "", fmt.Errorf("argument for IN must be a slice (field %s)", x.Field.Field)
 		}
-		dbName, _, err := fields.Map(x.Field.Field)
+		dbName, _, err := m.Map(x.Field.Field)
 		if err != nil {
 			return "", err
 		}
@@ -463,29 +473,36 @@ func (d *Driver) condition(fields *driver.Fields, q query.Q, params *[]interface
 		}
 		clause = fmt.Sprintf("%s IN (%s)", dbName, strings.Join(placeholders, ","))
 	case *query.And:
-		clause, err = d.conditions(fields, x.Conditions, " AND ", params, begin)
+		clause, err = d.conditions(m, x.Conditions, " AND ", params, begin)
 	case *query.Or:
-		clause, err = d.conditions(fields, x.Conditions, " OR ", params, begin)
+		clause, err = d.conditions(m, x.Conditions, " OR ", params, begin)
 	}
 	return clause, err
 }
 
-func (d *Driver) clause(fields *driver.Fields, format string, f *query.Field, params *[]interface{}, begin int) (string, error) {
-	dbName, _, err := fields.Map(f.Field)
+func (d *Driver) clause(m driver.Model, format string, f *query.Field, params *[]interface{}, begin int) (string, error) {
+	dbName, _, err := m.Map(f.Field)
 	if err != nil {
 		return "", err
 	}
 	if f.Value != nil {
+		if field, ok := f.Value.(query.F); ok {
+			fName, _, err := m.Map(string(field))
+			if err != nil {
+				return "", err
+			}
+			return fmt.Sprintf(format, dbName, fName), nil
+		}
 		*params = append(*params, f.Value)
 		return fmt.Sprintf(format, dbName, d.backend.Placeholder(len(*params)+begin)), nil
 	}
 	return fmt.Sprintf(format, dbName), nil
 }
 
-func (d *Driver) conditions(fields *driver.Fields, q []query.Q, sep string, params *[]interface{}, begin int) (string, error) {
+func (d *Driver) conditions(m driver.Model, q []query.Q, sep string, params *[]interface{}, begin int) (string, error) {
 	clauses := make([]string, len(q))
 	for ii, v := range q {
-		c, err := d.condition(fields, v, params, begin)
+		c, err := d.condition(m, v, params, begin)
 		if err != nil {
 			return "", err
 		}
@@ -500,9 +517,8 @@ func (d *Driver) indexName(m driver.Model, idx *index.Index) (string, error) {
 	}
 	var buf bytes.Buffer
 	buf.WriteString(m.Table())
-	fields := m.Fields()
 	for _, v := range idx.Fields {
-		dbName, _, err := fields.Map(v)
+		dbName, _, err := m.Map(v)
 		if err != nil {
 			return "", err
 		}
@@ -512,24 +528,35 @@ func (d *Driver) indexName(m driver.Model, idx *index.Index) (string, error) {
 	return buf.String(), nil
 }
 
-func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) (string, []interface{}, error) {
-	where, params, err := d.where(m, q, 0)
-	if err != nil {
-		return "", nil, err
-	}
-	var buf bytes.Buffer
+func (d *Driver) SelectStmt(fields []string, quote bool, m driver.Model, buf *bytes.Buffer, params *[]interface{}) error {
 	buf.WriteString("SELECT ")
-	if quote {
-		for _, v := range fields {
-			buf.WriteByte('"')
-			buf.WriteString(v)
-			buf.WriteByte('"')
-			buf.WriteByte(',')
+	if fields != nil {
+		if quote {
+			for _, v := range fields {
+				buf.WriteByte('"')
+				buf.WriteString(v)
+				buf.WriteByte('"')
+				buf.WriteByte(',')
+			}
+		} else {
+			for _, v := range fields {
+				buf.WriteString(v)
+				buf.WriteByte(',')
+			}
 		}
 	} else {
-		for _, v := range fields {
-			buf.WriteString(v)
-			buf.WriteByte(',')
+		// Select all fields for the given model (which might be joined)
+		cur := m
+		for {
+			for _, v := range cur.Fields().QuotedNames {
+				buf.WriteString(v)
+				buf.WriteByte(',')
+			}
+			join := cur.Join()
+			if join == nil {
+				break
+			}
+			cur = join.Model()
 		}
 	}
 	buf.Truncate(buf.Len() - 1)
@@ -537,13 +564,47 @@ func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, 
 	buf.WriteByte('"')
 	buf.WriteString(m.Table())
 	buf.WriteByte('"')
+	for join := m.Join(); join != nil; {
+		jm := join.Model()
+		switch join.Type() {
+		case driver.OuterJoin:
+			buf.WriteString(" FULL OUTER")
+		case driver.LeftJoin:
+			buf.WriteString(" LEFT OUTER")
+		case driver.RightJoin:
+			buf.WriteString(" RIGHT OUTER")
+		}
+		buf.WriteString(" JOIN ")
+		buf.WriteByte('"')
+		buf.WriteString(jm.Table())
+		buf.WriteByte('"')
+		buf.WriteString(" ON ")
+		clause, err := d.condition(m, join.Query(), params, 0)
+		if err != nil {
+			return err
+		}
+		buf.WriteString(clause)
+		join = jm.Join()
+	}
+	return nil
+}
+
+func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) (string, []interface{}, error) {
+	where, params, err := d.where(m, q, 0)
+	if err != nil {
+		return "", nil, err
+	}
+	var buf bytes.Buffer
+	if err := d.SelectStmt(fields, quote, m, &buf, &params); err != nil {
+		return "", nil, err
+	}
 	if where != "" {
 		buf.WriteString(" WHERE ")
 		buf.WriteString(where)
 	}
 	if sort != driver.NONE && sortField != "" {
 		buf.WriteString(" ORDER BY ")
-		dbName, _, err := m.Fields().Map(sortField)
+		dbName, _, err := m.Map(sortField)
 		if err != nil {
 			return "", nil, err
 		}

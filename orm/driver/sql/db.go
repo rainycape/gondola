@@ -29,5 +29,5 @@ func (d *db) Query(query string, args ...interface{}) (*sql.Rows, error) {
 
 func (d *db) QueryRow(query string, args ...interface{}) *sql.Row {
 	d.driver.debugq(query, args)
-	return d.DB.QueryRow(query, args...)
+	return d.db.QueryRow(query, args...)
 }

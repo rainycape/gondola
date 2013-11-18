@@ -38,6 +38,9 @@ func (q *Query) Table(t *Table) *Query {
 	return q
 }
 
+// Join sets the default join type for this query. If not
+// specifed, an INNER JOIN is performed. Note that not all
+// drivers support RIGHT joins (e.g. sqlite).
 func (q *Query) Join(jt JoinType) *Query {
 	q.jtype = jt
 	return q

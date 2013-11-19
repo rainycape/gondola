@@ -24,6 +24,11 @@ type TimedEvent struct {
 	Name  string
 }
 
+var (
+	eventNames = []string{"E1", "E2", "E3"}
+	eventCount = len(eventNames)
+)
+
 func testBadReferences(t *testing.T, o *Orm) {
 	// TODO: Test for bad references which omit the field
 	// and bad references to non-existant field names
@@ -41,6 +46,30 @@ func testBadReferences(t *testing.T, o *Orm) {
 	}
 	if err := o.Initialize(); err == nil || !strings.Contains(err.Error(), "type") {
 		t.Errorf("expecting error when registering FK of different type, got %s instead", err)
+	}
+}
+
+func testCount(t *testing.T, count int, expected int, msg string) {
+	if expected < 0 {
+		expected = eventCount
+	}
+	if count != expected {
+		t.Errorf("expecting %d results for %s, got %d instead", expected, msg, count)
+	}
+}
+
+func testEvent(t *testing.T, event *Event, pos int) {
+	if pos < 0 {
+		pos = len(eventNames) - pos
+	}
+	if expect := eventNames[pos]; expect != event.Name {
+		t.Errorf("expecting event name %q, got %q instead", expect, event.Name)
+	}
+}
+
+func testIterErr(t *testing.T, iter *Iter) {
+	if err := iter.Err(); err != nil {
+		t.Error(err)
 	}
 }
 
@@ -76,7 +105,6 @@ func testReferences(t *testing.T, o *Orm) {
 		}
 		timestamps = append(timestamps, ts)
 	}
-	eventNames := []string{"E1", "E2", "E3"}
 	for _, v := range eventNames {
 		if _, err := o.Insert(&Event{Timestamp: timestamps[0].Id, Name: v}); err != nil {
 			t.Fatal(err)
@@ -94,41 +122,26 @@ func testReferences(t *testing.T, o *Orm) {
 	if err := iter.Err(); err == nil || !strings.Contains(err.Error(), "ambiguous") {
 		t.Errorf("expecting ambiguous query error, got %v instead", err)
 	}
+	var count int
 	// Fetch all the events for timestamp with id=1
-	iter = o.Query(Eq("Timestamp|Id", 1)).Sort("Event|Id", DESC).Iter()
-	count := 0
-	for iter.Next(&timestamp, &event) {
+	iter = o.Query(Eq("Timestamp|Id", 1)).Sort("Event|Id", ASC).Iter()
+	for count = 0; iter.Next(&timestamp, &event); count++ {
 		if !equalTimes(t1, timestamp.Timestamp) {
 			t.Errorf("expecting time %v, got %v instead", t1, timestamp.Timestamp)
 		}
-		if expect := eventNames[len(eventNames)-count-1]; expect != event.Name {
-			t.Errorf("expecting event name %q, got %q instead", expect, event.Name)
-		}
-		count++
+		testEvent(t, event, count)
 	}
-	if count != 3 {
-		t.Errorf("expecting 3 results for timestamp Id=1, got %d instead", count)
-	}
-	if err := iter.Err(); err != nil {
-		t.Error(err)
-	}
+	testCount(t, count, -1, "timestamp Id=1")
+	testIterErr(t, iter)
 	// Fetch all the events for timestamp with id=1, but ignore the timestamp
-	iter = o.Query(Eq("Timestamp|Id", 1)).Sort("Event|Name", DESC).Iter()
-	count = 0
-	for iter.Next((*Timestamp)(nil), &event) {
-		if expect := eventNames[len(eventNames)-count-1]; expect != event.Name {
-			t.Errorf("expecting event name %q, got %q instead", expect, event.Name)
-		}
-		count++
+	iter = o.Query(Eq("Timestamp|Id", 1)).Sort("Event|Name", ASC).Iter()
+	for count = 0; iter.Next((*Timestamp)(nil), &event); count++ {
+		testEvent(t, event, count)
 	}
-	if count != 3 {
-		t.Errorf("expecting 3 results for timestamp Id=1, got %d instead", count)
-	}
-	if err := iter.Err(); err != nil {
-		t.Error(err)
-	}
+	testCount(t, count, -1, "timestamp Id=1")
+	testIterErr(t, iter)
 	// This should produce an untyped nil pointer error
-	iter = o.Query(Eq("Timestamp|Id", 1)).Sort("Event|Name", DESC).Iter()
+	iter = o.Query(Eq("Timestamp|Id", 1)).Iter()
 	for iter.Next(nil, &event) {
 	}
 	if err := iter.Err(); err != errUntypedNilPointer {
@@ -136,90 +149,58 @@ func testReferences(t *testing.T, o *Orm) {
 	}
 	// Fetch all the events for timestamp with id=1, but ignore the timestamp using an
 	// explicit table.
-	iter = o.Query(Eq("Timestamp|Id", 1)).Sort("Event|Name", DESC).Table(timestampTable.Skip().MustJoin(eventTable, nil, InnerJoin)).Iter()
-	count = 0
-	for iter.Next(nil, &event) {
-		if expect := eventNames[len(eventNames)-count-1]; expect != event.Name {
-			t.Errorf("expecting event name %q, got %q instead", expect, event.Name)
-		}
-		count++
+	iter = o.Query(Eq("Timestamp|Id", 1)).Sort("Event|Name", ASC).Table(timestampTable.Skip().MustJoin(eventTable, nil, InnerJoin)).Iter()
+	for count = 0; iter.Next(nil, &event); count++ {
+		testEvent(t, event, count)
 	}
-	if count != 3 {
-		t.Errorf("expecting 3 results for timestamp Id=1, got %d instead", count)
-	}
-	if err := iter.Err(); err != nil {
-		t.Error(err)
-	}
+	testCount(t, count, -1, "timestamp Id=1")
+	testIterErr(t, iter)
 	// Fetch all the events for timestamp with id=2. There are no events so event
 	// should be nil.
 	iter = o.Query(Eq("Timestamp|Id", 2)).Join(LeftJoin).Iter()
-	count = 0
-	for iter.Next(&timestamp, &event) {
+	for count = 0; iter.Next(&timestamp, &event); count++ {
 		if event != nil {
 			t.Errorf("expecting nil event for Timestamp Id=2, got %+v instead", event)
 		}
-		count++
 	}
-	if count != 1 {
-		t.Errorf("expecting 1 result for Timestamp Id=2, got %d instead", count)
-	}
-	if err := iter.Err(); err != nil {
-		t.Error(err)
-	}
+	testCount(t, count, 1, "Timestamp Id=2")
+	testIterErr(t, iter)
 	// Fetch event with id=2 with its timestamp.
 	iter = o.Query(Eq("Event|Id", 2)).Iter()
-	count = 0
-	for iter.Next(&event, &timestamp) {
+	for count = 0; iter.Next(&event, &timestamp); count++ {
 		if event.Name != "E2" {
 			t.Errorf("expecting event name E2, got %s instead", event.Name)
 		}
 		if !equalTimes(t1, timestamp.Timestamp) {
 			t.Errorf("expecting time %v, got %v instead", t1, timestamp.Timestamp)
 		}
-		count++
 	}
-	if count != 1 {
-		t.Errorf("expecting 1 result for Event Id=2, got %d instead", count)
-	}
-	if err := iter.Err(); err != nil {
-		t.Error(err)
-	}
+	testCount(t, count, 1, "Event Id=2")
+	testIterErr(t, iter)
 	// Now do the same but pass (timestamp, event) to next. The ORM
 	// should perform the join correctly anyway.
 	iter = o.Query(Eq("Event|Id", 2)).Iter()
-	count = 0
-	for iter.Next(&timestamp, &event) {
+	for count = 0; iter.Next(&timestamp, &event); count++ {
 		if event.Name != "E2" {
 			t.Errorf("expecting event name E2, got %s instead", event.Name)
 		}
 		if !equalTimes(t1, timestamp.Timestamp) {
 			t.Errorf("expecting time %v, got %v instead", t1, timestamp.Timestamp)
 		}
-		count++
 	}
-	if count != 1 {
-		t.Errorf("expecting 1 result for Event Id=2, got %d instead", count)
-	}
-	if err := iter.Err(); err != nil {
-		t.Error(err)
-	}
+	testCount(t, count, 1, "Event Id=2")
+	testIterErr(t, iter)
 	iter = o.Query(Eq("Event|Id", 4)).Table(eventTable.MustJoin(timestampTable, nil, LeftJoin)).Iter()
-	count = 0
-	for iter.Next(&event, &timestamp) {
+	for count = 0; iter.Next(&event, &timestamp); count++ {
 		if event.Name != "E4" {
 			t.Errorf("expecting event name E4, got %s instead", event.Name)
 		}
 		if timestamp != nil {
 			t.Errorf("expecting nil Timestamp, got %v instead", timestamp)
 		}
-		count++
 	}
-	if count != 1 {
-		t.Errorf("expecting 1 result for Event Id=4, got %d instead", count)
-	}
-	if err := iter.Err(); err != nil {
-		t.Error(err)
-	}
+	testCount(t, count, 1, "Event Id=4")
+	testIterErr(t, iter)
 }
 
 func TestBadReferences(t *testing.T) {

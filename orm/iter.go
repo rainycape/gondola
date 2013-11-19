@@ -30,8 +30,7 @@ func (i *Iter) Next(out ...interface{}) bool {
 				i.q.methods = append(i.q.methods, cur.model.fields.Methods)
 			}
 		}
-		i.q.orm.numQueries++
-		i.Iter = i.q.orm.conn.Query(i.q.model, i.q.q, i.limit, i.q.offset, i.q.sortDir, i.q.sortField)
+		i.Iter = i.q.exec(i.limit)
 	}
 	ok := i.Iter.Next(out...)
 	if ok {

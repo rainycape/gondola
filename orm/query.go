@@ -163,3 +163,8 @@ func (q *Query) iter(limit int) *Iter {
 		err:   q.err,
 	}
 }
+
+func (q *Query) exec(limit int) driver.Iter {
+	q.orm.numQueries++
+	return q.orm.conn.Query(q.model, q.q, limit, q.offset, q.sortDir, q.sortField)
+}

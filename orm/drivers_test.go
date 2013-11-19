@@ -2,6 +2,7 @@ package orm
 
 import (
 	"fmt"
+	_ "gnd.la/orm/driver/mysql"
 	_ "gnd.la/orm/driver/postgres"
 	_ "gnd.la/orm/driver/sqlite"
 	"os"
@@ -47,6 +48,16 @@ func TestPostgres(t *testing.T) {
 	exec.Command("dropdb", "gotest").Run()
 	exec.Command("createdb", "gotest").Run()
 	o := newOrm(t, fmt.Sprintf("postgres://dbname=gotest user=%v password=%v", u.Username, u.Username), true)
+	testOrm(t, o)
+	o.Close()
+}
+
+func TestMysql(t *testing.T) {
+	o := newOrm(t, "mysql://gotest:gotest@/gotest", true)
+	db := o.SqlDB()
+	db.Exec("DROP DATABASE IF EXISTS gotest")
+	db.Exec("CREATE DATABASE gotest")
+	db.Exec("USE gotest")
 	testOrm(t, o)
 	o.Close()
 }

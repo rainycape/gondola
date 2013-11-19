@@ -68,7 +68,7 @@ type Outer struct {
 
 type Composite struct {
 	Id    int
-	Name  string
+	Name  string `mysql:",max_length=255"`
 	Value string
 }
 

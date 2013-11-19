@@ -19,6 +19,7 @@ var (
 		"postgres": "gnd.la/orm/driver/postgres",
 		"sqlite":   "gnd.la/orm/driver/sqlite",
 		"sqlite3":  "gnd.la/orm/driver/sqlite",
+		"mysql":    "gnd.la/orm/driver/mysql",
 	}
 	errUntypedNilPointer = errors.New("untyped nil pointer passed to Next(). Please, cast it to the appropriate type e.g. (*MyType)(nil)")
 )

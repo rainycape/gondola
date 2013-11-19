@@ -65,6 +65,9 @@ func testEvent(t *testing.T, event *Event, pos int) {
 	if expect := eventNames[pos]; expect != event.Name {
 		t.Errorf("expecting event name %q, got %q instead", expect, event.Name)
 	}
+	if id := int64(pos + 1); id != event.Id {
+		t.Errorf("expecting event id %d, got %d instead", id, event.Id)
+	}
 }
 
 func testIterErr(t *testing.T, iter *Iter) {

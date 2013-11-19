@@ -363,6 +363,10 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 
 func (d *Driver) outValues(m driver.Model, out interface{}) (reflect.Value, *driver.Fields, []interface{}, []scanner, error) {
 	val := reflect.ValueOf(out)
+	if !val.IsValid() {
+	    // Untyped nil pointer
+	    return reflect.Value{}, nil, nil, nil, nil
+	}
 	vt := val.Type()
 	if vt.Kind() != reflect.Ptr {
 		return reflect.Value{}, nil, nil, nil, fmt.Errorf("can't set object of type %T. Please, pass a %v rather than a %v", out, reflect.PtrTo(vt), vt)
@@ -377,6 +381,10 @@ func (d *Driver) outValues(m driver.Model, out interface{}) (reflect.Value, *dri
 	for val.Kind() == reflect.Ptr {
 		el := val.Elem()
 		if !el.IsValid() {
+			if !val.CanSet() {
+			    // Typed nil pointer
+			    return reflect.Value{}, nil, nil, nil, nil
+			}
 			el = reflect.New(val.Type().Elem())
 			val.Set(el)
 		}
@@ -550,9 +558,11 @@ func (d *Driver) SelectStmt(fields []string, quote bool, m driver.Model, buf *by
 		// Select all fields for the given model (which might be joined)
 		cur := m
 		for {
-			for _, v := range cur.Fields().QuotedNames {
+			if !cur.Skip() {
+			    for _, v := range cur.Fields().QuotedNames {
 				buf.WriteString(v)
 				buf.WriteByte(',')
+			    }
 			}
 			join := cur.Join()
 			if join == nil {

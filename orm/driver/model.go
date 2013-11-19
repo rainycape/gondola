@@ -27,5 +27,6 @@ type Model interface {
 	Fields() *Fields
 	Indexes() []*index.Index
 	Map(qname string) (string, reflect.Type, error)
+	Skip() bool
 	Join() Join
 }

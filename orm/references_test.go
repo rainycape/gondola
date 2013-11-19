@@ -113,7 +113,6 @@ func testReferences(t *testing.T, o *Orm) {
 		t.Error(err)
 	}
 	// Fetch all the events for timestamp with id=1, but ignore the timestamp
-	/* TODO: Not supported yet
 	iter = o.Query(Eq("Timestamp|Id", 1)).Sort("Event|Name", DESC).Iter()
 	count = 0
 	for iter.Next((*Timestamp)(nil), &event) {
@@ -128,7 +127,29 @@ func testReferences(t *testing.T, o *Orm) {
 	if err := iter.Err(); err != nil {
 		t.Error(err)
 	}
-	*/
+	// This should produce an untyped nil pointer error
+	iter = o.Query(Eq("Timestamp|Id", 1)).Sort("Event|Name", DESC).Iter()
+	for iter.Next(nil, &event) {
+	}
+	if err := iter.Err(); err != errUntypedNilPointer {
+		t.Errorf("expecting error %s, got %s instead", errUntypedNilPointer, err)
+	}
+	// Fetch all the events for timestamp with id=1, but ignore the timestamp using an
+	// explicit table.
+	iter = o.Query(Eq("Timestamp|Id", 1)).Sort("Event|Name", DESC).Table(timestampTable.Skip().MustJoin(eventTable, nil, InnerJoin)).Iter()
+	count = 0
+	for iter.Next(nil, &event) {
+		if expect := eventNames[len(eventNames)-count-1]; expect != event.Name {
+			t.Errorf("expecting event name %q, got %q instead", expect, event.Name)
+		}
+		count++
+	}
+	if count != 3 {
+		t.Errorf("expecting 3 results for timestamp Id=1, got %d instead", count)
+	}
+	if err := iter.Err(); err != nil {
+		t.Error(err)
+	}
 	// Fetch all the events for timestamp with id=2. There are no events so event
 	// should be nil.
 	iter = o.Query(Eq("Timestamp|Id", 2)).Join(LeftJoin).Iter()

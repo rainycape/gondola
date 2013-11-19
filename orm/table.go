@@ -10,7 +10,7 @@ type Table struct {
 
 func (t *Table) Join(table *Table, q query.Q, jt JoinType) (*Table, error) {
 	join := t.model.clone()
-	if err := join.joinWith(table.model.model, q, jt); err != nil {
+	if _, err := join.joinWith(table.model.model, q, jt); err != nil {
 		return nil, err
 	}
 	return &Table{model: join}, nil
@@ -22,4 +22,10 @@ func (t *Table) MustJoin(table *Table, q query.Q, jt JoinType) *Table {
 		panic(err)
 	}
 	return tbl
+}
+
+func (t *Table) Skip() *Table {
+	model := t.model.clone()
+	model.skip = true
+	return &Table{model: model}
 }

@@ -3,6 +3,7 @@ package orm
 import (
 	"bytes"
 	"database/sql"
+	"errors"
 	"fmt"
 	"gnd.la/config"
 	"gnd.la/log"
@@ -19,6 +20,7 @@ var (
 		"sqlite":   "gnd.la/orm/driver/sqlite",
 		"sqlite3":  "gnd.la/orm/driver/sqlite",
 	}
+	errUntypedNilPointer = errors.New("untyped nil pointer passed to Next(). Please, cast it to the appropriate type e.g. (*MyType)(nil)")
 )
 
 type Orm struct {
@@ -479,6 +481,9 @@ func (o *Orm) SetLogger(logger *log.Logger) {
 
 func (o *Orm) model(obj interface{}) (*model, error) {
 	t := reflect.TypeOf(obj)
+	if t == nil {
+		return nil, errUntypedNilPointer
+	}
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
@@ -497,8 +502,13 @@ func (o *Orm) models(objs []interface{}, jt JoinType) (*joinModel, []*driver.Met
 		if err != nil {
 			return nil, nil, err
 		}
-		if err := jm.joinWith(vm, nil, jt); err != nil {
+		last, err := jm.joinWith(vm, nil, jt)
+		if err != nil {
 			return nil, nil, err
+		}
+		r := reflect.ValueOf(v)
+		if r.Type().Kind() == reflect.Ptr && r.IsNil() {
+			last.skip = true
 		}
 		methods = append(methods, vm.fields.Methods)
 	}

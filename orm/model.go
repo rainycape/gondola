@@ -78,6 +78,10 @@ func (m *model) Map(qname string) (string, reflect.Type, error) {
 	return "", nil, errCantMap(qname)
 }
 
+func (m *model) Skip() bool {
+	return false
+}
+
 func (m *model) Join() driver.Join {
 	return nil
 }
@@ -118,17 +122,30 @@ func (j *join) clone() *join {
 
 type joinModel struct {
 	*model
+	skip bool
 	join *join
 }
 
 func (j *joinModel) clone() *joinModel {
 	nj := &joinModel{
 		model: j.model,
+		skip:  j.skip,
 	}
 	if j.join != nil {
 		nj.join = j.join.clone()
 	}
 	return nj
+}
+
+func (j *joinModel) Fields() *driver.Fields {
+	if j.skip {
+		return nil
+	}
+	return j.model.Fields()
+}
+
+func (j *joinModel) Skip() bool {
+	return j.skip
 }
 
 func (j *joinModel) Join() driver.Join {
@@ -157,44 +174,44 @@ func (j *joinModel) String() string {
 	return strings.Join(s, "")
 }
 
-func (j *joinModel) joinWith(model *model, q query.Q, jt JoinType) error {
+func (j *joinModel) joinWith(model *model, q query.Q, jt JoinType) (*joinModel, error) {
 	if j.model == nil {
 		j.model = model
+		return j, nil
+	}
+	m := j
+	if q == nil {
+		var candidates []*join
+		// Implicit join
+		for {
+			candidates = append(candidates, m.modelReferences[model]...)
+			if m.join == nil {
+				break
+			}
+			m = m.join.model
+		}
+		switch len(candidates) {
+		case 1:
+			m.join = candidates[0].clone()
+			m.join.jtype = jt
+		case 0:
+			return nil, fmt.Errorf("can't join %s with model %s", j, model)
+		default:
+			return nil, fmt.Errorf("joining %s with model %s is ambiguous using query %+v", j, model, q)
+		}
 	} else {
-		m := j
-		if q == nil {
-			var candidates []*join
-			// Implicit join
-			for {
-				candidates = append(candidates, m.modelReferences[model]...)
-				if m.join == nil {
-					break
-				}
-				m = m.join.model
-			}
-			switch len(candidates) {
-			case 1:
-				m.join = candidates[0].clone()
-				m.join.jtype = jt
-			case 0:
-				return fmt.Errorf("can't join %s with model %s", j, model)
-			default:
-				return fmt.Errorf("joining %s with model %s is ambiguous using query %+v", j, model, q)
-			}
-		} else {
-			for {
-				if m.join == nil {
-					break
-				}
-			}
-			m.join = &join{
-				model: &joinModel{model: model},
-				jtype: jt,
-				q:     q,
+		for {
+			if m.join == nil {
+				break
 			}
 		}
+		m.join = &join{
+			model: &joinModel{model: model},
+			jtype: jt,
+			q:     q,
+		}
 	}
-	return nil
+	return m, nil
 }
 
 func (j *joinModel) Map(qname string) (string, reflect.Type, error) {

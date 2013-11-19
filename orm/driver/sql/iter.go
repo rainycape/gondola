@@ -36,6 +36,10 @@ func (i *Iter) Next(out ...interface{}) bool {
 		}
 		i.err = i.rows.Scan(values...)
 		for ii, f := range fields {
+			if f == nil {
+			    // This model was skipped
+			    continue
+			}
 			vscanners := scanners[ii]
 			nilVal := true
 			for _, p := range f.Pointers {

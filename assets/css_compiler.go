@@ -9,7 +9,7 @@ import (
 	"net/url"
 )
 
-// cssCompiler uses http://reducisaurus.appspot.com/css to compile CSS code
+// cssCompiler uses http://gondola-reducer.appspot.com/css to compile CSS code
 type cssCompiler struct {
 }
 
@@ -21,7 +21,7 @@ func (c *cssCompiler) Compile(r io.Reader, w io.Writer, m Manager, opts Options)
 	form := url.Values{
 		"file": []string{string(code)},
 	}
-	resp, err := http.PostForm("http://reducisaurus.appspot.com/css", form)
+	resp, err := http.PostForm("http://gondola-reducer.appspot.com/css", form)
 	if err != nil {
 		return err
 	}

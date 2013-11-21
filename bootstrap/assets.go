@@ -2,7 +2,7 @@ package bootstrap
 
 import (
 	"fmt"
-	"gnd.la/assets"
+	"gnd.la/template/assets"
 	"strings"
 )
 

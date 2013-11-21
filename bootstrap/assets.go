@@ -35,7 +35,7 @@ func bootstrapParser(m assets.Manager, names []string, options assets.Options) (
 			},
 			Href: fmt.Sprintf(format, version),
 		})
-		faVersion := "4.0.1"
+		faVersion := "4.0.3"
 		if v := options.StringOpt("fontawesome", m); v != "" {
 			faVersion = v
 		}

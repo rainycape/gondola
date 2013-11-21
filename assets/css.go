@@ -1,5 +1,10 @@
 package assets
 
+import (
+	"fmt"
+	"path"
+)
+
 type Css struct {
 	Common
 	Media      string
@@ -53,10 +58,16 @@ func cssParser(m Manager, names []string, options Options) ([]Asset, error) {
 	}
 	assets := make([]Asset, len(common))
 	for ii, v := range common {
+		name := v.Name
+		if path.Ext(v.Name) == ".less" {
+			if name, err = lessCompile(m, name, options); err != nil {
+				return nil, fmt.Errorf("error compiling %s: %s", v.Name, err)
+			}
+		}
 		assets[ii] = &Css{
 			Common: *v,
 			Media:  media,
-			Href:   m.URL(v.Name),
+			Href:   m.URL(name),
 		}
 	}
 	return assets, nil

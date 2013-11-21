@@ -17,9 +17,30 @@ import (
 type CodeType int
 
 const (
-	CodeTypeCss CodeType = iota + 1
+	CodeTypeNone CodeType = iota
+	CodeTypeCss
 	CodeTypeJavascript
 )
+
+func (c CodeType) String() string {
+	switch c {
+	case CodeTypeCss:
+		return "CSS"
+	case CodeTypeJavascript:
+		return "Javascript"
+	}
+	return "unknown CodeType"
+}
+
+func (c CodeType) Ext() string {
+	switch c {
+	case CodeTypeCss:
+		return "css"
+	case CodeTypeJavascript:
+		return "js"
+	}
+	return ""
+}
 
 var (
 	errNoAssets = errors.New("no assets to bundle")
@@ -88,7 +109,7 @@ func Bundle(m Manager, assets []Asset, opts Options) ([]Asset, error) {
 		return nil, fmt.Errorf("no compiler for %s", ctype)
 	}
 	// Prepare the code, changing relative paths if required
-	name, err := codeAssets.BundleName(bundler.Ext(), opts)
+	name, err := codeAssets.BundleName(ctype.Ext(), opts)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +139,7 @@ func Bundle(m Manager, assets []Asset, opts Options) ([]Asset, error) {
 		// the file if the bundling fails.
 		var buf bytes.Buffer
 		reader := strings.NewReader(strings.Join(code, "\n\n"))
-		if err := bundler.Bundle(reader, &buf, m, opts); err != nil {
+		if err := bundler.Bundle(&buf, reader, m, opts); err != nil {
 			return nil, err
 		}
 		w, err := m.Create(name)

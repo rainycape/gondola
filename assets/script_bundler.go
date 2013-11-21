@@ -17,7 +17,7 @@ import (
 type scriptBundler struct {
 }
 
-func (c *scriptBundler) Bundle(r io.Reader, w io.Writer, m Manager, opts Options) error {
+func (c *scriptBundler) Bundle(w io.Writer, r io.Reader, m Manager, opts Options) error {
 	code, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
@@ -70,10 +70,6 @@ func (c *scriptBundler) Bundle(r io.Reader, w io.Writer, m Manager, opts Options
 
 func (c *scriptBundler) CodeType() CodeType {
 	return CodeTypeJavascript
-}
-
-func (c *scriptBundler) Ext() string {
-	return "js"
 }
 
 func (c *scriptBundler) Asset(name string, m Manager, opts Options) (Asset, error) {

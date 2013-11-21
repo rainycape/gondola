@@ -14,8 +14,7 @@ func RegisterBundler(b Bundler) {
 }
 
 type Bundler interface {
-	Bundle(r io.Reader, w io.Writer, m Manager, opts Options) error
+	Bundle(w io.Writer, r io.Reader, m Manager, opts Options) error
 	CodeType() CodeType
-	Ext() string
 	Asset(name string, m Manager, opts Options) (Asset, error)
 }

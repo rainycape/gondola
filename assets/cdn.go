@@ -39,7 +39,7 @@ func Cdn(name string) (string, error) {
 
 func cdnScriptParser(k, orig string) func(m Manager, names []string, options Options) ([]Asset, error) {
 	fn := func(m Manager, names []string, options Options) ([]Asset, error) {
-		common, err := ParseCommon(m, names, options)
+		common, err := ParseCommon(m, names, CodeTypeJavascript, options)
 		if err != nil {
 			return nil, err
 		}

@@ -44,7 +44,7 @@ func (s *Script) CodeType() CodeType {
 }
 
 func scriptParser(m Manager, names []string, options Options) ([]Asset, error) {
-	common, err := ParseCommon(m, names, options)
+	common, err := ParseCommon(m, names, CodeTypeJavascript, options)
 	if err != nil {
 		return nil, err
 	}

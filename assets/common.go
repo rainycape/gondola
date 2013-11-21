@@ -43,7 +43,7 @@ func (c *Common) Code() (string, error) {
 	return string(data), nil
 }
 
-func ParseCommon(m Manager, names []string, options Options) ([]*Common, error) {
+func ParseCommon(m Manager, names []string, codeType CodeType, options Options) ([]*Common, error) {
 	var cond *Condition
 	if ifopt := options["if"]; ifopt != "" {
 		var err error
@@ -54,9 +54,13 @@ func ParseCommon(m Manager, names []string, options Options) ([]*Common, error) 
 	}
 	common := make([]*Common, len(names))
 	for ii, v := range names {
+		name, err := Compile(m, v, codeType, options)
+		if err != nil {
+			return nil, err
+		}
 		common[ii] = &Common{
 			Manager:   m,
-			Name:      v,
+			Name:      name,
 			Condition: cond,
 		}
 	}

@@ -139,6 +139,18 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 			if err != nil {
 				return fmt.Errorf("error parsing values for asset key %q: %s", key, err)
 			}
+			for ii, val := range values {
+				// Check if the asset is a template
+				if val != "" && val[0] == '(' && val[len(val)-1] == ')' {
+					name := val[1 : len(val)-1]
+					var err error
+					values[ii], err = executeAsset(t, name)
+					if err != nil {
+						return fmt.Errorf("error executing asset template %s: %s", name, err)
+					}
+				}
+			}
+
 			inc := true
 			switch key {
 			case "extend", "extends":

@@ -142,7 +142,7 @@ func Bundle(m Manager, assets []Asset, opts Options) ([]Asset, error) {
 		if err := bundler.Bundle(&buf, reader, m, opts); err != nil {
 			return nil, err
 		}
-		w, err := m.Create(name)
+		w, err := m.Create(name, true)
 		if err == nil {
 			s := makeLinksCacheable(m, dir, buf.Bytes())
 			if _, err := io.Copy(w, strings.NewReader(s)); err != nil {

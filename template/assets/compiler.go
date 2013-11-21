@@ -54,7 +54,7 @@ func Compile(m Manager, name string, codeType CodeType, opts Options) (string, e
 	if err := compiler.Compile(&buf, f, m, opts); err != nil {
 		return "", err
 	}
-	w, err := m.Create(out)
+	w, err := m.Create(out, true)
 	if err != nil {
 		return "", err
 	}

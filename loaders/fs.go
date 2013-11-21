@@ -26,9 +26,13 @@ func (f *fsloader) Load(name string) (ReadSeekCloser, time.Time, error) {
 	return fd, s.ModTime(), nil
 }
 
-func (f *fsloader) Create(name string) (io.WriteCloser, error) {
+func (f *fsloader) Create(name string, overwrite bool) (io.WriteCloser, error) {
 	p := filepath.FromSlash(path.Join(f.dir, name))
-	return os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	flags := os.O_WRONLY | os.O_CREATE
+	if !overwrite {
+		flags |= os.O_EXCL
+	}
+	return os.OpenFile(p, flags, 0644)
 }
 
 func FSLoader(dir string) Loader {

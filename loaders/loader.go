@@ -7,5 +7,5 @@ import (
 
 type Loader interface {
 	Load(name string) (ReadSeekCloser, time.Time, error)
-	Create(name string) (io.WriteCloser, error)
+	Create(name string, overwrite bool) (io.WriteCloser, error)
 }

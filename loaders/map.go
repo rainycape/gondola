@@ -53,9 +53,9 @@ func (m *mapLoader) Load(name string) (ReadSeekCloser, time.Time, error) {
 	return newReader(item.data), item.mtime, nil
 }
 
-func (m *mapLoader) Create(name string) (io.WriteCloser, error) {
+func (m *mapLoader) Create(name string, overwrite bool) (io.WriteCloser, error) {
 	m.Lock()
-	if _, ok := m.items[name]; ok {
+	if _, ok := m.items[name]; ok && !overwrite {
 		m.Unlock()
 		return nil, fmt.Errorf("resource %q already exists", name)
 	}

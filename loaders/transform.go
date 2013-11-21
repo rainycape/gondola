@@ -56,8 +56,8 @@ func (t *transformLoader) Load(name string) (ReadSeekCloser, time.Time, error) {
 	return r, tm, err
 }
 
-func (t *transformLoader) Create(name string) (io.WriteCloser, error) {
-	w, err := t.loader.Create(name)
+func (t *transformLoader) Create(name string, overwrite bool) (io.WriteCloser, error) {
+	w, err := t.loader.Create(name, overwrite)
 	if t.writeTransformer != nil && err == nil {
 		return &twriter{
 			transformer: t.writeTransformer,

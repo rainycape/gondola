@@ -19,7 +19,7 @@ import (
 type Manager interface {
 	Load(name string) (loaders.ReadSeekCloser, time.Time, error)
 	LoadURL(u *url.URL) (loaders.ReadSeekCloser, time.Time, error)
-	Create(name string) (io.WriteCloser, error)
+	Create(name string, overwrite bool) (io.WriteCloser, error)
 	URL(name string) string
 	Debug() bool
 	SetDebug(debug bool)
@@ -112,8 +112,8 @@ func (m *assetsManager) LoadURL(u *url.URL) (loaders.ReadSeekCloser, time.Time, 
 	return m.Load(p)
 }
 
-func (m *assetsManager) Create(name string) (io.WriteCloser, error) {
-	return m.Loader.Create(name)
+func (m *assetsManager) Create(name string, overwrite bool) (io.WriteCloser, error) {
+	return m.Loader.Create(name, overwrite)
 }
 
 func (m *assetsManager) URL(name string) string {

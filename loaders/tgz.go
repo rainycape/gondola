@@ -28,7 +28,7 @@ func (t *tgzLoader) Load(name string) (ReadSeekCloser, time.Time, error) {
 			if err != nil {
 				return nil, time.Time{}, err
 			}
-			w, err := t.Create(hdr.Name)
+			w, err := t.Create(hdr.Name, false)
 			if err != nil {
 				return nil, time.Time{}, err
 			}

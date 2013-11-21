@@ -41,12 +41,12 @@ func Parse(m Manager, name string, names []string, o Options) ([]Asset, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error parsing asset %q: %s", name, err)
 	}
-	if o.BoolOpt("compile", m) {
-		cassets, err := Compile(m, assets, o)
+	if o.BoolOpt("bundle", m) {
+		cassets, err := Bundle(m, assets, o)
 		if err == nil {
 			assets = cassets
 		} else {
-			log.Errorf("Error compiling assets %s:%s: %s. Using uncompiled.", name, names, err)
+			log.Errorf("error bundling assets %s:%s: %s, using individual assets", name, names, err)
 		}
 	}
 	return assets, nil

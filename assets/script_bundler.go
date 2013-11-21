@@ -10,14 +10,14 @@ import (
 	"net/url"
 )
 
-// ScriptCompiler uses Google's closure compiler to optimize JS code.
+// ScriptBundler uses Google's closure compiler to optimize JS code.
 // Accepted options are:
 //  optimize: (simple|advanced) - defaults to simple
 //  compiler_warnings: boolean - defaults to false
-type scriptCompiler struct {
+type scriptBundler struct {
 }
 
-func (c *scriptCompiler) Compile(r io.Reader, w io.Writer, m Manager, opts Options) error {
+func (c *scriptBundler) Bundle(r io.Reader, w io.Writer, m Manager, opts Options) error {
 	code, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
@@ -68,15 +68,15 @@ func (c *scriptCompiler) Compile(r io.Reader, w io.Writer, m Manager, opts Optio
 	return err
 }
 
-func (c *scriptCompiler) CodeType() int {
+func (c *scriptBundler) CodeType() CodeType {
 	return CodeTypeJavascript
 }
 
-func (c *scriptCompiler) Ext() string {
+func (c *scriptBundler) Ext() string {
 	return "js"
 }
 
-func (c *scriptCompiler) Asset(name string, m Manager, opts Options) (Asset, error) {
+func (c *scriptBundler) Asset(name string, m Manager, opts Options) (Asset, error) {
 	assets, err := scriptParser(m, []string{name}, opts)
 	if err != nil {
 		return nil, err
@@ -85,5 +85,5 @@ func (c *scriptCompiler) Asset(name string, m Manager, opts Options) (Asset, err
 }
 
 func init() {
-	registerCompiler(&scriptCompiler{}, true)
+	RegisterBundler(&scriptBundler{})
 }

@@ -14,20 +14,21 @@ import (
 	"strings"
 )
 
+type CodeType int
+
 const (
-	// If you define your own code types, use numbers > 1000
-	CodeTypeCss        = 1
-	CodeTypeJavascript = 2
+	CodeTypeCss CodeType = iota + 1
+	CodeTypeJavascript
 )
 
 var (
-	ErrNoAssets = errors.New("no assets to compile")
+	errNoAssets = errors.New("no assets to bundle")
 	urlRe       = regexp.MustCompile("i?url\\s*?\\((.*?)\\)")
 )
 
 type CodeAsset interface {
 	Asset
-	CodeType() int
+	CodeType() CodeType
 	Code() (string, error)
 }
 
@@ -41,7 +42,7 @@ func (c CodeAssetList) Names() []string {
 	return names
 }
 
-func (c CodeAssetList) CompiledName(ext string, o Options) (string, error) {
+func (c CodeAssetList) BundleName(ext string, o Options) (string, error) {
 	if len(c) == 0 {
 		return "", nil
 	}
@@ -64,16 +65,16 @@ func (c CodeAssetList) CompiledName(ext string, o Options) (string, error) {
 	return path.Join(path.Dir(name), "bundle."+sum+ext), nil
 }
 
-func Compile(m Manager, assets []Asset, opts Options) ([]Asset, error) {
+func Bundle(m Manager, assets []Asset, opts Options) ([]Asset, error) {
 	if len(assets) == 0 {
-		return nil, ErrNoAssets
+		return nil, errNoAssets
 	}
-	var ctype int
+	var ctype CodeType
 	codeAssets := make(CodeAssetList, len(assets))
 	for ii, v := range assets {
 		c, ok := v.(CodeAsset)
 		if !ok {
-			return nil, fmt.Errorf("asset %q (type %T) does not implement CodeAsset and can't be compiled", v.AssetName(), v)
+			return nil, fmt.Errorf("asset %q (type %T) does not implement CodeAsset and can't be bundled", v.AssetName(), v)
 		}
 		if ctype == 0 {
 			ctype = c.CodeType()
@@ -82,12 +83,12 @@ func Compile(m Manager, assets []Asset, opts Options) ([]Asset, error) {
 		}
 		codeAssets[ii] = c
 	}
-	compiler := compilers[ctype]
-	if compiler == nil {
-		return nil, fmt.Errorf("no compiler for code type %d", ctype)
+	bundler := bundlers[ctype]
+	if bundler == nil {
+		return nil, fmt.Errorf("no compiler for %s", ctype)
 	}
 	// Prepare the code, changing relative paths if required
-	name, err := codeAssets.CompiledName(compiler.Ext(), opts)
+	name, err := codeAssets.BundleName(bundler.Ext(), opts)
 	if err != nil {
 		return nil, err
 	}
@@ -108,16 +109,16 @@ func Compile(m Manager, assets []Asset, opts Options) ([]Asset, error) {
 		}
 		code = append(code, c)
 	}
-	// Check if the code has been already compiled
+	// Check if the code has been already bundled
 	if _, _, err := m.Load(name); err == nil {
-		log.Debugf("%s already compiled into %s and up to date", codeAssets.Names(), name)
+		log.Debugf("%s already bundled into %s and up to date", codeAssets.Names(), name)
 	} else {
-		log.Debugf("Compiling %v", codeAssets.Names())
-		// Compile to a buf first. We don't want to create
-		// the file if the compilation fails
+		log.Debugf("bundling %v", codeAssets.Names())
+		// Bundle to a buf first. We don't want to create
+		// the file if the bundling fails.
 		var buf bytes.Buffer
 		reader := strings.NewReader(strings.Join(code, "\n\n"))
-		if err := compiler.Compile(reader, &buf, m, opts); err != nil {
+		if err := bundler.Bundle(reader, &buf, m, opts); err != nil {
 			return nil, err
 		}
 		w, err := m.Create(name)
@@ -137,7 +138,7 @@ func Compile(m Manager, assets []Asset, opts Options) ([]Asset, error) {
 			}
 		}
 	}
-	asset, err := compiler.Asset(name, m, opts)
+	asset, err := bundler.Asset(name, m, opts)
 	if err != nil {
 		return nil, err
 	}

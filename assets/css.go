@@ -41,7 +41,7 @@ func (c *Css) AssetHTML() string {
 	return ""
 }
 
-func (c *Css) CodeType() int {
+func (c *Css) CodeType() CodeType {
 	return CodeTypeCss
 }
 

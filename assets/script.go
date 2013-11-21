@@ -39,7 +39,7 @@ func (s *Script) AssetHTML() string {
 	return s.Script
 }
 
-func (s *Script) CodeType() int {
+func (s *Script) CodeType() CodeType {
 	return CodeTypeJavascript
 }
 

@@ -7,7 +7,6 @@ package mux
 import (
 	"bytes"
 	"fmt"
-	"gnd.la/assets"
 	"gnd.la/blobstore"
 	"gnd.la/cache"
 	"gnd.la/defaults"
@@ -16,6 +15,7 @@ import (
 	"gnd.la/mux/cookies"
 	"gnd.la/orm"
 	"gnd.la/template"
+	"gnd.la/template/assets"
 	"gnd.la/util"
 	"gnd.la/util/runtimeutil"
 	"net/http"

@@ -2,9 +2,9 @@ package mux
 
 import (
 	"fmt"
-	"gnd.la/assets"
 	"gnd.la/loaders"
 	"gnd.la/template"
+	"gnd.la/template/assets"
 	"io"
 	"net/http"
 	"reflect"

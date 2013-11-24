@@ -2,12 +2,20 @@ package assets
 
 import (
 	"io"
+	"os/exec"
+)
+
+var (
+	lesscPath, _ = exec.LookPath("lessc")
 )
 
 type lessCompiler struct {
 }
 
 func (c *lessCompiler) Compile(w io.Writer, r io.Reader, m Manager, opts Options) error {
+	if lesscPath != "" {
+		return command(lesscPath, w, r, m, opts)
+	}
 	_, _, err := reducer("less", w, r)
 	return err
 }

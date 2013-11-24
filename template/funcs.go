@@ -10,6 +10,7 @@ import (
 	"gnd.la/template/assets"
 	"gnd.la/types"
 	"html/template"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -164,7 +165,7 @@ func _append(items interface{}, args ...interface{}) (string, error) {
 	return "", nil
 }
 
-func mult(args ...interface{}) (float64, error) {
+func mult(args ...interface{}) (interface{}, error) {
 	val := 1.0
 	for ii, v := range args {
 		value := reflect.ValueOf(v)
@@ -185,11 +186,14 @@ func mult(args ...interface{}) (float64, error) {
 			return 0, fmt.Errorf("Invalid argument of type %T passed to mult at index %d", v, ii)
 		}
 	}
+	if math.Floor(val) == val {
+		return int(val), nil
+	}
 	return val, nil
 
 }
 
-func add(args ...interface{}) (float64, error) {
+func add(args ...interface{}) (interface{}, error) {
 	val := 0.0
 	for ii, v := range args {
 		value := reflect.ValueOf(v)
@@ -209,6 +213,9 @@ func add(args ...interface{}) (float64, error) {
 		default:
 			return 0, fmt.Errorf("invalid argument of type %T passed to add() at index %d", v, ii)
 		}
+	}
+	if math.Floor(val) == val {
+		return int(val), nil
 	}
 	return val, nil
 

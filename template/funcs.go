@@ -301,6 +301,9 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"or":        or,
 	"not":       not,
 	"now":       now,
+	"to_lower":  strings.ToLower,
+	"to_title":  strings.ToTitle,
+	"to_upper":  strings.ToUpper,
 
 	// Go builtins
 	"call":     call,

@@ -31,11 +31,11 @@ const (
 )
 
 var (
-	ErrNoSecret        = errors.New("No secret specified. Please, use Mux.SetSecret().")
-	ErrNoEncryptionKey = errors.New("No encryption key specified. Please, use Mux.SetEncryptionKey()")
-	ErrCouldNotDecrypt = errors.New("Could not decrypt value")
-	ErrTampered        = errors.New("The cookie value has been altered by the client")
-	ErrCookieTooBig    = errors.New("This cookie is too big. Maximum size is 4096 bytes.")
+	ErrNoSecret        = errors.New("no secret specified")
+	ErrNoEncryptionKey = errors.New("no encryption key specified")
+	ErrCouldNotDecrypt = errors.New("could not decrypt value")
+	ErrTampered        = errors.New("the cookie value has been altered by the client")
+	ErrCookieTooBig    = errors.New("cookie is too big (maximum size is 4096 bytes)")
 	Permanent          = time.Unix(2147483647, 0).UTC()
 	deleteExpires      = time.Unix(0, 0).UTC()
 )

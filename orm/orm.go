@@ -101,7 +101,7 @@ func (o *Orm) Insert(obj interface{}) (Result, error) {
 	return o.insert(m, obj)
 }
 
-// MustInsert works like insert, but panics if there's
+// MustInsert works like Insert, but panics if there's
 // an error.
 func (o *Orm) MustInsert(obj interface{}) Result {
 	res, err := o.Insert(obj)

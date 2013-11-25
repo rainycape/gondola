@@ -1,3 +1,12 @@
+// Package cookies contains helper functions for setting and
+// retrieving cookies, including signed and encrypted ones.
+//
+// Cookie values are encoded and decoded using encoding/gob, so
+// you must register any non-basic type that you want to store
+// in a cookie, using encoding/gob.Register.
+//
+// Signed cookies are signed using HMAC-SHA1. Encrypted cookies
+// are encrypted with AES and then signed with HMAC-SHA1.
 package cookies
 
 import (
@@ -31,6 +40,11 @@ var (
 	deleteExpires      = time.Unix(0, 0).UTC()
 )
 
+// Options specify the default cookie Options used when setting
+// a Cookie only by its name and value, like in Cookies.Set(),
+// Cookies.SetSecure(), and Cookies.SetEncrypted().
+//
+// For more information about the cookie fields, see net/http.Cookie.
 type Options struct {
 	Path     string
 	Domain   string
@@ -40,6 +54,9 @@ type Options struct {
 	HttpOnly bool
 }
 
+// Cookies includes conveniency functions for setting
+// and retrieving cookies. Use New() or gnd.la/mux.Context.Cookies
+// to create a Cookies instance.
 type Cookies struct {
 	r             *http.Request
 	w             http.ResponseWriter
@@ -50,6 +67,20 @@ type Cookies struct {
 
 type transformer func([]byte) ([]byte, error)
 
+// New returns a new *Cookies object, which will read cookies from the
+// given http.Request, and write them to the given http.ResponseWriter.
+// Note that users will probably want to use gnd.la/mux.Context.Cookies
+// rather than this function to create a Cookies instance.
+//
+// The secret parameter is used for secure (signed) cookies, while
+// encryptionKey is also used for encrypted cookies. If you don't use
+// secure nor encrypted cookies, you might leave both parameters empty.
+// If you only need signed cookies, you might leave encryptionKey
+// empty.
+//
+// The default parameter specifies the default Options for the funcions
+// which only take a name and a value. If you pass nil, Defaults will
+// be used.
 func New(r *http.Request, w http.ResponseWriter, secret string, encryptionKey string, defaults *Options) *Cookies {
 	if defaults == nil {
 		defaults = Defaults()
@@ -58,9 +89,11 @@ func New(r *http.Request, w http.ResponseWriter, secret string, encryptionKey st
 }
 
 // Defaults returns the default coookie options, which are:
-// Path: "/"
-// Expires: Permanent (cookie never expires)
-// To change the defaults, see gnd.la/mux/Mux.SetDefaultCookieOptions()
+//
+//  Path: "/"
+//  Expires: Permanent (cookie never expires)
+//
+// To change the defaults, see gnd.la/mux.Mux.SetDefaultCookieOptions()
 func Defaults() *Options {
 	return &Options{
 		Path:    "/",
@@ -207,7 +240,7 @@ func (c *Cookies) decrypter() (transformer, error) {
 	}, nil
 }
 
-// Has returns true if a cookie with the given name exists
+// Has returns true if a cookie with the given name exists.
 func (c *Cookies) Has(name string) bool {
 	// TODO(hierro): This currently generates a *http.Cookie object
 	// which is thrown away. Avoid that unnecessary allocation.
@@ -216,12 +249,12 @@ func (c *Cookies) Has(name string) bool {
 }
 
 // GetCookie returns the raw *http.Coookie with
-// the given name
+// the given name.
 func (c *Cookies) GetCookie(name string) (*http.Cookie, error) {
 	return c.r.Cookie(name)
 }
 
-// SetCookie sets the given *http.Cookie
+// SetCookie sets the given *http.Cookie.
 func (c *Cookies) SetCookie(cookie *http.Cookie) {
 	http.SetCookie(c.w, cookie)
 }
@@ -241,8 +274,10 @@ func (c *Cookies) Get(name string, arg interface{}) error {
 // Set sets the cookie with the given name and encodes
 // the given value using gob. If the cookie size is
 // bigger than 4096 bytes, it returns ErrCookieTooBig.
-// The options used for the cookie are the mux defaults. If
-// you need to use different options, use SetOpts().
+//
+// The options used for the cookie are the default ones provided
+// in New(), which will usually come from gnd.la/mux.Mux.DefaultCookieOptions.
+// If you need to specify different options, use SetOpts().
 func (c *Cookies) Set(name string, value interface{}) error {
 	return c.SetOpts(name, value, nil)
 }
@@ -277,10 +312,13 @@ func (c *Cookies) GetSecure(name string, arg interface{}) error {
 // to manipulate it. If you also require the value to be
 // protected from being revealed to the user, use
 // SetEncrypted().
-// If you haven't set a secret (via mux.SetSecret()),
-// this function will return ErrNoSecret.
-// The options used for the cookie are the mux defaults. If
-// you need to use different options, use SetSecureOpts().
+//
+// If you haven't set a secret (usually via gnd.la/mux.Mux.SetSecret
+// or using gnd.la/config), this function will return ErrNoSecret.
+//
+// The options used for the cookie are the default ones provided
+// in New(), which will usually come from gnd.la/mux.Mux.DefaultCookieOptions.
+// If you need to specify different options, use SetSecureOpts().
 func (c *Cookies) SetSecure(name string, value interface{}) error {
 	return c.SetSecureOpts(name, value, nil)
 }
@@ -315,17 +353,21 @@ func (c *Cookies) GetEncrypted(name string, arg interface{}) error {
 // SetEncrypted sets a tamper-proof and encrypted cookie. The value is first
 // encrypted using AES and the signed using HMAC-SHA1. The user will not
 // be able to tamper with the cookie value nor reveal its contents.
-// If you haven't set a secret (via mux.SetSecret()),
-// this function will return ErrNoSecret.
-// If you haven't set an encryption key (via mux.SetEncryptionKey()),
-// this function will return ErrNoEncryptionKey.
-// The options used for the cookie are the mux defaults. If
-// you need to use different options, use SetEncryptedOpts().
+//
+// If you haven't set a secret (usually via gnd.la/mux.Mux.SetSecret()
+// or using gnd.la/config), this function will return ErrNoSecret.
+//
+// If you haven't set an encryption key (usually via gnd.la/mux.Mux.SetEncryptionKey()
+// or gnd.la/config) this function will return ErrNoEncryptionKey.
+//
+// The options used for the cookie are the default ones provided
+// in New(), which will usually come from gnd.la/mux.Mux.DefaultCookieOptions.
+// If you need to specify different options, use SetEncryptedOpts().
 func (c *Cookies) SetEncrypted(name string, value interface{}) error {
 	return c.SetEncryptedOpts(name, value, nil)
 }
 
-// SetEncryptedOpts works like SetEncrypted(), but accepts and Options parameter
+// SetEncryptedOpts works like SetEncrypted(), but accepts and Options parameter.
 func (c *Cookies) SetEncryptedOpts(name string, value interface{}, o *Options) error {
 	encrypter, err := c.encrypter()
 	if err != nil {
@@ -338,7 +380,7 @@ func (c *Cookies) SetEncryptedOpts(name string, value interface{}, o *Options) e
 	return c.setSigned(name, encoded, o)
 }
 
-// Delete deletes with cookie with the given name
+// Delete deletes with cookie with the given name.
 func (c *Cookies) Delete(name string) {
 	cookie := &http.Cookie{
 		Name:    name,

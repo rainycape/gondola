@@ -20,16 +20,19 @@ func Selector(expr ast.Expr) (x string, sel string) {
 	return "", ""
 }
 
-func Ident(n ast.Expr) string {
-	if ident, ok := n.(*ast.Ident); ok {
-		return ident.Name
-	}
-	if sel, ok := n.(*ast.SelectorExpr); ok {
-		x := Ident(sel.X)
-		s := Ident(sel.Sel)
+func Ident(node ast.Expr) string {
+	switch n := node.(type) {
+	case *ast.Ident:
+		return n.Name
+	case *ast.SelectorExpr:
+		x := Ident(n.X)
+		s := Ident(n.Sel)
 		if x != "" && s != "" {
 			return x + "." + s
 		}
+		return s
+	case *ast.StarExpr:
+		return "*" + Ident(n.X)
 	}
 	return ""
 }

@@ -20,8 +20,8 @@
 // example down this page.
 //
 // Then, after settting up your configuration, ORM, etc... and
-// BEFORE starting to listen for incoming requests, use a Mux
-// instance to Perform any administrative commands received
+// BEFORE starting to listen for incoming requests, use a *mux.Mux
+// to Perform any administrative commands received
 // in the command line. e.g.:
 //
 //  func main() {

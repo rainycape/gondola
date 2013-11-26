@@ -12,10 +12,14 @@ import (
 	"strconv"
 )
 
+// SerializationFormat indicates the format used
+// to serialize an object.
 type SerializationFormat int
 
 const (
+	// Serialize to JSON
 	Json SerializationFormat = iota
+	// Serialize to XML
 	Xml
 )
 
@@ -24,6 +28,9 @@ const (
 // use the gondola command for generating the code to implement
 // this interface in your own types.
 type JSONWriter interface {
+	// WriteJSON writes the object encoded as JSON into
+	// the given io.Writer, returning the number of bytes
+	// written and any potential errors.
 	WriteJSON(w io.Writer) (int, error)
 }
 

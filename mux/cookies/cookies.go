@@ -27,17 +27,32 @@ import (
 )
 
 const (
+	// Maximum cookie size. See section 6.3 at http://www.ietf.org/rfc/rfc2109.txt.
 	MaxSize = 4096
 )
 
 var (
-	ErrNoSecret        = errors.New("no secret specified")
+	// Tried to set a signed or encrypted cookie without specifying a secret.
+	ErrNoSecret = errors.New("no secret specified")
+	// Tried to set an encrypted cookie without specifying a key.
 	ErrNoEncryptionKey = errors.New("no encryption key specified")
+	// Could not decrypt encrypted cookie (it was probably tampered with).
 	ErrCouldNotDecrypt = errors.New("could not decrypt value")
-	ErrTampered        = errors.New("the cookie value has been altered by the client")
-	ErrCookieTooBig    = errors.New("cookie is too big (maximum size is 4096 bytes)")
-	Permanent          = time.Unix(2147483647, 0).UTC()
-	deleteExpires      = time.Unix(0, 0).UTC()
+	// Cookie is correct, but the signature does not match (definitely tampered).
+	ErrTampered = errors.New("the cookie value has been altered by the client")
+	// Cookie is too big. See MaxSize.
+	ErrCookieTooBig = errors.New("cookie is too big (maximum size is 4096 bytes)")
+)
+
+var (
+	// Maximum representable UNIX time with a signed 32 bit integer. This
+	// means that cookies won't be really permanent, but they will expire
+	// on January 19th 2038. I don't know about you, but I hope to be around
+	// by that time, so hopefully I'll find a solution for this issue in the
+	// next few years. See http://en.wikipedia.org/wiki/Year_2038_problem for
+	// more information.
+	Permanent     = time.Unix(2147483647, 0).UTC()
+	deleteExpires = time.Unix(0, 0).UTC()
 )
 
 // Options specify the default cookie Options used when setting

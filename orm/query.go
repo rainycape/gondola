@@ -16,7 +16,6 @@ type Query struct {
 	offset    int
 	sortField string
 	sortDir   int
-	depth     int
 	err       error
 }
 
@@ -137,10 +136,6 @@ func (q *Query) MustCount() uint64 {
 	return c
 }
 
-func (q *Query) SetDepth(depth int) {
-	q.depth = depth
-}
-
 // Clone returns a copy of the query.
 func (q *Query) Clone() *Query {
 	return &Query{
@@ -151,7 +146,6 @@ func (q *Query) Clone() *Query {
 		offset:    q.offset,
 		sortField: q.sortField,
 		sortDir:   q.sortDir,
-		depth:     q.depth,
 		err:       q.err,
 	}
 }

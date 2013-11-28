@@ -21,7 +21,7 @@ func (i *Iter) Next(out ...interface{}) bool {
 		var scanners [][]scanner
 		model := i.model
 		for model.Skip() {
-		    model = model.Join().Model()
+			model = model.Join().Model()
 		}
 		for _, v := range out {
 			val, vfields, vvalues, vscanners, err := i.driver.outValues(model, v)
@@ -35,13 +35,16 @@ func (i *Iter) Next(out ...interface{}) bool {
 			scanners = append(scanners, vscanners)
 			if j := model.Join(); j != nil {
 				model = j.Model()
+				for model.Skip() {
+					model = model.Join().Model()
+				}
 			}
 		}
 		i.err = i.rows.Scan(values...)
 		for ii, f := range fields {
 			if f == nil {
-			    // This model was skipped
-			    continue
+				// This model was skipped
+				continue
 			}
 			vscanners := scanners[ii]
 			nilVal := true

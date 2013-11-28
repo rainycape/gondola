@@ -200,10 +200,8 @@ func (j *joinModel) joinWith(model *model, q query.Q, jt JoinType) (*joinModel, 
 			return nil, fmt.Errorf("joining %s with model %s is ambiguous using query %+v", j, model, q)
 		}
 	} else {
-		for {
-			if m.join == nil {
-				break
-			}
+		for m.join != nil {
+			m = m.join.model
 		}
 		m.join = &join{
 			model: &joinModel{model: model},
@@ -211,7 +209,7 @@ func (j *joinModel) joinWith(model *model, q query.Q, jt JoinType) (*joinModel, 
 			q:     q,
 		}
 	}
-	return m, nil
+	return j, nil
 }
 
 func (j *joinModel) Map(qname string) (string, reflect.Type, error) {

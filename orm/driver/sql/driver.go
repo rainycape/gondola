@@ -364,8 +364,8 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 func (d *Driver) outValues(m driver.Model, out interface{}) (reflect.Value, *driver.Fields, []interface{}, []scanner, error) {
 	val := reflect.ValueOf(out)
 	if !val.IsValid() {
-	    // Untyped nil pointer
-	    return reflect.Value{}, nil, nil, nil, nil
+		// Untyped nil pointer
+		return reflect.Value{}, nil, nil, nil, nil
 	}
 	vt := val.Type()
 	if vt.Kind() != reflect.Ptr {
@@ -382,8 +382,8 @@ func (d *Driver) outValues(m driver.Model, out interface{}) (reflect.Value, *dri
 		el := val.Elem()
 		if !el.IsValid() {
 			if !val.CanSet() {
-			    // Typed nil pointer
-			    return reflect.Value{}, nil, nil, nil, nil
+				// Typed nil pointer
+				return reflect.Value{}, nil, nil, nil, nil
 			}
 			el = reflect.New(val.Type().Elem())
 			val.Set(el)
@@ -391,6 +391,10 @@ func (d *Driver) outValues(m driver.Model, out interface{}) (reflect.Value, *dri
 		val = el
 	}
 	fields := m.Fields()
+	if fields == nil {
+		// Skipped model
+		return reflect.Value{}, nil, nil, nil, nil
+	}
 	values := make([]interface{}, len(fields.Indexes))
 	scanners := make([]scanner, len(fields.Indexes))
 	for ii, v := range fields.Indexes {
@@ -559,10 +563,10 @@ func (d *Driver) SelectStmt(fields []string, quote bool, m driver.Model, buf *by
 		cur := m
 		for {
 			if !cur.Skip() {
-			    for _, v := range cur.Fields().QuotedNames {
-				buf.WriteString(v)
-				buf.WriteByte(',')
-			    }
+				for _, v := range cur.Fields().QuotedNames {
+					buf.WriteString(v)
+					buf.WriteByte(',')
+				}
 			}
 			join := cur.Join()
 			if join == nil {

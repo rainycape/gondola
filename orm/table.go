@@ -26,6 +26,13 @@ func (t *Table) MustJoin(table *Table, q query.Q, jt JoinType) *Table {
 
 func (t *Table) Skip() *Table {
 	model := t.model.clone()
+	for cur := model; ; {
+		cur.skip = true
+		if cur.join == nil {
+			break
+		}
+		cur = cur.join.model
+	}
 	model.skip = true
 	return &Table{model: model}
 }

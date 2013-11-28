@@ -20,6 +20,9 @@ func (i *Iter) Next(out ...interface{}) bool {
 		var values []interface{}
 		var scanners [][]scanner
 		model := i.model
+		for model.Skip() {
+		    model = model.Join().Model()
+		}
 		for _, v := range out {
 			val, vfields, vvalues, vscanners, err := i.driver.outValues(model, v)
 			if err != nil {

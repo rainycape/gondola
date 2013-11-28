@@ -5,8 +5,8 @@ import (
 )
 
 type Reference struct {
-    Model Model
-    Field string
+	Model Model
+	Field string
 }
 
 type Fields struct {

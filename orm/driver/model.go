@@ -9,16 +9,16 @@ import (
 type JoinType int
 
 const (
-    InnerJoin JoinType = iota
-    OuterJoin
-    LeftJoin
-    RightJoin
+	InnerJoin JoinType = iota
+	OuterJoin
+	LeftJoin
+	RightJoin
 )
 
 type Join interface {
-    Model() Model
-    Type() JoinType
-    Query() query.Q
+	Model() Model
+	Type() JoinType
+	Query() query.Q
 }
 
 type Model interface {

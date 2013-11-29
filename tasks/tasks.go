@@ -19,6 +19,11 @@ var running struct {
 	tasks map[uintptr]int
 }
 
+var options struct {
+	sync.RWMutex
+	options map[uintptr]*Options
+}
+
 // Task represent a scheduled task.
 type Task time.Ticker
 
@@ -132,6 +137,14 @@ func executeTask(m *mux.Mux, task mux.Handler, opts *Options) {
 // rather than waiting until interval for the first run.
 func Schedule(m *mux.Mux, interval time.Duration, opts *Options, task mux.Handler) *Task {
 	ticker := time.NewTicker(interval)
+	if opts != nil {
+		options.Lock()
+		if options.options == nil {
+			options.options = make(map[uintptr]*Options)
+		}
+		options.options[taskKey(task)] = opts
+		options.Unlock()
+	}
 	go func() {
 		if opts == nil || !opts.NotNow {
 			executeTask(m, task, opts)
@@ -141,4 +154,13 @@ func Schedule(m *mux.Mux, interval time.Duration, opts *Options, task mux.Handle
 		}
 	}()
 	return (*Task)(ticker)
+}
+
+// Run starts the given task, unless it has been previously
+// registered with Options which prevent from running it right
+// now (e.g. it is scheduled with MaxInstances = 2 and
+// there are already 2 instances running).
+func Run(m *mux.Mux, task mux.Handler) {
+	opts := taskOptions(task)
+	executeTask(m, task, opts)
 }

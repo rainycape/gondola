@@ -16,7 +16,7 @@ import (
 
 var running struct {
 	sync.Mutex
-	tasks map[uintptr]bool
+	tasks map[uintptr]int
 }
 
 // Task represent a scheduled task.
@@ -34,9 +34,14 @@ type Options struct {
 	// Id est, its first run will take place after the specified
 	// interval.
 	NotNow bool
-	// Indicates that this task should not be started if there's
-	// already an instance of this task running.
-	Unique bool
+	// MaxInstances indicates the maximum number of instances of
+	// this function that can be simultaneously running. If zero,
+	// there is no limit.
+	MaxInstances int
+}
+
+func taskKey(task mux.Handler) uintptr {
+	return reflect.ValueOf(task).Pointer()
 }
 
 func afterTask(task mux.Handler, name string, started time.Time, opts *Options) {
@@ -71,32 +76,52 @@ func afterTask(task mux.Handler, name string, started time.Time, opts *Options) 
 	}
 	end := time.Now()
 	log.Debugf("Finished task %s at %v (took %v)", name, end, end.Sub(started))
-	if opts != nil && opts.Unique {
+	if opts != nil && opts.MaxInstances > 0 {
+		k := taskKey(task)
 		running.Lock()
-		delete(running.tasks, reflect.ValueOf(task).Pointer())
-		running.Unlock()
+		defer running.Unlock()
+		c := running.tasks[k]
+		if c > 1 {
+			running.tasks[k] = c - 1
+		} else {
+			delete(running.tasks, k)
+		}
 	}
 }
 
+func tryRunTask(task mux.Handler, opts *Options) bool {
+	if opts != nil && opts.MaxInstances > 0 {
+		k := taskKey(task)
+		running.Lock()
+		defer running.Unlock()
+		c := running.tasks[k]
+		if c >= opts.MaxInstances {
+			name := runtimeutil.FuncName(task)
+			log.Warningf("Not starting task %s because it's already running %d instances", name, c)
+			return false
+		}
+		if running.tasks == nil {
+			running.tasks = make(map[uintptr]int)
+		}
+		running.tasks[k] = c + 1
+	}
+	return true
+}
+
+func taskOptions(task mux.Handler) *Options {
+	options.RLock()
+	defer options.RUnlock()
+	return options.options[taskKey(task)]
+}
+
 func executeTask(m *mux.Mux, task mux.Handler, opts *Options) {
+	if !tryRunTask(task, opts) {
+		return
+	}
 	name := runtimeutil.FuncName(task)
 	ctx := m.NewContext(contextProvider(0))
 	defer m.CloseContext(ctx)
 	now := time.Now()
-	if opts != nil && opts.Unique {
-		k := reflect.ValueOf(task).Pointer()
-		running.Lock()
-		if running.tasks[k] {
-			log.Errorf("Not starting task %s because it's already running", name)
-			running.Unlock()
-			return
-		}
-		if running.tasks == nil {
-			running.tasks = make(map[uintptr]bool)
-		}
-		running.tasks[k] = true
-		running.Unlock()
-	}
 	log.Debugf("Starting task %s at %v", name, now)
 	defer afterTask(task, name, now, opts)
 	task(ctx)

@@ -678,15 +678,19 @@ func (mux *Mux) handleError(ctx *Context, err interface{}) bool {
 
 func (mux *Mux) recover(ctx *Context) {
 	if err := recover(); err != nil {
-		for _, v := range mux.RecoverHandlers {
-			err = v(ctx, err)
-			if err == nil {
-				break
-			}
+		mux.recoverErr(ctx, err)
+	}
+}
+
+func (mux *Mux) recoverErr(ctx *Context, err interface{}) {
+	for _, v := range mux.RecoverHandlers {
+		err = v(ctx, err)
+		if err == nil {
+			break
 		}
-		if err != nil && !mux.handleError(ctx, err) {
-			mux.logError(ctx, err)
-		}
+	}
+	if err != nil && !mux.handleError(ctx, err) {
+		mux.logError(ctx, err)
 	}
 }
 

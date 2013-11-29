@@ -512,7 +512,9 @@ func (c *Context) BackgroundContext() *Context {
 //	ctx.MustExecute("mytemplate.html", data)
 //  }
 func (c *Context) Finalize() {
-	c.mux.recover(c)
+	if err := recover(); err != nil {
+		c.mux.recoverErr(c, err)
+	}
 	c.mux.CloseContext(c)
 }
 

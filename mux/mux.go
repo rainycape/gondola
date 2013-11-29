@@ -252,7 +252,7 @@ func (mux *Mux) SetEncryptionKey(key string) {
 
 // DefaultCookieOptions returns the default options
 // used for cookies. This is initialized to the value
-// returned by cookies.Defaults(). See gnd.la/cookies
+// returned by cookies.Defaults(). See gnd.la/mux/cookies
 // documentation for more details.
 func (mux *Mux) DefaultCookieOptions() *cookies.Options {
 	return mux.defaultCookieOptions

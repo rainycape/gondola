@@ -18,7 +18,7 @@ type Codec interface {
 	//
 	//     type Foo struct {
 	//     ...
-	//         Bars []Bar `orm:",codec:json"`
+	//         Bars []Bar `orm:",codec=json"`
 	//     }
 	Name() string
 	// Binary returns wheter the codec returns binary or text data.

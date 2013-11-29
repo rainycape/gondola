@@ -701,5 +701,5 @@ func NewDriver(b Backend, url *config.URL) (*Driver, error) {
 // Assume s is quoted
 func unquote(s string) string {
 	p := strings.Index(s, ".")
-	return s[p+3 : len(s)-1]
+	return s[p+2 : len(s)-1]
 }

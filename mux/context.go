@@ -35,6 +35,7 @@ type Context struct {
 	user            users.User
 	translations    *table.Table
 	hasTranslations bool
+	background      bool
 	// Used to store data for debugging purposes. Only
 	// used when mux.debug is true.
 	debugStorage map[string]interface{}
@@ -479,6 +480,40 @@ func (c *Context) Close() {
 			ca.Close()
 		}
 	}
+}
+
+// BackgroundContext returns a copy of the given Context
+// suitable for using after the request has been serviced
+// (id est, in goroutines spawned from the Handler which
+// might outlast the Handler's lifetime). Please, see also
+// Finalize.
+func (c *Context) BackgroundContext() *Context {
+	ctx := c.mux.NewContext(nil)
+	ctx.R = c.R
+	ctx.background = true
+	ctx.provider = c.provider
+	ctx.reProvider = c.reProvider
+	ctx.ResponseWriter = discard
+	return ctx
+}
+
+// Finalize recovers from any potential panics and then closes
+// the Context. It is used in conjunction with BackgroundContext, to
+// safely spawn background jobs from requests while also
+// logging any potential errors. The common usage pattern is:
+//
+//  func MyHandler(ctx *mux.Context) {
+//	data := AcquireData(ctx)
+//	c := ctx.BackgroundContext()
+//	go func() {
+//	    defer c.Finalize()
+//	    CrunchData(c, data) // note the usage of c rather than ctx
+//	}()
+//	ctx.MustExecute("mytemplate.html", data)
+//  }
+func (c *Context) Finalize() {
+	c.mux.recover(c)
+	c.mux.CloseContext(c)
 }
 
 // Intercept http.ResponseWriter calls to find response

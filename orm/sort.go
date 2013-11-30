@@ -13,6 +13,4 @@ const (
 	// DESC indicates that the results of the given query should be
 	// returned in descending order for the given field.
 	DESC = driver.DESC
-	// NONE indicates that no sorting has been specified.
-	NONE = driver.NONE
 )

@@ -81,8 +81,8 @@ func (d *Driver) MakeTables(ms []driver.Model) error {
 	return nil
 }
 
-func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) driver.Iter {
-	query, params, err := d.Select(nil, true, m, q, limit, offset, sort, sortField)
+func (d *Driver) Query(m driver.Model, q query.Q, sort []driver.Sort, limit int, offset int) driver.Iter {
+	query, params, err := d.Select(nil, true, m, q, sort, limit, offset)
 	if err != nil {
 		return &Iter{err: err}
 	}
@@ -95,7 +95,7 @@ func (d *Driver) Query(m driver.Model, q query.Q, limit int, offset int, sort in
 
 func (d *Driver) Count(m driver.Model, q query.Q, limit int, offset int) (uint64, error) {
 	var count uint64
-	query, params, err := d.Select([]string{"COUNT(*)"}, false, m, q, limit, offset, driver.NONE, "")
+	query, params, err := d.Select([]string{"COUNT(*)"}, false, m, q, nil, limit, offset)
 	if err != nil {
 		return 0, err
 	}
@@ -104,7 +104,7 @@ func (d *Driver) Count(m driver.Model, q query.Q, limit int, offset int) (uint64
 }
 
 func (d *Driver) Exists(m driver.Model, q query.Q) (bool, error) {
-	query, params, err := d.Select([]string{"1"}, false, m, q, -1, -1, driver.NONE, "")
+	query, params, err := d.Select([]string{"1"}, false, m, q, nil, -1, -1)
 	if err != nil {
 		return false, err
 	}
@@ -605,7 +605,7 @@ func (d *Driver) SelectStmt(fields []string, quote bool, m driver.Model, buf *by
 	return nil
 }
 
-func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, limit int, offset int, sort int, sortField string) (string, []interface{}, error) {
+func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, sort []driver.Sort, limit int, offset int) (string, []interface{}, error) {
 	where, params, err := d.where(m, q, 0)
 	if err != nil {
 		return "", nil, err
@@ -618,19 +618,20 @@ func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, 
 		buf.WriteString(" WHERE ")
 		buf.WriteString(where)
 	}
-	if sort != driver.NONE && sortField != "" {
+	if len(sort) > 0 {
 		buf.WriteString(" ORDER BY ")
-		dbName, _, err := m.Map(sortField)
-		if err != nil {
-			return "", nil, err
+		for _, v := range sort {
+			dbName, _, err := m.Map(v.Field())
+			if err != nil {
+				return "", nil, err
+			}
+			buf.WriteString(dbName)
+			if v.Direction() == driver.DESC {
+				buf.WriteString(" DESC")
+			}
+			buf.WriteByte(',')
 		}
-		buf.WriteString(dbName)
-		switch sort {
-		case driver.ASC:
-			buf.WriteString(" ASC")
-		case driver.DESC:
-			buf.WriteString(" DESC")
-		}
+		buf.Truncate(buf.Len() - 1)
 	}
 	if limit >= 0 {
 		buf.WriteString(" LIMIT ")

@@ -6,7 +6,7 @@ import (
 )
 
 type Conn interface {
-	Query(m Model, q query.Q, limit int, offset int, sort int, sortField string) Iter
+	Query(m Model, q query.Q, sort []Sort, limit int, offset int) Iter
 	Count(m Model, q query.Q, limit int, offset int) (uint64, error)
 	Exists(m Model, q query.Q) (bool, error)
 	Insert(m Model, data interface{}) (Result, error)

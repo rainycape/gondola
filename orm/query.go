@@ -7,16 +7,15 @@ import (
 )
 
 type Query struct {
-	orm       *Orm
-	model     *joinModel
-	methods   []*driver.Methods
-	jtype     JoinType
-	q         query.Q
-	limit     int
-	offset    int
-	sortField string
-	sortDir   int
-	err       error
+	orm     *Orm
+	model   *joinModel
+	methods []*driver.Methods
+	jtype   JoinType
+	q       query.Q
+	sort    []driver.Sort
+	limit   int
+	offset  int
+	err     error
 }
 
 func (q *Query) ensureTable(f string) error {
@@ -77,10 +76,13 @@ func (q *Query) Offset(offset int) *Query {
 }
 
 // Sort sets the field and direction used for sorting
-// this query.
+// this query. To Sort by multiple fields, call Sort
+// multiple times.
 func (q *Query) Sort(field string, dir Sort) *Query {
-	q.sortField = field
-	q.sortDir = int(dir)
+	q.sort = append(q.sort, &querySort{
+		field: field,
+		dir:   driver.SortDirection(dir),
+	})
 	return q
 }
 
@@ -139,14 +141,13 @@ func (q *Query) MustCount() uint64 {
 // Clone returns a copy of the query.
 func (q *Query) Clone() *Query {
 	return &Query{
-		orm:       q.orm,
-		model:     q.model,
-		q:         q.q,
-		limit:     q.limit,
-		offset:    q.offset,
-		sortField: q.sortField,
-		sortDir:   q.sortDir,
-		err:       q.err,
+		orm:    q.orm,
+		model:  q.model,
+		q:      q.q,
+		sort:   q.sort,
+		limit:  q.limit,
+		offset: q.offset,
+		err:    q.err,
 	}
 }
 
@@ -160,5 +161,18 @@ func (q *Query) iter(limit int) *Iter {
 
 func (q *Query) exec(limit int) driver.Iter {
 	q.orm.numQueries++
-	return q.orm.conn.Query(q.model, q.q, limit, q.offset, q.sortDir, q.sortField)
+	return q.orm.conn.Query(q.model, q.q, q.sort, limit, q.offset)
+}
+
+type querySort struct {
+	field string
+	dir   driver.SortDirection
+}
+
+func (s *querySort) Field() string {
+	return s.field
+}
+
+func (s *querySort) Direction() driver.SortDirection {
+	return s.dir
 }

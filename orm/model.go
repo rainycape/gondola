@@ -18,6 +18,20 @@ const (
 	RightJoin JoinType = JoinType(driver.RightJoin)
 )
 
+func (j JoinType) String() string {
+	switch j {
+	case InnerJoin:
+		return "INNER JOIN"
+	case OuterJoin:
+		return "OUTER JOIN"
+	case LeftJoin:
+		return "LEFT OUTER JOIN"
+	case RightJoin:
+		return "OUTER JOIN"
+	}
+	return "unknown JoinType"
+}
+
 type reference struct {
 	model string
 	field string

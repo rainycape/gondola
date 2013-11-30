@@ -169,18 +169,18 @@ func (o *Orm) Initialize() error {
 				}
 				if v.modelReferences == nil {
 					v.modelReferences = make(map[*model][]*join)
-					v.modelReferences[referenced] = append(v.modelReferences[referenced], &join{
-						model: &joinModel{model: referenced},
-						q:     Eq(v.fullName(k), query.F(referenced.fullName(r.field))),
-					})
 				}
+				v.modelReferences[referenced] = append(v.modelReferences[referenced], &join{
+					model: &joinModel{model: referenced},
+					q:     Eq(v.fullName(k), query.F(referenced.fullName(r.field))),
+				})
 				if referenced.modelReferences == nil {
 					referenced.modelReferences = make(map[*model][]*join)
-					referenced.modelReferences[v] = append(referenced.modelReferences[v], &join{
-						model: &joinModel{model: v},
-						q:     Eq(referenced.fullName(r.field), query.F(v.fullName(k))),
-					})
 				}
+				referenced.modelReferences[v] = append(referenced.modelReferences[v], &join{
+					model: &joinModel{model: v},
+					q:     Eq(referenced.fullName(r.field), query.F(v.fullName(k))),
+				})
 			}
 		}
 	}

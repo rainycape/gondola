@@ -64,7 +64,7 @@ type Or struct {
 }
 
 type Join struct {
-    Model interface{}
-    Field string
-    Query Q
+	Model interface{}
+	Field string
+	Query Q
 }

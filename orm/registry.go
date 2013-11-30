@@ -266,7 +266,7 @@ func (o *Orm) dtags() []string {
 
 // returns wheter the kind defaults to nullempty option
 func defaultsToNullEmpty(typ reflect.Type, t *types.Tag) bool {
-	if t.Has("references") {
+	if t.Has("references") || t.Has("codec") {
 		return true
 	}
 	switch typ.Kind() {

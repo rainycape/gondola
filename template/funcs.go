@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"gnd.la/html"
 	"gnd.la/mux/serialize"
 	"gnd.la/template/assets"
 	"gnd.la/types"
@@ -282,6 +283,10 @@ func now() time.Time {
 	return time.Now()
 }
 
+func toHtml(s string) template.HTML {
+	return template.HTML(strings.Replace(html.Escape(s), "\n", "<br>", -1))
+}
+
 var templateFuncs template.FuncMap = template.FuncMap{
 	"eq":        eq,
 	"neq":       neq,
@@ -311,6 +316,7 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"to_lower":  strings.ToLower,
 	"to_title":  strings.ToTitle,
 	"to_upper":  strings.ToUpper,
+	"to_html":   toHtml,
 
 	// Go builtins
 	"call":     call,

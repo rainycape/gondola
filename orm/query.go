@@ -164,6 +164,12 @@ func (q *Query) exec(limit int) driver.Iter {
 	return q.orm.conn.Query(q.model, q.q, q.sort, limit, q.offset)
 }
 
+// Field is a conveniency function which returns a reference to a field
+// to be used in a query, mostly used for joins.
+func F(field string) query.F {
+	return query.F(field)
+}
+
 type querySort struct {
 	field string
 	dir   driver.SortDirection

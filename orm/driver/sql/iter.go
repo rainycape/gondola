@@ -36,7 +36,11 @@ func (i *Iter) Next(out ...interface{}) bool {
 			if j := model.Join(); j != nil {
 				model = j.Model()
 				for model.Skip() {
-					model = model.Join().Model()
+					join := model.Join()
+					if join == nil {
+						break
+					}
+					model = join.Model()
 				}
 			}
 		}

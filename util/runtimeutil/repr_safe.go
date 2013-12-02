@@ -52,6 +52,8 @@ func astTypeName(typ ast.Expr, pkg string) string {
 		return fmt.Sprintf("map[%s]%s", astTypeName(x.Key, pkg), astTypeName(x.Value, pkg))
 	case *ast.ArrayType:
 		return fmt.Sprintf("[]%s", astTypeName(x.Elt, pkg))
+	case *ast.Ellipsis:
+		return fmt.Sprintf("%s..", astTypeName(x.Elt, pkg))
 	default:
 		panic(fmt.Errorf("unhandled ast.Expr %T", typ))
 	}

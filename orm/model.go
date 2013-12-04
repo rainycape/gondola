@@ -223,7 +223,7 @@ func (j *joinModel) joinWith(model *model, q query.Q, jt JoinType) (*joinModel, 
 			q:     q,
 		}
 	}
-	return j, nil
+	return m.join.model, nil
 }
 
 func (j *joinModel) Map(qname string) (string, reflect.Type, error) {

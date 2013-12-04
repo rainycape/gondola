@@ -9,8 +9,8 @@ type Sort int
 const (
 	// ASC indicates that the results of the given query should be
 	// returned in ascending order for the given field.
-	ASC Sort = driver.ASC
+	ASC = Sort(driver.ASC)
 	// DESC indicates that the results of the given query should be
 	// returned in descending order for the given field.
-	DESC = driver.DESC
+	DESC = Sort(driver.DESC)
 )

@@ -204,6 +204,23 @@ func (j *joinModel) joinWith(model *model, q query.Q, jt JoinType) (*joinModel, 
 			}
 			m = m.join.model
 		}
+		if len(candidates) > 1 {
+			// Check if all the candidates point to the same
+			// model and field. In that case, pick the first one.
+			first := candidates[0]
+			if eq, ok := first.q.(*query.Eq); ok {
+				equal := true
+				for _, v := range candidates[1:] {
+					if veq, ok := v.q.(*query.Eq); !ok || first.model.model != v.model.model || !reflect.DeepEqual(eq.Value, veq.Value) {
+						equal = false
+						break
+					}
+				}
+				if equal {
+					candidates = candidates[:1]
+				}
+			}
+		}
 		switch len(candidates) {
 		case 1:
 			m.join = candidates[0].clone()

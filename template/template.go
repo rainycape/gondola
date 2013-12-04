@@ -462,10 +462,18 @@ func (t *Template) AddParseTree(name string, tree *parse.Tree) error {
 }
 
 func (t *Template) Execute(w io.Writer, data interface{}) error {
-	return t.ExecuteVars(w, data, nil)
+	return t.ExecuteTemplateVars(w, "", data, nil)
+}
+
+func (t *Template) ExecuteTemplate(w io.Writer, name string, data interface{}) error {
+	return t.ExecuteTemplateVars(w, name, data, nil)
 }
 
 func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error {
+	return t.ExecuteTemplateVars(w, "", data, vars)
+}
+
+func (t *Template) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars VarMap) error {
 	// TODO: Make sure vars is the same as the vars that were compiled in
 	var templateData interface{}
 	if len(vars) > 0 {
@@ -483,7 +491,10 @@ func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error
 		templateData = data
 	}
 	var buf bytes.Buffer
-	err := t.ExecuteTemplate(&buf, t.root, templateData)
+	if name == "" {
+		name = t.root
+	}
+	err := t.Template.ExecuteTemplate(&buf, name, templateData)
 	if err != nil {
 		return err
 	}

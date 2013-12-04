@@ -14,7 +14,9 @@ var reservedVariables = []string{"Ctx", "Request"}
 
 type Template interface {
 	Execute(w io.Writer, data interface{}) error
+	ExecuteTemplate(w io.Writer, name string, data interface{}) error
 	ExecuteVars(w io.Writer, data interface{}, vars map[string]interface{}) error
+	ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars map[string]interface{}) error
 }
 
 type TemplateProcessor func(*template.Template) (*template.Template, error)
@@ -59,7 +61,7 @@ func (t *tmpl) Parse(file string) error {
 	return t.ParseVars(file, nil)
 }
 
-func (t *tmpl) execute(w io.Writer, data interface{}, vars template.VarMap) error {
+func (t *tmpl) execute(w io.Writer, name string, data interface{}, vars template.VarMap) error {
 	var context *Context
 	var request *http.Request
 	if context, _ = w.(*Context); context != nil {
@@ -87,15 +89,23 @@ func (t *tmpl) execute(w io.Writer, data interface{}, vars template.VarMap) erro
 			}
 		}
 	}
-	return t.Template.ExecuteVars(w, data, va)
+	return t.Template.ExecuteTemplateVars(w, name, data, va)
 }
 
 func (t *tmpl) Execute(w io.Writer, data interface{}) error {
-	return t.execute(w, data, nil)
+	return t.execute(w, "", data, nil)
+}
+
+func (t *tmpl) ExecuteTemplate(w io.Writer, name string, data interface{}) error {
+	return t.execute(w, name, data, nil)
 }
 
 func (t *tmpl) ExecuteVars(w io.Writer, data interface{}, vars map[string]interface{}) error {
-	return t.execute(w, data, vars)
+	return t.execute(w, "", data, vars)
+}
+
+func (t *tmpl) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars map[string]interface{}) error {
+	return t.execute(w, name, data, vars)
 }
 
 // Other functions which are defined depending on the template

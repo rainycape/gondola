@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"gnd.la/config"
 	"gnd.la/encoding/codec"
+	"gnd.la/encoding/pipe"
 	"gnd.la/log"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/index"
@@ -317,6 +318,13 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 					fval, err = c.Encode(f.Interface())
 					if err != nil {
 						return val, nil, nil, err
+					}
+					if p := pipe.FromTag(fields.Tags[ii]); p != nil {
+						data, err := p.Encode(fval.([]byte))
+						if err != nil {
+							return val, nil, nil, err
+						}
+						fval = data
 					}
 				} else {
 					// Most sql drivers won't accept aliases for string type

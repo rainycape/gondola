@@ -37,7 +37,7 @@ func (b *Backend) Tag() string {
 
 func (b *Backend) FieldType(typ reflect.Type, t *types.Tag) (string, error) {
 	if c := codec.FromTag(t); c != nil {
-		if c.Binary {
+		if c.Binary || t.PipeName() != "" {
 			return "BLOB", nil
 		}
 		return "TEXT", nil

@@ -3,6 +3,7 @@ package sql
 import (
 	"fmt"
 	"gnd.la/encoding/codec"
+	"gnd.la/encoding/pipe"
 	"gnd.la/types"
 	"reflect"
 	"time"
@@ -31,6 +32,12 @@ func (s *simpleScanner) Scan(src interface{}) error {
 		s.Out.SetBool(x)
 	case []byte:
 		if c := codec.FromTag(s.Tag); c != nil {
+			if p := pipe.FromTag(s.Tag); p != nil {
+				var err error
+				if x, err = p.Decode(x); err != nil {
+					return err
+				}
+			}
 			addr := s.Out.Addr()
 			return c.Decode(x, addr.Interface())
 		}

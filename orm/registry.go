@@ -3,6 +3,7 @@ package orm
 import (
 	"fmt"
 	"gnd.la/encoding/codec"
+	"gnd.la/encoding/pipe"
 	"gnd.la/log"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/query"
@@ -241,6 +242,15 @@ func (o *Orm) fields(table string, s *types.Struct) (*driver.Fields, map[string]
 			switch k {
 			case reflect.Array, reflect.Chan, reflect.Func, reflect.Interface, reflect.Map:
 				return nil, nil, fmt.Errorf("field %q in struct %v has invalid type %v", v, t, k)
+			}
+		}
+		if pn := ftag.PipeName(); pn != "" {
+			// Check if the field has a codec and the pipe exists
+			if ftag.CodecName() == "" {
+				return nil, nil, fmt.Errorf("field %q has pipe %s but no codec - only encoded types can use pipes", v, pn)
+			}
+			if pipe.FromTag(ftag) == nil {
+				return nil, nil, fmt.Errorf("can't find ORM pipe %q. Perhaps you missed an import?", pn)
 			}
 		}
 		fields.OmitEmpty = append(fields.OmitEmpty, ftag.Has("omitempty") || (ftag.Has("auto_increment") && !ftag.Has("notomitempty")))

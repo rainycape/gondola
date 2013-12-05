@@ -40,6 +40,10 @@ func (t *Tag) CodecName() string {
 	return t.Value("codec")
 }
 
+func (t *Tag) PipeName() string {
+	return t.Value("pipe")
+}
+
 func (t *Tag) Optional() bool {
 	return t.Has("optional")
 }

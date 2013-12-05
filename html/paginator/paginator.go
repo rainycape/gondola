@@ -11,11 +11,13 @@ var (
 )
 
 type Paginator struct {
-	Base    string
-	Current int
-	Count   int
-	Offset  int
-	Pager   Pager
+	Base            string
+	Current         int
+	Count           int
+	Offset          int
+	Pager           Pager
+	AlwaysShowFirst bool
+	AlwaysShowLast  bool
 }
 
 func (p *Paginator) pageHref(page int) string {
@@ -27,6 +29,15 @@ func (p *Paginator) appendNode(parent, cur *html.Node, page, flags int) {
 	if node != nil {
 		parent.AppendChild(node)
 	}
+}
+
+func (p *Paginator) appendPageNode(parent *html.Node, page int) {
+	node := &html.Node{
+		Tag:      "a",
+		Children: html.Text(strconv.Itoa(page)),
+		Attrs:    html.Attrs{"href": p.pageHref(page)},
+	}
+	p.appendNode(parent, node, page, 0)
 }
 
 func (p *Paginator) Render() template.HTML {
@@ -47,11 +58,18 @@ func (p *Paginator) Render() template.HTML {
 		left = 1
 	}
 	if left > 1 {
-		p.appendNode(parent, &html.Node{Tag: "a"}, 0, SEPARATOR)
+		cur := -1
+		if p.AlwaysShowFirst {
+			for cur = 1; cur < left && cur <= p.Offset; cur++ {
+				p.appendPageNode(parent, cur)
+			}
+		}
+		if left > cur {
+			p.appendNode(parent, &html.Node{Tag: "a"}, 0, SEPARATOR)
+		}
 	}
 	for ; left < p.Current; left++ {
-		node := &html.Node{Tag: "a", Children: html.Text(strconv.Itoa(left)), Attrs: html.Attrs{"href": p.pageHref(left)}}
-		p.appendNode(parent, node, left, 0)
+		p.appendPageNode(parent, left)
 	}
 	p.appendNode(parent, &html.Node{Tag: "a", Children: html.Text(strconv.Itoa(p.Current))}, p.Current, CURRENT)
 	right := p.Current + p.Offset
@@ -59,11 +77,22 @@ func (p *Paginator) Render() template.HTML {
 		right = p.Count
 	}
 	for jj := p.Current + 1; jj <= right; jj++ {
-		node := &html.Node{Tag: "a", Children: html.Text(strconv.Itoa(jj)), Attrs: html.Attrs{"href": p.pageHref(jj)}}
-		p.appendNode(parent, node, jj, 0)
+		p.appendPageNode(parent, jj)
 	}
 	if right < p.Count {
-		p.appendNode(parent, &html.Node{Tag: "a"}, 0, SEPARATOR)
+		if p.AlwaysShowLast {
+			cur := p.Count - p.Offset + 1
+			if cur <= right {
+				cur = right + 1
+			} else if cur > right+1 {
+				p.appendNode(parent, &html.Node{Tag: "a"}, 0, SEPARATOR)
+			}
+			for ; cur <= p.Count; cur++ {
+				p.appendPageNode(parent, cur)
+			}
+		} else {
+			p.appendNode(parent, &html.Node{Tag: "a"}, 0, SEPARATOR)
+		}
 	}
 	flags = NEXT | DISABLED
 	next := &html.Node{Tag: "a", Attrs: html.Attrs{}}

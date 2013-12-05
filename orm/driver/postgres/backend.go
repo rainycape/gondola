@@ -5,7 +5,7 @@ import (
 	"fmt"
 	_ "github.com/lib/pq"
 	"gnd.la/config"
-	"gnd.la/orm/codec"
+	"gnd.la/encoding/codec"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/driver/sql"
 	"gnd.la/orm/index"
@@ -102,7 +102,7 @@ func (b *Backend) Index(db sql.DB, m driver.Model, idx *index.Index, name string
 func (b *Backend) FieldType(typ reflect.Type, t *types.Tag) (string, error) {
 	if c := codec.FromTag(t); c != nil {
 		// TODO: Use type JSON on Postgresql >= 9.2 for JSON encoded fields
-		if c.Binary() {
+		if c.Binary {
 			return "BYTEA", nil
 		}
 		return "TEXT", nil

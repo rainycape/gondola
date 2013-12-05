@@ -4,7 +4,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"gnd.la/cache"
-	"gnd.la/cache/codec"
+	"gnd.la/encoding/codec"
 	"gnd.la/log"
 	"gnd.la/mux"
 	"net/http"

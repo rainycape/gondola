@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"gnd.la/config"
+	"gnd.la/encoding/codec"
 	"gnd.la/log"
-	"gnd.la/orm/codec"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/index"
 	"gnd.la/orm/operation"
@@ -314,7 +314,7 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 				}
 			} else if !fields.NullEmpty[ii] || !driver.IsZero(f) {
 				if c := codec.FromTag(fields.Tags[ii]); c != nil {
-					fval, err = c.Encode(&f)
+					fval, err = c.Encode(f.Interface())
 					if err != nil {
 						return val, nil, nil, err
 					}

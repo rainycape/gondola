@@ -2,8 +2,8 @@ package orm
 
 import (
 	"fmt"
+	"gnd.la/encoding/codec"
 	"gnd.la/log"
-	"gnd.la/orm/codec"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/query"
 	"gnd.la/types"
@@ -230,12 +230,13 @@ func (o *Orm) fields(table string, s *types.Struct) (*driver.Fields, map[string]
 		k := t.Kind()
 		ftag := s.Tags[ii]
 		// Check encoded types
-		if c := codec.FromTag(ftag); c != nil {
-			if err := c.Try(t, o.dtags()); err != nil {
-				return nil, nil, fmt.Errorf("can't encode field %q as %s: %s", v, c.Name(), err)
+		if cn := ftag.CodecName(); cn != "" {
+			if codec.Get(cn) == nil {
+				if imp := codec.RequiredImport(cn); imp != "" {
+					return nil, nil, fmt.Errorf("please import %q to use the codec %q", imp, cn)
+				}
+				return nil, nil, fmt.Errorf("can't find codec %q. Perhaps you missed an import?", cn)
 			}
-		} else if ftag.CodecName() != "" {
-			return nil, nil, fmt.Errorf("can't find ORM codec %q. Perhaps you missed an import?", ftag.CodecName())
 		} else {
 			switch k {
 			case reflect.Array, reflect.Chan, reflect.Func, reflect.Interface, reflect.Map:

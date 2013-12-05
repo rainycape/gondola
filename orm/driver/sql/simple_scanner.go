@@ -2,7 +2,7 @@ package sql
 
 import (
 	"fmt"
-	"gnd.la/orm/codec"
+	"gnd.la/encoding/codec"
 	"gnd.la/types"
 	"reflect"
 	"time"
@@ -32,7 +32,7 @@ func (s *simpleScanner) Scan(src interface{}) error {
 	case []byte:
 		if c := codec.FromTag(s.Tag); c != nil {
 			addr := s.Out.Addr()
-			return c.Decode(x, &addr)
+			return c.Decode(x, addr.Interface())
 		}
 		// Some sql drivers return strings as []byte
 		if s.Out.Kind() == reflect.String {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"gnd.la/config"
-	"gnd.la/orm/codec"
+	"gnd.la/encoding/codec"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/driver/sql"
 	"gnd.la/orm/driver/sqlite"
@@ -37,7 +37,7 @@ func (b *Backend) Tag() string {
 
 func (b *Backend) FieldType(typ reflect.Type, t *types.Tag) (string, error) {
 	if c := codec.FromTag(t); c != nil {
-		if c.Binary() {
+		if c.Binary {
 			return "BLOB", nil
 		}
 		return "TEXT", nil

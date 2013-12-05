@@ -3,10 +3,10 @@ package cache
 import (
 	"encoding/gob"
 	"fmt"
-	_ "gnd.la/cache/codec/msgpack"
 	_ "gnd.la/cache/driver/memcache"
 	_ "gnd.la/cache/driver/redis"
 	"gnd.la/config"
+	_ "gnd.la/encoding/codec/msgpack"
 	"gnd.la/log"
 	"net"
 	"reflect"

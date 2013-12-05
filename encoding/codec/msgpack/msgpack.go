@@ -2,12 +2,12 @@ package msgpack
 
 import (
 	gocodec "github.com/ugorji/go/codec"
-	"gnd.la/cache/codec"
+	"gnd.la/encoding/codec"
 )
 
 var (
-	msgpackCodec = &codec.Codec{Encode: msgpackMarshal, Decode: msgpackUnmarshal}
-	handle           = &gocodec.MsgpackHandle{}
+	msgpackCodec = &codec.Codec{Encode: msgpackMarshal, Decode: msgpackUnmarshal, Binary: true}
+	handle       = &gocodec.MsgpackHandle{}
 )
 
 func msgpackMarshal(in interface{}) ([]byte, error) {

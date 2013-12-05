@@ -5,9 +5,9 @@ import (
 	"compress/zlib"
 	"errors"
 	"fmt"
-	"gnd.la/cache/codec"
 	"gnd.la/cache/driver"
 	"gnd.la/config"
+	"gnd.la/encoding/codec"
 	"gnd.la/log"
 	"io"
 	"reflect"
@@ -20,7 +20,6 @@ var (
 	imports     = map[string]string{
 		"memcache": "gnd.la/cache/driver/memcache",
 		"redis":    "gnd.la/cache/driver/redis",
-		"msgpack":  "gnd.la/cache/codec/msgpack",
 	}
 )
 
@@ -289,10 +288,10 @@ func newConfig(conf *config.URL) (*Cache, error) {
 	if codecName := conf.Get("codec"); codecName != "" {
 		cache.codec = codec.Get(codecName)
 		if cache.codec == nil {
-			if imp := imports[codecName]; imp != "" {
-				return nil, fmt.Errorf("please import %q to use the cache codec %q", imp, codecName)
+			if imp := codec.RequiredImport(codecName); imp != "" {
+				return nil, fmt.Errorf("please import %q to use the codec %q", imp, codecName)
 			}
-			return nil, fmt.Errorf("unknown cache codec %q, maybe you forgot an import?", codecName)
+			return nil, fmt.Errorf("unknown codec %q, maybe you forgot an import?", codecName)
 		}
 	} else {
 		cache.codec = codec.Get("gob")

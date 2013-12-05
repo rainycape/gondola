@@ -6,28 +6,9 @@ import (
 	"testing"
 )
 
-// These types should return an error when trying to register
-// them because they use field codecs in an invalid way.
-
-type HasUnexported struct {
-	A int64
-	b int64
-}
-
 type InvalidCodec1 struct {
 	// A codec which doesn't exist
 	Value []int64 `orm:",codec=nonexistent"`
-}
-
-// The following two types try to use a codec with
-// structs with unexported fields, which is not allowed.
-
-type InvalidCodec2 struct {
-	Value []HasUnexported `orm:",codec=json"`
-}
-
-type InvalidCodec3 struct {
-	Value []HasUnexported `orm:",codec=gob"`
 }
 
 // This type can be correctly encoded by codecs
@@ -50,7 +31,7 @@ type GobEncoded struct {
 func TestInvalidCodecs(t *testing.T) {
 	o := newMemoryOrm(t)
 	defer o.Close()
-	for _, v := range []interface{}{&InvalidCodec1{}, &InvalidCodec2{}, &InvalidCodec3{}} {
+	for _, v := range []interface{}{&InvalidCodec1{}} {
 		_, err := o.Register(v, nil)
 		if err == nil {
 			t.Errorf("Expecting an error when registering %T", v)

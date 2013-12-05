@@ -10,7 +10,7 @@ package pipe
 
 import (
 	"fmt"
-	"gnd.la/types"
+	"gnd.la/util/structs"
 )
 
 var (
@@ -44,6 +44,6 @@ func Get(name string) *Pipe {
 }
 
 // FromTag returns the pipe for a given field tag.
-func FromTag(t *types.Tag) *Pipe {
+func FromTag(t *structs.Tag) *Pipe {
 	return registry[t.PipeName()]
 }

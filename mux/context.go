@@ -3,10 +3,10 @@ package mux
 import (
 	"fmt"
 	"gnd.la/blobstore"
+	"gnd.la/form/input"
 	"gnd.la/i18n/table"
 	"gnd.la/mux/cookies"
 	"gnd.la/mux/serialize"
-	"gnd.la/types"
 	"gnd.la/users"
 	"gnd.la/util"
 	"net"
@@ -148,6 +148,8 @@ func (c *Context) RequireFormValue(name string) string {
 // var width uint
 // ctx.ParseFormValue("width", &width)
 // Supported types are: bool, u?int(8|16|32|64)? and float(32|64)
+// Internally, ParseFormValue uses gnd.la/form/input to parse
+// its arguments.
 func (c *Context) ParseFormValue(name string, arg interface{}) bool {
 	val := c.FormValue(name)
 	return c.parseTypedValue(val, arg)
@@ -182,7 +184,7 @@ func (c *Context) StatusCode() int {
 }
 
 func (c *Context) parseTypedValue(val string, arg interface{}) bool {
-	return types.Parse(val, arg) == nil
+	return input.Parse(val, arg) == nil
 }
 
 // Redirect sends an HTTP redirect to the client,

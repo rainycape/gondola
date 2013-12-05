@@ -1,8 +1,9 @@
-package types
+package input
 
 import (
 	"fmt"
 	"gnd.la/i18n"
+	"gnd.la/util/types"
 	"math"
 	"reflect"
 	"strconv"
@@ -31,7 +32,7 @@ func Parse(val string, arg interface{}) error {
 	if parser, ok := arg.(Parser); ok {
 		return parser.Parse(val)
 	}
-	v, err := SettableValue(arg)
+	v, err := types.SettableValue(arg)
 	if err != nil {
 		return err
 	}

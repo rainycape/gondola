@@ -1,7 +1,9 @@
-package types
+package input
 
 import (
 	"gnd.la/i18n"
+	"gnd.la/util/structs"
+	"gnd.la/util/types"
 	"reflect"
 	"regexp"
 )
@@ -24,8 +26,8 @@ var (
 //
 // Finally, the required parameter indicates if the value should be considered required
 // or optional in absence of the "required" and "optional" tag fields.
-func InputNamed(name string, input string, out interface{}, tag *Tag, required bool) error {
-	v, err := SettableValue(out)
+func InputNamed(name string, input string, out interface{}, tag *structs.Tag, required bool) error {
+	v, err := types.SettableValue(out)
 	if err != nil {
 		return err
 	}
@@ -62,6 +64,6 @@ func InputNamed(name string, input string, out interface{}, tag *Tag, required b
 }
 
 // Input is a shorthand for InputNamed("", ...).
-func Input(input string, out interface{}, tag *Tag, required bool) error {
+func Input(input string, out interface{}, tag *structs.Tag, required bool) error {
 	return InputNamed("", input, out, tag, required)
 }

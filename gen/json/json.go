@@ -36,7 +36,7 @@ import (
 	"fmt"
 	"gnd.la/gen/genutil"
 	"gnd.la/log"
-	gtypes "gnd.la/types"
+	"gnd.la/util/structs"
 	"path/filepath"
 	"regexp"
 )
@@ -174,11 +174,11 @@ func jsonMarshal(typ *types.Named, opts *Options, buf *bytes.Buffer) error {
 	return nil
 }
 
-func fieldTag(tag string) *gtypes.Tag {
-	if gtag := gtypes.NewStringTagNamed(tag, "genjson"); gtag != nil && !gtag.IsEmpty() {
+func fieldTag(tag string) *structs.Tag {
+	if gtag := structs.NewStringTagNamed(tag, "genjson"); gtag != nil && !gtag.IsEmpty() {
 		return gtag
 	}
-	return gtypes.NewStringTagNamed(tag, "json")
+	return structs.NewStringTagNamed(tag, "json")
 }
 
 func jsonStruct(st *types.Struct, p types.Type, name string, opts *Options, buf *bytes.Buffer) error {

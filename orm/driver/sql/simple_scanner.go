@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"gnd.la/encoding/codec"
 	"gnd.la/encoding/pipe"
-	"gnd.la/types"
+	"gnd.la/util/structs"
 	"reflect"
 	"time"
 )
 
 type simpleScanner struct {
 	Out *reflect.Value
-	Tag *types.Tag
+	Tag *structs.Tag
 	Nil bool
 }
 
@@ -79,7 +79,7 @@ func (s *simpleScanner) IsNil() bool {
 	return s.Nil
 }
 
-func Scanner(val *reflect.Value, t *types.Tag) scanner {
+func Scanner(val *reflect.Value, t *structs.Tag) scanner {
 	var s *simpleScanner
 	select {
 	case s = <-simpleScannerPool:

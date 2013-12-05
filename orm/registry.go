@@ -7,8 +7,8 @@ import (
 	"gnd.la/log"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/query"
-	"gnd.la/types"
 	"gnd.la/util"
+	"gnd.la/util/structs"
 	"reflect"
 	"regexp"
 	"sort"
@@ -39,12 +39,12 @@ var (
 // object returned to specify on which table you want to operate. If
 // no table is specified, the first registered table will be used.
 func (o *Orm) Register(t interface{}, opt *Options) (*Table, error) {
-	s, err := types.NewStruct(t, o.dtags())
+	s, err := structs.NewStruct(t, o.dtags())
 	if err != nil {
 		switch err {
-		case types.ErrNoStruct:
+		case structs.ErrNoStruct:
 			return nil, fmt.Errorf("only structs can be registered as models (tried to register %T)", t)
-		case types.ErrNoFields:
+		case structs.ErrNoFields:
 			return nil, fmt.Errorf("type %T has no fields", t)
 		}
 		return nil, err
@@ -213,7 +213,7 @@ func (o *Orm) MustInitialize() {
 	}
 }
 
-func (o *Orm) fields(table string, s *types.Struct) (*driver.Fields, map[string]*reference, error) {
+func (o *Orm) fields(table string, s *structs.Struct) (*driver.Fields, map[string]*reference, error) {
 	methods, err := driver.MakeMethods(s.Type)
 	if err != nil {
 		return nil, nil, err
@@ -286,7 +286,7 @@ func (o *Orm) dtags() []string {
 }
 
 // returns wheter the kind defaults to nullempty option
-func defaultsToNullEmpty(typ reflect.Type, t *types.Tag) bool {
+func defaultsToNullEmpty(typ reflect.Type, t *structs.Tag) bool {
 	if t.Has("references") || t.Has("codec") {
 		return true
 	}

@@ -3,12 +3,14 @@ package form
 import (
 	"bytes"
 	"fmt"
+	"gnd.la/form/input"
 	"gnd.la/html"
 	"gnd.la/i18n"
 	"gnd.la/mux"
 	"gnd.la/password"
-	"gnd.la/types"
 	"gnd.la/util"
+	"gnd.la/util/structs"
+	"gnd.la/util/types"
 	"html/template"
 	"reflect"
 	"strconv"
@@ -25,7 +27,7 @@ type Form struct {
 	id        string
 	renderer  Renderer
 	values    []reflect.Value
-	structs   []*types.Struct
+	structs   []*structs.Struct
 	fields    []*Field
 	attrs     attrMap
 	options   *Options
@@ -37,17 +39,17 @@ type Form struct {
 
 func (f *Form) validate() {
 	for _, v := range f.fields {
-		input := f.ctx.FormValue(v.Name)
+		inp := f.ctx.FormValue(v.Name)
 		label := v.Label.TranslatedString(f.ctx)
 		if f.NamelessErrors {
 			label = ""
 		}
-		if err := types.InputNamed(label, input, v.SettableValue(), v.Tag(), true); err != nil {
+		if err := input.InputNamed(label, inp, v.SettableValue(), v.Tag(), true); err != nil {
 			v.err = i18n.TranslatedError(err, f.ctx)
 			f.invalid = true
 			continue
 		}
-		if err := types.Validate(v.sval.Addr().Interface(), v.GoName, f.ctx); err != nil {
+		if err := structs.Validate(v.sval.Addr().Interface(), v.GoName, f.ctx); err != nil {
 			v.err = i18n.TranslatedError(err, f.ctx)
 			f.invalid = true
 			continue
@@ -56,7 +58,7 @@ func (f *Form) validate() {
 }
 
 func (f *Form) makeField(name string) (*Field, error) {
-	var s *types.Struct
+	var s *structs.Struct
 	idx := -1
 	var fieldValue reflect.Value
 	var sval reflect.Value
@@ -72,7 +74,7 @@ func (f *Form) makeField(name string) (*Field, error) {
 			fieldValue = sval.FieldByIndex(s.Indexes[pos])
 			// Check the validation function, so if the function is not valid
 			// the error is generated at form instantiation.
-			if _, err := types.ValidationFunction(sval, name); err != nil {
+			if _, err := structs.ValidationFunction(sval, name); err != nil {
 				return nil, err
 			}
 		}
@@ -169,7 +171,7 @@ func (f *Form) appendVal(val interface{}) error {
 	if err != nil {
 		return err
 	}
-	s, err := types.NewStruct(val, formTags)
+	s, err := structs.NewStruct(val, formTags)
 	if err != nil {
 		return err
 	}

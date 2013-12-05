@@ -9,7 +9,7 @@ import (
 	"gnd.la/html"
 	"gnd.la/mux/serialize"
 	"gnd.la/template/assets"
-	"gnd.la/types"
+	"gnd.la/util/types"
 	"html/template"
 	"math"
 	"reflect"

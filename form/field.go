@@ -2,7 +2,7 @@ package form
 
 import (
 	"gnd.la/i18n"
-	"gnd.la/types"
+	"gnd.la/util/structs"
 	"reflect"
 )
 
@@ -18,7 +18,7 @@ type Field struct {
 	prefix string
 	addons []*AddOn
 	value  reflect.Value
-	s      *types.Struct
+	s      *structs.Struct
 	sval   reflect.Value
 	pos    int
 	err    error
@@ -36,7 +36,7 @@ func (f *Field) SettableValue() interface{} {
 	return f.value.Addr().Interface()
 }
 
-func (f *Field) Tag() *types.Tag {
+func (f *Field) Tag() *structs.Tag {
 	return f.s.Tags[f.pos]
 }
 

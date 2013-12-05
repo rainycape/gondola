@@ -8,7 +8,7 @@ import (
 	"gnd.la/orm/driver"
 	"gnd.la/orm/driver/sql"
 	"gnd.la/orm/driver/sqlite"
-	"gnd.la/types"
+	"gnd.la/util/structs"
 	"reflect"
 	"time"
 )
@@ -35,7 +35,7 @@ func (b *Backend) Tag() string {
 	return b.Name()
 }
 
-func (b *Backend) FieldType(typ reflect.Type, t *types.Tag) (string, error) {
+func (b *Backend) FieldType(typ reflect.Type, t *structs.Tag) (string, error) {
 	if c := codec.FromTag(t); c != nil {
 		if c.Binary || t.PipeName() != "" {
 			return "BLOB", nil
@@ -91,7 +91,7 @@ func (b *Backend) FieldType(typ reflect.Type, t *types.Tag) (string, error) {
 	return "", fmt.Errorf("can't map field type %v to a database type", typ)
 }
 
-func (b *Backend) FieldOptions(typ reflect.Type, t *types.Tag) ([]string, error) {
+func (b *Backend) FieldOptions(typ reflect.Type, t *structs.Tag) ([]string, error) {
 	var opts []string
 	if t.Has("notnull") {
 		opts = append(opts, "NOT NULL")
@@ -117,28 +117,28 @@ func (b *Backend) Transforms() []reflect.Type {
 	return transformedTypes
 }
 
-func (b *Backend) ScanInt(val int64, goVal *reflect.Value, t *types.Tag) error {
+func (b *Backend) ScanInt(val int64, goVal *reflect.Value, t *structs.Tag) error {
 	goVal.SetInt(val)
 	return nil
 }
 
-func (b *Backend) ScanFloat(val float64, goVal *reflect.Value, t *types.Tag) error {
+func (b *Backend) ScanFloat(val float64, goVal *reflect.Value, t *structs.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanBool(val bool, goVal *reflect.Value, t *types.Tag) error {
+func (b *Backend) ScanBool(val bool, goVal *reflect.Value, t *structs.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, t *types.Tag) error {
+func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, t *structs.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanString(val string, goVal *reflect.Value, t *types.Tag) error {
+func (b *Backend) ScanString(val string, goVal *reflect.Value, t *structs.Tag) error {
 	return nil
 }
 
-func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, t *types.Tag) error {
+func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, t *structs.Tag) error {
 	goVal.Set(reflect.ValueOf(val.UTC()))
 	return nil
 }

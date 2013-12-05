@@ -14,7 +14,7 @@
 package codec
 
 import (
-	"gnd.la/types"
+	"gnd.la/util/structs"
 )
 
 var (
@@ -55,7 +55,7 @@ func Get(name string) *Codec {
 }
 
 // FromTag returns the pipe for a given field tag.
-func FromTag(t *types.Tag) *Codec {
+func FromTag(t *structs.Tag) *Codec {
 	return codecs[t.CodecName()]
 }
 

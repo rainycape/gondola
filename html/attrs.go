@@ -1,7 +1,7 @@
 package html
 
 import (
-	"gnd.la/types"
+	"gnd.la/util/types"
 	"io"
 	"strings"
 )

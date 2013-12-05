@@ -1,40 +1,43 @@
-#: input.go:38
+#: input.go:40
 msgctxt "form"
 msgid "%s is required"
 msgstr ""
 
-#: input.go:44
+#: input.go:46
 msgctxt "form"
 msgid "%s is too long (maximum length is %d)"
 msgstr ""
 
-#: input.go:50
+#: input.go:52
 msgctxt "form"
 msgid "%s is too short (minimum length is %d)"
 msgstr ""
 
-#: input.go:56
+#: input.go:58
 msgctxt "form"
 msgid "%s must be alphanumeric"
 msgstr ""
 
-#: input.go:58
+#: parse.go:56
+msgid "invalid boolean value %q"
+msgstr ""
+
+#: input.go:60
 msgctxt "form"
 msgid "must be alphanumeric"
 msgstr ""
 
-#: input.go:40
+#: input.go:42
 msgctxt "form"
 msgid "required"
 msgstr ""
 
-#: input.go:46
+#: input.go:48
 msgctxt "form"
 msgid "too long (maximum length is %d)"
 msgstr ""
 
-#: input.go:52
+#: input.go:54
 msgctxt "form"
 msgid "too short (minimum length is %d)"
 msgstr ""
-

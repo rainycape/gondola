@@ -1,9 +1,10 @@
-package types
+package structs
 
 import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strconv"
 )
 
 type Tag struct {
@@ -27,9 +28,8 @@ func (t *Tag) Value(key string) string {
 func (t *Tag) IntValue(key string) (int, bool) {
 	v := t.Value(key)
 	if v != "" {
-		var val int
-		ret := Parse(t.Value(key), &val)
-		return val, ret == nil
+		val, err := strconv.Atoi(key)
+		return val, err == nil
 	}
 	return 0, false
 }

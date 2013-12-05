@@ -3,11 +3,12 @@ package config
 import (
 	"flag"
 	"fmt"
+	"gnd.la/form/input"
 	"gnd.la/log"
 	"gnd.la/signal"
-	"gnd.la/types"
 	"gnd.la/util"
 	"gnd.la/util/textutil"
+	"gnd.la/util/types"
 	"io"
 	"io/ioutil"
 	"os"
@@ -106,7 +107,7 @@ func parseValue(v reflect.Value, raw string) error {
 		count := len(fields)
 		v.Set(reflect.MakeSlice(v.Type(), count, count))
 		for ii, f := range fields {
-			if err := types.Parse(f, v.Index(ii).Addr().Interface()); err != nil {
+			if err := input.Parse(f, v.Index(ii).Addr().Interface()); err != nil {
 				return fmt.Errorf("error parsing field at index %d: %s", ii, err)
 			}
 		}
@@ -123,23 +124,23 @@ func parseValue(v reflect.Value, raw string) error {
 				return fmt.Errorf("missing map value at index %d", ii/2)
 			}
 			k := reflect.New(ktyp)
-			if err := types.Parse(fields[ii], k.Interface()); err != nil {
+			if err := input.Parse(fields[ii], k.Interface()); err != nil {
 				return fmt.Errorf("error parsing key at index %d: %s", ii/2, err)
 			}
 			elem := reflect.New(etyp)
-			if err := types.Parse(fields[ii+1], elem.Interface()); err != nil {
+			if err := input.Parse(fields[ii+1], elem.Interface()); err != nil {
 				return fmt.Errorf("error parsing value at index %d: %s", ii/2, err)
 			}
 			v.SetMapIndex(k.Elem(), elem.Elem())
 		}
 	default:
-		parser, ok := v.Interface().(types.Parser)
+		parser, ok := v.Interface().(input.Parser)
 		if !ok {
 			return fmt.Errorf("can't parse value of type %s", v.Type())
 		}
 		if v.Kind() == reflect.Ptr && !v.Elem().IsValid() {
 			v.Set(reflect.New(v.Type().Elem()))
-			parser = v.Interface().(types.Parser)
+			parser = v.Interface().(input.Parser)
 		}
 		return parser.Parse(raw)
 	}
@@ -245,10 +246,10 @@ func setupFlags(fields fieldMap) (varMap, error) {
 			}
 			p = flag.String(name, mapToString(val), help)
 		default:
-			if _, ok := val.Interface().(types.Parser); !ok {
+			if _, ok := val.Interface().(input.Parser); !ok {
 				return nil, fmt.Errorf("config field %q has unsupported type %s", k, val.Type())
 			}
-			// Type implements types.Parser, define it as a string
+			// Type implements input.Parser, define it as a string
 			p = flag.String(name, types.ToString(val.Interface()), help)
 		}
 		m[name] = p
@@ -349,7 +350,7 @@ func canParse(typ reflect.Type) bool {
 		return true
 	}
 	val := reflect.New(typ)
-	if _, ok := val.Interface().(types.Parser); ok {
+	if _, ok := val.Interface().(input.Parser); ok {
 		return true
 	}
 	return false

@@ -1,8 +1,8 @@
 package astutil
 
 import (
-	"gnd.la/types"
 	"gnd.la/util/internal/pkgutil"
+	"gnd.la/util/structs"
 	"gnd.la/util/textutil"
 	"go/ast"
 	"go/token"
@@ -82,7 +82,7 @@ func TagFields(fset *token.FileSet, f *ast.File, tagField string) ([]*String, er
 			if x.Tag != nil {
 				if s, pos := StringLiteral(fset, x.Tag); s != "" && pos != nil {
 					for _, v := range tagKeys(s) {
-						t := types.NewStringTagNamed(s, v)
+						t := structs.NewStringTagNamed(s, v)
 						if val := t.Value(tagField); val != "" {
 							strings = append(strings, &String{val, pos})
 						}

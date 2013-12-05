@@ -2,14 +2,14 @@ package sql
 
 import (
 	"fmt"
-	"gnd.la/types"
+	"gnd.la/util/structs"
 	"reflect"
 	"time"
 )
 
 type backendScanner struct {
 	Out     *reflect.Value
-	Tag     *types.Tag
+	Tag     *structs.Tag
 	Nil     bool
 	Backend Backend
 }
@@ -52,7 +52,7 @@ func (s *backendScanner) Put() {
 	}
 }
 
-func BackendScanner(val *reflect.Value, t *types.Tag, backend Backend) scanner {
+func BackendScanner(val *reflect.Value, t *structs.Tag, backend Backend) scanner {
 	var s *backendScanner
 	select {
 	case s = <-backendScannerPool:

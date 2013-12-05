@@ -1,7 +1,7 @@
 package driver
 
 import (
-	"gnd.la/types"
+	"gnd.la/util/structs"
 )
 
 type Reference struct {
@@ -10,7 +10,7 @@ type Reference struct {
 }
 
 type Fields struct {
-	*types.Struct
+	*structs.Struct
 	// Quoted mangled names of the fields, including the table
 	// name (e.g. "table"."field").
 	QuotedNames []string

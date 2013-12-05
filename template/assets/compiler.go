@@ -42,8 +42,7 @@ func Compile(m Manager, name string, codeType CodeType, opts Options) (string, e
 	}
 	defer f.Close()
 	fnv := hashutil.Fnv32a(f)
-	nonExt := name[:len(name)-len(ext)]
-	out := fmt.Sprintf("%s.gen.%s.%s", nonExt, fnv, codeType.Ext())
+	out := fmt.Sprintf("%s.gen.%s.%s", name, fnv, codeType.Ext())
 	if _, _, err := m.Load(out); err == nil {
 		log.Debugf("%s already compiled to %s", name, out)
 		return out, nil

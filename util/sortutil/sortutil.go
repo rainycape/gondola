@@ -13,8 +13,20 @@ import (
 
 type sortable struct {
 	value      reflect.Value
-	key        string
+	key        func(reflect.Value) reflect.Value
 	descending bool
+}
+
+func fieldValue(key string) func(reflect.Value) reflect.Value {
+	return func(v reflect.Value) reflect.Value {
+		return reflect.Indirect(v).FieldByName(key)
+	}
+}
+
+func methodValue(key string) func(reflect.Value) reflect.Value {
+	return func(v reflect.Value) reflect.Value {
+		return v.MethodByName(key).Call(nil)[0]
+	}
 }
 
 func (s *sortable) Len() int {
@@ -22,8 +34,8 @@ func (s *sortable) Len() int {
 }
 
 func (s *sortable) less(i, j int) bool {
-	fi := reflect.Indirect(s.value.Index(i)).FieldByName(s.key)
-	fj := reflect.Indirect(s.value.Index(j)).FieldByName(s.key)
+	fi := s.key(s.value.Index(i))
+	fj := s.key(s.value.Index(j))
 	switch fi.Kind() {
 	case reflect.Bool:
 		return !fi.Bool() && fj.Bool()
@@ -60,24 +72,39 @@ func (s *sortable) Swap(i, j int) {
 
 // Sort sorts an array or slice of structs or pointer to
 // structs by comparing the given key, which must be a
-// an exported struct field. If the key is prefixed by
-// the character '-', the sorting is performed in
-// descending order.
+// an exported struct field or an exported method with no
+// arguments and just one return value. If the key is
+// prefixed by the character '-', the sorting is performed
+// in descending order.
 func Sort(data interface{}, key string) (err error) {
 	val := reflect.ValueOf(data)
 	if val.Kind() != reflect.Slice && val.Kind() != reflect.Array {
 		return fmt.Errorf("can't short type %v, must be slice or array", val.Type())
+	}
+	if val.Len() == 0 {
+		return nil
 	}
 	descending := false
 	if key != "" && key[0] == '-' {
 		descending = true
 		key = key[1:]
 	}
+	var fn func(reflect.Value) reflect.Value
+	// Check the first item to see if we're using
+	// a method or a value.
+	item := val.Index(0)
+	if method := item.MethodByName(key); method.IsValid() {
+		fn = methodValue(key)
+	} else if field := reflect.Indirect(item).FieldByName(key); field.IsValid() {
+		fn = fieldValue(key)
+	} else {
+		return fmt.Errorf("%T does not have a field nor a method named %q", item.Interface(), key)
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			err = r.(error)
 		}
 	}()
-	sort.Sort(&sortable{val, key, descending})
+	sort.Sort(&sortable{val, fn, descending})
 	return err
 }

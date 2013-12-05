@@ -9,6 +9,14 @@ type Test1 struct {
 	Value int
 }
 
+func (t *Test1) GetName() string {
+	return t.Name
+}
+
+func (t *Test1) GetValue() int {
+	return t.Value
+}
+
 var (
 	chars = []byte{'A', 'B', 'C', 'D', 'E'}
 	tests = []*Test1{
@@ -32,6 +40,27 @@ func TestField(t *testing.T) {
 		}
 	}
 	if err := Sort(t1, "-Name"); err != nil {
+		t.Fatal(err)
+	}
+	for ii, v := range t1 {
+		if ex := string(chars[len(chars)-ii-1]); ex != v.Name {
+			t.Errorf("bad value at index %d. want %s, got %s", ii, ex, v.Name)
+		}
+	}
+}
+
+func TestMethod(t *testing.T) {
+	var t1 []*Test1
+	t1 = append(t1, tests...)
+	if err := Sort(t1, "GetName"); err != nil {
+		t.Fatal(err)
+	}
+	for ii, v := range t1 {
+		if ex := string(chars[ii]); ex != v.Name {
+			t.Errorf("bad value at index %d. want %s, got %s", ii, ex, v.Name)
+		}
+	}
+	if err := Sort(t1, "-GetName"); err != nil {
 		t.Fatal(err)
 	}
 	for ii, v := range t1 {

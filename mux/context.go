@@ -353,6 +353,12 @@ func (c *Context) Cookies() *cookies.Cookies {
 // of error, instead of returning it.
 func (c *Context) Cache() *Cache {
 	if c.mux.c == nil {
+		if c.mux.debug {
+			// Check if we already have a Cache
+			if cache, ok := c.getDebug(debugCacheKey).(*Cache); ok {
+				return cache
+			}
+		}
 		cache, err := c.mux.Cache()
 		if err != nil {
 			panic(err)
@@ -381,6 +387,12 @@ func (c *Context) Blobstore() *blobstore.Store {
 // of error, rather than returning it.
 func (c *Context) Orm() *Orm {
 	if c.mux.o == nil {
+		if c.mux.debug {
+			// Check if we already have an ORM
+			if o, ok := c.getDebug(debugOrmKey).(*Orm); ok {
+				return o
+			}
+		}
 		o, err := c.mux.Orm()
 		if err != nil {
 			panic(err)
@@ -473,10 +485,10 @@ func (c *Context) IsAjax() bool {
 // don't need to call it manually
 func (c *Context) Close() {
 	if c.mux.debug {
-		if o, ok := c.debugStorage[debugOrmKey].(*Orm); ok {
+		if o, ok := c.getDebug(debugOrmKey).(*Orm); ok {
 			o.Close()
 		}
-		if ca, ok := c.debugStorage[debugCacheKey].(*Cache); ok {
+		if ca, ok := c.getDebug(debugCacheKey).(*Cache); ok {
 			ca.Close()
 		}
 	}

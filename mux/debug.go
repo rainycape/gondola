@@ -55,3 +55,7 @@ func (c *Context) storeDebug(name string, val interface{}) {
 	}
 	c.debugStorage[name] = val
 }
+
+func (c *Context) getDebug(name string) interface{} {
+	return c.debugStorage[name]
+}

@@ -6,11 +6,10 @@ import (
 )
 
 type Q interface {
-	// This function exists only to avoid declaring Q
-	// as an empty interface. Otherwise, the user might
-	// accidentally swap the parameters to Update or Insert
-	// and won't get a compiler error.
-	q()
+	// Qualified Go name. It might reference a
+	// type like type|field
+	FieldName() string
+	SubQ() []Q
 }
 
 // F represents a reference to a field. This is used to disambiguate
@@ -26,7 +25,12 @@ type Field struct {
 	Value interface{}
 }
 
-func (f Field) q() {
+func (f *Field) FieldName() string {
+	return f.Field
+}
+
+func (f *Field) SubQ() []Q {
+	return nil
 }
 
 type Eq struct {
@@ -85,7 +89,12 @@ type Combinator struct {
 	Conditions []Q
 }
 
-func (c Combinator) q() {
+func (c *Combinator) FieldName() string {
+	return ""
+}
+
+func (c *Combinator) SubQ() []Q {
+	return c.Conditions
 }
 
 type And struct {

@@ -46,6 +46,7 @@ type model struct {
 	tags            string
 	references      map[string]*reference
 	modelReferences map[*model][]*join
+	namedReferences map[string]*model
 }
 
 func (m *model) Type() reflect.Type {
@@ -241,6 +242,45 @@ func (j *joinModel) joinWith(model *model, q query.Q, jt JoinType) (*joinModel, 
 		}
 	}
 	return m.join.model, nil
+}
+
+func (j *joinModel) joinWithQuery(q query.Q, jt JoinType, models map[*model]struct{}, methods *[]*driver.Methods) error {
+	if field := q.FieldName(); field != "" {
+		if pipe := strings.IndexByte(field, '|'); pipe >= 0 {
+			typ := field[:pipe]
+			m := j
+			for {
+				if model := m.model.namedReferences[typ]; model != nil {
+					// Check if we're already joined to this model
+					if _, ok := models[model]; ok {
+						break
+					}
+					// Joins derived from queries are always implicit
+					// and skipped, since we're only joining to check
+					// against the value of the joined model.
+					last, err := j.joinWith(model, nil, jt)
+					if err != nil {
+						return err
+					}
+					last.skip = true
+					models[model] = struct{}{}
+					*methods = append(*methods, model.fields.Methods)
+					break
+				}
+				join := m.join
+				if join == nil {
+					break
+				}
+				m = join.model
+			}
+		}
+	}
+	for _, sq := range q.SubQ() {
+		if err := j.joinWithQuery(sq, jt, models, methods); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (j *joinModel) Map(qname string) (string, reflect.Type, error) {

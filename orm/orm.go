@@ -495,8 +495,9 @@ func (o *Orm) model(obj interface{}) (*model, error) {
 	return model, nil
 }
 
-func (o *Orm) models(objs []interface{}, jt JoinType) (*joinModel, []*driver.Methods, error) {
+func (o *Orm) models(objs []interface{}, q query.Q, jt JoinType) (*joinModel, []*driver.Methods, error) {
 	jm := &joinModel{}
+	models := make(map[*model]struct{})
 	var methods []*driver.Methods
 	for _, v := range objs {
 		vm, err := o.model(v)
@@ -511,7 +512,13 @@ func (o *Orm) models(objs []interface{}, jt JoinType) (*joinModel, []*driver.Met
 		if r.Type().Kind() == reflect.Ptr && r.IsNil() {
 			last.skip = true
 		}
+		models[vm] = struct{}{}
 		methods = append(methods, vm.fields.Methods)
+	}
+	if q != nil {
+		if err := jm.joinWithQuery(q, jt, models, &methods); err != nil {
+			return nil, nil, err
+		}
 	}
 	return jm, methods, nil
 }

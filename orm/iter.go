@@ -20,7 +20,7 @@ func (i *Iter) Next(out ...interface{}) bool {
 	}
 	if i.Iter == nil {
 		if i.q.model == nil {
-			i.q.model, i.q.methods, i.err = i.q.orm.models(out, i.q.jtype)
+			i.q.model, i.q.methods, i.err = i.q.orm.models(out, i.q.q, i.q.jtype)
 			if i.err != nil {
 				return false
 			}

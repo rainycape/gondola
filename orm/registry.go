@@ -174,6 +174,11 @@ func (o *Orm) Initialize() error {
 					model: &joinModel{model: referenced},
 					q:     Eq(v.fullName(k), query.F(referenced.fullName(r.field))),
 				})
+				if v.namedReferences == nil {
+					v.namedReferences = make(map[string]*model)
+				}
+				v.namedReferences[referenced.name] = referenced
+				v.namedReferences[referenced.shortName] = referenced
 				if referenced.modelReferences == nil {
 					referenced.modelReferences = make(map[*model][]*join)
 				}
@@ -181,6 +186,11 @@ func (o *Orm) Initialize() error {
 					model: &joinModel{model: v},
 					q:     Eq(referenced.fullName(r.field), query.F(v.fullName(k))),
 				})
+				if referenced.namedReferences == nil {
+					referenced.namedReferences = make(map[string]*model)
+				}
+				referenced.namedReferences[v.name] = v
+				referenced.namedReferences[v.shortName] = v
 			}
 		}
 	}

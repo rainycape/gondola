@@ -204,6 +204,14 @@ func testReferences(t *testing.T, o *Orm) {
 	}
 	testCount(t, count, 1, "Event Id=4")
 	testIterErr(t, iter)
+
+	// Test reference spawned from a query
+	iter = o.Query(Eq("Timestamp|Id", timestamps[0].Id)).Sort("Name", ASC).Iter()
+	for count = 0; iter.Next(&event); count++ {
+		testEvent(t, event, count)
+	}
+	testCount(t, count, -1, "timestamp Id=1 with spawned reference")
+	testIterErr(t, iter)
 }
 
 func TestBadReferences(t *testing.T) {

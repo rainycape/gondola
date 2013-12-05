@@ -19,8 +19,8 @@ var pool = make(chan []rune, 8)
 // with their closest ASCII counterparts.
 // e.g. Unicode("áéíóú") => "aeiou"
 func Unidecode(s string) string {
-	if transliterations == nil {
-		initTransliterations()
+	if !decoded {
+		decodeTransliterations()
 	}
 	l := len(s)
 	var r []rune

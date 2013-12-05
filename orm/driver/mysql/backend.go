@@ -146,7 +146,7 @@ func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, t *types.Tag) e
 func (b *Backend) TransformOutValue(val reflect.Value) (interface{}, error) {
 	i := val.Interface()
 	if t, ok := i.(time.Time); ok {
-	    return t.UTC(), nil
+		return t.UTC(), nil
 	}
 	return i, nil
 }

@@ -401,7 +401,7 @@ func testQueryAll(t *testing.T, o *Orm) {
 	}
 	for ii, v := range pobjects {
 		if v.Id != int64(ii+1) {
-			t.Errorf("expecting id %d at index %d, got %d instead", ii+1, v.Id)
+			t.Errorf("expecting id %d at index %d, got %d instead", ii+1, ii, v.Id)
 		}
 	}
 
@@ -415,7 +415,7 @@ func testQueryAll(t *testing.T, o *Orm) {
 	}
 	for ii, v := range objects {
 		if v.Id != int64(ii+1) {
-			t.Errorf("expecting id %d at index %d, got %d instead", ii+1, v.Id)
+			t.Errorf("expecting id %d at index %d, got %d instead", ii+1, ii, v.Id)
 		}
 	}
 }

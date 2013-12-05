@@ -3,9 +3,9 @@ package messages
 import (
 	"fmt"
 	"gnd.la/log"
-	"gnd.la/util/astutil"
-	"gnd.la/util/pkgutil"
-	"gnd.la/util/templateutil"
+	"gnd.la/util/internal/astutil"
+	"gnd.la/util/internal/pkgutil"
+	"gnd.la/util/internal/templateutil"
 	"go/ast"
 	"go/parser"
 	"go/token"

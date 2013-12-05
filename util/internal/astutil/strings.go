@@ -2,7 +2,7 @@ package astutil
 
 import (
 	"gnd.la/types"
-	"gnd.la/util/pkgutil"
+	"gnd.la/util/internal/pkgutil"
 	"gnd.la/util/textutil"
 	"go/ast"
 	"go/token"

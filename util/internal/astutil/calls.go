@@ -1,7 +1,7 @@
 package astutil
 
 import (
-	"gnd.la/util/pkgutil"
+	"gnd.la/util/internal/pkgutil"
 	"go/ast"
 	"go/token"
 	"strings"

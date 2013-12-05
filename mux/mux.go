@@ -17,7 +17,7 @@ import (
 	"gnd.la/template"
 	"gnd.la/template/assets"
 	"gnd.la/util"
-	"gnd.la/util/runtimeutil"
+	"gnd.la/util/internal/runtimeutil"
 	"net/http"
 	"net/http/httputil"
 	"reflect"

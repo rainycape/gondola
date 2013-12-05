@@ -9,7 +9,7 @@ import (
 	"gnd.la/config"
 	"gnd.la/log"
 	"gnd.la/mux"
-	"gnd.la/util/runtimeutil"
+	"gnd.la/util/internal/runtimeutil"
 	"go/build"
 	"html/template"
 	"io"

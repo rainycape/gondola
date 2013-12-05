@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"gnd.la/log"
 	"gnd.la/mux"
-	"gnd.la/util/runtimeutil"
+	"gnd.la/util/internal/runtimeutil"
 	"reflect"
 	"runtime"
 	"sync"

@@ -9,7 +9,7 @@ import (
 	"gnd.la/log"
 	"gnd.la/template/assets"
 	"gnd.la/util"
-	"gnd.la/util/templateutil"
+	"gnd.la/util/internal/templateutil"
 	"gnd.la/util/textutil"
 	"html/template"
 	"io"

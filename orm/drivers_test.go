@@ -27,6 +27,7 @@ func testOrm(t *testing.T, o *Orm) {
 		testTransactions,
 		testCompositePrimaryKey,
 		testReferences,
+		testQueryAll,
 	}
 	for _, v := range tests {
 		v(t, o)

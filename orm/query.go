@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/query"
+	"reflect"
 )
 
 type Query struct {
@@ -117,6 +118,58 @@ func (q *Query) Exists() (bool, error) {
 // query.
 func (q *Query) Iter() *Iter {
 	return q.iter(q.limit)
+}
+
+// All returns all results for this query in slices. Arguments
+// to All must be pointers to slices of elements. Basically, All
+// is a shortcut for:
+//
+//  var objs []*MyObject
+//  var obj *MyObject
+//  iter := some_query.Iter()
+//  for iter.Next(obj) {
+//	objs = append(objs, obj)
+//  }
+//  err := iter.Err()
+//
+// Using All instead, we can do the same in this shorter way:
+//
+//  var objs []*MyObject
+//  err := some_query.All(&objects)
+//
+// Please, keep in mind that All will load all the objects into
+// memory at the same time, so you shouldn't use it for large
+// result sets.
+func (q *Query) All(out ...interface{}) error {
+	values := make([]reflect.Value, len(out))
+	result := make([]interface{}, len(out))
+	for ii, v := range out {
+		val := reflect.ValueOf(v)
+		if val.Kind() != reflect.Ptr {
+			return fmt.Errorf("arguments to All() must be pointers to slices, argument %d is %T", ii+1, v)
+		}
+		elem := val.Type().Elem()
+		if elem.Kind() != reflect.Slice {
+			return fmt.Errorf("arguments to All() must be pointers to slices, argument %d is %T", ii+1, v)
+		}
+		result[ii] = reflect.New(elem.Elem()).Interface()
+		values[ii] = val.Elem()
+	}
+	iter := q.Iter()
+	for iter.Next(result...) {
+		for ii, v := range values {
+			v.Set(reflect.Append(v, reflect.ValueOf(result[ii]).Elem()))
+		}
+	}
+	return iter.Err()
+}
+
+// MustAll works like All, but panics if there's an error.
+func (q *Query) MustAll(out ...interface{}) {
+	err := q.All(out...)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Count returns the number of results for the query. Note that

@@ -378,3 +378,48 @@ func testCompositePrimaryKey(t *testing.T, o *Orm) {
 func TestCompositePrimaryKey(t *testing.T) {
 	runTest(t, testCompositePrimaryKey)
 }
+
+func testQueryAll(t *testing.T, o *Orm) {
+	const count = 10
+	_ = o.MustRegister((*AutoIncrement)(nil), &Options{
+		Table:   "test_query_all",
+		Default: true,
+	})
+	o.MustInitialize()
+	obj := &AutoIncrement{}
+	for ii := 0; ii < count; ii++ {
+		obj.Id = 0
+		o.MustInsert(obj)
+	}
+	var pobjects []*AutoIncrement
+	err := o.All().Sort("Id", ASC).All(&pobjects)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(pobjects) != count {
+		t.Errorf("expecting %d objects, got %d instead", count, len(pobjects))
+	}
+	for ii, v := range pobjects {
+		if v.Id != int64(ii+1) {
+			t.Errorf("expecting id %d at index %d, got %d instead", ii+1, v.Id)
+		}
+	}
+
+	var objects []AutoIncrement
+	err = o.All().Sort("Id", ASC).All(&objects)
+	if err != nil {
+		t.Error(err)
+	}
+	if len(objects) != count {
+		t.Errorf("expecting %d objects, got %d instead", count, len(objects))
+	}
+	for ii, v := range objects {
+		if v.Id != int64(ii+1) {
+			t.Errorf("expecting id %d at index %d, got %d instead", ii+1, v.Id)
+		}
+	}
+}
+
+func TestQueryAll(t *testing.T) {
+	runTest(t, testQueryAll)
+}

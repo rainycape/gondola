@@ -1,6 +1,7 @@
 package genutil
 
 import (
+	"code.google.com/p/go.tools/go/gcimporter"
 	"code.google.com/p/go.tools/go/types"
 	"fmt"
 	"go/ast"
@@ -59,7 +60,7 @@ func (imp *importer) Import(imports map[string]*types.Package, path string) (pkg
 	// it's in GOROOT. This way we always use up-to-date code for
 	// normal packages but avoid parsing the standard library.
 	if (buildErr == nil && buildPkg.Goroot) || buildErr != nil {
-		pkg, err = types.GcImport(imp.Imports, path)
+		pkg, err = gcimporter.Import(imp.Imports, path)
 		if err == nil {
 			imported(pkg)
 			return pkg, nil
@@ -148,7 +149,7 @@ func (imp *importer) fallback(path string, err error) *types.Package {
 	// required type information, but we risk importing an
 	// outdated version.
 	if imp.Config.UseGcFallback && (strings.Contains(err.Error(), `cannot find package "C" in`) || strings.Contains(err.Error(), `can't find import: C`)) {
-		gcPkg, gcErr := types.GcImport(imp.Imports, path)
+		gcPkg, gcErr := gcimporter.Import(imp.Imports, path)
 		if gcErr == nil {
 			imp.Fallbacks = append(imp.Fallbacks, path)
 			return gcPkg

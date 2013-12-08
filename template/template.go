@@ -202,6 +202,12 @@ func (t *Template) load(name string, included bool) error {
 	if err != nil {
 		return err
 	}
+	if conv := converters[strings.ToLower(path.Ext(name))]; conv != nil {
+		b, err = conv(b)
+		if err != nil {
+			return err
+		}
+	}
 	s := string(b)
 	matches := commentRe.FindStringSubmatch(s)
 	comment := ""

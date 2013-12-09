@@ -5,10 +5,14 @@ import (
 	"gnd.la/encoding/binary"
 	"io"
 	"strings"
+	"sync"
 )
 
-var decoded = false
-var transliterations [65536][]rune
+var (
+	decoded          = false
+	mutex            sync.Mutex
+	transliterations [65536][]rune
+)
 
 func decodeTransliterations() {
 	r, err := zlib.NewReader(strings.NewReader(tableData))

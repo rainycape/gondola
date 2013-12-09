@@ -20,7 +20,11 @@ var pool = make(chan []rune, 8)
 // e.g. Unicode("áéíóú") => "aeiou"
 func Unidecode(s string) string {
 	if !decoded {
-		decodeTransliterations()
+		mutex.Lock()
+		if !decoded {
+			decodeTransliterations()
+		}
+		mutex.Unlock()
 	}
 	l := len(s)
 	var r []rune

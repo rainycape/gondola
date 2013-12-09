@@ -27,6 +27,12 @@ func TestBeiJing(t *testing.T) {
 	testTransliteration(o, d, t)
 }
 
+func TestEmoji(t *testing.T) {
+	o := "Hey Luna t belle 😵😂"
+	d := "Hey Luna t belle "
+	testTransliteration(o, d, t)
+}
+
 func BenchmarkUnidecode(b *testing.B) {
 	cases := []string{
 		"ABCDEF",

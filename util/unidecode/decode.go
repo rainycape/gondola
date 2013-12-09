@@ -12,6 +12,7 @@ var (
 	decoded          = false
 	mutex            sync.Mutex
 	transliterations [65536][]rune
+	transCount       = rune(len(transliterations))
 )
 
 func decodeTransliterations() {

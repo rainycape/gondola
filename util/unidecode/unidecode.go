@@ -23,6 +23,7 @@ func Unidecode(s string) string {
 		mutex.Lock()
 		if !decoded {
 			decodeTransliterations()
+			decoded = true
 		}
 		mutex.Unlock()
 	}

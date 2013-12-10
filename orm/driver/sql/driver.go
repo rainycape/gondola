@@ -484,6 +484,9 @@ func (d *Driver) condition(m driver.Model, q query.Q, params *[]interface{}, beg
 			return "", err
 		}
 		vLen := value.Len()
+		if vLen == 0 {
+			return "", fmt.Errorf("empty IN (field %s)", x.Field.Field)
+		}
 		placeholders := make([]string, vLen)
 		jj := len(*params) + begin + 1
 		for ii := 0; ii < vLen; ii++ {

@@ -1,9 +1,4 @@
-// Package sortutil contains functions for easily
-// sorting slices while avoiding a lot of boilerplate.
-//
-// Keep in mind though, that this convenience has a significant
-// runtime penalty, so you shouldn't use it for long lists.
-package sortutil
+package generic
 
 import (
 	"fmt"

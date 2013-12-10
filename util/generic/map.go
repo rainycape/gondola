@@ -1,8 +1,4 @@
-// Package maputil constains utility functions for working with maps.
-//
-// Keep in mind that these functions use reflection internally, so they're
-// around 5x times slower than non-reflect code
-package maputil
+package generic
 
 import (
 	"fmt"

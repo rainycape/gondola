@@ -1,4 +1,4 @@
-package sortutil
+package generic
 
 import (
 	"testing"
@@ -26,6 +26,7 @@ var (
 		{"D", 0},
 		{"A", 1},
 	}
+	numbers []int
 )
 
 func TestField(t *testing.T) {

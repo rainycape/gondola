@@ -4,13 +4,24 @@ import (
 	"reflect"
 )
 
-func fieldValueFunc(field reflect.StructField) mapFunc {
+func fieldValueFunc(field reflect.StructField, depth int) mapFunc {
 	idx := field.Index
-	return func(v reflect.Value) reflect.Value {
-		for v.Kind() == reflect.Ptr {
-			v = v.Elem()
+	switch depth {
+	case 0:
+		return func(v reflect.Value) reflect.Value {
+			return v.FieldByIndex(idx)
 		}
-		return v.FieldByIndex(idx)
+	case 1:
+		return func(v reflect.Value) reflect.Value {
+			return v.Elem().FieldByIndex(idx)
+		}
+	default:
+		return func(v reflect.Value) reflect.Value {
+			for ii := 0; ii < depth; ii++ {
+				v = v.Elem()
+			}
+			return v.FieldByIndex(idx)
+		}
 	}
 }
 

@@ -35,11 +35,13 @@ func methodValue(key string, typ reflect.Type) (mapFunc, reflect.Type, error) {
 }
 
 func fieldValue(key string, typ reflect.Type) (mapFunc, reflect.Type) {
+	depth := 0
 	for typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
+		depth++
 	}
 	if field, ok := typ.FieldByName(key); ok {
-		return fieldValueFunc(field), field.Type
+		return fieldValueFunc(field, depth), field.Type
 	}
 	return nil, nil
 }

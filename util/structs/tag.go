@@ -28,7 +28,7 @@ func (t *Tag) Value(key string) string {
 func (t *Tag) IntValue(key string) (int, bool) {
 	v := t.Value(key)
 	if v != "" {
-		val, err := strconv.Atoi(key)
+		val, err := strconv.Atoi(v)
 		return val, err == nil
 	}
 	return 0, false

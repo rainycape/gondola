@@ -164,6 +164,16 @@ func (s *Store) Open(id string) (rfile *RFile, err error) {
 	return
 }
 
+// ReadAll is a shorthand for Open(f).ReadAll()
+func (s *Store) ReadAll(id string) (data []byte, err error) {
+	f, err := s.Open(id)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return f.ReadAll()
+}
+
 func (s *Store) Store(b []byte, meta interface{}) (string, error) {
 	return s.StoreId(newId(), b, meta)
 }

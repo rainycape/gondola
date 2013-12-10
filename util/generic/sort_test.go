@@ -45,6 +45,16 @@ func TestField(t *testing.T) {
 			t.Errorf("bad value at index %d. want %s, got %s", ii, ex, v.Name)
 		}
 	}
+	var t2 []Test1
+	for _, v := range tests {
+		t2 = append(t2, *v)
+	}
+	Sort(t2, "Name")
+	for ii, v := range t2 {
+		if ex := string(chars[ii]); ex != v.Name {
+			t.Errorf("bad value at index %d. want %s, got %s", ii, ex, v.Name)
+		}
+	}
 }
 
 func TestMethod(t *testing.T) {

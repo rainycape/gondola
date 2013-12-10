@@ -1,28 +1,34 @@
-// +build appengine
+// +build !appengine
 
 package generic
 
 import (
 	"reflect"
+	"unsafe"
 )
 
 func fieldValueFunc(field reflect.StructField, depth int) mapFunc {
-	idx := field.Index
+	typ := field.Type
+	offset := field.Offset
 	switch depth {
 	case 0:
 		return func(v reflect.Value) reflect.Value {
-			return v.FieldByIndex(idx)
+			p := v.Addr().Pointer() + offset
+			return reflect.NewAt(typ, unsafe.Pointer(p)).Elem()
 		}
 	case 1:
 		return func(v reflect.Value) reflect.Value {
-			return v.Elem().FieldByIndex(idx)
+			p := v.Pointer() + offset
+			return reflect.NewAt(typ, unsafe.Pointer(p)).Elem()
 		}
 	default:
+		depth--
 		return func(v reflect.Value) reflect.Value {
 			for ii := 0; ii < depth; ii++ {
 				v = v.Elem()
 			}
-			return v.FieldByIndex(idx)
+			p := v.Pointer() + offset
+			return reflect.NewAt(typ, unsafe.Pointer(p)).Elem()
 		}
 	}
 }

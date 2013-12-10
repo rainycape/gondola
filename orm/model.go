@@ -244,36 +244,52 @@ func (j *joinModel) joinWith(model *model, q query.Q, jt JoinType) (*joinModel, 
 	return m.join.model, nil
 }
 
-func (j *joinModel) joinWithQuery(q query.Q, jt JoinType, models map[*model]struct{}, methods *[]*driver.Methods) error {
-	if field := q.FieldName(); field != "" {
-		if pipe := strings.IndexByte(field, '|'); pipe >= 0 {
-			typ := field[:pipe]
-			m := j
-			for {
-				if model := m.model.namedReferences[typ]; model != nil {
-					// Check if we're already joined to this model
-					if _, ok := models[model]; ok {
-						break
-					}
-					// Joins derived from queries are always implicit
-					// and skipped, since we're only joining to check
-					// against the value of the joined model.
-					last, err := j.joinWith(model, nil, jt)
-					if err != nil {
-						return err
-					}
-					last.skip = true
-					models[model] = struct{}{}
-					*methods = append(*methods, model.fields.Methods)
-					break
-				}
-				join := m.join
-				if join == nil {
-					break
-				}
-				m = join.model
+func (j *joinModel) joinWithField(field string, jt JoinType, models map[*model]struct{}, methods *[]*driver.Methods) error {
+	pipe := strings.IndexByte(field, '|')
+	if pipe < 0 {
+		return nil
+	}
+	typ := field[:pipe]
+	m := j
+	for {
+		if model := m.model.namedReferences[typ]; model != nil {
+			// Check if we're already joined to this model
+			if _, ok := models[model]; ok {
+				break
 			}
+			// Joins derived from queries are always implicit
+			// and skipped, since we're only joining to check
+			// against the value of the joined model.
+			last, err := j.joinWith(model, nil, jt)
+			if err != nil {
+				return err
+			}
+			last.skip = true
+			models[model] = struct{}{}
+			*methods = append(*methods, model.fields.Methods)
+			break
 		}
+		join := m.join
+		if join == nil {
+			break
+		}
+		m = join.model
+	}
+	return nil
+}
+
+func (j *joinModel) joinWithSort(sort []driver.Sort, jt JoinType, models map[*model]struct{}, methods *[]*driver.Methods) error {
+	for _, v := range sort {
+		if err := j.joinWithField(v.Field(), jt, models, methods); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (j *joinModel) joinWithQuery(q query.Q, jt JoinType, models map[*model]struct{}, methods *[]*driver.Methods) error {
+	if err := j.joinWithField(q.FieldName(), jt, models, methods); err != nil {
+		return err
 	}
 	for _, sq := range q.SubQ() {
 		if err := j.joinWithQuery(sq, jt, models, methods); err != nil {

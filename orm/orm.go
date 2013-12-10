@@ -495,7 +495,7 @@ func (o *Orm) model(obj interface{}) (*model, error) {
 	return model, nil
 }
 
-func (o *Orm) models(objs []interface{}, q query.Q, jt JoinType) (*joinModel, []*driver.Methods, error) {
+func (o *Orm) models(objs []interface{}, q query.Q, sort []driver.Sort, jt JoinType) (*joinModel, []*driver.Methods, error) {
 	jm := &joinModel{}
 	models := make(map[*model]struct{})
 	var methods []*driver.Methods
@@ -517,6 +517,11 @@ func (o *Orm) models(objs []interface{}, q query.Q, jt JoinType) (*joinModel, []
 	}
 	if q != nil {
 		if err := jm.joinWithQuery(q, jt, models, &methods); err != nil {
+			return nil, nil, err
+		}
+	}
+	if sort != nil {
+		if err := jm.joinWithSort(sort, jt, models, &methods); err != nil {
 			return nil, nil, err
 		}
 	}

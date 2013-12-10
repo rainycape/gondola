@@ -33,17 +33,13 @@ var (
 func TestField(t *testing.T) {
 	var t1 []*Test1
 	t1 = append(t1, tests...)
-	if err := Sort(t1, "Name"); err != nil {
-		t.Fatal(err)
-	}
+	Sort(t1, "Name")
 	for ii, v := range t1 {
 		if ex := string(chars[ii]); ex != v.Name {
 			t.Errorf("bad value at index %d. want %s, got %s", ii, ex, v.Name)
 		}
 	}
-	if err := Sort(t1, "-Name"); err != nil {
-		t.Fatal(err)
-	}
+	Sort(t1, "-Name")
 	for ii, v := range t1 {
 		if ex := string(chars[len(chars)-ii-1]); ex != v.Name {
 			t.Errorf("bad value at index %d. want %s, got %s", ii, ex, v.Name)
@@ -54,17 +50,13 @@ func TestField(t *testing.T) {
 func TestMethod(t *testing.T) {
 	var t1 []*Test1
 	t1 = append(t1, tests...)
-	if err := Sort(t1, "GetName"); err != nil {
-		t.Fatal(err)
-	}
+	Sort(t1, "GetName")
 	for ii, v := range t1 {
 		if ex := string(chars[ii]); ex != v.Name {
 			t.Errorf("bad value at index %d. want %s, got %s", ii, ex, v.Name)
 		}
 	}
-	if err := Sort(t1, "-GetName"); err != nil {
-		t.Fatal(err)
-	}
+	Sort(t1, "-GetName")
 	for ii, v := range t1 {
 		if ex := string(chars[len(chars)-ii-1]); ex != v.Name {
 			t.Errorf("bad value at index %d. want %s, got %s", ii, ex, v.Name)

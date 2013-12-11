@@ -67,7 +67,7 @@ func Sort(data interface{}, key string) {
 	if err != nil {
 		panic(err)
 	}
-	srt := &sortable{length, getHandler(val), fn, cmp, indexer(elem), swapper(elem)}
+	srt := &sortable{length, getHandle(val), fn, cmp, indexer(elem), swapper(elem)}
 	if descending {
 		sort.Sort(&reverseSortable{srt})
 	} else {

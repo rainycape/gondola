@@ -84,7 +84,7 @@ func stringLess(a handle, b handle) bool {
 	return (*reflect.Value)(a).String() < (*reflect.Value)(b).String()
 }
 
-func getHandler(val reflect.Value) handle {
+func getHandle(val reflect.Value) handle {
 	return handle(&val)
 }
 

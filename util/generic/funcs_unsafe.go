@@ -123,7 +123,7 @@ func stringLess(a handle, b handle) bool {
 	return *(*string)(unsafe.Pointer(a)) < *(*string)(unsafe.Pointer(b))
 }
 
-func getHandler(val reflect.Value) handle {
+func getHandle(val reflect.Value) handle {
 	return handle(val.Pointer())
 }
 

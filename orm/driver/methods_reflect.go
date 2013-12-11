@@ -1,4 +1,4 @@
-// +build appengine !amd64
+// +build appengine
 
 package driver
 

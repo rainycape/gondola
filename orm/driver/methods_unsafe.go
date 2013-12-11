@@ -1,4 +1,4 @@
-// +build !appengine,amd64
+// +build !appengine
 
 package driver
 
@@ -68,12 +68,10 @@ func MakeMethods(typ reflect.Type) (m *Methods, err error) {
 }
 
 func pointer(typ reflect.Type, idx int) unsafe.Pointer {
-	m := reflect.New(typ.Elem()).Method(idx)
-	return methodPointer("methodPointer", m, idx)
+	ptr := typ.Method(idx).Func.Pointer()
+	return unsafe.Pointer(&ptr)
 }
 
 func returns(m reflect.Method) bool {
 	return m.Type.NumOut() > 0
 }
-
-func methodPointer(op string, v reflect.Value, idx int) unsafe.Pointer

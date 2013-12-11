@@ -7,32 +7,26 @@ import (
 )
 
 type sortable struct {
-	value reflect.Value
-	fn    mapFunc
-	cmp   lessFunc
+	length int
+	value  handle
+	fn     mapFunc
+	cmp    lessFunc
+	idx    indexFunc
+	sw     swapFunc
 }
 
 func (s *sortable) Len() int {
-	return s.value.Len()
-}
-
-func (s *sortable) less(i, j int) bool {
-	fi := s.fn(s.value.Index(i))
-	fj := s.fn(s.value.Index(j))
-	return s.cmp(fi, fj)
+	return s.length
 }
 
 func (s *sortable) Less(i, j int) bool {
-	return s.less(i, j)
+	vi := s.fn(s.idx(s.value, i))
+	vj := s.fn(s.idx(s.value, j))
+	return s.cmp(vi, vj)
 }
 
 func (s *sortable) Swap(i, j int) {
-	vi := s.value.Index(i)
-	vj := s.value.Index(j)
-	tmp := reflect.New(vi.Type()).Elem()
-	tmp.Set(vi)
-	vi.Set(vj)
-	vj.Set(tmp)
+	s.sw(s.value, i, j)
 }
 
 type reverseSortable struct {
@@ -40,7 +34,7 @@ type reverseSortable struct {
 }
 
 func (s *reverseSortable) Less(i, j int) bool {
-	return !s.less(i, j)
+	return !s.sortable.Less(i, j)
 }
 
 // Sort sorts an array or slice of structs or pointer to
@@ -55,7 +49,8 @@ func Sort(data interface{}, key string) {
 	if val.Kind() != reflect.Slice && val.Kind() != reflect.Array {
 		panic(fmt.Errorf("can't short type %v, must be slice or array", val.Type()))
 	}
-	if val.Len() == 0 {
+	length := val.Len()
+	if length == 0 {
 		return
 	}
 	descending := false
@@ -72,9 +67,10 @@ func Sort(data interface{}, key string) {
 	if err != nil {
 		panic(err)
 	}
+	srt := &sortable{length, getHandler(val), fn, cmp, indexer(elem), swapper(elem)}
 	if descending {
-		sort.Sort(&reverseSortable{&sortable{val, fn, cmp}})
+		sort.Sort(&reverseSortable{srt})
 	} else {
-		sort.Sort(&sortable{val, fn, cmp})
+		sort.Sort(srt)
 	}
 }

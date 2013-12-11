@@ -18,6 +18,10 @@ func (t *Test1) GetValue() int {
 	return t.Value
 }
 
+type Test1Pointer struct {
+	Name *string
+}
+
 var (
 	chars = []byte{'A', 'B', 'C', 'D', 'E'}
 	tests = []*Test1{
@@ -26,6 +30,18 @@ var (
 		{"E", 3},
 		{"D", 0},
 		{"A", 1},
+	}
+	a      = "A"
+	b      = "B"
+	c      = "C"
+	d      = "D"
+	e      = "E"
+	ptests = []Test1Pointer{
+		{&a},
+		{&b},
+		{&c},
+		{&d},
+		{&e},
 	}
 	long []*Test1
 )
@@ -53,6 +69,14 @@ func TestField(t *testing.T) {
 	for ii, v := range t2 {
 		if ex := string(chars[ii]); ex != v.Name {
 			t.Errorf("bad value at index %d. want %s, got %s", ii, ex, v.Name)
+		}
+	}
+	var t3 []Test1Pointer
+	t3 = append(t3, ptests...)
+	Sort(t3, "Name")
+	for ii, v := range t3 {
+		if ex := string(chars[ii]); ex != *v.Name {
+			t.Errorf("bad value at index %d. want %s, got %s", ii, ex, *v.Name)
 		}
 	}
 }

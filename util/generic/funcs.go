@@ -5,7 +5,7 @@ import (
 	"reflect"
 )
 
-type mapFunc func(reflect.Value) reflect.Value
+type mapFunc func(handle) handle
 
 func mapper(key string, typ reflect.Type) (mapFunc, reflect.Type, error) {
 	fn, t, err := methodValue(key, typ)
@@ -40,46 +40,48 @@ func fieldValue(key string, typ reflect.Type) (mapFunc, reflect.Type) {
 		typ = typ.Elem()
 		depth++
 	}
-	if field, ok := typ.FieldByName(key); ok {
-		return fieldValueFunc(field, depth), field.Type
+	if typ.Kind() == reflect.Struct {
+		if field, ok := typ.FieldByName(key); ok {
+			fn := fieldValueFunc(field, depth)
+			if fn != nil {
+				fdepth := 0
+				ft := field.Type
+				for ft.Kind() == reflect.Ptr {
+					ft = ft.Elem()
+					fdepth++
+				}
+				switch fdepth {
+				case 0:
+				case 1:
+					f := fn
+					fn = func(h handle) handle {
+						return getElem(f(h))
+					}
+				default:
+					f := fn
+					fn = func(h handle) handle {
+						v := f(h)
+						for ii := 0; ii < fdepth; ii++ {
+							v = getElem(v)
+						}
+						return h
+					}
+					fn = f
+				}
+				return fn, ft
+			}
+		}
 	}
 	return nil, nil
 }
 
-type lessFunc func(reflect.Value, reflect.Value) bool
+type lessFunc func(handle, handle) bool
+type indexFunc func(handle, int) handle
+type swapFunc func(handle, int, int)
 
 func lessComparator(t reflect.Type) (lessFunc, error) {
-	switch t.Kind() {
-	case reflect.Bool:
-		return boolLess, nil
-	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
-		return intLess, nil
-	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
-		return uintLess, nil
-	case reflect.Float32, reflect.Float64:
-		return floatLess, nil
-	case reflect.String:
-		return stringLess, nil
+	if fn := getComparator(t); fn != nil {
+		return fn, nil
 	}
 	return nil, fmt.Errorf("can't compare type %s", t)
-}
-
-func boolLess(a reflect.Value, b reflect.Value) bool {
-	return !a.Bool() && b.Bool()
-}
-
-func intLess(a reflect.Value, b reflect.Value) bool {
-	return a.Int() < b.Int()
-}
-
-func uintLess(a reflect.Value, b reflect.Value) bool {
-	return a.Uint() < b.Uint()
-}
-
-func floatLess(a reflect.Value, b reflect.Value) bool {
-	return a.Float() < b.Float()
-}
-
-func stringLess(a reflect.Value, b reflect.Value) bool {
-	return a.String() < b.String()
 }

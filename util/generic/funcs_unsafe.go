@@ -19,9 +19,9 @@ func indexer(t reflect.Type) indexFunc {
 
 func swapper(t reflect.Type) swapFunc {
 	size := t.Size()
+	tmp := make([]byte, size)
 	return func(v handle, i, j int) {
 		header := (*reflect.SliceHeader)(unsafe.Pointer(&v))
-		tmp := make([]byte, size)
 		var si []byte
 		hi := (*reflect.SliceHeader)(unsafe.Pointer(&si))
 		hi.Len = int(size)

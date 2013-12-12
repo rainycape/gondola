@@ -709,7 +709,16 @@ func (mux *Mux) logError(ctx *Context, err interface{}) {
 		buf.WriteString("Panic serving ")
 		buf.WriteString(ctx.R.Method)
 		buf.WriteByte(' ')
-		buf.WriteString(ctx.R.URL.String())
+		buf.WriteString(ctx.R.Host)
+		buf.WriteString(ctx.R.URL.Path)
+		if rq := ctx.R.URL.RawQuery; rq != "" {
+			buf.WriteByte('?')
+			buf.WriteString(rq)
+		}
+		if rf := ctx.R.URL.Fragment; rf != "" {
+			buf.WriteByte('#')
+			buf.WriteString(rf)
+		}
 		buf.WriteByte(' ')
 		buf.WriteString(ctx.RemoteAddress())
 		buf.WriteString(": ")

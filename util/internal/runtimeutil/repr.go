@@ -60,6 +60,9 @@ func valRepr(table *gosym.Table, fn *gosym.Func, s *gosym.Sym, tn string, values
 			}
 			return v
 		}
+		if strings.HasPrefix(tn, "[]") {
+			return sliceRepr(val, val2, s)
+		}
 		if tn == "interface {}" {
 			return emptyInterfaceRepr(val, val2)
 		}

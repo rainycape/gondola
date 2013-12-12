@@ -23,7 +23,7 @@ func pointerRepr(val uint64, s *gosym.Sym, _html bool) string {
 	p := strconv.FormatUint(val, 16)
 	if _html {
 		t := reflectType(s.GoType)
-		if t.Kind() == reflect.Slice || t.Kind() == reflect.Map || (t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct) {
+		if t.Kind() == reflect.Map || (t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct) {
 			val := reflect.NewAt(t, unsafe.Pointer(&val))
 			title := fmt.Sprintf("%+v", val.Elem().Interface())
 			return fmt.Sprintf("@ <abbr title=\"%s\">0x%s</abbr>", html.Escape(title), p)
@@ -44,6 +44,19 @@ func stringRepr(val1 uint64, val2 uint64) string {
 	}
 	s := (*string)(unsafe.Pointer(sh))
 	return fmt.Sprintf("= %q", *s)
+}
+
+func sliceRepr(val1 uint64, val2 uint64, s *gosym.Sym) string {
+	if val1 == 0 {
+		return "= nil"
+	}
+	sh := &reflect.SliceHeader{
+		Data: uintptr(val1),
+		Len:  int(val2),
+		Cap:  int(val2),
+	}
+	val := reflect.NewAt(reflectType(s.GoType), unsafe.Pointer(sh))
+	return fmt.Sprintf("= %v", val.Elem().Interface())
 }
 
 func emptyInterfaceRepr(val1 uint64, val2 uint64) string {

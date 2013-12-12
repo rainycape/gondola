@@ -31,6 +31,10 @@ func stringRepr(val1 uint64, val2 uint64) string {
 	return r
 }
 
+func sliceRepr(val1 uint64, val2 uint64, _ *gosym.Sym) string {
+	return stringRepr(val1, val2)
+}
+
 func emptyInterfaceRepr(val1 uint64, val2 uint64) string {
 	return pointerRepr(val2, nil, false)
 }

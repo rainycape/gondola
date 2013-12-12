@@ -8,15 +8,27 @@ import (
 	"net/url"
 )
 
+// Reducer indicates the base URL for the reducer
+// service to use. POST calls will be made to:
+//
+//  Reducer + "css"
+//  Reducer + "js"
+//  Reducer + "less"
+//  ...
+//
+// The code to reduce or compile will be sent in
+// the form parameter named "code".
+var Reducer = "http://reducer.gondolaweb.com/"
+
 func reducer(path string, w io.Writer, r io.Reader) (int, int, error) {
 	code, err := ioutil.ReadAll(r)
 	if err != nil {
 		return 0, 0, err
 	}
 	form := url.Values{
-		"file": []string{string(code)},
+		"code": []string{string(code)},
 	}
-	resp, err := http.PostForm("http://gondola-reducer.appspot.com/"+path, form)
+	resp, err := http.PostForm(Reducer+path, form)
 	if err != nil {
 		return 0, 0, err
 	}

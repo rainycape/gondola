@@ -28,6 +28,18 @@ import (
 	"time"
 )
 
+var (
+	// IPXHeaders are the default headers which are used to
+	// read the client's IP, in decreasing priority order.
+	// You might change them if e.g. your CDN provider uses
+	// different ones. Note that, for this values to have
+	// any effect, the Mux needs to have TrustsXHeaders set
+	// to true.
+	IPXHeaders = []string{"X-Real-IP", "X-Forwarded-For"}
+	// SchemeXHeaders are the scheme equivalent of IPXHeaders.
+	SchemeXHeaders = []string{"X-Scheme", "X-Forwarded-Proto"}
+)
+
 type RecoverHandler func(*Context, interface{}) interface{}
 
 // ContextProcessor functions run before the request is matched to
@@ -636,26 +648,19 @@ func (mux *Mux) Blobstore() (*blobstore.Store, error) {
 }
 
 func (mux *Mux) readXHeaders(r *http.Request) {
-	realIp := r.Header.Get("X-Real-IP")
-	if realIp != "" {
-		r.RemoteAddr = realIp
-	} else {
-		forwardedFor := r.Header.Get("X-Forwarded-For")
-		if forwardedFor != "" {
-			r.RemoteAddr = forwardedFor
+	for _, v := range IPXHeaders {
+		if value := r.Header.Get(v); value != "" {
+			r.RemoteAddr = value
+			break
 		}
 	}
-	// When setting the scheme, set also the host, otherwise
-	// the url becomes invalid.
-	xScheme := r.Header.Get("X-Scheme")
-	if xScheme != "" {
-		r.URL.Scheme = xScheme
-		r.URL.Host = r.Host
-	} else {
-		xForwardedProto := r.Header.Get("X-Forwarded-Proto")
-		if xForwardedProto != "" {
-			r.URL.Scheme = xForwardedProto
+	for _, v := range SchemeXHeaders {
+		if value := r.Header.Get(v); value != "" {
+			r.URL.Scheme = value
+			// When setting the scheme, set also the host, otherwise
+			// the url becomes invalid.
 			r.URL.Host = r.Host
+			break
 		}
 	}
 }

@@ -180,7 +180,7 @@ func SetBlobstore(blobstore *config.URL) {
 func enableMailErrorLogging() {
 	if !errorLoggingEnabled && !Debug() && MailServer() != "" && FromEmail() != "" && AdminEmail() != "" {
 		errorLoggingEnabled = true
-		log.Infof("Enabling email error logging to %q via %q", AdminEmail(), MailServer())
+		log.Debugf("Enabling email error logging to %q via %q", AdminEmail(), MailServer())
 		writer := log.NewSmtpWriter(log.LError, MailServer(), FromEmail(), AdminEmail())
 		log.Std.AddWriter(writer)
 	}

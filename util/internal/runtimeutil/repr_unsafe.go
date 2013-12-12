@@ -21,7 +21,7 @@ func pointerRepr(val uint64, s *gosym.Sym, _html bool) string {
 		return "= nil"
 	}
 	p := strconv.FormatUint(val, 16)
-	if _html {
+	if _html && s != nil {
 		t := reflectType(s.GoType)
 		if t.Kind() == reflect.Map || (t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct) {
 			val := reflect.NewAt(t, unsafe.Pointer(&val))

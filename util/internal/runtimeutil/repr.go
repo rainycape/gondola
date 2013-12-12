@@ -31,7 +31,7 @@ func valRepr(table *gosym.Table, fn *gosym.Func, s *gosym.Sym, tn string, values
 	// omitting the error page.
 	defer func() {
 		if recover() != nil {
-			r = pointerRepr(val, s, false)
+			r = pointerRepr(val, nil, false)
 		}
 	}()
 	if basicType(tn) {

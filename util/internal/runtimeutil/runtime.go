@@ -133,9 +133,10 @@ func formatSource(filename string, line int, count int, numbers bool, highlight 
 // GetPanic returns the number of frames to skip and the PC
 // for the uppermost panic if the call stack (there might be
 // multiple panics when a recover() catches a panic and then
-// panics again). The last return value indicates a frame
-// could be found.
-func GetPanic() (int, uintptr, bool) {
+// panics again). The second value indicates how many stack frames
+// should be skipped in the stacktrace (the might not always match).
+// The last return value indicates a frame could be found.
+func GetPanic() (int, int, uintptr, bool) {
 	skip := 0
 	callers := make([]uintptr, 10)
 	for {
@@ -149,11 +150,20 @@ func GetPanic() (int, uintptr, bool) {
 			if f != nil {
 				name := f.Name()
 				if strings.HasPrefix(name, "runtime.") && strings.Contains(name, "panic") {
-					return skip + ii - 1, calls[ii], true
+					pcSkip := skip + ii - 1
+					stackSkip := pcSkip
+					switch name {
+					case "runtime.panic":
+					case "runtime.sigpanic":
+						stackSkip -= 2
+					default:
+						stackSkip--
+					}
+					return pcSkip, stackSkip, calls[ii], true
 				}
 			}
 		}
 		skip += c
 	}
-	return 0, 0, false
+	return 0, 0, 0, false
 }

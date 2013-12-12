@@ -703,7 +703,7 @@ func (mux *Mux) recoverErr(ctx *Context, err interface{}) {
 }
 
 func (mux *Mux) logError(ctx *Context, err interface{}) {
-	skip, _, _ := runtimeutil.GetPanic()
+	skip, stackSkip, _, _ := runtimeutil.GetPanic()
 	var buf bytes.Buffer
 	if ctx.R != nil {
 		buf.WriteString("Panic serving ")
@@ -718,7 +718,7 @@ func (mux *Mux) logError(ctx *Context, err interface{}) {
 	}
 	buf.WriteString(fmt.Sprintf("%v", err))
 	buf.WriteByte('\n')
-	stack := runtimeutil.FormatStack(skip - 2)
+	stack := runtimeutil.FormatStack(stackSkip)
 	location, code := runtimeutil.FormatCaller(skip, 5, true, true)
 	if location != "" {
 		buf.WriteString("\n At ")
@@ -745,18 +745,18 @@ func (mux *Mux) logError(ctx *Context, err interface{}) {
 	}
 	log.Error(buf.String())
 	if mux.debug {
-		mux.errorPage(ctx, skip, req, err)
+		mux.errorPage(ctx, skip, stackSkip, req, err)
 	} else {
 		mux.handleHTTPError(ctx, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
 
-func (mux *Mux) errorPage(ctx *Context, skip int, req string, err interface{}) {
+func (mux *Mux) errorPage(ctx *Context, skip int, stackSkip int, req string, err interface{}) {
 	t := newInternalTemplate(mux)
 	if terr := t.Parse("panic.html"); terr != nil {
 		panic(terr)
 	}
-	stack := runtimeutil.FormatStackHTML(skip - 1)
+	stack := runtimeutil.FormatStackHTML(stackSkip + 1)
 	location, code := runtimeutil.FormatCallerHTML(skip+1, 5, true, true)
 	ctx.statusCode = -http.StatusInternalServerError
 	data := map[string]interface{}{

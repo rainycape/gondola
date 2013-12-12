@@ -77,6 +77,7 @@ func fieldValue(key string, typ reflect.Type) (mapFunc, reflect.Type) {
 
 type lessFunc func(handle, handle) bool
 type indexFunc func(handle, int) handle
+type indexSetFunc func(handle, int, handle)
 type swapFunc func(handle, int, int)
 
 func lessComparator(t reflect.Type) (lessFunc, error) {
@@ -84,4 +85,18 @@ func lessComparator(t reflect.Type) (lessFunc, error) {
 		return fn, nil
 	}
 	return nil, fmt.Errorf("can't compare type %s", t)
+}
+
+func sliceMapper(sl interface{}, key string) (mapFunc, reflect.Value, reflect.Type, reflect.Type, error) {
+	val := reflect.ValueOf(sl)
+	if val.Kind() != reflect.Slice && val.Kind() != reflect.Array {
+		return nil, reflect.Value{}, nil, nil, fmt.Errorf("invalid type %v, must be slice or array", val.Type())
+	}
+	length := val.Len()
+	if length == 0 {
+		return nil, reflect.Value{}, nil, nil, nil
+	}
+	elem := val.Type().Elem()
+	fn, typ, err := mapper(key, elem)
+	return fn, val, elem, typ, err
 }

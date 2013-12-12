@@ -30,6 +30,14 @@ func swapper(t reflect.Type) swapFunc {
 	return swapValue
 }
 
+func indexSetValue(v handle, i int, val handle) {
+	(*reflect.Value)(v).Index(i).Set(*(*reflect.Value)(val))
+}
+
+func indexSetter(t reflect.Type) indexSetFunc {
+	return indexSetValue
+}
+
 func fieldValueFunc(field reflect.StructField, depth int) mapFunc {
 	idx := field.Index
 	switch depth {

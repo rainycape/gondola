@@ -17,6 +17,22 @@ func indexer(t reflect.Type) indexFunc {
 	}
 }
 
+func indexSetter(t reflect.Type) indexSetFunc {
+	size := t.Size()
+	return func(v handle, i int, val handle) {
+		header := (*reflect.SliceHeader)(unsafe.Pointer(&v))
+		var dst []byte
+		dh := (*reflect.SliceHeader)(unsafe.Pointer(&dst))
+		dh.Len = int(size)
+		dh.Data = header.Data + uintptr(i)*size
+		var src []byte
+		sh := (*reflect.SliceHeader)(unsafe.Pointer(&src))
+		sh.Len = int(size)
+		sh.Data = uintptr(val)
+		copy(dst, src)
+	}
+}
+
 func swapper(t reflect.Type) swapFunc {
 	size := t.Size()
 	tmp := make([]byte, size)

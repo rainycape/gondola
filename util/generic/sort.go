@@ -1,8 +1,6 @@
 package generic
 
 import (
-	"fmt"
-	"reflect"
 	"sort"
 )
 
@@ -45,29 +43,24 @@ func (s *reverseSortable) Less(i, j int) bool {
 // in descending order. If there are any errors, Sort panics
 // since they can't be anything but programming errors.
 func Sort(data interface{}, key string) {
-	val := reflect.ValueOf(data)
-	if val.Kind() != reflect.Slice && val.Kind() != reflect.Array {
-		panic(fmt.Errorf("can't short type %v, must be slice or array", val.Type()))
-	}
-	length := val.Len()
-	if length == 0 {
-		return
-	}
 	descending := false
 	if key != "" && key[0] == '-' {
 		descending = true
 		key = key[1:]
 	}
-	elem := val.Type().Elem()
-	fn, typ, err := mapper(key, elem)
+	fn, val, elem, typ, err := sliceMapper(data, key)
 	if err != nil {
 		panic(err)
+	}
+	if fn == nil {
+		// Empty slice
+		return
 	}
 	cmp, err := lessComparator(typ)
 	if err != nil {
 		panic(err)
 	}
-	srt := &sortable{length, getHandle(val), fn, cmp, indexer(elem), swapper(elem)}
+	srt := &sortable{val.Len(), getHandle(val), fn, cmp, indexer(elem), swapper(elem)}
 	if descending {
 		sort.Sort(&reverseSortable{srt})
 	} else {

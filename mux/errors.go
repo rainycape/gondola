@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"syscall"
 )
 
 // Error represents an error which, besides a message,
@@ -78,4 +79,12 @@ func MissingParameter(name string) {
 // using the given parameter name and type.
 func InvalidParameterType(name string, typ reflect.Type) {
 	panic(&InvalidParameterTypeError{&MissingParameterError{name}, typ})
+}
+
+func isIgnorable(err interface{}) bool {
+	if e, ok := err.(error); ok && e == syscall.EPIPE {
+		// Client closed the connection
+		return true
+	}
+	return false
 }

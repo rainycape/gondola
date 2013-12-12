@@ -683,6 +683,9 @@ func (mux *Mux) recover(ctx *Context) {
 }
 
 func (mux *Mux) recoverErr(ctx *Context, err interface{}) {
+	if isIgnorable(err) {
+		return
+	}
 	for _, v := range mux.RecoverHandlers {
 		err = v(ctx, err)
 		if err == nil {

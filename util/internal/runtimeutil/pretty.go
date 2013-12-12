@@ -112,29 +112,31 @@ func prettyStack(lines []string, _html bool) (ret []string) {
 			copy(params, fn.Params)
 			sort.Sort(syms(params))
 			fname, args := splitFunc(lines[jj])
-			kk := 0
-			for ii, v := range params {
-				if kk >= len(args) || args[kk] == "..." || strings.Contains(v.Name, ".~anon") {
-					break
-				}
-				repr, ok := fieldRepr(table, fn, v, args[kk:], _html)
-				if ok {
-					args[kk] = repr
-				}
-				used := 1
-				if ii < len(params)-1 {
-					size := int(params[ii+1].Value - v.Value)
-					used = size / int(reflect.TypeOf(uintptr(0)).Size())
-				}
-				if used > 1 {
-					// Remove consumed args
-					end := kk + used
-					if end > len(args) {
-						end = len(args)
+			if !strings.HasPrefix(fname, "runtime.") {
+				kk := 0
+				for ii, v := range params {
+					if kk >= len(args) || args[kk] == "..." || strings.Contains(v.Name, ".~anon") {
+						break
 					}
-					args = append(args[:kk+1], args[end:]...)
+					repr, ok := fieldRepr(table, fn, v, args[kk:], _html)
+					if ok {
+						args[kk] = repr
+					}
+					used := 1
+					if ii < len(params)-1 {
+						size := int(params[ii+1].Value - v.Value)
+						used = size / int(reflect.TypeOf(uintptr(0)).Size())
+					}
+					if used > 1 {
+						// Remove consumed args
+						end := kk + used
+						if end > len(args) {
+							end = len(args)
+						}
+						args = append(args[:kk+1], args[end:]...)
+					}
+					kk++
 				}
-				kk++
 			}
 			lines[jj] = fmt.Sprintf("%s(%s)", fname, strings.Join(args, ", "))
 		}

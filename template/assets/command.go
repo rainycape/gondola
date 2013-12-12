@@ -7,8 +7,11 @@ import (
 	"os/exec"
 )
 
-func command(path string, w io.Writer, r io.Reader, m Manager, opts Options) error {
-	cmd := exec.Command(path, "-")
+func command(path string, args []string, w io.Writer, r io.Reader, m Manager, opts Options) error {
+	var cmdArgs []string
+	cmdArgs = append(cmdArgs, args...)
+	cmdArgs = append(cmdArgs, "-")
+	cmd := exec.Command(path, cmdArgs...)
 	cmd.Stdin = r
 	cmd.Stdout = w
 	var buf bytes.Buffer

@@ -36,7 +36,7 @@ func BenchmarkKeys(b *testing.B) {
 	Keys(dict, &out)
 }
 
-func BenchmarkKeysNoReflect(b *testing.B) {
+func BenchmarkKeysNonGeneric(b *testing.B) {
 	out := make([]int, 0, len(dict))
 	for k := range dict {
 		out = append(out, k)

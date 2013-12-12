@@ -46,7 +46,7 @@ var (
 	long []*Test1
 )
 
-func TestField(t *testing.T) {
+func TestSortField(t *testing.T) {
 	var t1 []*Test1
 	t1 = append(t1, tests...)
 	Sort(t1, "Name")
@@ -81,7 +81,7 @@ func TestField(t *testing.T) {
 	}
 }
 
-func TestMethod(t *testing.T) {
+func TestSortMethod(t *testing.T) {
 	var t1 []*Test1
 	t1 = append(t1, tests...)
 	Sort(t1, "GetName")
@@ -98,7 +98,7 @@ func TestMethod(t *testing.T) {
 	}
 }
 
-func BenchmarkLong(b *testing.B) {
+func BenchmarkSortLong(b *testing.B) {
 	b.ReportAllocs()
 	for ii := 0; ii < b.N; ii++ {
 		b.StopTimer()
@@ -123,7 +123,7 @@ func (t test1Slice) Less(i, j int) bool {
 	return t[i].Value < t[j].Value
 }
 
-func BenchmarkLongNonReflect(b *testing.B) {
+func BenchmarkSortLongNonGeneric(b *testing.B) {
 	b.ReportAllocs()
 	for ii := 0; ii < b.N; ii++ {
 		b.StopTimer()

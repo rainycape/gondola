@@ -293,6 +293,8 @@ func (p *Project) ProjectCmd() *exec.Cmd {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Dir = p.dir
+	cmd.Env = append(cmd.Env, os.Environ()...)
+	cmd.Env = append(cmd.Env, "GONDOLA_DEV_SERVER=1")
 	return cmd
 }
 

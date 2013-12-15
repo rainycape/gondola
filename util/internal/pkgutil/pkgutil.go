@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -81,6 +82,17 @@ func LineCount(p *build.Package) (int, error) {
 		}
 	}
 	return lines, nil
+}
+
+// Filenames returns all filenames referenced by the package
+// as relative paths to the package directory.
+func Filenames(p *build.Package) []string {
+	var files []string
+	for _, v := range [][]string{p.GoFiles, p.CgoFiles, p.IgnoredGoFiles, p.CFiles, p.CXXFiles, p.HFiles, p.SFiles, p.SysoFiles, p.SwigFiles, p.SwigCXXFiles} {
+		files = append(files, v...)
+	}
+	sort.Strings(files)
+	return files
 }
 
 func shouldIgnorePackage(path string) bool {

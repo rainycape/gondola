@@ -3,6 +3,7 @@
 package pkgutil
 
 import (
+	"go/build"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,10 +51,34 @@ func ListPackages(dir string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if info != nil && info.IsDir() && IsPackage(path) {
-			pkgs = append(pkgs, path)
+		if info != nil && info.IsDir() && !shouldIgnorePackage(path) && IsPackage(path) {
+			pkg, err := build.ImportDir(path, 0)
+			if err == nil && !pkgIsEmpty(pkg) {
+				pkgs = append(pkgs, path)
+			}
 		}
 		return nil
 	})
 	return pkgs, e
+}
+
+func shouldIgnorePackage(path string) bool {
+	for _, v := range strings.Split(path, string(filepath.Separator)) {
+		if v != "" && (v[0] == '.' || v[0] == '_') {
+			return true
+		}
+		if v == "example" || v == "examples" || v == "sample" || v == "samples" || v == "testdata" {
+			return true
+		}
+	}
+	return false
+}
+
+func pkgIsEmpty(p *build.Package) bool {
+	for _, v := range [][]string{p.GoFiles, p.CgoFiles, p.IgnoredGoFiles} {
+		if len(v) > 0 {
+			return false
+		}
+	}
+	return true
 }

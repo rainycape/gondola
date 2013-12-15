@@ -3,7 +3,9 @@
 package pkgutil
 
 import (
+	"bytes"
 	"go/build"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,6 +62,25 @@ func ListPackages(dir string) ([]string, error) {
 		return nil
 	})
 	return pkgs, e
+}
+
+// LineCount returns the number of lines of code in
+// the given package.
+func LineCount(p *build.Package) (int, error) {
+	lines := 0
+	// Count all non-header and non-test sources, even
+	// the ignored ones
+	nl := []byte{'\n'}
+	for _, files := range [][]string{p.GoFiles, p.CgoFiles, p.IgnoredGoFiles, p.CFiles, p.CXXFiles, p.SFiles, p.SwigFiles, p.SwigCXXFiles} {
+		for _, file := range files {
+			data, err := ioutil.ReadFile(filepath.Join(p.Dir, file))
+			if err != nil {
+				return 0, err
+			}
+			lines += bytes.Count(data, nl)
+		}
+	}
+	return lines, nil
 }
 
 func shouldIgnorePackage(path string) bool {

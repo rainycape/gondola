@@ -9,6 +9,12 @@ var errorType = reflect.TypeOf((*error)(nil)).Elem()
 
 func index(item interface{}, indices ...interface{}) (interface{}, error) {
 	v := reflect.ValueOf(item)
+	if !v.IsValid() {
+		return nil, nil
+	}
+	if k := v.Kind(); (k == reflect.Array || k == reflect.Slice || k == reflect.Map) && v.Len() == 0 {
+		return nil, nil
+	}
 	for _, i := range indices {
 		index := reflect.ValueOf(i)
 		var isNil bool

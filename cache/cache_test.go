@@ -279,6 +279,34 @@ func TestRedis(t *testing.T) {
 	testCache(t, "redis://127.0.0.1")
 }
 
+func TestMemoryCacheMaxSize(t *testing.T) {
+	c, err := newCache("memory://?max_size=1K")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data1 := make([]byte, 256)
+	data2 := make([]byte, 512)
+	c.SetBytes("k1", data1, 0)
+	c.SetBytes("k2", data2, 0)
+	c.SetBytes("k3", data2, 0)
+	// Sleep for 0.1s so the goroutine has time
+	// to remove items.
+	time.Sleep(100 * time.Millisecond)
+	// Should have evicted k2 or k3
+	k1d, err := c.GetBytes("k1")
+	if err != nil {
+		t.Error(err)
+	}
+	if len(k1d) != len(data1) {
+		t.Errorf("bad data for key k1")
+	}
+	_, err2 := c.GetBytes("k2")
+	_, err3 := c.GetBytes("k3")
+	if err2 == nil && err3 == nil {
+		t.Errorf("should have evicted k2 or k3")
+	}
+}
+
 func benchmarkCache(b *testing.B, config string) {
 	c, err := newCache(config)
 	if err != nil {

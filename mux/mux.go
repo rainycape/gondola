@@ -14,6 +14,7 @@ import (
 	"gnd.la/log"
 	"gnd.la/mux/cookies"
 	"gnd.la/orm"
+	"gnd.la/signal"
 	"gnd.la/template"
 	"gnd.la/template/assets"
 	"gnd.la/util"
@@ -547,6 +548,7 @@ func (mux *Mux) Reverse(name string, args ...interface{}) (string, error) {
 // This function is a shortcut for
 // http.ListenAndServe(mux.Address()+":"+strconv.Itoa(mux.Port()), mux)
 func (mux *Mux) ListenAndServe() error {
+	signal.Emit(signal.MUX_WILL_LISTEN, mux)
 	mux.started = time.Now().UTC()
 	if mux.Logger != nil && os.Getenv("GONDOLA_DEV_SERVER") == "" {
 		if mux.address != "" {

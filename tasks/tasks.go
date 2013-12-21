@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"gnd.la/log"
 	"gnd.la/mux"
+	"gnd.la/signal"
 	"gnd.la/util/internal/runtimeutil"
 	"reflect"
 	"runtime"
@@ -25,12 +26,21 @@ var options struct {
 }
 
 // Task represent a scheduled task.
-type Task time.Ticker
+type Task struct {
+	Mux      *mux.Mux
+	Handler  mux.Handler
+	Interval time.Duration
+	Options  *Options
+	ticker   *time.Ticker
+}
 
-// Stop stops the task. After stopping the task, it won't be started
-// again but if it's currently running, it will be completed.
+// Stop de-schedules the task. After stopping the task, it
+// won't be started again but if it's currently running, it will
+// be completed.
 func (t *Task) Stop() {
-	(*time.Ticker)(t).Stop()
+	if t.ticker != nil {
+		t.ticker.Stop()
+	}
 }
 
 // Options are used to specify task options when registering them.
@@ -145,6 +155,8 @@ func Schedule(m *mux.Mux, interval time.Duration, opts *Options, task mux.Handle
 		options.options[taskKey(task)] = opts
 		options.Unlock()
 	}
+	t := &Task{Mux: m, Handler: task, Interval: interval, Options: opts, ticker: ticker}
+	signal.Emit(signal.TASKS_WILL_SCHEDULE_TASK, t)
 	go func() {
 		if opts == nil || !opts.NotNow {
 			executeTask(m, task, opts)
@@ -153,12 +165,12 @@ func Schedule(m *mux.Mux, interval time.Duration, opts *Options, task mux.Handle
 			executeTask(m, task, opts)
 		}
 	}()
-	return (*Task)(ticker)
+	return t
 }
 
 // Run starts the given task, unless it has been previously
 // registered with Options which prevent from running it right
-// now (e.g. it is scheduled with MaxInstances = 2 and
+// now (e.g. it was scheduled with MaxInstances = 2 and
 // there are already 2 instances running).
 func Run(m *mux.Mux, task mux.Handler) {
 	opts := taskOptions(task)

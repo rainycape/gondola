@@ -19,10 +19,13 @@
 // page for information on each field or, alternatively, check the
 // example down this page.
 //
-// Then, after settting up your configuration, ORM, etc... and
-// BEFORE starting to listen for incoming requests, use a *mux.Mux
-// to Perform any administrative commands received
-// in the command line. e.g.:
+// If you're using gnd.la/mux.Mux.ListenAndServe or gnd.la/tasks.Schedule,
+// then you don't need to do anything else, since those functions will check if
+// an administrative command was provided, perform it and exit.
+// Alternatively, you can also call admin.Perform with a gnd.la/mux.Mux
+// instance manually if you're not using the functions previously mentioned
+// or, if for some reason, you want to check for administrative commands
+// before. e.g.
 //
 //  func main() {
 //	// Set up ORM, config etc...
@@ -32,6 +35,7 @@
 //	if !admin.Perform(m) {
 //	    // No admin command supplied. Set up your handlers and
 //	    // start listening.
+//	    something := anExpensiveCalculationWhichTakesForever()
 //	    m.HandleFunc("^/hello/$", HelloHandler)
 //	    m.MustListenAndServe(-1)
 //	}

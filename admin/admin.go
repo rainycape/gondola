@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"gnd.la/mux"
+	"gnd.la/signal"
+	"gnd.la/tasks"
 	"gnd.la/util"
 	"io"
 	"io/ioutil"
@@ -16,7 +18,8 @@ import (
 )
 
 var (
-	commands = map[string]*command{}
+	commands  = map[string]*command{}
+	performed = true
 )
 
 type command struct {
@@ -116,7 +119,15 @@ func performCommand(name string, cmd *command, args []string, m *mux.Mux) {
 	cmd.handler(ctx)
 }
 
+// Perform tries to perform an administrative command
+// reading the parameters from the command line. It returs
+// true if a command was performed and false if it wasn't.
+// Note that most users won't need to call this function
+// directly, since gndl.la/mux.Mux will automatically call
+// it before listening (and exit after performing the command
+// if it was provided).
 func Perform(m *mux.Mux) bool {
+	performed = true
 	if !flag.Parsed() {
 		flag.Parse()
 	}
@@ -131,6 +142,24 @@ func Perform(m *mux.Mux) bool {
 		}
 	}
 	return false
+}
+
+func perform(name string, obj interface{}) {
+	if performed {
+		return
+	}
+	var m *mux.Mux
+	switch o := obj.(type) {
+	case *mux.Mux:
+		m = o
+	case *tasks.Task:
+		m = o.Mux
+	default:
+		panic("unreachable")
+	}
+	if Perform(m) {
+		os.Exit(0)
+	}
 }
 
 // commandHelp prints the help for the given command
@@ -213,4 +242,6 @@ func init() {
 	MustRegister(help, &Options{
 		Help: "Show available commands with their respective help.",
 	})
+	signal.MustRegister(signal.MUX_WILL_LISTEN, perform)
+	signal.MustRegister(signal.TASKS_WILL_SCHEDULE_TASK, perform)
 }

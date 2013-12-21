@@ -2,8 +2,6 @@ package mux
 
 import (
 	"bytes"
-	"gnd.la/cache"
-	"gnd.la/orm"
 	"html/template"
 	"strconv"
 )
@@ -32,13 +30,13 @@ func (c *Context) DebugComment() template.HTML {
 	buf.WriteString(" - took ")
 	buf.WriteString(c.Elapsed().String())
 	if c.debugStorage != nil {
-		o, _ := c.debugStorage[debugOrmKey].(*orm.Orm)
+		o, _ := c.debugStorage[debugOrmKey].(*Orm)
 		if o != nil {
 			buf.WriteString(" - ")
 			buf.WriteString(strconv.Itoa(o.NumQueries()))
 			buf.WriteString(" ORM queries")
 		}
-		ca, _ := c.debugStorage[debugCacheKey].(*cache.Cache)
+		ca, _ := c.debugStorage[debugCacheKey].(*Cache)
 		if ca != nil {
 			buf.WriteString(" - ")
 			buf.WriteString(strconv.Itoa(ca.NumQueries()))

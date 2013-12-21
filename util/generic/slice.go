@@ -34,7 +34,7 @@ func Select(sl interface{}, key string, out interface{}) {
 		panic(err)
 	}
 	if oelem != typ {
-		panic(fmt.Errorf("key %q yields type %s, but output slice is of type %s", typ, oelem))
+		panic(fmt.Errorf("key %q yields type %s, but output slice is of type %s", key, typ, oelem))
 	}
 	count := val.Len()
 	src := getHandle(val)

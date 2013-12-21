@@ -1,17 +1,14 @@
 package cache
 
 import (
-	"bytes"
-	"compress/zlib"
 	"errors"
 	"fmt"
 	"gnd.la/cache/driver"
 	"gnd.la/config"
 	"gnd.la/encoding/codec"
+	"gnd.la/encoding/pipe"
 	"gnd.la/log"
-	"io"
 	"reflect"
-	"strconv"
 	"strings"
 )
 
@@ -26,14 +23,13 @@ var (
 type Cache struct {
 	// The Logger to log debug messages and, more importantly, errors.
 	// New() initialies the Logger to log.Std.
-	Logger            *log.Logger
-	prefix            string
-	prefixLen         int
-	driver            driver.Driver
-	codec             *codec.Codec
-	minCompressLength int
-	compressLevel     int
-	numQueries        int
+	Logger     *log.Logger
+	prefix     string
+	prefixLen  int
+	driver     driver.Driver
+	codec      *codec.Codec
+	pipe       *pipe.Pipe
+	numQueries int
 }
 
 func (c *Cache) backendKey(key string) string {
@@ -153,21 +149,17 @@ func (c *Cache) GetMulti(keys []string, obj interface{}) (map[string]interface{}
 // explanation of the timeout parameter
 func (c *Cache) SetBytes(key string, b []byte, timeout int) error {
 	c.numQueries++
-	if c.minCompressLength >= 0 {
-		if l := len(b); l > c.minCompressLength {
-			var buf bytes.Buffer
-			w, err := zlib.NewWriterLevel(&buf, c.compressLevel)
-			if err == nil {
-				w.Write(b)
-				w.Close()
-				cb := buf.Bytes()
-				if cl := len(cb); cl < l {
-					b = cb
-					c.debugf("Compressed key %s from %d bytes to %d bytes", key, l, cl)
-				}
-			} else {
-				c.warningf("error opening zlib writer: %s", err)
+	if c.pipe != nil {
+		var err error
+		b, err = c.pipe.Encode(b)
+		if err != nil {
+			perr := &cacheError{
+				op:  "encoding data with pipe",
+				key: key,
+				err: err,
 			}
+			c.error(perr)
+			return perr
 		}
 	}
 	k := c.backendKey(key)
@@ -201,18 +193,16 @@ func (c *Cache) GetBytes(key string) ([]byte, error) {
 	if b == nil {
 		return nil, ErrNotFound
 	}
-	if c.minCompressLength >= 0 && len(b) > 0 {
-		r, err := zlib.NewReader(bytes.NewBuffer(b))
-		if err == nil {
-			var buf bytes.Buffer
-			_, err = io.Copy(&buf, r)
-			if err == nil {
-				if r.Close() == nil {
-					b = buf.Bytes()
-				}
-			} else {
-				r.Close()
+	if c.pipe != nil {
+		b, err = c.pipe.Decode(b)
+		if err != nil {
+			perr := &cacheError{
+				op:  "decoding data with pipe",
+				key: key,
+				err: err,
 			}
+			c.error(perr)
+			return nil, perr
 		}
 	}
 	return b, nil
@@ -280,9 +270,7 @@ func newConfig(conf *config.URL) (*Cache, error) {
 		conf.Options = config.Options{}
 	}
 	cache := &Cache{
-		Logger:            log.Std,
-		minCompressLength: -1,
-		compressLevel:     zlib.DefaultCompression,
+		Logger: log.Std,
 	}
 
 	if codecName := conf.Get("codec"); codecName != "" {
@@ -299,25 +287,14 @@ func newConfig(conf *config.URL) (*Cache, error) {
 
 	cache.prefix = conf.Get("prefix")
 	cache.prefixLen = len(cache.prefix)
-
-	if mcl := conf.Get("min_compress"); mcl != "" {
-		val, err := strconv.Atoi(mcl)
-		if err != nil {
-			return nil, fmt.Errorf("invalid min_compress value %q (%s) (must be an integer)", mcl, err)
+	if pipeName := conf.Get("pipe"); pipeName != "" {
+		cache.pipe = pipe.Get(pipeName)
+		if cache.pipe == nil {
+			if imp := pipe.RequiredImport(pipeName); imp != "" {
+				return nil, fmt.Errorf("please import %q to use the pipe %q", imp, pipeName)
+			}
+			return nil, fmt.Errorf("unknown pipe %q, maybe you forgot an import?", pipeName)
 		}
-		cache.minCompressLength = val
-	}
-
-	if cl := conf.Get("compress_level"); cl != "" {
-		val, err := strconv.Atoi(cl)
-		if err != nil {
-			return nil, fmt.Errorf("invalid compress_level %q (%s) (must be an integer)", cl, err)
-		}
-		if (val < zlib.NoCompression || val > zlib.BestCompression) && val != -1 {
-			return nil, fmt.Errorf("invalid compress_level %d (must be -1 or between %d and %d)",
-				val, zlib.NoCompression, zlib.BestCompression)
-		}
-		cache.compressLevel = val
 	}
 	var opener driver.Opener
 	if conf.Scheme != "" {

@@ -47,3 +47,11 @@ func Get(name string) *Pipe {
 func FromTag(t *structs.Tag) *Pipe {
 	return registry[t.PipeName()]
 }
+
+// RequiredImport returns the import required
+// for using the pipe with the given name, or
+// the empty string if the pipe is not known.
+func RequiredImport(name string) string {
+	// no pipes require imports for now
+	return ""
+}

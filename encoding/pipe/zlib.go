@@ -8,7 +8,7 @@ import (
 
 // zlib pipe. Compresses data at default level. If
 // the data is less than 100 bytes or takes more
-// space when compressed, data is stored uncompressed.
+// space when compressed, data is returned uncompressed.
 
 func zlibEncode(b []byte) ([]byte, error) {
 	if len(b) > 100 {

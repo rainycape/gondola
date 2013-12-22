@@ -12,9 +12,14 @@ func encode(s string) string {
 	var buf bytes.Buffer
 	for _, c := range []byte(s) {
 		if isEncodable(c) {
-			buf.WriteByte('%')
-			buf.WriteByte(hex[c>>4])
-			buf.WriteByte(hex[c&15])
+			if c == '+' {
+				// replace plus-encoding with percent-encoding
+				buf.WriteString("%2520")
+			} else {
+				buf.WriteByte('%')
+				buf.WriteByte(hex[c>>4])
+				buf.WriteByte(hex[c&15])
+			}
 		} else {
 			buf.WriteByte(c)
 		}

@@ -19,7 +19,7 @@ import (
 
 var (
 	commands  = map[string]*command{}
-	performed = true
+	performed = false
 )
 
 type command struct {

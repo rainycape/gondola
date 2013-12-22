@@ -343,6 +343,13 @@ func BenchmarkRedisCache(b *testing.B) {
 	benchmarkCache(b, "redis://?codec=json")
 }
 
+func BenchmarkMemcacheMsgpackCache(b *testing.B) {
+	if !testPort(11211) {
+		b.Skip("memcache is not running. start memcache on localhost to run this test")
+	}
+	benchmarkCache(b, "memcache://?codec=msgpack")
+}
+
 func BenchmarkMsgpackCache(b *testing.B) {
 	benchmarkCache(b, "memory://?codec=msgpack")
 }

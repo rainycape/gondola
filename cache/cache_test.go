@@ -24,7 +24,8 @@ var (
 	tests = []func(T, *Cache){
 		testSetGet,
 		testSetGetBasic,
-		testSetGetMulti,
+		testSetGetMultiHomogeneous,
+		testSetGetMultiHeterogeneous,
 		testSetExpires,
 		testDelete,
 		testBytes,
@@ -134,7 +135,7 @@ func testSetGetBasic(t T, c *Cache) {
 	}
 }
 
-func testSetGetMulti(t T, c *Cache) {
+func testSetGetMultiHomogeneous(t T, c *Cache) {
 	items := [][]int{
 		[]int{0},
 		[]int{1},
@@ -150,20 +151,83 @@ func testSetGetMulti(t T, c *Cache) {
 		}
 		keys[ii] = key
 	}
-	objs, err := c.GetMulti(keys, (*[]int)(nil))
-	//objs, err := c.GetMulti(keys, nil)
-	t.Logf("result from multi-get %v", objs)
+	out1 := make(map[string]interface{}, len(items))
+	for _, k := range keys {
+		out1[k] = nil
+	}
+	err := c.GetMulti(out1, UniTyper([]int(nil)))
 	if err != nil {
 		t.Error(err)
-	}
-	if len(objs) != len(items) {
-		t.Errorf("expecting %d items in multi get, got %d", len(items), len(objs))
-	}
-	for ii, v := range items {
-		key := fmt.Sprintf("i:%d", ii)
-		if !deepEqual(v, objs[key]) {
-			t.Errorf("object in multi get different, %v (%T) and %v (%T)", v, v, objs[key], objs[key])
+	} else {
+		t.Logf("result from multi-get %v", out1)
+		if len(out1) != len(items) {
+			t.Errorf("expecting %d items in multi get, got %d", len(items), len(out1))
 		}
+		for ii, v := range items {
+			key := keys[ii]
+			if !deepEqual(v, out1[key]) {
+				t.Errorf("object in multi get different, %v (%T) and %v (%T)", v, v, out1[key], out1[key])
+			}
+		}
+	}
+	out2 := make(map[string]interface{}, len(items))
+	for _, k := range keys {
+		out2[k] = []int(nil)
+	}
+	err = c.GetMulti(out2, nil)
+	if err != nil {
+		t.Error(err)
+	} else {
+		t.Logf("result from multi-get %v", out2)
+		if len(out2) != len(items) {
+			t.Errorf("expecting %d items in multi get, got %d", len(items), len(out2))
+		}
+		for ii, v := range items {
+			key := keys[ii]
+			if !deepEqual(v, out1[key]) {
+				t.Errorf("object in multi get different, %v (%T) and %v (%T)", v, v, out2[key], out2[key])
+			}
+		}
+	}
+}
+
+func testSetGetMultiHeterogeneous(t T, c *Cache) {
+	k1 := "k1"
+	v1 := 42
+	k2 := "k2"
+	v2 := []float64{1, 2, 3, 4}
+	k3 := "k3"
+	v3 := "foobar"
+	if err := c.Set(k1, v1, 0); err != nil {
+		t.Error(err)
+	}
+	if err := c.Set(k2, v2, 0); err != nil {
+		t.Error(err)
+	}
+	if err := c.Set(k3, v3, 0); err != nil {
+		t.Error(err)
+	}
+	out := map[string]interface{}{
+		"k1": int(0),
+		"k2": []float64(nil),
+		"k3": "",
+		"k4": nil, // this one should be deleted
+	}
+	if err := c.GetMulti(out, nil); err != nil {
+		t.Error(err)
+	}
+	t.Logf("heterogeneous multi-get: %v", out)
+	if len(out) != 3 {
+		t.Errorf("expecting 3 items in heterogeneous multi-get, got %d", len(out))
+	}
+	if !reflect.DeepEqual(out[k1], v1) {
+		t.Errorf("bad value for k1 - want %v, got %v", v1, out[k1])
+	}
+	if !reflect.DeepEqual(out[k2], v2) {
+		t.Errorf("bad value for k2 - want %v, got %v", v2, out[k2])
+	}
+	if !reflect.DeepEqual(out[k3], v3) {
+		t.Errorf("bad value for k3 - want %v, got %v", v3, out[k3])
 	}
 }
 

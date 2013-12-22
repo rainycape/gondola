@@ -86,23 +86,42 @@ func (c *Cache) Get(key string, obj interface{}) error {
 	return nil
 }
 
-// GetMulti returns several objects as a map[string]interface{}
-// in only one roundtrip to the cache. The obj parameter is used only
-// to initialize the objects before they're passed to the codec for decoding,
-// since not all codecs include the object type in its serialization (e.g. JSON).
-// If you're using a codec which encodes the object type (e.g. Gob) or you want
-// to decode the objects into a raw interface{} you might pass nil as the second
-// parameter to this function.
-func (c *Cache) GetMulti(keys []string, obj interface{}) (map[string]interface{}, error) {
+// GetMulti returns several objects with only one trip to the cache.
+// The queried keys are the ones set in the out parameter. Any key present
+// in out and not found when querying the cache, will be deleted. The initial
+// values in the out map should be any value of the type which will be used
+// to decode the data for the given key.
+// e.g. Let's suppose our cache holds 3 objects: k1 of type []int, k2 of type
+// float64 and k3 of type string. To query for these 3 objects using GetMulti
+// you would initialze out like this:
+//
+//  out := map[string]interface{}{
+//	k1: []int(nil),
+//	k2: float(0),
+//	k3: "",
+//  }
+//  err := c.GetMulti(out, nil)
+//
+// After the GetMulti() call, any keys not present in the cache will be
+// deleted from out, so len(out) will be <= 3 in this example.
+//
+// Alternatively, the second argument might be used to specify the types
+// of the object to be decoded. Users might implement their own Typer
+// or use UniTyper when requesting several objects of the same type.
+func (c *Cache) GetMulti(out map[string]interface{}, typer Typer) error {
 	c.numQueries++
-	if c.prefixLen > 0 {
-		k := make([]string, len(keys))
-		for ii, v := range keys {
-			k[ii] = c.backendKey(v)
-		}
-		keys = k
+	keys := make([]string, 0, len(out))
+	for k := range out {
+		keys = append(keys, k)
 	}
-	data, err := c.driver.GetMulti(keys)
+	qkeys := keys
+	if c.prefixLen > 0 {
+		qkeys = make([]string, len(keys))
+		for ii, v := range keys {
+			qkeys[ii] = c.backendKey(v)
+		}
+	}
+	data, err := c.driver.GetMulti(qkeys)
 	if err != nil {
 		gerr := &cacheError{
 			op:  "getting multiple keys",
@@ -110,26 +129,29 @@ func (c *Cache) GetMulti(keys []string, obj interface{}) (map[string]interface{}
 			err: err,
 		}
 		c.error(gerr)
-		return nil, gerr
+		return gerr
 	}
-	objects := make(map[string]interface{}, len(data))
-	var typ *reflect.Type
-	if obj != nil {
-		t := reflect.TypeOf(obj)
-		for t.Kind() == reflect.Ptr {
-			t = t.Elem()
-		}
-		typ = &t
+	if typer == nil {
+		typer = mapTyper(out)
 	}
-	for k, v := range data {
-		var object interface{}
-		if typ != nil {
-			p := reflect.New(*typ)
-			err = c.codec.Decode(v, p.Interface())
-			object = p.Elem().Interface()
-		} else {
-			err = c.codec.Decode(v, &object)
+	for ii, k := range keys {
+		value := data[qkeys[ii]]
+		if value == nil {
+			delete(out, k)
+			continue
 		}
+		typ := typer.Type(k)
+		if typ == nil {
+			derr := &cacheError{
+				op:  "determining output type for object",
+				key: k,
+				err: fmt.Errorf("untyped value for key %q - please, set the value type like e.g. out[%q] = ([]int)(nil) or out[%q] = float64(0)", k, k, k),
+			}
+			c.error(derr)
+			return derr
+		}
+		val := reflect.New(typ)
+		err := c.codec.Decode(value, val.Interface())
 		if err != nil {
 			derr := &cacheError{
 				op:  "decoding object",
@@ -137,11 +159,11 @@ func (c *Cache) GetMulti(keys []string, obj interface{}) (map[string]interface{}
 				err: err,
 			}
 			c.error(derr)
-			return nil, derr
+			return derr
 		}
-		objects[c.frontendKey(k)] = object
+		out[k] = val.Elem().Interface()
 	}
-	return objects, nil
+	return nil
 }
 
 // SetBytes stores the given byte array assocciated with

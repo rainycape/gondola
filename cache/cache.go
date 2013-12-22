@@ -22,7 +22,7 @@ var (
 
 type Cache struct {
 	// The Logger to log debug messages and, more importantly, errors.
-	// New() initialies the Logger to log.Std.
+	// New() initialies the log.Logger to log.Std.
 	Logger     *log.Logger
 	prefix     string
 	prefixLen  int

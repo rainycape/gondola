@@ -2,6 +2,7 @@ package social
 
 import (
 	"bytes"
+	"gnd.la/social/facebook"
 	"gnd.la/social/pinterest"
 	"gnd.la/social/twitter"
 )
@@ -19,7 +20,7 @@ func Share(s Service, item *Item, config interface{}) (interface{}, error) {
 		conf := config.(*TwitterConfig)
 		var buf bytes.Buffer
 		buf.WriteString(item.Title)
-		for _, v := range item.URLs {
+		for _, v := range item.Links {
 			buf.WriteByte(' ')
 			buf.WriteString(v.String())
 		}
@@ -29,6 +30,23 @@ func Share(s Service, item *Item, config interface{}) (interface{}, error) {
 		}
 		tweet, err := conf.App.Update(buf.String(), conf.Token, &twitter.TweetOptions{Truncate: true})
 		return tweet, err
+	case Facebook:
+		conf := config.(*FacebookConfig)
+		path := "/me/feed"
+		parameters := map[string]string{
+			"title":   item.Title,
+			"message": item.Description,
+		}
+		if len(item.Links) > 0 {
+			// Post to /me/links rather than /me/feed, so we get
+			// share buttons. See http://stackoverflow.com/questions/10770103
+			path = "/me/links"
+			parameters["link"] = item.Links[0].String()
+		}
+		if len(item.Images) > 0 {
+			parameters["picture"] = item.Images[0].String()
+		}
+		return facebook.GraphPost(path, parameters, conf.AccessToken)
 	case Pinterest:
 		conf := config.(*PinterestConfig)
 		sess, err := pinterest.SignIn(conf.Account)
@@ -65,7 +83,7 @@ func Share(s Service, item *Item, config interface{}) (interface{}, error) {
 			return nil, fmt.Errorf("can't find Pinterest board")
 		}
 		pin := &pinterest.Pin{
-			Link:        item.URLs[0].String(),
+			Link:        item.Links[0].String(),
 			Image:       item.Images[0].String(),
 			Description: item.Title,
 		}

@@ -7,7 +7,7 @@ import (
 type Item struct {
 	Title       string
 	Description string
-	URLs        []*url.URL
+	Links       []*url.URL
 	Images      []*url.URL
 	Data        interface{}
 }

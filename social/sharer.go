@@ -13,6 +13,10 @@ const (
 )
 
 type Sharer struct {
+	// Name indicates the name of the gnd.la/tasks.Task which will
+	// be created when scheduling this Sharer. If empty, a name
+	// will be derived from the service and the Sharer instance.
+	Name     string
 	service  Service
 	interval time.Duration
 	provider ShareProvider
@@ -47,7 +51,12 @@ func (s *Sharer) Schedule(m *mux.Mux, interval time.Duration) {
 		s.task.Stop()
 	}
 	s.interval = interval
-	s.task = tasks.Schedule(m, pollInterval, nil, s.share)
+	name := s.Name
+	if name == "" {
+		name = fmt.Sprintf("Sharer.%s.%p", s.service, s)
+	}
+	options := &tasks.Options{Name: name}
+	s.task = tasks.Schedule(m, s.share, options, pollInterval, true)
 }
 
 func (s *Sharer) Stop() {

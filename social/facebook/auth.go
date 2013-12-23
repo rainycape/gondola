@@ -5,12 +5,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
-	"time"
 )
 
-func FacebookAuthUrl(app *App, redirectUri string, permissions []string, state string) string {
+func FacebookAuthURL(app *App, redirectUri string, permissions []string, state string) string {
 	scope := strings.Join(permissions, ",")
 	facebookUrl := fmt.Sprintf("https://www.facebook.com/dialog/oauth?client_id=%v&redirect_uri=%v&scope=%v&state=%v",
 		app.Id, url.QueryEscape(redirectUri), scope, state)
@@ -67,42 +65,22 @@ func ExtendToken(app *App, token *Token) (*Token, error) {
 	return newToken, err
 }
 
-func Authorize(clientId string, permissions []string) (*Token, error) {
-	auth := fmt.Sprintf("https://www.facebook.com/dialog/oauth?client_id=%s&"+
-		"redirect_uri=https://www.facebook.com/connect/login_success.html&"+
-		"response_type=token&scope=%s", clientId, strings.Join(permissions, ","))
-
+func Authorize(app *App, permissions []string) (*Token, error) {
+	// This URL is used by the FB JS SDK to get the token from the fragment
+	redirect := "https://www.facebook.com/connect/login_success.html"
+	auth := FacebookAuthURL(app, redirect, permissions, "") + "&response_type=token"
 	fmt.Printf("Please, open the following URL in your browser:\n%s\n", auth)
 	fmt.Printf("Then, paste the resulting URL after authorizing the app\nResulting URL: ")
-	var result string
-	_, err := fmt.Scanf("%s", &result)
+	var input string
+	_, err := fmt.Scanf("%s", &input)
 	if err != nil {
 		return nil, err
 	}
-	resultUrl, err := url.Parse(result)
+	result, err := url.Parse(input)
 	if err != nil {
 		return nil, err
 	}
-	values, err := url.ParseQuery(resultUrl.Fragment)
-	if err != nil {
-		return nil, err
-	}
-	key := values.Get("access_token")
-	var expires time.Time
-	expiresIn := values.Get("expires_in")
-	if expiresIn == "0" {
-		/* Never expires, set 100 years */
-		duration := time.Hour * 24 * 365 * 100
-		expires = time.Now().UTC().Add(duration)
-	} else {
-		exp, err := strconv.ParseUint(expiresIn, 10, 64)
-		if err != nil {
-			return nil, err
-		}
-		duration := time.Second * time.Duration(exp)
-		expires = time.Now().UTC().Add(duration)
-	}
-	return &Token{key, expires}, nil
+	return ParseToken(result.Fragment)
 }
 
 func AccountToken(token *Token, accountId string) (*Token, error) {

@@ -28,12 +28,15 @@ func ParseToken(qs string) (*Token, error) {
 	}
 	expiresIn := values.Get("expires")
 	if expiresIn == "" {
+		expiresIn = values.Get("expires_in")
+	}
+	if expiresIn == "" {
 		return nil, ErrMissingExpires
 	}
 	var duration time.Duration
 	if expiresIn == "0" {
-		/* 50 years (does not really expire) */
-		duration = time.Hour * 24 * 365 * 50
+		/* 100 years (does not really expire) */
+		duration = time.Hour * 24 * 365 * 100
 	} else {
 		seconds, err := strconv.ParseUint(expiresIn, 0, 64)
 		if err != nil {

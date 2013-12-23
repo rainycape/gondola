@@ -131,10 +131,10 @@ func formatSource(filename string, line int, count int, numbers bool, highlight 
 }
 
 // GetPanic returns the number of frames to skip and the PC
-// for the uppermost panic if the call stack (there might be
+// for the uppermost panic in the call stack (there might be
 // multiple panics when a recover() catches a panic and then
 // panics again). The second value indicates how many stack frames
-// should be skipped in the stacktrace (the might not always match).
+// should be skipped in the stacktrace (they might not always match).
 // The last return value indicates a frame could be found.
 func GetPanic() (int, int, uintptr, bool) {
 	skip := 0

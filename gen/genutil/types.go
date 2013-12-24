@@ -30,7 +30,6 @@ func (p *Package) Dir() string {
 func (p *Package) types(exported bool, include *regexp.Regexp, exclude *regexp.Regexp) []*types.Named {
 	var packageTypes []*types.Named
 	scope := p.Scope()
-	prefix := p.Name() + "."
 	for _, v := range scope.Names() {
 		obj := scope.Lookup(v)
 		if exported && !obj.IsExported() {
@@ -43,17 +42,14 @@ func (p *Package) types(exported bool, include *regexp.Regexp, exclude *regexp.R
 			continue
 		}
 		if named, ok := obj.Type().(*types.Named); ok {
-			name := named.String()
-			if strings.HasPrefix(name, prefix) {
-				local := name[len(prefix):]
-				if exclude != nil && exclude.MatchString(local) {
-					continue
-				}
-				if include != nil && !include.MatchString(local) {
-					continue
-				}
-				packageTypes = append(packageTypes, named)
+			name := named.Obj().Name()
+			if exclude != nil && exclude.MatchString(name) {
+				continue
 			}
+			if include != nil && !include.MatchString(name) {
+				continue
+			}
+			packageTypes = append(packageTypes, named)
 		}
 	}
 	return packageTypes
@@ -111,11 +107,16 @@ func NewPackage(path string) (*Package, error) {
 		p.files[v] = f
 		p.astFiles[ii] = f.ast
 	}
-	imp := newImporter()
-	imp.Config.UseGcFallback = true
-	context := types.Config{
-		Import:      imp.Import,
-		FakeImportC: true,
+	imp := newImporter(types.Config{
+		IgnoreFuncBodies: true,
+		FakeImportC:      true,
+		Error:            errorHandler,
+	})
+	context := &types.Config{
+		IgnoreFuncBodies: true,
+		FakeImportC:      true,
+		Import:           imp.Import,
+		Error:            errorHandler,
 	}
 	ipath := pkg.ImportPath
 	if ipath == "." {
@@ -186,4 +187,7 @@ func parseFile(fset *token.FileSet, fileName string) (f *file, err error) {
 	lines := bytes.Split(data, []byte("\n"))
 	f = &file{fset: fset, name: fileName, ast: astFile, lines: lines}
 	return f, nil
+}
+
+func errorHandler(err error) {
 }

@@ -228,3 +228,11 @@ func RunHandler(handler mux.Handler) (bool, error) {
 	}
 	return executeTask(task)
 }
+
+// Execute runs the given handler in a task context. If the handler fails
+// with a panic, it will be returned in the error return value.
+func Execute(m *mux.Mux, handler mux.Handler) error {
+	t := &Task{Mux: m, Handler: handler}
+	_, err := executeTask(t)
+	return err
+}

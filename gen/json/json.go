@@ -104,6 +104,7 @@ func Gen(pkgName string, opts *Options) error {
 	}
 	buf.WriteString(")\n")
 	buf.WriteString("var _ = strconv.FormatBool\n")
+	buf.WriteString("var _ = io.ReadFull\n")
 	var include *regexp.Regexp
 	var exclude *regexp.Regexp
 	if opts != nil {

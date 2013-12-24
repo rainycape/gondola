@@ -156,16 +156,16 @@ func (d *Driver) Operate(m driver.Model, q query.Q, op *operation.Operation) (dr
 	buf.WriteByte('=')
 	var params []interface{}
 	switch op.Operator {
-	case operation.Add, operation.Sub:
+	case operation.OpAdd, operation.OpSub:
 		buf.WriteString(dbName)
-		if op.Operator == operation.Add {
+		if op.Operator == operation.OpAdd {
 			buf.WriteByte('+')
 		} else {
 			buf.WriteByte('-')
 		}
 		buf.WriteString(d.backend.Placeholder(1))
 		params = append(params, op.Value)
-	case operation.Set:
+	case operation.OpSet:
 		if f, ok := op.Value.(operation.Field); ok {
 			buf.WriteString(string(f))
 		} else {

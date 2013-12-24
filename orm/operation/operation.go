@@ -3,9 +3,9 @@ package operation
 type Operator int
 
 const (
-	Add Operator = iota + 1
-	Sub
-	Set
+	OpAdd Operator = iota + 1
+	OpSub
+	OpSet
 )
 
 type Field string
@@ -16,25 +16,33 @@ type Operation struct {
 	Value    interface{}
 }
 
-func Inc(field string) *Operation {
-	return IncBy(field, 1)
+func Add(field string, value int) *Operation {
+	return &Operation{
+		Operator: OpAdd,
+		Field:    field,
+		Value:    value,
+	}
 }
 
-func IncBy(field string, value int) *Operation {
+func Inc(field string) *Operation {
+	return Add(field, 1)
+}
+
+func Sub(field string, value int) *Operation {
 	return &Operation{
-		Operator: Add,
+		Operator: OpSub,
 		Field:    field,
 		Value:    value,
 	}
 }
 
 func Dec(field string) *Operation {
-	return DecBy(field, 1)
+	return Sub(field, 1)
 }
 
-func DecBy(field string, value int) *Operation {
+func Set(field string, value interface{}) *Operation {
 	return &Operation{
-		Operator: Sub,
+		Operator: OpSet,
 		Field:    field,
 		Value:    value,
 	}

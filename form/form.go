@@ -71,7 +71,7 @@ func (f *Form) makeField(name string) (*Field, error) {
 			s = v
 			idx = pos
 			sval = f.values[ii]
-			fieldValue = sval.FieldByIndex(s.Indexes[pos])
+			fieldValue = fieldByIndex(sval, s.Indexes[pos])
 			// Check the validation function, so if the function is not valid
 			// the error is generated at form instantiation.
 			if _, err := structs.ValidationFunction(sval, name); err != nil {
@@ -611,4 +611,16 @@ func New(ctx *mux.Context, r Renderer, opt *Options, values ...interface{}) *For
 	}
 	form.makeId()
 	return form
+}
+
+func fieldByIndex(v reflect.Value, indexes []int) reflect.Value {
+	for _, idx := range indexes {
+		if v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+		if v.IsValid() {
+			v = v.FieldByIndex([]int{idx})
+		}
+	}
+	return v
 }

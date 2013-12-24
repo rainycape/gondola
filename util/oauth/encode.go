@@ -7,12 +7,19 @@ import (
 
 var hex = "0123456789ABCDEF"
 
-// encode percent-encodes a string as defined in RFC 3986.
 func encode(s string) string {
+	return percentEncode(s, false)
+}
+
+func encodePlusEncoded(s string) string {
+	return percentEncode(s, true)
+}
+
+func percentEncode(s string, plusEncoded bool) string {
 	var buf bytes.Buffer
 	for _, c := range []byte(s) {
 		if isEncodable(c) {
-			if c == '+' {
+			if plusEncoded && c == '+' {
 				// replace plus-encoding with percent-encoding
 				buf.WriteString("%2520")
 			} else {

@@ -36,7 +36,7 @@ func (c *Consumer) defaultParameters() url.Values {
 }
 
 func (c *Consumer) sign(method string, url string, values url.Values, secret string) string {
-	base := fmt.Sprintf("%s&%s&%s", method, encode(url), encode(values.Encode()))
+	base := fmt.Sprintf("%s&%s&%s", method, encode(url), encodePlusEncoded(values.Encode()))
 	key := encode(c.Secret) + "&" + encode(secret)
 	return c.digest(key, base)
 }

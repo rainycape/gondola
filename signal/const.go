@@ -11,4 +11,7 @@ const (
 	// TASKS_WILL_SCHEDULE_TASK is emitted just before scheduling a task.
 	// The object is a *gnd.la/tasks.Task
 	TASKS_WILL_SCHEDULE_TASK = "TASKS_WILL_SCHEDULE_TASK"
+	// ORM_WILL_INITIALIZE is emitted just before a gnd.la/orm.Orm is
+	// initialized. The object is a *gnd.la/orm.Orm.
+	ORM_WILL_INITIALIZE = "ORM_WILL_INITIALIZE"
 )

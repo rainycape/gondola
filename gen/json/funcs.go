@@ -23,7 +23,7 @@ func jsonPutBuffer(buf *bytes.Buffer) {
 	}
 }
 `
-const encode_go = `var hex = "0123456789abcdef"
+const encode_go = `const jsonHex = "0123456789abcdef"
 func jsonEncodeString(e *bytes.Buffer, s string) {
 	e.WriteByte('"')
 	start := 0
@@ -52,8 +52,8 @@ func jsonEncodeString(e *bytes.Buffer, s string) {
 				// can lead to security holes when user-controlled strings
 				// are rendered into JSON and served to some browsers.
 				e.WriteString("\\u00")
-				e.WriteByte(hex[b>>4])
-				e.WriteByte(hex[b&0xF])
+				e.WriteByte(jsonHex[b>>4])
+				e.WriteByte(jsonHex[b&0xF])
 			}
 			i++
 			start = i
@@ -81,7 +81,7 @@ func jsonEncodeString(e *bytes.Buffer, s string) {
 				e.WriteString(s[start:i])
 			}
 			e.WriteString("\\u202")
-			e.WriteByte(hex[c&0xF])
+			e.WriteByte(jsonHex[c&0xF])
 			i += size
 			start = i
 			continue

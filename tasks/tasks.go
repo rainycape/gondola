@@ -176,7 +176,6 @@ func Register(m *mux.Mux, task mux.Handler, opts *Options) *Task {
 		prev.deleteLocked()
 	}
 	registered.tasks[name] = t
-	signal.Emit(signal.TASKS_WILL_SCHEDULE_TASK, t)
 	return t
 }
 
@@ -189,6 +188,7 @@ func Register(m *mux.Mux, task mux.Handler, opts *Options) *Task {
 func Schedule(m *mux.Mux, task mux.Handler, opts *Options, interval time.Duration, now bool) *Task {
 	t := Register(m, task, opts)
 	t.Interval = interval
+	signal.Emit(signal.TASKS_WILL_SCHEDULE_TASK, t)
 	go t.Resume(now)
 	return t
 }

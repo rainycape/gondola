@@ -34,7 +34,7 @@ var (
 	// IPXHeaders are the default headers which are used to
 	// read the client's IP, in decreasing priority order.
 	// You might change them if e.g. your CDN provider uses
-	// different ones. Note that, for this values to have
+	// different ones. Note that, for these values to have
 	// any effect, the Mux needs to have TrustsXHeaders set
 	// to true.
 	IPXHeaders = []string{"X-Real-IP", "X-Forwarded-For"}
@@ -45,7 +45,7 @@ var (
 type RecoverHandler func(*Context, interface{}) interface{}
 
 // ContextProcessor functions run before the request is matched to
-// a handler and might alter the context in any way they see fit
+// a Handler and might alter the context in any way they see fit
 type ContextProcessor func(*Context) bool
 
 type Handler func(*Context)
@@ -114,7 +114,7 @@ type Mux struct {
 	store                *blobstore.Store
 
 	// Logger to use when logging requests. By default, it's
-	// gnd.la/log/Std, but you can set it to nil to avoid
+	// gnd.la/log.Std, but you can set it to nil to avoid
 	// logging at all and gain a bit more of performance.
 	Logger       *log.Logger
 	contextPool  chan *Context

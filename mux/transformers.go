@@ -61,6 +61,7 @@ func Headers(handler Handler, headers Header) Handler {
 				h.Add(k, val)
 			}
 		}
+		handler(ctx)
 	}
 }
 

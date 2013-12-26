@@ -2,11 +2,11 @@ package main
 
 import (
 	"gnd.la/admin"
+	"gnd.la/app"
 	"gnd.la/gen"
-	"gnd.la/mux"
 )
 
-func Gen(ctx *mux.Context) {
+func Gen(ctx *app.Context) {
 	var genfile string
 	ctx.ParseParamValue("genfile", &genfile)
 	if err := gen.Gen(".", genfile); err != nil {

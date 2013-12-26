@@ -1,4 +1,4 @@
-package mux
+package app
 
 import (
 	"fmt"
@@ -23,12 +23,12 @@ type TemplateProcessor func(*template.Template) (*template.Template, error)
 
 type tmpl struct {
 	*template.Template
-	mux *Mux
+	app *App
 }
 
-func newTemplate(mux *Mux, loader loaders.Loader, manager assets.Manager) *tmpl {
+func newTemplate(app *App, loader loaders.Loader, manager assets.Manager) *tmpl {
 	t := &tmpl{}
-	t.mux = mux
+	t.app = app
 	t.Template = template.New(loader, manager)
 	t.Template.Funcs(template.FuncMap{
 		"reverse": makeReverse(t),
@@ -36,16 +36,16 @@ func newTemplate(mux *Mux, loader loaders.Loader, manager assets.Manager) *tmpl 
 	return t
 }
 
-func newMuxTemplate(mux *Mux) *tmpl {
-	return newTemplate(mux, mux.templatesLoader, mux.assetsManager)
+func newAppTemplate(app *App) *tmpl {
+	return newTemplate(app, app.templatesLoader, app.assetsManager)
 }
 
 func internalAssetsManager() assets.Manager {
-	return assets.NewManager(muxAssets, assetsPrefix)
+	return assets.NewManager(appAssets, assetsPrefix)
 }
 
-func newInternalTemplate(mux *Mux) *tmpl {
-	return newTemplate(mux, muxAssets, internalAssetsManager())
+func newInternalTemplate(app *App) *tmpl {
+	return newTemplate(app, appAssets, internalAssetsManager())
 }
 
 func (t *tmpl) ParseVars(file string, vars template.VarMap) error {
@@ -71,7 +71,7 @@ func (t *tmpl) execute(w io.Writer, name string, data interface{}, vars template
 		"Ctx":     context,
 		"Request": request,
 	}
-	for k, v := range t.mux.templateVars {
+	for k, v := range t.app.templateVars {
 		va[k] = v
 	}
 	for k, v := range vars {
@@ -79,7 +79,7 @@ func (t *tmpl) execute(w io.Writer, name string, data interface{}, vars template
 	}
 	if context != nil {
 		in := []reflect.Value{reflect.ValueOf(context)}
-		for k, v := range t.mux.templateVarFuncs {
+		for k, v := range t.app.templateVarFuncs {
 			if _, ok := va[k]; !ok {
 				out := v.Call(in)
 				if len(out) == 2 && !out[1].IsNil() {
@@ -109,14 +109,14 @@ func (t *tmpl) ExecuteTemplateVars(w io.Writer, name string, data interface{}, v
 }
 
 // Other functions which are defined depending on the template
-// (because they require access to the context or the mux)
+// (because they require access to the context or the app)
 // reverse
 
 func makeReverse(t *tmpl) func(string, ...interface{}) (string, error) {
 	return func(name string, args ...interface{}) (string, error) {
-		if t.mux != nil {
-			return t.mux.Reverse(name, args...)
+		if t.app != nil {
+			return t.app.Reverse(name, args...)
 		}
-		return "", fmt.Errorf("can't reverse %s because the mux is not available", name)
+		return "", fmt.Errorf("can't reverse %s because the app is not available", name)
 	}
 }

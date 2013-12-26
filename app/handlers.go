@@ -1,4 +1,4 @@
-package mux
+package app
 
 // TemplateHandler returns a handler which executes the given
 // template with the given data.
@@ -17,7 +17,7 @@ func RedirectHandler(destination string, permanent bool) Handler {
 	}
 }
 
-// SignOutHandler can be added directly to a mux. It signs out the
+// SignOutHandler can be added directly to an App. It signs out the
 // current user (if any) and redirects back to the previous
 // page unless the request was made via ajax.
 func SignOutHandler(ctx *Context) {

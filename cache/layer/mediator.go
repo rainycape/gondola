@@ -1,7 +1,7 @@
 package layer
 
 import (
-	"gnd.la/mux"
+	"gnd.la/app"
 	"gnd.la/util/hashutil"
 	"net/http"
 )
@@ -10,15 +10,15 @@ import (
 // if and how a response should be cached.
 type Mediator interface {
 	// Skip indicates if the request in the given context should skip the cache.
-	Skip(ctx *mux.Context) bool
+	Skip(ctx *app.Context) bool
 	// Key returns the cache key used for the given context.
-	Key(ctx *mux.Context) string
+	Key(ctx *app.Context) string
 	// Cache returns wheter a response with the given code and headers should
 	// be cached.
-	Cache(ctx *mux.Context, responseCode int, outgoingHeaders http.Header) bool
+	Cache(ctx *app.Context, responseCode int, outgoingHeaders http.Header) bool
 	// Expires returns the cache expiration time for given context, response code
 	// and headers.
-	Expires(ctx *mux.Context, responseCode int, outgoingHeaders http.Header) int
+	Expires(ctx *app.Context, responseCode int, outgoingHeaders http.Header) int
 }
 
 // SimpleMediator implements a Mediator which caches GET and HEAD
@@ -33,7 +33,7 @@ type SimpleMediator struct {
 	Expiration int
 }
 
-func (m *SimpleMediator) Skip(ctx *mux.Context) bool {
+func (m *SimpleMediator) Skip(ctx *app.Context) bool {
 	if m := ctx.R.Method; m != "GET" && m != "HEAD" {
 		return true
 	}
@@ -46,14 +46,14 @@ func (m *SimpleMediator) Skip(ctx *mux.Context) bool {
 	return false
 }
 
-func (m *SimpleMediator) Key(ctx *mux.Context) string {
+func (m *SimpleMediator) Key(ctx *app.Context) string {
 	return hashutil.Md5(ctx.R.Method + ctx.R.URL.String())
 }
 
-func (m *SimpleMediator) Cache(ctx *mux.Context, responseCode int, outgoingHeaders http.Header) bool {
+func (m *SimpleMediator) Cache(ctx *app.Context, responseCode int, outgoingHeaders http.Header) bool {
 	return responseCode == http.StatusOK
 }
 
-func (m *SimpleMediator) Expires(ctx *mux.Context, responseCode int, outgoingHeaders http.Header) int {
+func (m *SimpleMediator) Expires(ctx *app.Context, responseCode int, outgoingHeaders http.Header) int {
 	return m.Expiration
 }

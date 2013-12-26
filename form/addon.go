@@ -1,8 +1,8 @@
 package form
 
 import (
+	"gnd.la/app"
 	"gnd.la/html"
-	"gnd.la/mux"
 )
 
 // AddOnPosition indicates the position of the addon
@@ -34,5 +34,5 @@ type AddOn struct {
 type AddOnProvider interface {
 	// FieldAddOns returns the addons for the given field.
 	// It's called just before the field is rendered.
-	FieldAddOns(ctx *mux.Context, field *Field) []*AddOn
+	FieldAddOns(ctx *app.Context, field *Field) []*AddOn
 }

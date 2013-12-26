@@ -2,10 +2,10 @@ package formutil
 
 import (
 	"fmt"
+	"gnd.la/app"
 	"gnd.la/form"
 	"gnd.la/html"
 	"gnd.la/i18n"
-	"gnd.la/mux"
 	"math/rand"
 	"strconv"
 )
@@ -43,7 +43,7 @@ func (s *mathCaptcha) ValidateCaptchaResult() error {
 	return nil
 }
 
-func (s *mathCaptcha) FieldAddOns(ctx *mux.Context, field *form.Field) []*form.AddOn {
+func (s *mathCaptcha) FieldAddOns(ctx *app.Context, field *form.Field) []*form.AddOn {
 	if field.GoName == "CaptchaResult" {
 		return []*form.AddOn{
 			&form.AddOn{

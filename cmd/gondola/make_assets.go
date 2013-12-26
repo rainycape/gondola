@@ -8,9 +8,9 @@ import (
 	"compress/gzip"
 	"fmt"
 	"gnd.la/admin"
+	"gnd.la/app"
 	"gnd.la/gen/genutil"
 	"gnd.la/log"
-	"gnd.la/mux"
 	"go/build"
 	"io/ioutil"
 	"os"
@@ -103,7 +103,7 @@ func tgzCompress(files map[string][]byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func MakeAssets(ctx *mux.Context) {
+func MakeAssets(ctx *app.Context) {
 	var dir string
 	var name string
 	extensions := map[string]struct{}{

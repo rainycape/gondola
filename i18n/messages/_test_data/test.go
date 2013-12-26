@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"gnd.la/app"
 	"gnd.la/i18n"
-	"gnd.la/mux"
 )
 
 type Test struct {
@@ -58,12 +58,12 @@ func main() {
 	}
 }
 
-func testing(ctx *mux.Context) {
+func testing(ctx *app.Context) {
 	/// This is a very long comment to test the 80 columns per line splitting used automatically by gnd.la/i18n. Isn't it cool?
 	ctx.T("Testing more translations")
 }
 
-func testing2(ctx mux.Context) {
+func testing2(ctx app.Context) {
 	ctx.T("Testing even more translations")
 	var t1 i18n.String = "Var inside function"
 	/// This is a var string declared via cast

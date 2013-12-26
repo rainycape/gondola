@@ -1,7 +1,7 @@
 package form
 
 import (
-	"gnd.la/mux"
+	"gnd.la/app"
 )
 
 // Choice represents a choice in a select or radio field.
@@ -18,5 +18,5 @@ type Choice struct {
 type ChoicesProvider interface {
 	// FieldChoices returns the choices for the given field.
 	// It's called just before the field is rendered.
-	FieldChoices(ctx *mux.Context, field *Field) []*Choice
+	FieldChoices(ctx *app.Context, field *Field) []*Choice
 }

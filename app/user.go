@@ -1,4 +1,4 @@
-package mux
+package app
 
 import (
 	"gnd.la/users"
@@ -10,21 +10,21 @@ import (
 type UserFunc func(ctx *Context, id int64) users.User
 
 // User returns the currently signed in user, or nil if there's
-// no user. In order to find the user, the mux must have a
+// no user. In order to find the user, the App must have a
 // UserFunc defined.
 func (c *Context) User() users.User {
-	if c.user == nil && c.mux.userFunc != nil {
+	if c.user == nil && c.app.userFunc != nil {
 		var id int64
 		err := c.Cookies().GetSecure(users.COOKIE_NAME, &id)
 		if err == nil {
-			c.user = c.mux.userFunc(c, id)
+			c.user = c.app.userFunc(c, id)
 		}
 	}
 	return c.user
 }
 
 // SignIn sets the cookie for signin in the given user. The default
-// cookie options for the mux are used.
+// cookie options for the App are used.
 func (c *Context) SignIn(user users.User) error {
 	return c.Cookies().SetSecure(users.COOKIE_NAME, user.Id())
 }

@@ -1,12 +1,12 @@
-package mux
+package app
 
 import (
 	"fmt"
+	"gnd.la/app/cookies"
+	"gnd.la/app/serialize"
 	"gnd.la/blobstore"
 	"gnd.la/form/input"
 	"gnd.la/i18n/table"
-	"gnd.la/mux/cookies"
-	"gnd.la/mux/serialize"
 	"gnd.la/users"
 	"gnd.la/util"
 	"net"
@@ -27,9 +27,8 @@ type Context struct {
 	cached          bool
 	fromCache       bool
 	handlerName     string
-	mux             *Mux
+	app             *App
 	statusCode      int
-	customContext   interface{}
 	started         time.Time
 	cookies         *cookies.Cookies
 	user            users.User
@@ -37,7 +36,7 @@ type Context struct {
 	hasTranslations bool
 	background      bool
 	// Used to store data for debugging purposes. Only
-	// used when mux.debug is true.
+	// used when app.debug is true.
 	debugStorage map[string]interface{}
 	// Left to users, to store data in their custom
 	// context types.
@@ -50,7 +49,6 @@ func (c *Context) reset() {
 	c.cached = false
 	c.fromCache = false
 	c.statusCode = 0
-	c.customContext = nil
 	c.started = time.Now()
 	c.cookies = nil
 	c.user = nil
@@ -202,12 +200,12 @@ func (c *Context) Redirect(redir string, permanent bool) {
 
 // Error replies to the request with the specified
 // message and HTTP code. If an error handler
-// has been defined for the mux, it will be
+// has been defined for the App, it will be
 // given the opportunity to intercept the
 // error and provide its own response.
 func (c *Context) Error(error string, code int) {
 	c.statusCode = -code
-	c.mux.handleHTTPError(c, error, code)
+	c.app.handleHTTPError(c, error, code)
 }
 
 // NotFound is equivalent to calling Error()
@@ -260,25 +258,25 @@ func (c *Context) HandlerName() string {
 	return c.handlerName
 }
 
-// Mux returns the Mux this Context originated from
-func (c *Context) Mux() *Mux {
-	return c.mux
+// App returns the App this Context originated from.
+func (c *Context) App() *App {
+	return c.app
 }
 
-// MustReverse calls MustReverse on the mux this context originated
-// from. See the documentation on Mux for details.
+// MustReverse calls MustReverse on the App this context originated
+// from. See App.Reverse for details.
 func (c *Context) MustReverse(name string, args ...interface{}) string {
-	return c.mux.MustReverse(name, args...)
+	return c.app.MustReverse(name, args...)
 }
 
-// Reverse calls Reverse on the mux this context originated
-// from. See the documentation on Mux for details.
+// Reverse calls Reverse on the App this context originated
+// from. See the App.Reverse for details.
 func (c *Context) Reverse(name string, args ...interface{}) (string, error) {
-	return c.mux.Reverse(name, args...)
+	return c.app.Reverse(name, args...)
 }
 
 // RedirectReverse calls Reverse to find the URL and then sends
-// the redirect to the client. See the documentation on Mux.Reverse
+// the redirect to the client. See the documentation on App.Reverse
 // for further details.
 func (c *Context) RedirectReverse(permanent bool, name string, args ...interface{}) error {
 	rev, err := c.Reverse(name, args...)
@@ -344,73 +342,72 @@ func (c *Context) URL() *url.URL {
 // on gnd.la/cookies for more information.
 func (c *Context) Cookies() *cookies.Cookies {
 	if c.cookies == nil {
-		mux := c.Mux()
-		c.cookies = cookies.New(c.R, c, mux.Secret(),
-			mux.EncryptionKey(), mux.DefaultCookieOptions())
+		c.cookies = cookies.New(c.R, c, c.app.Secret(),
+			c.app.EncryptionKey(), c.app.DefaultCookieOptions())
 	}
 	return c.cookies
 }
 
-// Cache is a shorthand for ctx.Mux().Cache(), but panics in case
+// Cache is a shorthand for ctx.App().Cache(), but panics in case
 // of error, instead of returning it.
 func (c *Context) Cache() *Cache {
-	if c.mux.c == nil {
-		if c.mux.debug {
+	if c.app.c == nil {
+		if c.app.debug {
 			// Check if we already have a Cache
 			if cache, ok := c.getDebug(debugCacheKey).(*Cache); ok {
 				return cache
 			}
 		}
-		cache, err := c.mux.Cache()
+		cache, err := c.app.Cache()
 		if err != nil {
 			panic(err)
 		}
-		if c.mux.debug {
+		if c.app.debug {
 			c.storeDebug(debugCacheKey, cache)
 			return cache
 		}
 	}
-	return c.mux.c
+	return c.app.c
 }
 
-// Blobstore is a shorthand for ctx.Mux().Blobstore(), but panics in
+// Blobstore is a shorthand for ctx.App().Blobstore(), but panics in
 // case of error instead of returning it.
 func (c *Context) Blobstore() *blobstore.Store {
-	if c.mux.store == nil {
-		_, err := c.mux.Blobstore()
+	if c.app.store == nil {
+		_, err := c.app.Blobstore()
 		if err != nil {
 			panic(err)
 		}
 	}
-	return c.mux.store
+	return c.app.store
 }
 
-// Orm is a shorthand for ctx.Mux().Orm(), but panics in case
+// Orm is a shorthand for ctx.App().Orm(), but panics in case
 // of error, rather than returning it.
 func (c *Context) Orm() *Orm {
-	if c.mux.o == nil {
-		if c.mux.debug {
+	if c.app.o == nil {
+		if c.app.debug {
 			// Check if we already have an ORM
 			if o, ok := c.getDebug(debugOrmKey).(*Orm); ok {
 				return o
 			}
 		}
-		o, err := c.mux.Orm()
+		o, err := c.app.Orm()
 		if err != nil {
 			panic(err)
 		}
-		if c.mux.debug {
+		if c.app.debug {
 			c.storeDebug(debugOrmKey, o)
 			return o
 		}
 	}
-	return c.mux.o
+	return c.app.o
 }
 
 // Execute loads the template with the given name using the
-// mux template loader and executes it with the data argument.
+// App template loader and executes it with the data argument.
 func (c *Context) Execute(name string, data interface{}) error {
-	tmpl, err := c.mux.LoadTemplate(name)
+	tmpl, err := c.app.LoadTemplate(name)
 	if err != nil {
 		return err
 	}
@@ -433,29 +430,6 @@ func (c *Context) WriteJson(data interface{}) (int, error) {
 // WriteXml is equivalent to serialize.WriteXml(ctx, data)
 func (c *Context) WriteXml(data interface{}) (int, error) {
 	return serialize.WriteXml(c, data)
-}
-
-// Custom returns the custom type context wrapped in
-// an interface{}. It's intended for use in templates
-// e.g. {{ $Context.Custom.MyCustomMethod }}
-//
-// For use in code it's better to use the a conveniency function
-// to transform the type without any type assertions e.g.
-//
-//	type mycontext mux.Context
-//	func Context(ctx *mux.Context) *mycontext {
-//	    return (*mycontext)(ctx)
-//	}
-//	mymux.SetCustomContextType(&mycontext{})
-func (c *Context) Custom() interface{} {
-	if c.customContext == nil {
-		if c.mux.customContextType != nil {
-			c.customContext = reflect.ValueOf(c).Convert(*c.mux.customContextType).Interface()
-		} else {
-			c.customContext = c
-		}
-	}
-	return c.customContext
 }
 
 // Elapsed returns the duration since this context started
@@ -483,10 +457,10 @@ func (c *Context) IsAjax() bool {
 }
 
 // Close closes any resources opened by the context.
-// It's automatically called by the mux, so you
+// It's automatically called by the App, so you
 // don't need to call it manually
 func (c *Context) Close() {
-	if c.mux.debug {
+	if c.app.debug {
 		if o, ok := c.getDebug(debugOrmKey).(*Orm); ok {
 			o.Close()
 		}
@@ -502,7 +476,7 @@ func (c *Context) Close() {
 // might outlast the Handler's lifetime). Please, see also
 // Finalize.
 func (c *Context) BackgroundContext() *Context {
-	ctx := c.mux.NewContext(nil)
+	ctx := c.app.NewContext(nil)
 	ctx.R = c.R
 	ctx.background = true
 	ctx.provider = c.provider
@@ -516,7 +490,7 @@ func (c *Context) BackgroundContext() *Context {
 // safely spawn background jobs from requests while also
 // logging any potential errors. The common usage pattern is:
 //
-//  func MyHandler(ctx *mux.Context) {
+//  func MyHandler(ctx *app.Context) {
 //	data := AcquireData(ctx)
 //	c := ctx.BackgroundContext()
 //	go func() {
@@ -527,9 +501,9 @@ func (c *Context) BackgroundContext() *Context {
 //  }
 func (c *Context) Finalize() {
 	if err := recover(); err != nil {
-		c.mux.recoverErr(c, err)
+		c.app.recoverErr(c, err)
 	}
-	c.mux.CloseContext(c)
+	c.app.CloseContext(c)
 }
 
 // Intercept http.ResponseWriter calls to find response

@@ -1,4 +1,4 @@
-package mux
+package app
 
 import (
 	"gnd.la/orm"
@@ -7,7 +7,7 @@ import (
 // Orm is just a very thin wrapper around
 // orm.Orm, which disables the Close method
 // when running in production mode, since
-// the mux is always reusing the same ORM
+// the App is always reusing the same ORM
 // instance.
 type Orm struct {
 	*orm.Orm

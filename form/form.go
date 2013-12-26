@@ -3,10 +3,10 @@ package form
 import (
 	"bytes"
 	"fmt"
+	"gnd.la/app"
 	"gnd.la/form/input"
 	"gnd.la/html"
 	"gnd.la/i18n"
-	"gnd.la/mux"
 	"gnd.la/password"
 	"gnd.la/util"
 	"gnd.la/util/structs"
@@ -23,7 +23,7 @@ var (
 type attrMap map[string]html.Attrs
 
 type Form struct {
-	ctx       *mux.Context
+	ctx       *app.Context
 	id        string
 	renderer  Renderer
 	values    []reflect.Value
@@ -585,7 +585,7 @@ func (f *Form) SetId(id string) {
 // documentation for the the tags parsed by the form library.
 // Gondola also contains specific renderers for Bootstrap and Foundation, check the
 // gnd.la/foundation and gnd.la/bootstrap packages for more information.
-func New(ctx *mux.Context, r Renderer, opt *Options, values ...interface{}) *Form {
+func New(ctx *app.Context, r Renderer, opt *Options, values ...interface{}) *Form {
 	form := &Form{
 		ctx:      ctx,
 		renderer: r,

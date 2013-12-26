@@ -421,7 +421,7 @@ func (o *Orm) Close() error {
 // completely accurate, since drivers are free
 // to perform several queries per operation. However, the numbers
 // reported by SQL drivers are currently accurate. If you're sharing
-// an ORM instance accross multiple goroutines, as the Gondola's mux
+// an ORM instance accross multiple goroutines, as gnd.la/app.App
 // does in non-debug mode, this number will be just wrong because
 // (for performance reasons) non atomic operations are used to
 // increment the counter.

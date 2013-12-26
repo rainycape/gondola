@@ -2,8 +2,8 @@ package social
 
 import (
 	"fmt"
+	"gnd.la/app"
 	"gnd.la/log"
-	"gnd.la/mux"
 	"gnd.la/tasks"
 	"time"
 )
@@ -24,7 +24,7 @@ type Sharer struct {
 	task     *tasks.Task
 }
 
-func (s *Sharer) share(ctx *mux.Context) {
+func (s *Sharer) share(ctx *app.Context) {
 	last, err := s.provider.LastShare(ctx, s.service)
 	if err != nil {
 		log.Errorf("error finding last share time on %s: %s", s.service, err)
@@ -46,7 +46,7 @@ func (s *Sharer) share(ctx *mux.Context) {
 	}
 }
 
-func (s *Sharer) Schedule(m *mux.Mux, interval time.Duration) {
+func (s *Sharer) Schedule(a *app.App, interval time.Duration) {
 	if s.task != nil {
 		s.task.Stop()
 	}
@@ -56,7 +56,7 @@ func (s *Sharer) Schedule(m *mux.Mux, interval time.Duration) {
 		name = fmt.Sprintf("Sharer.%s.%p", s.service, s)
 	}
 	options := &tasks.Options{Name: name}
-	s.task = tasks.Schedule(m, s.share, options, pollInterval, true)
+	s.task = tasks.Schedule(a, s.share, options, pollInterval, true)
 }
 
 func (s *Sharer) Stop() {

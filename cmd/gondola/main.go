@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"gnd.la/admin"
+	"gnd.la/app"
 	"gnd.la/log"
-	"gnd.la/mux"
 )
 
 func main() {
@@ -13,8 +13,8 @@ func main() {
 	if !*quiet {
 		log.SetLevel(log.LDebug)
 	}
-	m := mux.New()
-	if !admin.Perform(m) {
+	a := app.New()
+	if !admin.Perform(a) {
 		flag.Usage()
 	}
 }

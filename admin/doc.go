@@ -5,7 +5,7 @@
 // its function. Administrative functions take the same form
 // as requests handlers e.g.:
 //
-//  func MyCommand(ctx *mux.Context)
+//  func MyCommand(ctx *app.Context)
 //
 // Then register it using Register() or MustRegister().
 //
@@ -19,25 +19,25 @@
 // page for information on each field or, alternatively, check the
 // example down this page.
 //
-// If you're using gnd.la/mux.Mux.ListenAndServe or gnd.la/tasks.Schedule,
+// If you're using gnd.la/app.App.ListenAndServe or gnd.la/tasks.Schedule,
 // then you don't need to do anything else, since those functions will check if
 // an administrative command was provided, perform it and exit.
-// Alternatively, you can also call admin.Perform with a gnd.la/mux.Mux
+// Alternatively, you can also call admin.Perform with a gnd.la/app.App
 // instance manually if you're not using the functions previously mentioned
 // or, if for some reason, you want to check for administrative commands
 // before. e.g.
 //
 //  func main() {
 //	// Set up ORM, config etc...
-//	m := mux.New()
+//	a := app.New()
 //	// Set up context processors and finalizers, etc... on m
 //	// Now check if there's an admin command and perform it
-//	if !admin.Perform(m) {
+//	if !admin.Perform(a) {
 //	    // No admin command supplied. Set up your handlers and
 //	    // start listening.
 //	    something := anExpensiveCalculationWhichTakesForever()
-//	    m.HandleFunc("^/hello/$", HelloHandler)
-//	    m.MustListenAndServe(-1)
+//	    a.Handle("^/hello/$", HelloHandler)
+//	    a.MustListenAndServe(-1)
 //	}
 //	// Admin command was performed. Now just exit.
 //  }
@@ -54,7 +54,7 @@
 //	Flags: admin.Flags(admin.IntFlag("foo", 0, "Help for foo flag"), admin.BoolFlag("bar", false, "Help for bar flag")),
 //  })
 //
-//  func FlagCommand(ctx *mux.Context) {
+//  func FlagCommand(ctx *app.Context) {
 //	var foo int
 //	var bar bool
 //	ctx.ParseParamValue(&foo, "foo")

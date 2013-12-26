@@ -26,7 +26,7 @@ var (
 	_blobstore          *config.URL
 )
 
-// Port returns the default port used by Mux.
+// Port returns the default port used by gnd.la/app.App.
 // The default is 8888.
 func Port() int {
 	return port
@@ -41,7 +41,7 @@ func SetPort(p int) {
 }
 
 // Debug returns the default debug value used by
-// gnd.la/mux/Mux instances.
+// gnd.la/app.App instances.
 func Debug() bool {
 	return debug
 }
@@ -51,8 +51,8 @@ func Debug() bool {
 // level to LDebug (but setting it to false does not alter
 // the log level). The default is false.
 // Note the this value is set
-// during Mux creation, so if you change this value
-// it will only affect muxes created after the change.
+// during gnd.la/app.App creation, so if you change this value
+// it will only affect apps created after the change.
 func SetDebug(d bool) {
 	debug = d
 	if d {
@@ -73,31 +73,31 @@ func SetLanguage(lang string) {
 }
 
 // Secret returns the default secret used by
-// gnd.la/mux/Mux instances.
+// gnd.la/app.App instances.
 func Secret() string {
 	return secret
 }
 
 // SetSecret changes the global default value for
-// the Mux secret.
+// the gnd.la/app.App secret.
 // Note the this value is set
-// during Mux creation, so if you change this value
-// it will only affect muxes created after the change.
+// during App creation, so if you change this value
+// it will only affect apps created after the change.
 func SetSecret(s string) {
 	secret = s
 }
 
 // EncryptionKey returns the default encryption key used
-// by gnd.la/mux/Mux instances.
+// by gnd.la/app.App instances.
 func EncryptionKey() string {
 	return encryptionKey
 }
 
 // SetEncryptionKey changes the global default value for
-// the Mux encryption key.
+// the gnd.la/app.App encryption key.
 // Note the this value is set
-// during Mux creation, so if you change this value
-// it will only affect muxes created after the change.
+// during App creation, so if you change this value
+// it will only affect apps created after the change.
 func SetEncryptionKey(k string) {
 	encryptionKey = k
 }

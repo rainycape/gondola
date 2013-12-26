@@ -1,11 +1,11 @@
-package mux
+package app
 
 import (
 	"runtime"
 )
 
 func monitorHandler(ctx *Context) {
-	t := newInternalTemplate(ctx.mux)
+	t := newInternalTemplate(ctx.app)
 	if err := t.Parse("monitor.html"); err != nil {
 		panic(err)
 	}

@@ -1,4 +1,4 @@
-package mux
+package app
 
 import (
 	"gnd.la/cache"
@@ -7,7 +7,7 @@ import (
 // Cache is just a very thin wrapper around
 // cache.Cache, which disables the Close method
 // when running in production mode, since
-// the mux is always reusing the same Cache
+// the App is always reusing the same Cache
 // instance.
 type Cache struct {
 	*cache.Cache

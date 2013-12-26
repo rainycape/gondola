@@ -6,8 +6,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"gnd.la/app"
 	"gnd.la/log"
-	"gnd.la/mux"
 	"gnd.la/signal"
 	"gnd.la/util/internal/runtimeutil"
 	"reflect"
@@ -27,8 +27,8 @@ var registered struct {
 
 // Task represent a scheduled task.
 type Task struct {
-	Mux      *mux.Mux
-	Handler  mux.Handler
+	App      *app.App
+	Handler  app.Handler
 	Interval time.Duration
 	Options  *Options
 	ticker   *time.Ticker
@@ -150,8 +150,8 @@ func executeTask(task *Task) (bool, error) {
 	if err := canRunTask(task); err != nil {
 		return false, err
 	}
-	ctx := task.Mux.NewContext(contextProvider(0))
-	defer task.Mux.CloseContext(ctx)
+	ctx := task.App.NewContext(contextProvider(0))
+	defer task.App.CloseContext(ctx)
 	started := time.Now()
 	log.Debugf("Starting task %s at %v", task.Name(), started)
 	var err error
@@ -163,8 +163,8 @@ func executeTask(task *Task) (bool, error) {
 // Register registers a new task that might be run with Run, but
 // without scheduling it. If there was previously another task
 // registered with the same name, it will be deleted.
-func Register(m *mux.Mux, task mux.Handler, opts *Options) *Task {
-	t := &Task{Mux: m, Handler: task, Options: opts}
+func Register(m *app.App, task app.Handler, opts *Options) *Task {
+	t := &Task{App: m, Handler: task, Options: opts}
 	registered.Lock()
 	defer registered.Unlock()
 	if registered.tasks == nil {
@@ -185,7 +185,7 @@ func Register(m *mux.Mux, task mux.Handler, opts *Options) *Task {
 // right now (in a goroutine) rather than waiting until interval for
 // the first run. Schedule returns a Task instance, which might be
 // used to stop, resume or delete a it.
-func Schedule(m *mux.Mux, task mux.Handler, opts *Options, interval time.Duration, now bool) *Task {
+func Schedule(m *app.App, task app.Handler, opts *Options, interval time.Duration, now bool) *Task {
 	t := Register(m, task, opts)
 	t.Interval = interval
 	signal.Emit(signal.TASKS_WILL_SCHEDULE_TASK, t)
@@ -212,7 +212,7 @@ func Run(name string) (bool, error) {
 // RunHandler starts the given task identifier by it's handler. The same
 // restrictions in Run() apply to this function.
 // Return values are the same as Run().
-func RunHandler(handler mux.Handler) (bool, error) {
+func RunHandler(handler app.Handler) (bool, error) {
 	var task *Task
 	p := reflect.ValueOf(handler).Pointer()
 	registered.RLock()
@@ -231,8 +231,8 @@ func RunHandler(handler mux.Handler) (bool, error) {
 
 // Execute runs the given handler in a task context. If the handler fails
 // with a panic, it will be returned in the error return value.
-func Execute(m *mux.Mux, handler mux.Handler) error {
-	t := &Task{Mux: m, Handler: handler}
+func Execute(a *app.App, handler app.Handler) error {
+	t := &Task{App: a, Handler: handler}
 	_, err := executeTask(t)
 	return err
 }

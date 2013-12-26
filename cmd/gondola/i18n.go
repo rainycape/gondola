@@ -2,15 +2,15 @@ package main
 
 import (
 	"gnd.la/admin"
+	"gnd.la/app"
 	"gnd.la/i18n/messages"
 	"gnd.la/i18n/po"
-	"gnd.la/mux"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-func MakeMessages(ctx *mux.Context) {
+func MakeMessages(ctx *app.Context) {
 	m, err := messages.Extract(".", messages.DefaultFunctions(), messages.DefaultTypes(), messages.DefaultTagFields())
 	if err != nil {
 		panic(err)
@@ -30,7 +30,7 @@ func MakeMessages(ctx *mux.Context) {
 	}
 }
 
-func CompileMessages(ctx *mux.Context) {
+func CompileMessages(ctx *app.Context) {
 	var poFiles []string
 	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
 		if err != nil {

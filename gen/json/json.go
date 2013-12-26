@@ -3,13 +3,13 @@
 // When used correctly, these methods can easily give a ~200-300% performance
 // increase when serializing objects to JSON while also reducing memory usage
 // by ~95-99%. For taking advantage of these gains, you must use
-// gnd.la/mux/serialize or Context.WriteJson to encode to JSON, since
+// gnd.la/app/serialize or Context.WriteJson to encode to JSON, since
 // json.Marshal won't use these methods correctly and might even have worse
 // performance when these methods are implemented.
 //
 // This is a small benchmark comparing the performance of these JSON encoding
 // methods. JSONDirect uses WriteJSON(), JSONSerialize uses
-// gnd.la/mux/serialize (which adds some overhead because it also sets the
+// gnd.la/app/serialize (which adds some overhead because it also sets the
 // Content-Length and Content-Encoding headers and thus must encode into an
 // intermediate buffer first), while JSON uses json.Marshal(). All three
 // benchmarks write the result to ioutil.Discard.

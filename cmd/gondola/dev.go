@@ -6,9 +6,9 @@ import (
 	"code.google.com/p/go.exp/fsnotify"
 	"fmt"
 	"gnd.la/admin"
+	"gnd.la/app"
 	"gnd.la/config"
 	"gnd.la/log"
-	"gnd.la/mux"
 	"gnd.la/util/internal/runtimeutil"
 	"go/build"
 	"html/template"
@@ -88,16 +88,16 @@ func NewProject(dir string, config string, tags string, verbose bool, race bool)
 		tags:    tags,
 		race:    race,
 		verbose: verbose,
-		muxPort: randomFreePort(),
+		appPort: randomFreePort(),
 	}
-	m := mux.New()
-	m.Logger = nil
-	m.SetTemplatesLoader(devAssets)
-	m.HandleFunc("/_gondola_dev_server_status", p.StatusHandler)
-	m.HandleFunc("/", p.Handler)
-	m.SetPort(p.muxPort)
+	a := app.New()
+	a.Logger = nil
+	a.SetTemplatesLoader(devAssets)
+	a.Handle("/_gondola_dev_server_status", p.StatusHandler)
+	a.Handle("/", p.Handler)
+	a.SetPort(p.appPort)
 	go func() {
-		m.MustListenAndServe()
+		a.MustListenAndServe()
 	}()
 	return p
 }
@@ -111,7 +111,7 @@ type Project struct {
 	race           bool
 	verbose        bool
 	port           int
-	muxPort        int
+	appPort        int
 	building       bool
 	errors         []*BuildError
 	cmd            *exec.Cmd
@@ -445,7 +445,7 @@ func (p *Project) Compile() {
 	p.building = false
 }
 
-func (p *Project) Handler(ctx *mux.Context) {
+func (p *Project) Handler(ctx *app.Context) {
 	data := map[string]interface{}{
 		"Project": p,
 		"Errors":  p.errors,
@@ -456,7 +456,7 @@ func (p *Project) Handler(ctx *mux.Context) {
 	ctx.MustExecute("errors.html", data)
 }
 
-func (p *Project) StatusHandler(ctx *mux.Context) {
+func (p *Project) StatusHandler(ctx *app.Context) {
 	built := formatTime(p.built)
 	started := formatTime(p.started)
 	ctx.WriteJson(map[string]interface{}{
@@ -480,7 +480,7 @@ func (p *Project) HandleConnection(conn net.Conn) {
 	}
 	p.proxied[conn] = struct{}{}
 	if len(p.errors) > 0 {
-		p.ProxyConnection(conn, p.muxPort)
+		p.ProxyConnection(conn, p.appPort)
 	} else {
 		p.ProxyConnection(conn, p.port)
 	}
@@ -522,7 +522,7 @@ func (p *Project) ProxyConnection(conn net.Conn, port int) {
 	sock.Close()
 }
 
-func Dev(ctx *mux.Context) {
+func Dev(ctx *app.Context) {
 	var dir string
 	var configName string
 	var tags string

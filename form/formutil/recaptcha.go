@@ -2,9 +2,9 @@ package formutil
 
 import (
 	"fmt"
+	"gnd.la/app"
 	"gnd.la/form"
 	"gnd.la/html"
-	"gnd.la/mux"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -34,7 +34,7 @@ type reCaptcha struct {
 	Recaptcha  string `form:"recaptcha_challenge_field,hidden,optional"`
 }
 
-func (r *reCaptcha) FieldAddOns(ctx *mux.Context, field *form.Field) []*form.AddOn {
+func (r *reCaptcha) FieldAddOns(ctx *app.Context, field *form.Field) []*form.AddOn {
 	if field.GoName == "Recaptcha" {
 		style := &html.Node{
 			Tag:      "style",
@@ -63,7 +63,7 @@ func (r *reCaptcha) FieldAddOns(ctx *mux.Context, field *form.Field) []*form.Add
 	return nil
 }
 
-func (r *reCaptcha) ValidateRecaptcha(ctx *mux.Context) error {
+func (r *reCaptcha) ValidateRecaptcha(ctx *app.Context) error {
 	valid, msg := r.responseIsValid(ctx)
 	r.msg = msg
 	if valid {
@@ -72,7 +72,7 @@ func (r *reCaptcha) ValidateRecaptcha(ctx *mux.Context) error {
 	return fmt.Errorf("incorrect")
 }
 
-func (r *reCaptcha) responseIsValid(ctx *mux.Context) (bool, string) {
+func (r *reCaptcha) responseIsValid(ctx *app.Context) (bool, string) {
 	challenge := ctx.FormValue("recaptcha_challenge_field")
 	response := ctx.FormValue("recaptcha_response_field")
 	values := url.Values{

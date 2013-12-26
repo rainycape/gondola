@@ -1,4 +1,4 @@
-package mux
+package app
 
 import (
 	"gnd.la/i18n"
@@ -6,10 +6,10 @@ import (
 )
 
 func (c *Context) Language() string {
-	if c.mux.languageHandler != nil {
-		return c.mux.languageHandler(c)
+	if c.app.languageHandler != nil {
+		return c.app.languageHandler(c)
 	}
-	return c.mux.defaultLanguage
+	return c.app.defaultLanguage
 }
 
 func (c *Context) TranslationTable() *table.Table {

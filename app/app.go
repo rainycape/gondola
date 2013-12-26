@@ -1,18 +1,18 @@
-// Package mux provides a Mux implementation which does
+// Package app provides a mux implementation which does
 // regexp based URL routing and provides functions for
 // managing the lifecycle of a request at different
 // points.
-package mux
+package app
 
 import (
 	"bytes"
 	"fmt"
+	"gnd.la/app/cookies"
 	"gnd.la/blobstore"
 	"gnd.la/cache"
 	"gnd.la/defaults"
 	"gnd.la/loaders"
 	"gnd.la/log"
-	"gnd.la/mux/cookies"
 	"gnd.la/orm"
 	"gnd.la/signal"
 	"gnd.la/template"
@@ -35,7 +35,7 @@ var (
 	// read the client's IP, in decreasing priority order.
 	// You might change them if e.g. your CDN provider uses
 	// different ones. Note that, for these values to have
-	// any effect, the Mux needs to have TrustsXHeaders set
+	// any effect, the App needs to have TrustsXHeaders set
 	// to true.
 	IPXHeaders = []string{"X-Real-IP", "X-Forwarded-For"}
 	// SchemeXHeaders are the scheme equivalent of IPXHeaders.
@@ -48,8 +48,6 @@ type RecoverHandler func(*Context, interface{}) interface{}
 // a Handler and might alter the context in any way they see fit
 type ContextProcessor func(*Context) bool
 
-type Handler func(*Context)
-
 // ErrorHandler is called before an error is sent
 // to the client. The parameters are the current context,
 // the error message and the error code. If the handler
@@ -59,7 +57,7 @@ type ErrorHandler func(*Context, string, int) bool
 
 // LanguageHandler is use to determine the language
 // when serving a request. See function SetLanguageHandler()
-// in Mux.
+// in App.
 type LanguageHandler func(*Context) string
 
 type handlerInfo struct {
@@ -82,12 +80,11 @@ var (
 	assetsPrefix   = "/_gondola_assets"
 )
 
-type Mux struct {
+type App struct {
 	ContextProcessors    []ContextProcessor
 	ContextFinalizers    []ContextFinalizer
 	RecoverHandlers      []RecoverHandler
 	handlers             []*handlerInfo
-	customContextType    *reflect.Type
 	trustXHeaders        bool
 	appendSlash          bool
 	errorHandler         ErrorHandler
@@ -116,30 +113,30 @@ type Mux struct {
 	// Logger to use when logging requests. By default, it's
 	// gnd.la/log.Std, but you can set it to nil to avoid
 	// logging at all and gain a bit more of performance.
-	Logger       *log.Logger
-	contextPool  chan *Context
-	maxArguments int
+	Logger      *log.Logger
+	contextPool chan *Context
 }
 
-// HandleFunc adds an anonymous handler. Anonymous handlers can't be reversed.
-func (mux *Mux) HandleFunc(pattern string, handler Handler) {
-	mux.HandleHostNamedFunc(pattern, "", "", handler)
+// Handle is a shorthand for HandleOptions, passing nil as the Options.
+func (app *App) Handle(pattern string, handler Handler) {
+	app.HandleOptions(pattern, handler, nil)
 }
 
-// HandleNamedFunc adds named handler. Named handlers can be reversed using
-// Mux.Reverse() or the "reverse" function in the templates.
-func (mux *Mux) HandleNamedFunc(pattern string, name string, handler Handler) {
-	mux.HandleHostNamedFunc(pattern, "", name, handler)
-}
-
-// HandleHostFunc works like HandleFunc(), but restricts matches to the given host.
-func (mux *Mux) HandleHostFunc(pattern string, host string, handler Handler) {
-	mux.HandleHostNamedFunc(pattern, host, "", handler)
-}
-
-// HandleHostNamedFunc works like HandleNamedFunc(), but restricts matches to the given host.
-func (mux *Mux) HandleHostNamedFunc(pattern string, host string, name string, handler Handler) {
+// HandleOptions adds a new handler to the App. If the Options include a
+// non-empty name, it can be be reversed using Context.Reverse or
+// the "reverse" template function. To add a host-specific Handler,
+// set the Host field in Options to a non-empty string.
+func (app *App) HandleOptions(pattern string, handler Handler, opts *Options) {
+	if handler == nil {
+		panic(fmt.Errorf("handler for pattern %q can't be nil", pattern))
+	}
 	re := regexp.MustCompile(pattern)
+	var host string
+	var name string
+	if opts != nil {
+		host = opts.Host
+		name = opts.Name
+	}
 	info := &handlerInfo{
 		host:    host,
 		name:    name,
@@ -150,206 +147,187 @@ func (mux *Mux) HandleHostNamedFunc(pattern string, host string, name string, ha
 		info.path = p
 		info.pathMatch = []int{0, len(p)}
 	}
-	mux.handlers = append(mux.handlers, info)
-	if m := info.re.NumSubexp() + 1; m > mux.maxArguments {
-		mux.maxArguments = m
-	}
+	app.handlers = append(app.handlers, info)
 }
 
-// AddContextProcessor adds context processor to the Mux.
+// AddContextProcessor adds context processor to the App.
 // Context processors run in the same order they were added
-// before the mux starts matching the request to a handler and
+// before the app starts matching the request to a handler and
 // may alter the request in any way they see fit as well as
 // writing to the context. If any of the processors returns
 // true, the request is considered as served and no further
 // processing to it is done.
-func (mux *Mux) AddContextProcessor(cp ContextProcessor) {
-	mux.ContextProcessors = append(mux.ContextProcessors, cp)
+func (app *App) AddContextProcessor(cp ContextProcessor) {
+	app.ContextProcessors = append(app.ContextProcessors, cp)
 }
 
-// AddContextFinalizer adds a context finalizer to the mux.
+// AddContextFinalizer adds a context finalizer to the app.
 // Context finalizers run in the order they were added and
 // after the request has been served (even if it was stopped by
 // a context processor). They're intended as a way to perform
 // some logging or cleanup (e.g. closing database connections
 // that might have been opened during the request lifetime)
-func (mux *Mux) AddContextFinalizer(cf ContextFinalizer) {
-	mux.ContextFinalizers = append(mux.ContextFinalizers, cf)
+func (app *App) AddContextFinalizer(cf ContextFinalizer) {
+	app.ContextFinalizers = append(app.ContextFinalizers, cf)
 }
 
-// AddRecoverHandler adds a recover handler to the mux.
+// AddRecoverHandler adds a recover handler to the app.
 // Recover handlers are executed in the order they were added in case
 // there's a panic while serving a request. The handlers may write
 // to the context. If any recover handler returns nil the error is
 // considered as handled and no panic is raised.
-func (mux *Mux) AddRecoverHandler(rh RecoverHandler) {
-	mux.RecoverHandlers = append(mux.RecoverHandlers, rh)
+func (app *App) AddRecoverHandler(rh RecoverHandler) {
+	app.RecoverHandlers = append(app.RecoverHandlers, rh)
 }
 
-// SetCustomContextType sets the context type returned by mux/Context.Custom()
-// which must be convertible to mux.Context.
-// See the documentation on mux/Context.Custom() for further information.
-func (mux *Mux) SetCustomContextType(ctx interface{}) {
-	t := reflect.TypeOf(ctx)
-	if t.Kind() == reflect.Struct {
-		t = reflect.PtrTo(t)
-	}
-	contextType := reflect.TypeOf((*Context)(nil))
-	if !t.ConvertibleTo(contextType) {
-		panic(fmt.Errorf("Custom context type must convertible to %v", contextType))
-	}
-	/* All checks passed */
-	mux.customContextType = &t
-}
-
-// TrustsXHeaders returns if the mux uses X headers
+// TrustsXHeaders returns if the app uses X headers
 // for determining the remote IP and scheme. See SetTrustXHeaders()
 // for a more detailed explanation.
-func (mux *Mux) TrustsXHeaders() bool {
-	return mux.trustXHeaders
+func (app *App) TrustsXHeaders() bool {
+	return app.trustXHeaders
 }
 
-// SetTrustXHeaders sets if the mux uses X headers like
+// SetTrustXHeaders sets if the app uses X headers like
 // X-Real-IP, X-Forwarded-For, X-Scheme and X-Forwarded-Proto
 // to override the remote IP and scheme. This is useful
 // when running your application behind a proxy or load balancer.
 // The default is disabled. Please, keep in mind that enabling
 // XHeaders processing when not running behind a proxy or load
 // balancer which sanitizes the input *IS A SECURITY RISK*.
-func (mux *Mux) SetTrustXHeaders(t bool) {
-	mux.trustXHeaders = t
+func (app *App) SetTrustXHeaders(t bool) {
+	app.trustXHeaders = t
 }
 
-// AppendSlash returns if the mux will automatically append
+// AppendSlash returns if the app will automatically append
 // a slash when appropriate. See SetAppendSlash for a more
 // detailed description.
-func (mux *Mux) AppendsSlash() bool {
-	return mux.appendSlash
+func (app *App) AppendsSlash() bool {
+	return app.appendSlash
 }
 
 // SetAppendSlash enables or disables automatic slash appending.
 // When enabled, GET and HEAD requests for /foo will be
 // redirected to /foo/ if there's a valid handler for that URL,
 // rather than returning a 404. The default is true.
-func (mux *Mux) SetAppendSlash(b bool) {
-	mux.appendSlash = b
+func (app *App) SetAppendSlash(b bool) {
+	app.appendSlash = b
 }
 
-// Secret returns the secret for this mux. See
+// Secret returns the secret for this app. See
 // SetSecret() for further details.
-func (mux *Mux) Secret() string {
-	return mux.secret
+func (app *App) Secret() string {
+	return app.secret
 }
 
-// SetSecret sets the secret associated with this mux,
+// SetSecret sets the secret associated with this app,
 // which is used for signed cookies. It should be a
 // random string with at least 32 characters. When the
-// mux is initialized, this value is set to the value
+// app is initialized, this value is set to the value
 // returned by defaults.Secret() (which can be controlled
 // from the config).
-func (mux *Mux) SetSecret(secret string) {
-	mux.secret = secret
+func (app *App) SetSecret(secret string) {
+	app.secret = secret
 }
 
 // EncryptionKey returns the encryption key for this
-// mux. See SetEncryptionKey() for details.
-func (mux *Mux) EncryptionKey() string {
-	return mux.encryptionKey
+// app. See SetEncryptionKey() for details.
+func (app *App) EncryptionKey() string {
+	return app.encryptionKey
 }
 
 // SetEncriptionKey sets the encryption key for this
-// mux, which is used by encrypted cookies. It should
+// app, which is used by encrypted cookies. It should
 // be a random string of 16, 24 or 32 characters.
-func (mux *Mux) SetEncryptionKey(key string) {
-	mux.encryptionKey = key
+func (app *App) SetEncryptionKey(key string) {
+	app.encryptionKey = key
 }
 
 // DefaultCookieOptions returns the default options
 // used for cookies. This is initialized to the value
-// returned by cookies.Defaults(). See gnd.la/mux/cookies
+// returned by cookies.Defaults(). See gnd.la/app/cookies
 // documentation for more details.
-func (mux *Mux) DefaultCookieOptions() *cookies.Options {
-	return mux.defaultCookieOptions
+func (app *App) DefaultCookieOptions() *cookies.Options {
+	return app.defaultCookieOptions
 }
 
 // SetDefaultCookieOptions sets the default cookie options
-// for this mux. See gnd.la/cookies documentation for more
+// for this app. See gnd.la/cookies documentation for more
 // details.
-func (mux *Mux) SetDefaultCookieOptions(o *cookies.Options) {
-	mux.defaultCookieOptions = o
+func (app *App) SetDefaultCookieOptions(o *cookies.Options) {
+	app.defaultCookieOptions = o
 }
 
 // ErrorHandler returns the error handler (if any)
-// associated with this mux
-func (mux *Mux) ErrorHandler() ErrorHandler {
-	return mux.errorHandler
+// associated with this app
+func (app *App) ErrorHandler() ErrorHandler {
+	return app.errorHandler
 }
 
-// SetErrorHandler sets the error handler for this mux.
+// SetErrorHandler sets the error handler for this app.
 // See the documentation on ErrorHandler for a more
 // detailed description.
-func (mux *Mux) SetErrorHandler(handler ErrorHandler) {
-	mux.errorHandler = handler
+func (app *App) SetErrorHandler(handler ErrorHandler) {
+	app.errorHandler = handler
 }
 
 // LanguageHandler returns the language handler for this
-// mux. See SetLanguageHandler() for further information
+// app. See SetLanguageHandler() for further information
 // about language handlers.
-func (mux *Mux) LanguageHandler() LanguageHandler {
-	return mux.languageHandler
+func (app *App) LanguageHandler() LanguageHandler {
+	return app.languageHandler
 }
 
-// SetLanguageHandler sets the language handler for this mux.
+// SetLanguageHandler sets the language handler for this app.
 // The LanguageHandler is responsible for determining the language
 // used in translations for a request. If the empty string is returned
-// the strings won't be translated. Finally, when a mux does not have
+// the strings won't be translated. Finally, when a app does not have
 // a language handler it uses the language specified by gnd.la/defaults.
-func (mux *Mux) SetLanguageHandler(handler LanguageHandler) {
-	mux.languageHandler = handler
+func (app *App) SetLanguageHandler(handler LanguageHandler) {
+	app.languageHandler = handler
 }
 
-func (mux *Mux) UserFunc() UserFunc {
-	return mux.userFunc
+func (app *App) UserFunc() UserFunc {
+	return app.userFunc
 }
 
-func (mux *Mux) SetUserFunc(f UserFunc) {
-	mux.userFunc = f
+func (app *App) SetUserFunc(f UserFunc) {
+	app.userFunc = f
 }
 
 // AssetsManager returns the manager for static assets
-func (mux *Mux) AssetsManager() assets.Manager {
-	return mux.assetsManager
+func (app *App) AssetsManager() assets.Manager {
+	return app.assetsManager
 }
 
-// SetAssetsManager sets the static assets manager for the mux. See
+// SetAssetsManager sets the static assets manager for the app. See
 // the documention on gnd.la/assets/Manager for further information.
-func (mux *Mux) SetAssetsManager(manager assets.Manager) {
-	manager.SetDebug(mux.Debug())
-	mux.assetsManager = manager
+func (app *App) SetAssetsManager(manager assets.Manager) {
+	manager.SetDebug(app.Debug())
+	app.assetsManager = manager
 }
 
 // TemplatesLoader returns the loader for the templates assocciated
-// with this mux. By default, templates will be loaded from the
+// with this app. By default, templates will be loaded from the
 // tmpl directory relative to the application binary.
-func (mux *Mux) TemplatesLoader() loaders.Loader {
-	return mux.templatesLoader
+func (app *App) TemplatesLoader() loaders.Loader {
+	return app.templatesLoader
 }
 
 // SetTemplatesLoader sets the loader used to load the templates
-// associated with this mux. By default, templates will be loaded from the
+// associated with this app. By default, templates will be loaded from the
 // tmpl directory relative to the application binary.
-func (mux *Mux) SetTemplatesLoader(loader loaders.Loader) {
-	mux.templatesLoader = loader
+func (app *App) SetTemplatesLoader(loader loaders.Loader) {
+	app.templatesLoader = loader
 }
 
 // AddTemplateProcessor adds a new template processor. Template processors
 // may modify a template after it's been loaded.
-func (mux *Mux) AddTemplateProcessor(processor TemplateProcessor) {
-	mux.templateProcessors = append(mux.templateProcessors, processor)
+func (app *App) AddTemplateProcessor(processor TemplateProcessor) {
+	app.templateProcessors = append(app.templateProcessors, processor)
 }
 
 // AddTemplateVars adds additional variables which will be passed
-// to the templates executed by this mux. The values in the map might
+// to the templates executed by this app. The values in the map might
 // either be values or functions which receive a *Context instance and return
 // either one or two values (the second one must be an error), in which case
 // they will be called with the current context to obtain the variable
@@ -358,13 +336,13 @@ func (mux *Mux) AddTemplateProcessor(processor TemplateProcessor) {
 // each variable in the map is its default value, and it can
 // be overriden by using ExecuteVars() rather than Execute() when
 // executing the template.
-func (mux *Mux) AddTemplateVars(vars template.VarMap) {
-	if mux.templateVars == nil {
-		mux.templateVars = make(template.VarMap)
-		mux.templateVarFuncs = make(map[string]reflect.Value)
+func (app *App) AddTemplateVars(vars template.VarMap) {
+	if app.templateVars == nil {
+		app.templateVars = make(template.VarMap)
+		app.templateVarFuncs = make(map[string]reflect.Value)
 	}
 	for k, v := range vars {
-		if mux.isReservedVariable(k) {
+		if app.isReservedVariable(k) {
 			panic(fmt.Errorf("Variable %s is reserved", k))
 		}
 		if t := reflect.TypeOf(v); t.Kind() == reflect.Func {
@@ -381,127 +359,127 @@ func (mux *Mux) AddTemplateVars(vars template.VarMap) {
 					panic(fmt.Errorf("Template variable functions must return an error as their second argument"))
 				}
 			}
-			mux.templateVarFuncs[k] = reflect.ValueOf(v)
+			app.templateVarFuncs[k] = reflect.ValueOf(v)
 		} else {
-			mux.templateVars[k] = v
+			app.templateVars[k] = v
 		}
 	}
 }
 
 // LoadTemplate loads a template using the template
 // loader and the asset manager assocciated with
-// this mux
-func (mux *Mux) LoadTemplate(name string) (Template, error) {
-	mux.templatesMutex.RLock()
-	tmpl := mux.templatesCache[name]
-	mux.templatesMutex.RUnlock()
+// this app
+func (app *App) LoadTemplate(name string) (Template, error) {
+	app.templatesMutex.RLock()
+	tmpl := app.templatesCache[name]
+	app.templatesMutex.RUnlock()
 	if tmpl == nil {
-		t := newMuxTemplate(mux)
-		vars := make(template.VarMap, len(mux.templateVars)+len(mux.templateVarFuncs))
-		for k, v := range mux.templateVars {
+		t := newAppTemplate(app)
+		vars := make(template.VarMap, len(app.templateVars)+len(app.templateVarFuncs))
+		for k, v := range app.templateVars {
 			vars[k] = v
 		}
-		for k, _ := range mux.templateVarFuncs {
+		for k, _ := range app.templateVarFuncs {
 			vars[k] = nil
 		}
 		err := t.ParseVars(name, vars)
 		if err != nil {
 			return nil, err
 		}
-		for _, v := range mux.templateProcessors {
+		for _, v := range app.templateProcessors {
 			t.Template, err = v(t.Template)
 			if err != nil {
 				return nil, err
 			}
 		}
 		tmpl = t
-		if !mux.debug {
-			mux.templatesMutex.Lock()
-			mux.templatesCache[name] = tmpl
-			mux.templatesMutex.Unlock()
+		if !app.debug {
+			app.templatesMutex.Lock()
+			app.templatesCache[name] = tmpl
+			app.templatesMutex.Unlock()
 		}
 	}
 	return tmpl, nil
 }
 
-// Debug returns if the mux is in debug mode
+// Debug returns if the app is in debug mode
 // (i.e. templates are not cached).
-func (mux *Mux) Debug() bool {
-	return mux.debug
+func (app *App) Debug() bool {
+	return app.debug
 }
 
-// SetDebug sets the debug state for the mux.
+// SetDebug sets the debug state for the app.
 // When true, templates executed via Context.Execute or
 // Context.MustExecute() are recompiled every time
 // they are executed. The default is the value
-// returned by defaults.Debug() when the mux is
+// returned by defaults.Debug() when the app is
 // constructed. See the documentation on gnd.la/defaults
 // for further information.
-func (mux *Mux) SetDebug(debug bool) {
-	mux.debug = debug
+func (app *App) SetDebug(debug bool) {
+	app.debug = debug
 }
 
-// Address returns the address this mux is configured to listen
-// on. By default, it's empty, meaning the mux will listen on
+// Address returns the address this app is configured to listen
+// on. By default, it's empty, meaning the app will listen on
 // all interfaces.
-func (mux *Mux) Address() string {
-	return mux.address
+func (app *App) Address() string {
+	return app.address
 }
 
-// SetAddress changes the address this mux will listen on.
-func (mux *Mux) SetAddress(address string) {
-	mux.address = address
+// SetAddress changes the address this app will listen on.
+func (app *App) SetAddress(address string) {
+	app.address = address
 }
 
-// Port returns the port this mux is configured to listen on.
+// Port returns the port this app is configured to listen on.
 // By default, it's initialized with the value returned by Port()
 // in the defaults package (which can be altered using Gondola's
 // config).
-func (mux *Mux) Port() int {
-	return mux.port
+func (app *App) Port() int {
+	return app.port
 }
 
-// SetPort sets the port on which this mux will listen on. It's not
+// SetPort sets the port on which this app will listen on. It's not
 // recommended to call this function manually. Instead, use gnd.la/config
-// to change the default port before creating the mux. Otherwise, Gondola's
+// to change the default port before creating the app. Otherwise, Gondola's
 // development server won't work correctly.
-func (mux *Mux) SetPort(port int) {
-	mux.port = port
+func (app *App) SetPort(port int) {
+	app.port = port
 }
 
-// HandleAssets adds several handlers to the mux which handle
+// HandleAssets adds several handlers to the app which handle
 // assets efficiently and allows the use of the "assset"
 // function from the templates. This function will also modify the
-// asset loader associated with this mux. prefix might be a relative
+// asset loader associated with this app. prefix might be a relative
 // (e.g. /static/) or absolute (e.g. http://static.example.com/) url
 // while dir should be the path to the directory where the static
 // assets reside. You probably want to use RelativePath() in gnd.la/util
 // to define the directory relative to the application binary. Note
 // that /favicon.ico and /robots.txt will be handled too, but they
 // will must be in the directory which contains the rest of the assets.
-func (mux *Mux) HandleAssets(prefix string, dir string) {
+func (app *App) HandleAssets(prefix string, dir string) {
 	loader := loaders.FSLoader(dir)
 	manager := assets.NewManager(loader, prefix)
-	mux.SetAssetsManager(manager)
-	mux.addAssetsManager(manager, true)
+	app.SetAssetsManager(manager)
+	app.addAssetsManager(manager, true)
 }
 
-func (mux *Mux) addAssetsManager(manager assets.Manager, main bool) {
+func (app *App) addAssetsManager(manager assets.Manager, main bool) {
 	assetsHandler := assets.Handler(manager)
 	handler := func(ctx *Context) {
 		assetsHandler(ctx, ctx.R)
 	}
-	mux.HandleFunc("^"+manager.Prefix(), handler)
+	app.Handle("^"+manager.Prefix(), handler)
 	if main {
-		mux.HandleFunc("^/favicon.ico$", handler)
-		mux.HandleFunc("^/robots.txt$", handler)
+		app.Handle("^/favicon.ico$", handler)
+		app.Handle("^/robots.txt$", handler)
 	}
 }
 
 // MustReverse calls Reverse and panics if it finds an error. See
 // Reverse for further details.
-func (mux *Mux) MustReverse(name string, args ...interface{}) string {
-	rev, err := mux.Reverse(name, args...)
+func (app *App) MustReverse(name string, args ...interface{}) string {
+	rev, err := app.Reverse(name, args...)
 	if err != nil {
 		panic(err)
 	}
@@ -516,11 +494,11 @@ func (mux *Mux) MustReverse(name string, args ...interface{}) string {
 // would return "/article/42/the-ultimate-answer-to-life-the-universe-and-everything/"
 // If the handler is also restricted to a given hostname, the return value
 // will be a scheme relative url e.g. //www.example.com/article/...
-func (mux *Mux) Reverse(name string, args ...interface{}) (string, error) {
+func (app *App) Reverse(name string, args ...interface{}) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("No handler name specified")
 	}
-	for _, v := range mux.handlers {
+	for _, v := range app.handlers {
 		if v.name == name {
 			reversed, err := formatRegexp(v.re, true, args...)
 			if err != nil {
@@ -546,71 +524,71 @@ func (mux *Mux) Reverse(name string, args ...interface{}) (string, error) {
 // ListenAndServe starts listening on the configured address and
 // port (see Address() and Port()).
 // This function is a shortcut for
-// http.ListenAndServe(mux.Address()+":"+strconv.Itoa(mux.Port()), mux)
-func (mux *Mux) ListenAndServe() error {
-	signal.Emit(signal.MUX_WILL_LISTEN, mux)
-	mux.started = time.Now().UTC()
-	if mux.Logger != nil && os.Getenv("GONDOLA_DEV_SERVER") == "" {
-		if mux.address != "" {
-			mux.Logger.Infof("Listening on %s, port %d", mux.address, mux.port)
+// http.ListenAndServe(app.Address()+":"+strconv.Itoa(app.Port()), app)
+func (app *App) ListenAndServe() error {
+	signal.Emit(signal.APP_WILL_LISTEN, app)
+	app.started = time.Now().UTC()
+	if app.Logger != nil && os.Getenv("GONDOLA_DEV_SERVER") == "" {
+		if app.address != "" {
+			app.Logger.Infof("Listening on %s, port %d", app.address, app.port)
 		} else {
-			mux.Logger.Infof("Listening on port %d", mux.port)
+			app.Logger.Infof("Listening on port %d", app.port)
 		}
 	}
-	return http.ListenAndServe(mux.address+":"+strconv.Itoa(mux.port), mux)
+	return http.ListenAndServe(app.address+":"+strconv.Itoa(app.port), app)
 }
 
 // MustListenAndServe works like ListenAndServe, but panics if
 // there's an error
-func (mux *Mux) MustListenAndServe() {
-	err := mux.ListenAndServe()
+func (app *App) MustListenAndServe() {
+	err := app.ListenAndServe()
 	if err != nil {
-		log.Panicf("error listening on port %d: %s", mux.port, err)
+		log.Panicf("error listening on port %d: %s", app.port, err)
 	}
 }
 
-// Cache returns this mux's cache connection, using
+// Cache returns this app's cache connection, using
 // cache.NewDefault(). Use gnd.la/config or gnd.la/defaults
-// to change the default cache. When the mux
+// to change the default cache. When the app
 // is in debug mode, a new cache instance is returned
 // every time. Otherwise, the cache instance is shared
 // among all goroutines. Cache access is thread safe, but
 // some methods (like NumQueries()) will be completely
 // inaccurate because they will count all the queries made
-// since the mux initialization.
-func (mux *Mux) Cache() (*Cache, error) {
-	if mux.c == nil {
-		mux.mu.Lock()
-		defer mux.mu.Unlock()
-		if mux.c == nil {
+// since the app initialization.
+func (app *App) Cache() (*Cache, error) {
+	if app.c == nil {
+		app.mu.Lock()
+		defer app.mu.Unlock()
+		if app.c == nil {
 			c, err := cache.New(defaults.Cache())
 			if err != nil {
 				return nil, err
 			}
-			mux.c = &Cache{Cache: c, debug: mux.debug}
-			if mux.debug {
-				c := mux.c
-				mux.c = nil
+			app.c = &Cache{Cache: c, debug: app.debug}
+			if app.debug {
+				c := app.c
+				app.c = nil
 				return c, nil
 			}
 		}
 	}
-	return mux.c, nil
+	return app.c, nil
 }
 
-// Mux returns this mux's ORM connection, using the
+// App returns this app's ORM connection, using the
 // default database parameters. Use gnd.la/config or gnd.la/defaults
-// to change the default ORM. When the mux is in debug mode, a new
-// ORM instance is returned every time. Otherwise, the mux instance
+// to change the default ORM. When the app is in debug mode, a new
+// ORM instance is returned every time. Otherwise, the app instance
 // is shared amoung all goroutines. ORM usage is thread safe, but
 // some methods (like NumQueries()) will be completely inaccurate
-// because they wull count all the queries made since the mux
+// because they wull count all the queries made since the app
 // initialization.
-func (mux *Mux) Orm() (*Orm, error) {
-	if mux.o == nil {
-		mux.mu.Lock()
-		defer mux.mu.Unlock()
-		if mux.o == nil {
+func (app *App) Orm() (*Orm, error) {
+	if app.o == nil {
+		app.mu.Lock()
+		defer app.mu.Unlock()
+		if app.o == nil {
 			url := defaults.Database()
 			if url == nil {
 				return nil, fmt.Errorf("default database is not set")
@@ -619,38 +597,38 @@ func (mux *Mux) Orm() (*Orm, error) {
 			if err != nil {
 				return nil, err
 			}
-			mux.o = &Orm{Orm: o, debug: mux.debug}
-			if mux.debug {
-				o := mux.o
+			app.o = &Orm{Orm: o, debug: app.debug}
+			if app.debug {
+				o := app.o
 				o.SetLogger(log.Std)
-				mux.o = nil
+				app.o = nil
 				return o, nil
 			}
 		}
 	}
-	return mux.o, nil
+	return app.o, nil
 }
 
 // Blobstore returns a blobstore using the default blobstore
 // parameters. Use gnd.la/config or gnd.la/defaults to change
 // the default blobstore. See gnd.la/blobstore for further
 // information on using the blobstore.
-func (mux *Mux) Blobstore() (*blobstore.Store, error) {
-	if mux.store == nil {
-		mux.mu.Lock()
-		defer mux.mu.Unlock()
-		if mux.store == nil {
+func (app *App) Blobstore() (*blobstore.Store, error) {
+	if app.store == nil {
+		app.mu.Lock()
+		defer app.mu.Unlock()
+		if app.store == nil {
 			var err error
-			mux.store, err = blobstore.New(defaults.Blobstore())
+			app.store, err = blobstore.New(defaults.Blobstore())
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
-	return mux.store, nil
+	return app.store, nil
 }
 
-func (mux *Mux) readXHeaders(r *http.Request) {
+func (app *App) readXHeaders(r *http.Request) {
 	for _, v := range IPXHeaders {
 		if value := r.Header.Get(v); value != "" {
 			r.RemoteAddr = value
@@ -668,44 +646,44 @@ func (mux *Mux) readXHeaders(r *http.Request) {
 	}
 }
 
-func (mux *Mux) handleHTTPError(ctx *Context, error string, code int) {
-	defer mux.recover(ctx)
-	if mux.errorHandler == nil || !mux.errorHandler(ctx, error, code) {
+func (app *App) handleHTTPError(ctx *Context, error string, code int) {
+	defer app.recover(ctx)
+	if app.errorHandler == nil || !app.errorHandler(ctx, error, code) {
 		http.Error(ctx, error, code)
 	}
 }
 
-func (mux *Mux) handleError(ctx *Context, err interface{}) bool {
+func (app *App) handleError(ctx *Context, err interface{}) bool {
 	if gerr, ok := err.(Error); ok {
 		log.Debugf("HTTP error: %s (%d)", gerr.Error(), gerr.StatusCode())
-		mux.handleHTTPError(ctx, gerr.Error(), gerr.StatusCode())
+		app.handleHTTPError(ctx, gerr.Error(), gerr.StatusCode())
 		return true
 	}
 	return false
 }
 
-func (mux *Mux) recover(ctx *Context) {
+func (app *App) recover(ctx *Context) {
 	if err := recover(); err != nil {
-		mux.recoverErr(ctx, err)
+		app.recoverErr(ctx, err)
 	}
 }
 
-func (mux *Mux) recoverErr(ctx *Context, err interface{}) {
+func (app *App) recoverErr(ctx *Context, err interface{}) {
 	if isIgnorable(err) {
 		return
 	}
-	for _, v := range mux.RecoverHandlers {
+	for _, v := range app.RecoverHandlers {
 		err = v(ctx, err)
 		if err == nil {
 			break
 		}
 	}
-	if err != nil && !mux.handleError(ctx, err) {
-		mux.logError(ctx, err)
+	if err != nil && !app.handleError(ctx, err) {
+		app.logError(ctx, err)
 	}
 }
 
-func (mux *Mux) logError(ctx *Context, err interface{}) {
+func (app *App) logError(ctx *Context, err interface{}) {
 	skip, stackSkip, _, _ := runtimeutil.GetPanic()
 	var buf bytes.Buffer
 	if ctx.R != nil {
@@ -756,15 +734,15 @@ func (mux *Mux) logError(ctx *Context, err interface{}) {
 		}
 	}
 	log.Error(buf.String())
-	if mux.debug {
-		mux.errorPage(ctx, skip, stackSkip, req, err)
+	if app.debug {
+		app.errorPage(ctx, skip, stackSkip, req, err)
 	} else {
-		mux.handleHTTPError(ctx, "Internal Server Error", http.StatusInternalServerError)
+		app.handleHTTPError(ctx, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
 
-func (mux *Mux) errorPage(ctx *Context, skip int, stackSkip int, req string, err interface{}) {
-	t := newInternalTemplate(mux)
+func (app *App) errorPage(ctx *Context, skip int, stackSkip int, req string, err interface{}) {
+	t := newInternalTemplate(app)
 	if terr := t.Parse("panic.html"); terr != nil {
 		panic(terr)
 	}
@@ -777,36 +755,36 @@ func (mux *Mux) errorPage(ctx *Context, skip int, stackSkip int, req string, err
 		"Code":     code,
 		"Stack":    stack,
 		"Request":  req,
-		"Started":  strconv.FormatInt(mux.started.Unix(), 10),
+		"Started":  strconv.FormatInt(app.started.Unix(), 10),
 	}
 	t.MustExecute(ctx, data)
 }
 
 // ServeHTTP is called from the net/http system. You shouldn't need
 // to call this function
-func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := mux.newContext()
+func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := app.newContext()
 	ctx.ResponseWriter = w
 	ctx.R = r
-	defer mux.closeContext(ctx)
-	defer mux.recover(ctx)
-	if mux.trustXHeaders {
-		mux.readXHeaders(r)
+	defer app.closeContext(ctx)
+	defer app.recover(ctx)
+	if app.trustXHeaders {
+		app.readXHeaders(r)
 	}
-	for _, v := range mux.ContextProcessors {
+	for _, v := range app.ContextProcessors {
 		if v(ctx) {
 			return
 		}
 	}
 
-	if h := mux.matchHandler(r, ctx); h != nil {
+	if h := app.matchHandler(r, ctx); h != nil {
 		h.handler(ctx)
 		return
 	}
 
-	if mux.appendSlash && (r.Method == "GET" || r.Method == "HEAD") && !strings.HasSuffix(r.URL.Path, "/") {
+	if app.appendSlash && (r.Method == "GET" || r.Method == "HEAD") && !strings.HasSuffix(r.URL.Path, "/") {
 		r.URL.Path += "/"
-		match := mux.matchHandler(r, ctx)
+		match := app.matchHandler(r, ctx)
 		if match != nil {
 			ctx.Redirect(r.URL.String(), true)
 			r.URL.Path = r.URL.Path[:len(r.URL.Path)-1]
@@ -816,12 +794,12 @@ func (mux *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	/* Not found */
-	mux.handleHTTPError(ctx, "Not Found", http.StatusNotFound)
+	app.handleHTTPError(ctx, "Not Found", http.StatusNotFound)
 }
 
-func (mux *Mux) matchHandler(r *http.Request, ctx *Context) *handlerInfo {
+func (app *App) matchHandler(r *http.Request, ctx *Context) *handlerInfo {
 	p := r.URL.Path
-	for _, v := range mux.handlers {
+	for _, v := range app.handlers {
 		if v.host != "" && v.host != r.Host {
 			continue
 		}
@@ -846,23 +824,23 @@ func (mux *Mux) matchHandler(r *http.Request, ctx *Context) *handlerInfo {
 
 // newContext returns a new context, using the
 // context pool when possible.
-func (mux *Mux) newContext() *Context {
+func (app *App) newContext() *Context {
 	var ctx *Context
 	select {
-	case ctx = <-mux.contextPool:
+	case ctx = <-app.contextPool:
 		ctx.reset()
 	default:
 		p := &regexpProvider{}
-		ctx = &Context{mux: mux, provider: p, reProvider: p, started: time.Now()}
+		ctx = &Context{app: app, provider: p, reProvider: p, started: time.Now()}
 	}
 	return ctx
 }
 
 // NewContext initializes and returns a new context
-// asssocciated with this mux using the given ContextProvider
+// asssocciated with this app using the given ContextProvider
 // to retrieve its arguments.
-func (mux *Mux) NewContext(p ContextProvider) *Context {
-	return &Context{mux: mux, provider: p, started: time.Now()}
+func (app *App) NewContext(p ContextProvider) *Context {
+	return &Context{app: app, provider: p, started: time.Now()}
 }
 
 // CloseContext closes the passed context, which should have been
@@ -870,12 +848,12 @@ func (mux *Mux) NewContext(p ContextProvider) *Context {
 // called for you most of the time. As a rule of thumb, if you
 // don't call NewContext() yourself, you don't need to call
 // CloseContext().
-func (mux *Mux) CloseContext(ctx *Context) {
-	for _, v := range mux.ContextFinalizers {
+func (app *App) CloseContext(ctx *Context) {
+	for _, v := range app.ContextFinalizers {
 		v(ctx)
 	}
 	ctx.Close()
-	if mux.Logger != nil && ctx.R != nil && ctx.R.URL.Path != devStatusPage && ctx.R.URL.Path != monitorAPIPage {
+	if app.Logger != nil && ctx.R != nil && ctx.R.URL.Path != devStatusPage && ctx.R.URL.Path != monitorAPIPage {
 		// Log at most with Warning level, to avoid potentially generating
 		// an email to the admin when running in production mode. If there
 		// was an error while processing this request, it has been already
@@ -884,7 +862,7 @@ func (mux *Mux) CloseContext(ctx *Context) {
 		if ctx.statusCode >= 400 {
 			level = log.LWarning
 		}
-		mux.Logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.RequestURI, ctx.RemoteAddress(),
+		app.Logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.RequestURI, ctx.RemoteAddress(),
 			strconv.Itoa(ctx.statusCode), ctx.Elapsed().String()}, " "))
 	}
 
@@ -892,15 +870,15 @@ func (mux *Mux) CloseContext(ctx *Context) {
 
 // closeContext calls CloseContexts and stores the context in
 // in the pool for reusing it.
-func (mux *Mux) closeContext(ctx *Context) {
-	mux.CloseContext(ctx)
+func (app *App) closeContext(ctx *Context) {
+	app.CloseContext(ctx)
 	select {
-	case mux.contextPool <- ctx:
+	case app.contextPool <- ctx:
 	default:
 	}
 }
 
-func (mux *Mux) isReservedVariable(va string) bool {
+func (app *App) isReservedVariable(va string) bool {
 	for _, v := range reservedVariables {
 		if v == va {
 			return true
@@ -909,13 +887,13 @@ func (mux *Mux) isReservedVariable(va string) bool {
 	return false
 }
 
-// Returns a new Mux initialized with the current default values.
+// Returns a new App initialized with the current default values.
 // See gnd.la/defaults for further information. Keep in mind that,
 // for performance reasons, the values from gnd.la/defaults are
-// copied to the mux when it's created, so any changes made to
-// gnd.la/defaults after mux creation won't have any effect on it.
-func New() *Mux {
-	m := &Mux{
+// copied to the app when it's created, so any changes made to
+// gnd.la/defaults after app creation won't have any effect on it.
+func New() *App {
+	m := &App{
 		debug:           defaults.Debug(),
 		port:            defaults.Port(),
 		secret:          defaults.Secret(),
@@ -929,14 +907,14 @@ func New() *Mux {
 	// Used to automatically reload the page on panics when the server
 	// is restarted.
 	if m.debug {
-		m.HandleFunc(devStatusPage, func(ctx *Context) {
+		m.Handle(devStatusPage, func(ctx *Context) {
 			ctx.WriteJson(map[string]interface{}{
 				"built":   nil,
 				"started": strconv.FormatInt(m.started.Unix(), 10),
 			})
 		})
-		m.HandleFunc(monitorAPIPage, monitorAPIHandler)
-		m.HandleFunc(monitorPage, monitorHandler)
+		m.Handle(monitorAPIPage, monitorAPIHandler)
+		m.Handle(monitorPage, monitorHandler)
 		m.addAssetsManager(internalAssetsManager(), false)
 	}
 	return m

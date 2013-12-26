@@ -2,7 +2,7 @@ package admin
 
 import (
 	"fmt"
-	"gnd.la/mux"
+	"gnd.la/app"
 	"io"
 	"os"
 )
@@ -11,7 +11,7 @@ import (
 // rathen than in other packages to avoid
 // import cycles.
 
-func catFile(ctx *mux.Context) {
+func catFile(ctx *app.Context) {
 	var id string
 	ctx.MustParseIndexValue(0, &id)
 	f, err := ctx.Blobstore().Open(id)

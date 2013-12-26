@@ -3,10 +3,10 @@ package layer
 import (
 	"encoding/gob"
 	"errors"
+	"gnd.la/app"
 	"gnd.la/cache"
 	"gnd.la/encoding/codec"
 	"gnd.la/log"
-	"gnd.la/mux"
 	"net/http"
 )
 
@@ -52,11 +52,11 @@ func (la *Layer) Mediator() Mediator {
 	return la.mediator
 }
 
-// Wrap takes a mux.Handler and returns a new mux.Handler
+// Wrap takes a app.Handler and returns a new app.Handler
 // wrapped by the Layer. Responses will be cached according
 // to what the Layer's Mediator indicates.
-func (la *Layer) Wrap(handler mux.Handler) mux.Handler {
-	return func(ctx *mux.Context) {
+func (la *Layer) Wrap(handler app.Handler) app.Handler {
+	return func(ctx *app.Context) {
 		if la.mediator.Skip(ctx) {
 			handler(ctx)
 			return

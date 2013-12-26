@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"gnd.la/mux"
+	"gnd.la/app"
 	"gnd.la/signal"
 	"gnd.la/tasks"
 	"gnd.la/util"
@@ -23,14 +23,14 @@ var (
 )
 
 type command struct {
-	handler mux.Handler
+	handler app.Handler
 	help    string
 	flags   []*Flag
 }
 
 // Register registers a new admin command with the
 // given function and options (which might be nil).
-func Register(f mux.Handler, o *Options) error {
+func Register(f app.Handler, o *Options) error {
 	var name string
 	var help string
 	var flags []*Flag
@@ -61,13 +61,13 @@ func Register(f mux.Handler, o *Options) error {
 
 // MustRegister works like Register, but panics
 // if there's an error
-func MustRegister(f mux.Handler, o *Options) {
+func MustRegister(f app.Handler, o *Options) {
 	if err := Register(f, o); err != nil {
 		panic(err)
 	}
 }
 
-func performCommand(name string, cmd *command, args []string, m *mux.Mux) {
+func performCommand(name string, cmd *command, args []string, a *app.App) {
 	// Parse command flags
 	set := flag.NewFlagSet(name, flag.ContinueOnError)
 	set.Usage = func() {
@@ -114,8 +114,8 @@ func performCommand(name string, cmd *command, args []string, m *mux.Mux) {
 		args:   set.Args(),
 		params: params,
 	}
-	ctx := m.NewContext(provider)
-	defer m.CloseContext(ctx)
+	ctx := a.NewContext(provider)
+	defer a.CloseContext(ctx)
 	cmd.handler(ctx)
 }
 
@@ -123,10 +123,10 @@ func performCommand(name string, cmd *command, args []string, m *mux.Mux) {
 // reading the parameters from the command line. It returs
 // true if a command was performed and false if it wasn't.
 // Note that most users won't need to call this function
-// directly, since gndl.la/mux.Mux will automatically call
+// directly, since gndl.la/app.App will automatically call
 // it before listening (and exit after performing the command
 // if it was provided).
-func Perform(m *mux.Mux) bool {
+func Perform(a *app.App) bool {
 	performed = true
 	if !flag.Parsed() {
 		flag.Parse()
@@ -136,7 +136,7 @@ func Perform(m *mux.Mux) bool {
 		cmd := strings.ToLower(args[0])
 		for k, v := range commands {
 			if cmd == k {
-				performCommand(k, v, args[1:], m)
+				performCommand(k, v, args[1:], a)
 				return true
 			}
 		}
@@ -148,16 +148,16 @@ func perform(name string, obj interface{}) {
 	if performed {
 		return
 	}
-	var m *mux.Mux
+	var a *app.App
 	switch o := obj.(type) {
-	case *mux.Mux:
-		m = o
+	case *app.App:
+		a = o
 	case *tasks.Task:
-		m = o.Mux
+		a = o.App
 	default:
 		panic("unreachable")
 	}
-	if Perform(m) {
+	if Perform(a) {
 		os.Exit(0)
 	}
 }
@@ -221,7 +221,7 @@ func commandsHelp(w io.Writer) {
 }
 
 // Implementation of the help command for Gondola apps
-func help(ctx *mux.Context) {
+func help(ctx *app.Context) {
 	var cmd string
 	ctx.ParseIndexValue(0, &cmd)
 	if cmd != "" {
@@ -242,6 +242,6 @@ func init() {
 	MustRegister(help, &Options{
 		Help: "Show available commands with their respective help.",
 	})
-	signal.MustRegister(signal.MUX_WILL_LISTEN, perform)
+	signal.MustRegister(signal.APP_WILL_LISTEN, perform)
 	signal.MustRegister(signal.TASKS_WILL_SCHEDULE_TASK, perform)
 }

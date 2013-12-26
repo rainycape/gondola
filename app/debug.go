@@ -1,4 +1,4 @@
-package mux
+package app
 
 import (
 	"bytes"
@@ -20,7 +20,7 @@ const (
 //    {{ $Ctx.DebugComment }}
 //
 // Keep in mind that the comment will only include the number of ORM and
-// cache queries when debug is enabled in the Mux, because otherwise the
+// cache queries when debug is enabled in the App, because otherwise the
 // cache and ORM are shared among all contexts and counting the queries
 // per request is not possible.
 func (c *Context) DebugComment() template.HTML {

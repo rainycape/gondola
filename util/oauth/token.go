@@ -20,7 +20,7 @@ func parseToken(resp *http.Response) (*Token, error) {
 	}
 	s := string(b)
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("oAuth service returned non-200 status code %d: s", resp.StatusCode, s)
+		return nil, fmt.Errorf("oAuth service returned non-200 status code %d: %s", resp.StatusCode, s)
 	}
 	values, err := url.ParseQuery(s)
 	if err != nil {

@@ -168,6 +168,14 @@ func _append(items interface{}, args ...interface{}) (string, error) {
 	return "", nil
 }
 
+func deref(arg interface{}) (interface{}, error) {
+	v := reflect.ValueOf(arg)
+	if v.Kind() != reflect.Ptr {
+		return nil, fmt.Errorf("argument to deref must be pointer, not %T", arg)
+	}
+	return v.Elem().Interface(), nil
+}
+
 func mult(args ...interface{}) (interface{}, error) {
 	val := 1.0
 	for ii, v := range args {
@@ -304,6 +312,7 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"map":       _map,
 	"slice":     _slice,
 	"append":    _append,
+	"deref":     deref,
 	"mult":      mult,
 	"divisible": divisible,
 	"add":       add,

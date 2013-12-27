@@ -63,6 +63,27 @@ type Template struct {
 	contentType   string
 }
 
+func (t *Template) Root() string {
+	return t.root
+}
+
+func (t *Template) Assets() []assets.Asset {
+	var ass []assets.Asset
+	ass = append(ass, t.topAssets...)
+	ass = append(ass, t.bottomAssets...)
+	return ass
+}
+
+func (t *Template) AddAssets(ass []assets.Asset) {
+	for _, v := range ass {
+		if v.AssetPosition() == assets.Top {
+			t.topAssets = append(t.topAssets, v)
+		} else {
+			t.bottomAssets = append(t.bottomAssets, v)
+		}
+	}
+}
+
 func (t *Template) evalCommentVar(varname string) (string, error) {
 	return eval(t.vars, varname)
 }

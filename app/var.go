@@ -1,6 +1,6 @@
 package app
 
-const (
+var (
 	SignInHandlerName       = "sign-in"
 	SignInFromParameterName = "from"
 )

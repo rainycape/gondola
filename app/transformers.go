@@ -28,7 +28,7 @@ func SignedIn(handler Handler) Handler {
 				panic(err)
 			}
 			from := ctx.URL().String()
-			u.RawQuery += fmt.Sprintf("from=%s", url.QueryEscape(from))
+			u.RawQuery += fmt.Sprintf("%s=%s", SignInFromParameterName, url.QueryEscape(from))
 			ctx.Redirect(u.String(), false)
 			return
 		}

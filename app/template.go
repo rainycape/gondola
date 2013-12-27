@@ -10,7 +10,7 @@ import (
 	"reflect"
 )
 
-var reservedVariables = []string{"Ctx", "Request"}
+var reservedVariables = []string{"Ctx", "Request", "Exports"}
 
 type Template interface {
 	Execute(w io.Writer, data interface{}) error
@@ -70,6 +70,7 @@ func (t *tmpl) execute(w io.Writer, name string, data interface{}, vars template
 	va := map[string]interface{}{
 		"Ctx":     context,
 		"Request": request,
+		"Exports": t.app.Exports(),
 	}
 	for k, v := range t.app.templateVars {
 		va[k] = v

@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template/parse"
 	"time"
 )
 
@@ -69,6 +70,13 @@ type handlerInfo struct {
 	handler   Handler
 }
 
+type includedApp struct {
+	prefix string
+	app    *App
+	base   string
+	main   string
+}
+
 const (
 	poolSize = 16
 )
@@ -101,6 +109,7 @@ type App struct {
 	templateProcessors   []TemplateProcessor
 	templateVars         map[string]interface{}
 	templateVarFuncs     map[string]reflect.Value
+	exports              util.M
 	debug                bool
 	started              time.Time
 	address              string
@@ -110,10 +119,18 @@ type App struct {
 	o                    *Orm
 	store                *blobstore.Store
 
+	// Used for included apps
+	included  []*includedApp
+	parent    *App
+	childInfo *includedApp
+
 	// Logger to use when logging requests. By default, it's
 	// gnd.la/log.Std, but you can set it to nil to avoid
 	// logging at all and gain a bit more of performance.
-	Logger      *log.Logger
+	Logger *log.Logger
+	// The App name. Must be unique and non-empty across all included apps, but
+	// the main App doesn't need a name.
+	Name        string
 	contextPool chan *Context
 }
 
@@ -180,6 +197,31 @@ func (app *App) AddRecoverHandler(rh RecoverHandler) {
 	app.RecoverHandlers = append(app.RecoverHandlers, rh)
 }
 
+func (app *App) Include(prefix string, included *App, base string, main string) {
+	if included.parent != nil {
+		panic(fmt.Errorf("app %v already has been included in another app", included))
+	}
+	if included.Name == "" {
+		panic(fmt.Errorf("included app %v can't have an empty name", included))
+	}
+	included.SetDebug(app.debug)
+	included.parent = app
+	included.secret = app.secret
+	included.encryptionKey = app.encryptionKey
+	info := &includedApp{
+		prefix: prefix,
+		app:    included,
+		base:   base,
+		main:   main,
+	}
+	included.childInfo = info
+	app.included = append(app.included, info)
+	if app.exports == nil {
+		app.exports = make(util.M)
+	}
+	app.exports[included.Name] = included.Exports()
+}
+
 // TrustsXHeaders returns if the app uses X headers
 // for determining the remote IP and scheme. See SetTrustXHeaders()
 // for a more detailed explanation.
@@ -227,6 +269,9 @@ func (app *App) Secret() string {
 // from the config).
 func (app *App) SetSecret(secret string) {
 	app.secret = secret
+	for _, v := range app.included {
+		v.app.secret = secret
+	}
 }
 
 // EncryptionKey returns the encryption key for this
@@ -240,6 +285,9 @@ func (app *App) EncryptionKey() string {
 // be a random string of 16, 24 or 32 characters.
 func (app *App) SetEncryptionKey(key string) {
 	app.encryptionKey = key
+	for _, v := range app.included {
+		v.app.encryptionKey = key
+	}
 }
 
 // DefaultCookieOptions returns the default options
@@ -366,6 +414,19 @@ func (app *App) AddTemplateVars(vars template.VarMap) {
 	}
 }
 
+func (app *App) Export(values util.M) {
+	if app.exports == nil {
+		app.exports = make(util.M)
+	}
+	for k, v := range values {
+		app.exports[k] = v
+	}
+}
+
+func (app *App) Exports() map[string]interface{} {
+	return app.exports
+}
+
 // LoadTemplate loads a template using the template
 // loader and the asset manager assocciated with
 // this app
@@ -374,25 +435,11 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 	tmpl := app.templatesCache[name]
 	app.templatesMutex.RUnlock()
 	if tmpl == nil {
-		t := newAppTemplate(app)
-		vars := make(template.VarMap, len(app.templateVars)+len(app.templateVarFuncs))
-		for k, v := range app.templateVars {
-			vars[k] = v
-		}
-		for k, _ := range app.templateVarFuncs {
-			vars[k] = nil
-		}
-		err := t.ParseVars(name, vars)
+		var err error
+		tmpl, err = app.loadTemplate(name)
 		if err != nil {
 			return nil, err
 		}
-		for _, v := range app.templateProcessors {
-			t.Template, err = v(t.Template)
-			if err != nil {
-				return nil, err
-			}
-		}
-		tmpl = t
 		if !app.debug {
 			app.templatesMutex.Lock()
 			app.templatesCache[name] = tmpl
@@ -400,6 +447,80 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 		}
 	}
 	return tmpl, nil
+}
+
+func (app *App) loadTemplate(name string) (*tmpl, error) {
+	t := newAppTemplate(app)
+	vars := make(template.VarMap, len(app.templateVars)+len(app.templateVarFuncs)+1)
+	vars["Exports"] = nil
+	for k, v := range app.templateVars {
+		vars[k] = v
+	}
+	for k, _ := range app.templateVarFuncs {
+		vars[k] = nil
+	}
+	err := t.ParseVars(name, vars)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range app.templateProcessors {
+		t.Template, err = v(t.Template)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if app.parent != nil {
+		t, err = app.parent.chainTemplate(t, app)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return t, nil
+}
+
+func (app *App) chainTemplate(t *tmpl, included *App) (*tmpl, error) {
+	base, err := app.loadTemplate(included.childInfo.base)
+	if err != nil {
+		return nil, err
+	}
+	base.AddAssets(t.Assets())
+	for k, v := range t.Trees {
+		// This will happen with built-in added templates, like
+		// TopAssets, BottomAssets...
+		if _, ok := base.Trees[k]; ok {
+			continue
+		}
+		name := k
+		if name == t.Root() {
+			name = included.childInfo.main
+			// Mangle the Tree to set $Exports = $Exports.Name
+			// just before the with .Data node
+			for ii, node := range v.Root.Nodes {
+				if _, ok := node.(*parse.WithNode); ok {
+					var nodes []parse.Node
+					nodes = append(nodes, v.Root.Nodes[:ii]...)
+					nodes = append(nodes, &parse.ActionNode{
+						NodeType: parse.NodeAction,
+						Pipe: &parse.PipeNode{
+							NodeType: parse.NodePipe,
+							Decl:     []*parse.VariableNode{{NodeType: parse.NodeVariable, Ident: []string{"$Exports"}}},
+							Cmds: []*parse.CommandNode{{NodeType: parse.NodeCommand, Args: []parse.Node{
+								&parse.FieldNode{NodeType: parse.NodeField, Ident: []string{"Exports", included.Name}},
+							},
+							}},
+						},
+					})
+					nodes = append(nodes, v.Root.Nodes[ii:]...)
+					v.Root.Nodes = nodes
+					break
+				}
+			}
+		}
+		if err := base.AddParseTree(name, v); err != nil {
+			return nil, err
+		}
+	}
+	return base, nil
 }
 
 // Debug returns if the app is in debug mode
@@ -496,29 +617,45 @@ func (app *App) MustReverse(name string, args ...interface{}) string {
 // will be a scheme relative url e.g. //www.example.com/article/...
 func (app *App) Reverse(name string, args ...interface{}) (string, error) {
 	if name == "" {
-		return "", fmt.Errorf("No handler name specified")
+		return "", fmt.Errorf("no handler name specified")
 	}
+	found, s, err := app.reverse(name, args)
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return "", fmt.Errorf("no handler named %q", name)
+	}
+	return s, nil
+}
+
+func (app *App) reverse(name string, args []interface{}) (bool, string, error) {
 	for _, v := range app.handlers {
 		if v.name == name {
 			reversed, err := formatRegexp(v.re, true, args...)
 			if err != nil {
 				if acerr, ok := err.(*argumentCountError); ok {
 					if acerr.MinArguments == acerr.MaxArguments {
-						return "", fmt.Errorf("Handler %q requires exactly %d arguments, %d received instead",
+						return true, "", fmt.Errorf("handler %q requires exactly %d arguments, %d received instead",
 							name, acerr.MinArguments, len(args))
 					}
-					return "", fmt.Errorf("Handler %q requires at least %d arguments and at most %d arguments, %d received instead",
+					return true, "", fmt.Errorf("handler %q requires at least %d arguments and at most %d arguments, %d received instead",
 						name, acerr.MinArguments, acerr.MaxArguments, len(args))
 				}
-				return "", fmt.Errorf("Error reversing handler %q: %s", name, err)
+				return true, "", fmt.Errorf("error reversing handler %q: %s", name, err)
 			}
 			if v.host != "" {
 				reversed = fmt.Sprintf("//%s%s", v.host, reversed)
 			}
-			return reversed, nil
+			return true, reversed, nil
 		}
 	}
-	return "", fmt.Errorf("No handler named %q", name)
+	for _, v := range app.included {
+		if found, s, err := v.app.reverse(name, args); found {
+			return found, v.prefix + s, err
+		}
+	}
+	return false, "", nil
 }
 
 // ListenAndServe starts listening on the configured address and
@@ -561,11 +698,19 @@ func (app *App) Cache() (*Cache, error) {
 		app.mu.Lock()
 		defer app.mu.Unlock()
 		if app.c == nil {
-			c, err := cache.New(defaults.Cache())
-			if err != nil {
-				return nil, err
+			if app.parent != nil {
+				var err error
+				app.c, err = app.parent.Cache()
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				c, err := cache.New(defaults.Cache())
+				if err != nil {
+					return nil, err
+				}
+				app.c = &Cache{Cache: c, debug: app.debug}
 			}
-			app.c = &Cache{Cache: c, debug: app.debug}
 			if app.debug {
 				c := app.c
 				app.c = nil
@@ -589,15 +734,19 @@ func (app *App) Orm() (*Orm, error) {
 		app.mu.Lock()
 		defer app.mu.Unlock()
 		if app.o == nil {
-			url := defaults.Database()
-			if url == nil {
-				return nil, fmt.Errorf("default database is not set")
+			if app.parent != nil {
+				var err error
+				app.o, err = app.parent.Orm()
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				o, err := app.openOrm()
+				if err != nil {
+					return nil, err
+				}
+				app.o = &Orm{Orm: o, debug: app.debug}
 			}
-			o, err := orm.New(url)
-			if err != nil {
-				return nil, err
-			}
-			app.o = &Orm{Orm: o, debug: app.debug}
 			if app.debug {
 				o := app.o
 				o.SetLogger(log.Std)
@@ -607,6 +756,17 @@ func (app *App) Orm() (*Orm, error) {
 		}
 	}
 	return app.o, nil
+}
+
+func (app *App) openOrm() (*orm.Orm, error) {
+	if app.parent != nil {
+		return app.parent.openOrm()
+	}
+	url := defaults.Database()
+	if url == nil {
+		return nil, fmt.Errorf("default database is not set")
+	}
+	return orm.New(url)
 }
 
 // Blobstore returns a blobstore using the default blobstore
@@ -619,7 +779,11 @@ func (app *App) Blobstore() (*blobstore.Store, error) {
 		defer app.mu.Unlock()
 		if app.store == nil {
 			var err error
-			app.store, err = blobstore.New(defaults.Blobstore())
+			if app.parent != nil {
+				app.store, err = app.parent.Blobstore()
+			} else {
+				app.store, err = blobstore.New(defaults.Blobstore())
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -763,59 +927,66 @@ func (app *App) errorPage(ctx *Context, skip int, stackSkip int, req string, err
 // ServeHTTP is called from the net/http system. You shouldn't need
 // to call this function
 func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := app.newContext()
-	ctx.ResponseWriter = w
-	ctx.R = r
+	ctx := app.newContext(w, r)
 	defer app.closeContext(ctx)
 	defer app.recover(ctx)
-	if app.trustXHeaders {
-		app.readXHeaders(r)
-	}
-	for _, v := range app.ContextProcessors {
-		if v(ctx) {
-			return
-		}
-	}
-
-	if h := app.matchHandler(r, ctx); h != nil {
-		h.handler(ctx)
+	if app.runProcessors(ctx) {
 		return
 	}
-
-	if app.appendSlash && (r.Method == "GET" || r.Method == "HEAD") && !strings.HasSuffix(r.URL.Path, "/") {
-		r.URL.Path += "/"
-		match := app.matchHandler(r, ctx)
-		if match != nil {
-			ctx.Redirect(r.URL.String(), true)
-			r.URL.Path = r.URL.Path[:len(r.URL.Path)-1]
-			return
-		}
-		r.URL.Path = r.URL.Path[:len(r.URL.Path)-1]
+	if !app.serve(r.URL.Path, ctx) {
+		// Not Found
+		app.handleHTTPError(ctx, "Not Found", http.StatusNotFound)
 	}
-
-	/* Not found */
-	app.handleHTTPError(ctx, "Not Found", http.StatusNotFound)
 }
 
-func (app *App) matchHandler(r *http.Request, ctx *Context) *handlerInfo {
-	p := r.URL.Path
+func (app *App) serve(path string, ctx *Context) bool {
+	if handler := app.matchHandler(path, ctx); handler != nil {
+		handler(ctx)
+		return true
+	}
+
+	for _, v := range app.included {
+		if strings.HasPrefix(path, v.prefix) {
+			ctx.app = v.app
+			defer func() {
+				ctx.app = app
+			}()
+			if v.app.serve(path[len(v.prefix):], ctx) {
+				return true
+			}
+		}
+	}
+
+	if app.appendSlash && (ctx.R.Method == "GET" || ctx.R.Method == "HEAD") && !strings.HasSuffix(path, "/") {
+		if app.matchHandler(path+"/", ctx) != nil {
+			prevPath := ctx.R.URL.Path
+			ctx.R.URL.Path += "/"
+			ctx.Redirect(ctx.R.URL.String(), true)
+			ctx.R.URL.Path = prevPath
+			return true
+		}
+	}
+	return false
+}
+
+func (app *App) matchHandler(path string, ctx *Context) Handler {
 	for _, v := range app.handlers {
-		if v.host != "" && v.host != r.Host {
+		if v.host != "" && v.host != ctx.R.Host {
 			continue
 		}
 		if v.path != "" {
-			if v.path == p {
-				ctx.reProvider.reset(v.re, p, v.pathMatch)
+			if v.path == path {
+				ctx.reProvider.reset(v.re, path, v.pathMatch)
 				ctx.handlerName = v.name
-				return v
+				return v.handler
 			}
 		} else {
 			// Use FindStringSubmatchIndex, since this way we can
 			// reuse the slices used to store context arguments
-			if m := v.re.FindStringSubmatchIndex(p); m != nil {
-				ctx.reProvider.reset(v.re, p, m)
+			if m := v.re.FindStringSubmatchIndex(path); m != nil {
+				ctx.reProvider.reset(v.re, path, m)
 				ctx.handlerName = v.name
-				return v
+				return v.handler
 			}
 		}
 	}
@@ -824,7 +995,7 @@ func (app *App) matchHandler(r *http.Request, ctx *Context) *handlerInfo {
 
 // newContext returns a new context, using the
 // context pool when possible.
-func (app *App) newContext() *Context {
+func (app *App) newContext(w http.ResponseWriter, r *http.Request) *Context {
 	var ctx *Context
 	select {
 	case ctx = <-app.contextPool:
@@ -833,7 +1004,22 @@ func (app *App) newContext() *Context {
 		p := &regexpProvider{}
 		ctx = &Context{app: app, provider: p, reProvider: p, started: time.Now()}
 	}
+	ctx.ResponseWriter = w
+	ctx.R = r
+	if app.trustXHeaders {
+		app.readXHeaders(r)
+	}
 	return ctx
+}
+
+func (app *App) runProcessors(ctx *Context) bool {
+	for _, v := range app.ContextProcessors {
+		if v(ctx) {
+			app.closeContext(ctx)
+			return true
+		}
+	}
+	return false
 }
 
 // NewContext initializes and returns a new context

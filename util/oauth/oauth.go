@@ -71,8 +71,9 @@ func (c *Consumer) headers(method string, url string, values url.Values, secret 
 func (c *Consumer) Authorization() (string, *Token, error) {
 	values := c.defaultParameters()
 	values.Add("oauth_callback", c.CallbackURL)
-	headers := c.headers("GET", c.RequestTokenURL, values, "")
-	resp, err := sendReq("GET", c.RequestTokenURL, headers, nil)
+	headers := c.headers("POST", c.RequestTokenURL, values, "")
+	fmt.Println(headers, c.RequestTokenURL)
+	resp, err := sendReq("POST", c.RequestTokenURL, headers, values)
 	if err != nil {
 		return "", nil, err
 	}

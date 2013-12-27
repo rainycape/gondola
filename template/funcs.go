@@ -133,6 +133,8 @@ func _map(args ...interface{}) (map[string]interface{}, error) {
 		if ii%2 == 0 {
 			if s, ok := v.(string); ok {
 				key = s
+			} else if s, ok := v.(*string); ok {
+				key = *s
 			} else {
 				return nil, fmt.Errorf("Invalid argument to map at index %d, %t instead of string", ii, v)
 			}

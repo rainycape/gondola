@@ -35,6 +35,20 @@ func (f *fsloader) Create(name string, overwrite bool) (io.WriteCloser, error) {
 	return os.OpenFile(p, flags, 0644)
 }
 
+func (f *fsloader) List() ([]string, error) {
+	var names []string
+	err := filepath.Walk(f.dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			names = append(names, path[len(f.dir)+1:])
+		}
+		return nil
+	})
+	return names, err
+}
+
 func FSLoader(dir string) Loader {
 	return &fsloader{dir: dir}
 }

@@ -67,6 +67,16 @@ func (m *mapLoader) Create(name string, overwrite bool) (io.WriteCloser, error) 
 	return newMapWriter(name, m.items, &m.RWMutex), nil
 }
 
+func (m *mapLoader) List() ([]string, error) {
+	m.RLock()
+	defer m.RUnlock()
+	names := make([]string, 0, len(m.items))
+	for k := range m.items {
+		names = append(names, k)
+	}
+	return names, nil
+}
+
 // MapLoader returns a Loader which loads resources from the
 // given map.
 func MapLoader(m map[string][]byte) Loader {

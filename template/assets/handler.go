@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func Handler(m Manager) http.HandlerFunc {
+func Handler(m *Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		f, modtime, err := m.LoadURL(r.URL)
 		if err != nil {

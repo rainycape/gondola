@@ -37,31 +37,24 @@ func Cdn(name string) (string, error) {
 	return "", fmt.Errorf("could not find CDN URL for %q", name)
 }
 
-func cdnScriptParser(k, orig string) func(m Manager, names []string, options Options) ([]Asset, error) {
-	fn := func(m Manager, names []string, options Options) ([]Asset, error) {
-		common, err := ParseCommon(m, names, CodeTypeJavascript, options)
-		if err != nil {
-			return nil, err
-		}
-		name := orig + names[0]
-		src, err := Cdn(name)
+func cdnScriptParser(k, orig string) SingleAssetParser {
+	return func(m *Manager, name string, options Options) ([]*Asset, error) {
+		asset := orig + name
+		src, err := Cdn(asset)
 		if err != nil {
 			return nil, err
 		}
 		position := Bottom
-		if options.BoolOpt("top", m) {
+		if options.Top() {
 			position = Top
 		}
-		return []Asset{
-			&Script{
-				Common:   *common[0],
-				Position: position,
-				Async:    options.BoolOpt("async", m),
-				Src:      src,
-			},
-		}, nil
+		script := Script(asset, src)
+		script.Position = position
+		if options.Async() {
+			script.Attributes["async"] = "async"
+		}
+		return []*Asset{script}, nil
 	}
-	return singleParser(fn)
 }
 
 func walk(r *syntax.Regexp, f func(*syntax.Regexp) bool) bool {
@@ -93,6 +86,6 @@ func init() {
 		})
 		orig := buf.String()
 		key := strings.Trim(orig, " -")
-		Register(key, cdnScriptParser(key, orig))
+		Register(key, SingleParser(cdnScriptParser(key, orig)))
 	}
 }

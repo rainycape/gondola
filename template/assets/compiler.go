@@ -15,7 +15,7 @@ var (
 )
 
 type Compiler interface {
-	Compile(w io.Writer, r io.Reader, m Manager, opts Options) error
+	Compile(w io.Writer, r io.Reader, m *Manager, opts Options) error
 	CodeType() CodeType
 	Ext() string
 }
@@ -30,7 +30,7 @@ func RegisterCompiler(c Compiler) {
 	typeCompilers["."+strings.ToLower(c.Ext())] = c
 }
 
-func Compile(m Manager, name string, codeType CodeType, opts Options) (string, error) {
+func Compile(m *Manager, name string, codeType CodeType, opts Options) (string, error) {
 	ext := path.Ext(name)
 	compiler := compilers[codeType][strings.ToLower(ext)]
 	if compiler == nil {
@@ -43,7 +43,8 @@ func Compile(m Manager, name string, codeType CodeType, opts Options) (string, e
 	defer f.Close()
 	fnv := hashutil.Fnv32a(f)
 	out := fmt.Sprintf("%s.gen.%s.%s", name, fnv, codeType.Ext())
-	if _, _, err := m.Load(out); err == nil {
+	if o, _, err := m.Load(out); err == nil {
+		o.Close()
 		log.Debugf("%s already compiled to %s", name, out)
 		return out, nil
 	}

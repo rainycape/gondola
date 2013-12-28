@@ -10,11 +10,12 @@ const (
 	bootstrapCSSFmt              = "//netdna.bootstrapcdn.com/bootstrap/%s/css/bootstrap.min.css"
 	bootstrapCSSNoIconsFmt       = "//netdna.bootstrapcdn.com/bootstrap/%s/css/bootstrap.no-icons.min.css"
 	bootstrapCSSNoIconsLegacyFmt = "//netdna.bootstrapcdn.com/bootstrap/%s/css/bootstrap-combined.no-icons.min.css"
+	bootstrapCSSThemeFmt         = "http://netdna.bootstrapcdn.com/bootstrap/%s/css/bootstrap-theme.min.css"
 	bootstrapJSFmt               = "//netdna.bootstrapcdn.com/bootstrap/%s/js/bootstrap.min.js"
 	fontAwesomeFmt               = "//netdna.bootstrapcdn.com/font-awesome/%s/css/font-awesome.min.css"
 )
 
-func bootstrapParser(m assets.Manager, names []string, options assets.Options) ([]assets.Asset, error) {
+func bootstrapParser(m *assets.Manager, names []string, options assets.Options) ([]*assets.Asset, error) {
 	if len(names) > 1 {
 		return nil, fmt.Errorf("invalid bootstrap declaration \"%s\": must include only a version number", names)
 	}
@@ -26,9 +27,9 @@ func bootstrapParser(m assets.Manager, names []string, options assets.Options) (
 	if bsVersion.Major != 2 && bsVersion.Major != 3 {
 		return nil, fmt.Errorf("only bootstrap versions 2.x and 3.x are supported")
 	}
-	var as []assets.Asset
-	if options.BoolOpt("fontawesome", m) {
-		faV := options.StringOpt("fontawesome", m)
+	var as []*assets.Asset
+	if options.BoolOpt("fontawesome") {
+		faV := options.StringOpt("fontawesome")
 		if faV == "" {
 			return nil, fmt.Errorf("please, specify a font awesome version")
 		}
@@ -49,37 +50,23 @@ func bootstrapParser(m assets.Manager, names []string, options assets.Options) (
 				format = bootstrapCSSNoIconsFmt
 			}
 		}
-		as = append(as, &assets.Css{
-			Common: assets.Common{
-				Manager: m,
-				Name:    fmt.Sprintf("bootstrap-noicons-%s.css", bsV),
-			},
-			Href: fmt.Sprintf(format, bsV),
-		})
-		as = append(as, &assets.Css{
-			Common: assets.Common{
-				Manager: m,
-				Name:    fmt.Sprintf("fontawesome-%s.css", faV),
-			},
-			Href: fmt.Sprintf(fontAwesomeFmt, faV),
-		})
+		as = append(as, assets.CSS(fmt.Sprintf("bootstrap-noicons-%s.css", bsV), fmt.Sprintf(format, bsV)))
+		as = append(as, assets.CSS(fmt.Sprintf("fontawesome-%s.css", faV), fmt.Sprintf(fontAwesomeFmt, faV)))
 	} else {
-		as = append(as, &assets.Css{
-			Common: assets.Common{
-				Manager: m,
-				Name:    fmt.Sprintf("bootstrap-%s.css", bsV),
-			},
-			Href: fmt.Sprintf(bootstrapCSSFmt, bsV),
-		})
+		as = append(as, assets.CSS(fmt.Sprintf("bootstrap-%s.css", bsV), fmt.Sprintf(bootstrapCSSFmt, bsV)))
 	}
-	if !options.BoolOpt("nojs", m) {
-		as = append(as, &assets.Script{
-			Common: assets.Common{
-				Manager: m,
-				Name:    fmt.Sprintf("bootstrap-%s.js", bsV),
-			},
-			Src: fmt.Sprintf(bootstrapJSFmt, bsV),
-		})
+	if options.BoolOpt("theme") && bsVersion.Major == 3 {
+		as = append(as, assets.CSS(fmt.Sprintf("bootstrap-theme-%s.css", bsV), fmt.Sprintf(bootstrapCSSThemeFmt, bsV)))
+	}
+	// Required for IE8 support
+	html5Shiv := assets.Script("html5shiv.js", "https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js")
+	respondJs := assets.Script("respond.js", "https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js")
+	cond := &assets.Condition{Comparison: assets.ComparisonLessThan, Version: 9}
+	html5Shiv.Condition = cond
+	respondJs.Condition = cond
+	as = append(as, html5Shiv, respondJs)
+	if !options.BoolOpt("nojs") {
+		as = append(as, assets.Script(fmt.Sprintf("bootstrap-%s.js", bsV), fmt.Sprintf("bootstrap-%s.js", bsV)))
 	}
 	return as, nil
 }

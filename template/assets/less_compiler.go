@@ -12,7 +12,7 @@ var (
 type lessCompiler struct {
 }
 
-func (c *lessCompiler) Compile(w io.Writer, r io.Reader, m Manager, opts Options) error {
+func (c *lessCompiler) Compile(w io.Writer, r io.Reader, m *Manager, opts Options) error {
 	if lesscPath != "" {
 		return command(lesscPath, []string{"--no-color"}, w, r, m, opts)
 	}

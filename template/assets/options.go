@@ -25,41 +25,13 @@ func ParseOptions(options string) (Options, error) {
 	return opts, nil
 }
 
-func (o Options) boolOpt(key string) bool {
+func (o Options) BoolOpt(key string) bool {
 	_, ok := o[key]
 	return ok
 }
 
-func (o Options) debugSuffix(debug bool) string {
-	if debug {
-		return "?debug"
-	}
-	return "?!debug"
-}
-
-func (o Options) BoolOpt(key string, m Manager) bool {
-	ok := o.boolOpt(key)
-	// Check if the option is enabled for debug or !debug
-	if !ok {
-		ok = o.boolOpt(key + o.debugSuffix(m.Debug()))
-	}
-	return ok
-}
-
-func (o Options) StringOpt(key string, m Manager) string {
-	val, ok := o[key+o.debugSuffix(m.Debug())]
-	if !ok {
-		val = o[key]
-	}
-	return val
-}
-
-func (o Options) Debug() bool {
-	return o.boolOpt("debug")
-}
-
-func (o Options) NoDebug() bool {
-	return o.boolOpt("!debug")
+func (o Options) StringOpt(key string) string {
+	return o[key]
 }
 
 func (o Options) String() string {
@@ -68,4 +40,30 @@ func (o Options) String() string {
 		values = append(values, fmt.Sprintf("%s=%s", k, v))
 	}
 	return strings.Join(values, ",")
+}
+
+// Common options
+
+func (o Options) Debug() bool {
+	return o.BoolOpt("debug")
+}
+
+func (o Options) NoDebug() bool {
+	return o.BoolOpt("nodebug")
+}
+
+func (o Options) Top() bool {
+	return o.BoolOpt("top")
+}
+
+func (o Options) Async() bool {
+	return o.BoolOpt("async")
+}
+
+func (o Options) Bundle() bool {
+	return o.BoolOpt("bundle")
+}
+
+func (o Options) Cdn() bool {
+	return o.BoolOpt("cdn")
 }

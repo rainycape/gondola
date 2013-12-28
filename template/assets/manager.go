@@ -1,7 +1,6 @@
 package assets
 
 import (
-	"fmt"
 	"gnd.la/loaders"
 	"gnd.la/log"
 	"gnd.la/util/hashutil"
@@ -16,44 +15,29 @@ import (
 	"time"
 )
 
-type Manager interface {
-	Load(name string) (loaders.ReadSeekCloser, time.Time, error)
-	LoadURL(u *url.URL) (loaders.ReadSeekCloser, time.Time, error)
-	Create(name string, overwrite bool) (io.WriteCloser, error)
-	URL(name string) string
-	Debug() bool
-	SetDebug(debug bool)
-	Prefix() string
-}
-
-type assetsManager struct {
+type Manager struct {
 	watcher      *Watcher
-	Loader       loaders.Loader
-	debug        bool
+	loader       loaders.Loader
 	prefix       string
 	prefixLength int
 	cache        map[string]string
 	mutex        sync.RWMutex
 }
 
-func NewManager(loader loaders.Loader, prefix string) Manager {
-	if prefix != "" && prefix[len(prefix)-1] != '/' {
-		prefix = prefix + "/"
-	}
-	m := new(assetsManager)
+func NewManager(loader loaders.Loader, prefix string) *Manager {
+	m := new(Manager)
 	m.cache = make(map[string]string)
-	m.Loader = loader
-	m.prefix = prefix
-	m.prefixLength = len(prefix)
-	runtime.SetFinalizer(m, func(manager *assetsManager) {
+	m.loader = loader
+	m.SetPrefix(prefix)
+	runtime.SetFinalizer(m, func(manager *Manager) {
 		manager.Close()
 	})
 	m.watch()
 	return m
 }
 
-func (m *assetsManager) watch() {
-	if dirloader, ok := m.Loader.(loaders.DirLoader); ok {
+func (m *Manager) watch() {
+	if dirloader, ok := m.Loader().(loaders.DirLoader); ok {
 		watcher, err := NewWatcher(dirloader.Dir(), func(name string, deleted bool) {
 			m.mutex.RLock()
 			_, ok := m.cache[name]
@@ -86,7 +70,7 @@ func (m *assetsManager) watch() {
 	}
 }
 
-func (m *assetsManager) hash(name string) (string, error) {
+func (m *Manager) hash(name string) (string, error) {
 	r, _, err := m.Load(name)
 	if err != nil {
 		return "", err
@@ -99,11 +83,15 @@ func (m *assetsManager) hash(name string) (string, error) {
 	return hashutil.Adler32(b)[:6], nil
 }
 
-func (m *assetsManager) Load(name string) (loaders.ReadSeekCloser, time.Time, error) {
-	return m.Loader.Load(name)
+func (m *Manager) Loader() loaders.Loader {
+	return m.loader
 }
 
-func (m *assetsManager) LoadURL(u *url.URL) (loaders.ReadSeekCloser, time.Time, error) {
+func (m *Manager) Load(name string) (loaders.ReadSeekCloser, time.Time, error) {
+	return m.loader.Load(name)
+}
+
+func (m *Manager) LoadURL(u *url.URL) (loaders.ReadSeekCloser, time.Time, error) {
 	p := u.Path
 	if !(p[1] == 'f' || p[1] == 'r') && !(p == "/favicon.ico" || p == "/robots.txt") {
 		p = p[m.prefixLength:]
@@ -112,11 +100,11 @@ func (m *assetsManager) LoadURL(u *url.URL) (loaders.ReadSeekCloser, time.Time, 
 	return m.Load(p)
 }
 
-func (m *assetsManager) Create(name string, overwrite bool) (io.WriteCloser, error) {
-	return m.Loader.Create(name, overwrite)
+func (m *Manager) Create(name string, overwrite bool) (io.WriteCloser, error) {
+	return m.loader.Create(name, overwrite)
 }
 
-func (m *assetsManager) URL(name string) string {
+func (m *Manager) URL(name string) string {
 	if strings.HasPrefix(name, "//") || strings.Contains(name, "://") {
 		return name
 	}
@@ -131,24 +119,24 @@ func (m *assetsManager) URL(name string) string {
 	}
 	clean := path.Clean(path.Join(m.prefix, name))
 	if h != "" {
-		return fmt.Sprintf("%s?v=%s", clean, h)
+		return clean + "?v=" + h
 	}
 	return clean
 }
 
-func (m *assetsManager) Debug() bool {
-	return m.debug
-}
-
-func (m *assetsManager) SetDebug(debug bool) {
-	m.debug = debug
-}
-
-func (m *assetsManager) Prefix() string {
+func (m *Manager) Prefix() string {
 	return m.prefix
 }
 
-func (m *assetsManager) Close() error {
+func (m *Manager) SetPrefix(prefix string) {
+	if prefix != "" && prefix[len(prefix)-1] != '/' {
+		prefix = prefix + "/"
+	}
+	m.prefix = prefix
+	m.prefixLength = len(prefix)
+}
+
+func (m *Manager) Close() error {
 	if m.watcher != nil {
 		err := m.watcher.Close()
 		m.watcher = nil

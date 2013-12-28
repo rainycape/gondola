@@ -26,12 +26,21 @@ type tmpl struct {
 	app *App
 }
 
-func newTemplate(app *App, loader loaders.Loader, manager assets.Manager) *tmpl {
+func (t *tmpl) reverse(name string, args ...interface{}) (string, error) {
+	if t.app != nil {
+		_, s, err := t.app.reverse(name, args)
+		return s, err
+	}
+	return "", fmt.Errorf("can't reverse %s because the app is not available", name)
+}
+
+func newTemplate(app *App, loader loaders.Loader, manager *assets.Manager) *tmpl {
 	t := &tmpl{}
 	t.app = app
 	t.Template = template.New(loader, manager)
+	t.Template.Debug = app.debug
 	t.Template.Funcs(template.FuncMap{
-		"reverse": makeReverse(t),
+		"reverse": t.reverse,
 	})
 	return t
 }
@@ -40,7 +49,7 @@ func newAppTemplate(app *App) *tmpl {
 	return newTemplate(app, app.templatesLoader, app.assetsManager)
 }
 
-func internalAssetsManager() assets.Manager {
+func internalAssetsManager() *assets.Manager {
 	return assets.NewManager(appAssets, assetsPrefix)
 }
 
@@ -107,17 +116,4 @@ func (t *tmpl) ExecuteVars(w io.Writer, data interface{}, vars map[string]interf
 
 func (t *tmpl) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars map[string]interface{}) error {
 	return t.execute(w, name, data, vars)
-}
-
-// Other functions which are defined depending on the template
-// (because they require access to the context or the app)
-// reverse
-
-func makeReverse(t *tmpl) func(string, ...interface{}) (string, error) {
-	return func(name string, args ...interface{}) (string, error) {
-		if t.app != nil {
-			return t.app.Reverse(name, args...)
-		}
-		return "", fmt.Errorf("can't reverse %s because the app is not available", name)
-	}
 }

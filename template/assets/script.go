@@ -1,62 +1,31 @@
 package assets
 
-import (
-	"gnd.la/log"
-)
-
-type Script struct {
-	Common
-	Position   Position
-	Async      bool
-	Src        string
-	Script     string
-	attributes Attributes
-}
-
-func (s *Script) AssetTag() string {
-	return "script"
-}
-
-func (s *Script) AssetClosed() bool {
-	return true
-}
-
-func (s *Script) AssetPosition() Position {
-	return s.Position
-}
-
-func (s *Script) AssetAttributes() Attributes {
-	if s.attributes == nil {
-		s.attributes = Attributes{"type": "text/javascript", "src": s.Src}
-		if s.Async {
-			s.attributes["async"] = "async"
-		}
+func Script(name string, src string) *Asset {
+	return &Asset{
+		Name:       name,
+		Position:   Bottom,
+		CodeType:   CodeTypeJavascript,
+		Tag:        "script",
+		Closed:     true,
+		Attributes: Attributes{"type": "text/javascript", "src": src},
 	}
-	return s.attributes
 }
 
-func (s *Script) AssetHTML() string {
-	return s.Script
-}
-
-func (s *Script) CodeType() CodeType {
-	return CodeTypeJavascript
-}
-
-func scriptParser(m Manager, names []string, options Options) ([]Asset, error) {
-	common, err := ParseCommon(m, names, CodeTypeJavascript, options)
-	if err != nil {
-		return nil, err
-	}
-	assets := make([]Asset, len(common))
-	cdn := options.BoolOpt("cdn", m)
+func scriptParser(m *Manager, names []string, options Options) ([]*Asset, error) {
+	assets := make([]*Asset, len(names))
 	position := Bottom
-	if options.BoolOpt("top", m) {
+	if options.Top() {
 		position = Top
 	}
-	async := options.BoolOpt("async", m)
-	for ii, v := range common {
-		var src string
+	async := options.Async()
+	for ii, v := range names {
+		asset := Script(v, m.URL(v))
+		if async {
+			asset.Attributes["async"] = "async"
+			asset.Position = position
+		}
+		assets[ii] = asset
+		/*var src string
 		name := v.Name
 		if cdn {
 			var err error
@@ -69,13 +38,7 @@ func scriptParser(m Manager, names []string, options Options) ([]Asset, error) {
 		}
 		if src == "" {
 			src = m.URL(name)
-		}
-		assets[ii] = &Script{
-			Common:   *v,
-			Position: position,
-			Async:    async,
-			Src:      src,
-		}
+		}*/
 	}
 	return assets, nil
 }

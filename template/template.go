@@ -37,12 +37,13 @@ const (
 )
 
 var (
-	ErrNoAssetsManager = errors.New("Template does not have an assets manager")
-	commentRe          = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
-	keyRe              = regexp.MustCompile(`(?s:\s*([\w\-_])+?(:|\|))`)
-	defineRe           = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
-	topTree            = compileTree(TopAssetsTmplName, topAssetsBoilerplate)
-	bottomTree         = compileTree(BottomAssetsTmplName, bottomAssetsBoilerplate)
+	ErrNoAssetsManager       = errors.New("template does not have an assets manager")
+	ErrAssetsAlreadyPrepared = errors.New("assets have been already prepared")
+	commentRe                = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
+	keyRe                    = regexp.MustCompile(`(?s:\s*([\w\-_])+?(:|\|))`)
+	defineRe                 = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
+	topTree                  = compileTree(TopAssetsTmplName, topAssetsBoilerplate)
+	bottomTree               = compileTree(BottomAssetsTmplName, bottomAssetsBoilerplate)
 )
 
 type Template struct {
@@ -50,13 +51,14 @@ type Template struct {
 	Name          string
 	Debug         bool
 	Loader        loaders.Loader
-	AssetsManager assets.Manager
+	AssetsManager *assets.Manager
 	Trees         map[string]*parse.Tree
 	Minify        bool
 	funcMap       FuncMap
 	root          string
-	topAssets     []assets.Asset
-	bottomAssets  []assets.Asset
+	assetGroups   []*assets.Group
+	topAssets     []*assets.Asset
+	bottomAssets  []*assets.Asset
 	vars          VarMap
 	prepend       string
 	renames       map[string]string
@@ -67,21 +69,95 @@ func (t *Template) Root() string {
 	return t.root
 }
 
-func (t *Template) Assets() []assets.Asset {
-	var ass []assets.Asset
-	ass = append(ass, t.topAssets...)
-	ass = append(ass, t.bottomAssets...)
-	return ass
+func (t *Template) templateTopAssets() []*assets.Asset {
+	return t.topAssets
 }
 
-func (t *Template) AddAssets(ass []assets.Asset) {
-	for _, v := range ass {
-		if v.AssetPosition() == assets.Top {
-			t.topAssets = append(t.topAssets, v)
-		} else {
-			t.bottomAssets = append(t.bottomAssets, v)
+func (t *Template) templateBottomAssets() []*assets.Asset {
+	return t.bottomAssets
+}
+
+func (t *Template) templateAsset(arg string) (string, error) {
+	if t.AssetsManager != nil {
+		return t.AssetsManager.URL(arg), nil
+	}
+	return "", ErrNoAssetsManager
+}
+
+func (t *Template) Assets() []*assets.Group {
+	return t.assetGroups
+}
+
+func (t *Template) AddAssets(groups []*assets.Group) error {
+	if t.topAssets != nil || t.bottomAssets != nil {
+		return ErrAssetsAlreadyPrepared
+	}
+	t.assetGroups = append(t.assetGroups, groups...)
+	return nil
+}
+
+func (t *Template) PrepareAssets() error {
+	if t.topAssets != nil || t.bottomAssets != nil {
+		return ErrAssetsAlreadyPrepared
+	}
+	for _, v := range t.assetGroups {
+		if (t.Debug && v.Options.NoDebug()) || (!t.Debug && v.Options.Debug()) {
+			// Asset enabled only for debug or non-debug
+			continue
+		}
+		ass := v.Assets
+		// Check if any assets have to be compiled (LESS, CoffeScript, etc...)
+		for _, a := range ass {
+			name, err := assets.Compile(t.AssetsManager, a.Name, a.CodeType, v.Options)
+			if err != nil {
+				return fmt.Errorf("error compiling asset %q: %s", a.Name, err)
+			}
+			if err := a.Rename(name); err != nil {
+				return fmt.Errorf("error renaming asset %q to %q: %s", a.Name, name, err)
+			}
+		}
+		// Only bundle and use CDNs in non-debug mode
+		if !t.Debug {
+			if v.Options.Bundle() && v.Options.Cdn() {
+				return fmt.Errorf("asset group %s has incompatible options \"bundle\" and \"cdn\"", v.Names())
+			}
+			if v.Options.Bundle() {
+				bundled, err := assets.Bundle(t.AssetsManager, ass, v.Options)
+				if err == nil {
+					ass = []*assets.Asset{bundled}
+				} else {
+					log.Errorf("error bundling assets %s: %s - using individual assets", v.Names(), err)
+				}
+			} else if v.Options.Cdn() {
+				for _, a := range ass {
+					cdn, err := assets.Cdn(a.Name)
+					if err != nil {
+						if f, _, _ := t.AssetsManager.Load(a.Name); f != nil {
+							f.Close()
+							log.Errorf("could not find CDN for asset %q: %s - using local copy", a.Name, err)
+						} else {
+							return fmt.Errorf("could not find CDN for asset %q: %s", a.Name, err)
+						}
+					} else {
+						if err := a.SetURL(cdn); err != nil {
+							return fmt.Errorf("error setting URL for asset %q: %s", a.Name, err)
+						}
+					}
+				}
+			}
+		}
+		for _, asset := range ass {
+			switch asset.Position {
+			case assets.Top:
+				t.topAssets = append(t.topAssets, asset)
+			case assets.Bottom:
+				t.bottomAssets = append(t.bottomAssets, asset)
+			default:
+				return fmt.Errorf("asset %q has invalid position %d", asset.Name, asset.Position)
+			}
 		}
 	}
+	return nil
 }
 
 func (t *Template) evalCommentVar(varname string) (string, error) {
@@ -192,17 +268,11 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 				if t.AssetsManager == nil {
 					return ErrNoAssetsManager
 				}
-				ass, err := assets.Parse(t.AssetsManager, key, values, options)
+				group, err := assets.Parse(t.AssetsManager, key, values, options)
 				if err != nil {
 					return err
 				}
-				for _, a := range ass {
-					if a.AssetPosition() == assets.Top {
-						t.topAssets = append(t.topAssets, a)
-					} else {
-						t.bottomAssets = append(t.bottomAssets, a)
-					}
-				}
+				t.assetGroups = append(t.assetGroups, group)
 			}
 		}
 	}
@@ -577,7 +647,7 @@ func DefaultTemplateLoader() loaders.Loader {
 // manager. Please, refer to the documention in gnd.la/loaders
 // and gnd.la/asssets for further information in those types.
 // If the loader is nil, DefaultTemplateLoader() will be used.
-func New(loader loaders.Loader, manager assets.Manager) *Template {
+func New(loader loaders.Loader, manager *assets.Manager) *Template {
 	if loader == nil {
 		loader = DefaultTemplateLoader()
 	}
@@ -591,14 +661,9 @@ func New(loader loaders.Loader, manager assets.Manager) *Template {
 	// and initializes the common data structure
 	t.Template.New("")
 	funcs := FuncMap{
-		"__topAssets":    func() []assets.Asset { return t.topAssets },
-		"__bottomAssets": func() []assets.Asset { return t.bottomAssets },
-		"asset": func(arg string) (string, error) {
-			if t.AssetsManager != nil {
-				return t.AssetsManager.URL(arg), nil
-			}
-			return "", ErrNoAssetsManager
-		},
+		"__topAssets":    t.templateTopAssets,
+		"__bottomAssets": t.templateBottomAssets,
+		"asset":          t.templateAsset,
 	}
 	t.Funcs(funcs)
 	t.Template.Funcs(template.FuncMap(funcs)).Funcs(templateFuncs)
@@ -607,7 +672,7 @@ func New(loader loaders.Loader, manager assets.Manager) *Template {
 
 // Parse creates a new template using the given loader and manager and then
 // parses the template with the given name.
-func Parse(loader loaders.Loader, manager assets.Manager, name string) (*Template, error) {
+func Parse(loader loaders.Loader, manager *assets.Manager, name string) (*Template, error) {
 	t := New(loader, manager)
 	err := t.Parse(name)
 	if err != nil {
@@ -617,7 +682,7 @@ func Parse(loader loaders.Loader, manager assets.Manager, name string) (*Templat
 }
 
 // MustParse works like parse, but panics if there's an error
-func MustParse(loader loaders.Loader, manager assets.Manager, name string) *Template {
+func MustParse(loader loaders.Loader, manager *assets.Manager, name string) *Template {
 	t, err := Parse(loader, manager, name)
 	if err != nil {
 		log.Fatalf("Error loading template %s: %s\n", name, err)

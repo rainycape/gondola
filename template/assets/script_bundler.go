@@ -17,17 +17,17 @@ import (
 type scriptBundler struct {
 }
 
-func (c *scriptBundler) Bundle(w io.Writer, r io.Reader, m Manager, opts Options) error {
+func (c *scriptBundler) Bundle(w io.Writer, r io.Reader, m *Manager, opts Options) error {
 	code, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
 	}
 	level := "SIMPLE_OPTIMIZATIONS"
-	if opts.StringOpt("optimize", m) == "advanced" {
+	if opts.StringOpt("optimize") == "advanced" {
 		level = "ADVANCED_OPTIMIZATIONS"
 	}
 	outputInfo := []string{"compiled_code", "errors", "statistics"}
-	if opts.BoolOpt("compiler_warnings", m) {
+	if opts.BoolOpt("compiler_warnings") {
 		outputInfo = append(outputInfo, "warnings")
 	}
 	form := url.Values{
@@ -72,12 +72,8 @@ func (c *scriptBundler) CodeType() CodeType {
 	return CodeTypeJavascript
 }
 
-func (c *scriptBundler) Asset(name string, m Manager, opts Options) (Asset, error) {
-	assets, err := scriptParser(m, []string{name}, opts)
-	if err != nil {
-		return nil, err
-	}
-	return assets[0], nil
+func (c *scriptBundler) Asset(name string, m *Manager, opts Options) (*Asset, error) {
+	return Script(name, m.URL(name)), nil
 }
 
 func init() {

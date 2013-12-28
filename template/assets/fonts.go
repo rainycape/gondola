@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func googleFontsParser(m Manager, names []string, options Options) ([]Asset, error) {
+func googleFontsParser(m *Manager, names []string, options Options) ([]*Asset, error) {
 	var families []string
 	for _, v := range names {
 		// Format is "font name:size1:size2:..., but Google
@@ -18,19 +18,11 @@ func googleFontsParser(m Manager, names []string, options Options) ([]Asset, err
 	}
 	values := url.Values{}
 	values.Add("family", strings.Join(families, "|"))
-	subset := options.StringOpt("subset", m)
+	subset := options.StringOpt("subset")
 	if subset != "" {
 		values.Add("subset", subset)
 	}
-	return []Asset{
-		&Css{
-			Common: Common{
-				Manager: m,
-				Name:    "google-fonts.css",
-			},
-			Href: "//fonts.googleapis.com/css?" + values.Encode(),
-		},
-	}, nil
+	return []*Asset{CSS("google-fonts.css", "//fonts.googleapis.com/css?"+values.Encode())}, nil
 }
 
 func init() {

@@ -102,7 +102,7 @@ type App struct {
 	defaultLanguage      string
 	defaultCookieOptions *cookies.Options
 	userFunc             UserFunc
-	assetsManager        assets.Manager
+	assetsManager        *assets.Manager
 	templatesLoader      loaders.Loader
 	templatesMutex       sync.RWMutex
 	templatesCache       map[string]Template
@@ -343,14 +343,13 @@ func (app *App) SetUserFunc(f UserFunc) {
 }
 
 // AssetsManager returns the manager for static assets
-func (app *App) AssetsManager() assets.Manager {
+func (app *App) AssetsManager() *assets.Manager {
 	return app.assetsManager
 }
 
 // SetAssetsManager sets the static assets manager for the app. See
-// the documention on gnd.la/assets/Manager for further information.
-func (app *App) SetAssetsManager(manager assets.Manager) {
-	manager.SetDebug(app.Debug())
+// the documention on gnd.la/template/assets.Manager for further information.
+func (app *App) SetAssetsManager(manager *assets.Manager) {
 	app.assetsManager = manager
 }
 
@@ -358,6 +357,9 @@ func (app *App) SetAssetsManager(manager assets.Manager) {
 // with this app. By default, templates will be loaded from the
 // tmpl directory relative to the application binary.
 func (app *App) TemplatesLoader() loaders.Loader {
+	if app.templatesLoader == nil {
+		app.templatesLoader = template.DefaultTemplateLoader()
+	}
 	return app.templatesLoader
 }
 
@@ -435,11 +437,14 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 	tmpl := app.templatesCache[name]
 	app.templatesMutex.RUnlock()
 	if tmpl == nil {
-		var err error
-		tmpl, err = app.loadTemplate(name)
+		t, err := app.loadTemplate(name)
 		if err != nil {
 			return nil, err
 		}
+		if err := t.PrepareAssets(); err != nil {
+			return nil, err
+		}
+		tmpl = t
 		if !app.debug {
 			app.templatesMutex.Lock()
 			app.templatesCache[name] = tmpl
@@ -470,10 +475,7 @@ func (app *App) loadTemplate(name string) (*tmpl, error) {
 		}
 	}
 	if app.parent != nil {
-		t, err = app.parent.chainTemplate(t, app)
-		if err != nil {
-			return nil, err
-		}
+		return app.parent.chainTemplate(t, app)
 	}
 	return t, nil
 }
@@ -585,7 +587,7 @@ func (app *App) HandleAssets(prefix string, dir string) {
 	app.addAssetsManager(manager, true)
 }
 
-func (app *App) addAssetsManager(manager assets.Manager, main bool) {
+func (app *App) addAssetsManager(manager *assets.Manager, main bool) {
 	assetsHandler := assets.Handler(manager)
 	handler := func(ctx *Context) {
 		assetsHandler(ctx, ctx.R)

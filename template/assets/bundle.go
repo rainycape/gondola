@@ -57,13 +57,13 @@ func (a bundledAssets) Names() []string {
 	return names
 }
 
-func (a bundledAssets) BundleName(ext string, o Options) (string, error) {
+func (a bundledAssets) BundleName(m *Manager, ext string, o Options) (string, error) {
 	if len(a) == 0 {
 		return "", nil
 	}
 	h := fnv.New32a()
 	for _, v := range a {
-		code, err := v.Code()
+		code, err := v.Code(m)
 		if err != nil {
 			return "", err
 		}
@@ -100,7 +100,7 @@ func Bundle(m *Manager, assets []*Asset, opts Options) (*Asset, error) {
 		return nil, fmt.Errorf("no bundler for %s", codeType)
 	}
 	// Prepare the code, changing relative paths if required
-	name, err := bundledAssets(assets).BundleName(codeType.Ext(), opts)
+	name, err := bundledAssets(assets).BundleName(m, codeType.Ext(), opts)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func Bundle(m *Manager, assets []*Asset, opts Options) (*Asset, error) {
 		log.Debugf("bundling %v", names)
 		var code []string
 		for _, v := range assets {
-			c, err := v.Code()
+			c, err := v.Code(m)
 			if err != nil {
 				return nil, fmt.Errorf("error getting code for asset %q: %s", v.Name, err)
 			}

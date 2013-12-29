@@ -27,13 +27,16 @@ type FuncMap map[string]interface{}
 type VarMap map[string]interface{}
 
 const (
-	leftDelim               = "{{"
-	rightDelim              = "}}"
-	TopAssetsTmplName       = "TopAssets"
-	BottomAssetsTmplName    = "BottomAssets"
-	dataKey                 = "Data"
-	topAssetsBoilerplate    = "{{ range __topAssets }}{{ render . }}\n{{ end }}"
-	bottomAssetsBoilerplate = "{{ range __bottomAssets }}{{ render . }}\n{{ end }}"
+	leftDelim             = "{{"
+	rightDelim            = "}}"
+	dataKey               = "Data"
+	topBoilerplateName    = "_gondola_top_hooks"
+	bottomBoilerplateName = "_gondola_bottom_hooks"
+	topAssetsFuncName     = "_gondola_topAssets"
+	assetFuncName         = "asset"
+	bottomAssetsFuncName  = "_gondola_bottomAssets"
+	topBoilerplate        = "{{ range _gondola_topAssets }}{{ render . }}\n{{ end }}"
+	bottomBoilerplate     = "{{ range _gondola_bottomAssets }}{{ render . }}\n{{ end }}"
 )
 
 var (
@@ -42,9 +45,14 @@ var (
 	commentRe                = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
 	keyRe                    = regexp.MustCompile(`(?s:\s*([\w\-_])+?(:|\|))`)
 	defineRe                 = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
-	topTree                  = compileTree(TopAssetsTmplName, topAssetsBoilerplate)
-	bottomTree               = compileTree(BottomAssetsTmplName, bottomAssetsBoilerplate)
+	topTree                  = compileTree(topBoilerplate)
+	bottomTree               = compileTree(bottomBoilerplate)
 )
+
+type Hook struct {
+	Template *Template
+	Position assets.Position
+}
 
 type Template struct {
 	*template.Template
@@ -63,6 +71,21 @@ type Template struct {
 	prepend       string
 	renames       map[string]string
 	contentType   string
+	hooks         []*Hook
+}
+
+func (t *Template) init() {
+	t.Template = template.New("")
+	// This is required so text/template calls t.init()
+	// and initializes the common data structure
+	t.Template.New("")
+	funcs := FuncMap{
+		topAssetsFuncName:    t.templateTopAssets,
+		bottomAssetsFuncName: t.templateBottomAssets,
+		assetFuncName:        t.templateAsset,
+	}
+	t.Funcs(funcs)
+	t.Template.Funcs(template.FuncMap(funcs)).Funcs(templateFuncs)
 }
 
 func (t *Template) Root() string {
@@ -108,11 +131,11 @@ func (t *Template) PrepareAssets() error {
 		ass := v.Assets
 		// Check if any assets have to be compiled (LESS, CoffeScript, etc...)
 		for _, a := range ass {
-			name, err := assets.Compile(t.AssetsManager, a.Name, a.CodeType, v.Options)
+			name, err := assets.Compile(v.Manager, a.Name, a.CodeType, v.Options)
 			if err != nil {
 				return fmt.Errorf("error compiling asset %q: %s", a.Name, err)
 			}
-			if err := a.Rename(name); err != nil {
+			if err := a.Rename(v.Manager, name); err != nil {
 				return fmt.Errorf("error renaming asset %q to %q: %s", a.Name, name, err)
 			}
 		}
@@ -122,7 +145,7 @@ func (t *Template) PrepareAssets() error {
 				return fmt.Errorf("asset group %s has incompatible options \"bundle\" and \"cdn\"", v.Names())
 			}
 			if v.Options.Bundle() {
-				bundled, err := assets.Bundle(t.AssetsManager, ass, v.Options)
+				bundled, err := assets.Bundle(v.Manager, ass, v.Options)
 				if err == nil {
 					ass = []*assets.Asset{bundled}
 				} else {
@@ -132,7 +155,7 @@ func (t *Template) PrepareAssets() error {
 				for _, a := range ass {
 					cdn, err := assets.Cdn(a.Name)
 					if err != nil {
-						if f, _, _ := t.AssetsManager.Load(a.Name); f != nil {
+						if f, _, _ := v.Manager.Load(a.Name); f != nil {
 							f.Close()
 							log.Errorf("could not find CDN for asset %q: %s - using local copy", a.Name, err)
 						} else {
@@ -153,10 +176,76 @@ func (t *Template) PrepareAssets() error {
 			case assets.Bottom:
 				t.bottomAssets = append(t.bottomAssets, asset)
 			default:
-				return fmt.Errorf("asset %q has invalid position %d", asset.Name, asset.Position)
+				return fmt.Errorf("asset %q has invalid position %s", asset.Name, asset.Position)
 			}
 		}
 	}
+	return nil
+}
+
+func (t *Template) Hook(hook *Hook) error {
+	for _, h := range hook.Template.hooks {
+		if err := t.Hook(h); err != nil {
+			return err
+		}
+	}
+	ha := hook.Template.Assets()
+	if len(ha) > 0 {
+		if err := t.AddAssets(ha); err != nil {
+			return err
+		}
+	}
+	for k, v := range hook.Template.Trees {
+		if _, ok := t.Trees[k]; ok {
+			if k != topBoilerplateName && k != bottomBoilerplateName {
+				return fmt.Errorf("duplicate template %q", k)
+			}
+		} else {
+			if err := t.AddParseTree(k, v.Copy()); err != nil {
+				return err
+			}
+		}
+	}
+	var key string
+	switch hook.Position {
+	case assets.Top:
+		key = topBoilerplateName
+	case assets.Bottom:
+		key = bottomBoilerplateName
+	case assets.None:
+		// must be manually referenced from
+		// another template
+	default:
+		return fmt.Errorf("invalid hook position %d", hook.Position)
+	}
+	if key != "" {
+		node := &parse.TemplateNode{
+			NodeType: parse.NodeTemplate,
+			Name:     hook.Template.Root(),
+			Pipe: &parse.PipeNode{
+				NodeType: parse.NodePipe,
+				Cmds: []*parse.CommandNode{
+					&parse.CommandNode{
+						NodeType: parse.NodeCommand,
+						Args:     []parse.Node{&parse.DotNode{}},
+					},
+				},
+			},
+		}
+		tree := t.Trees[key].Copy()
+		tree.Root.Nodes = append(tree.Root.Nodes, node)
+		t.Trees[key] = tree
+	}
+	// Since text/template won't let us remove nor replace a parse
+	// tree, we have to create a new html/template from scratch
+	// and add the trees we have.
+	t.init()
+	for k, v := range t.Trees {
+		if err := t.AddParseTree(k, v); err != nil {
+			return err
+		}
+	}
+	t.hooks = append(t.hooks, hook)
 	return nil
 }
 
@@ -310,10 +399,10 @@ func (t *Template) load(name string, included bool) error {
 		return err
 	}
 	if idx := strings.Index(s, "</head>"); idx >= 0 {
-		s = s[:idx] + fmt.Sprintf("{{ template \"%s\" }}", TopAssetsTmplName) + s[idx:]
+		s = s[:idx] + fmt.Sprintf("{{ template %q . }}", topBoilerplateName) + s[idx:]
 	}
 	if idx := strings.Index(s, "</body>"); idx >= 0 {
-		s = s[:idx] + fmt.Sprintf("{{ template \"%s\" }}", BottomAssetsTmplName) + s[idx:]
+		s = s[:idx] + fmt.Sprintf("{{ template %q . }}", bottomBoilerplateName) + s[idx:]
 	}
 	if t.prepend != "" {
 		// Prepend to the template and to any define nodes found
@@ -373,6 +462,13 @@ func (t *Template) referencedTemplates() []string {
 	return templates
 }
 
+func (t *Template) assetFunc(arg string) (string, error) {
+	if t.AssetsManager != nil {
+		return t.AssetsManager.URL(arg), nil
+	}
+	return "", ErrNoAssetsManager
+}
+
 func (t *Template) Funcs(funcs FuncMap) {
 	if t.funcMap == nil {
 		t.funcMap = make(FuncMap)
@@ -426,11 +522,11 @@ func (t *Template) ParseVars(name string, vars VarMap) error {
 		return err
 	}
 	/* Add assets */
-	err = t.AddParseTree(TopAssetsTmplName, topTree)
+	err = t.AddParseTree(topBoilerplateName, topTree)
 	if err != nil {
 		return err
 	}
-	err = t.AddParseTree(BottomAssetsTmplName, bottomTree)
+	err = t.AddParseTree(bottomBoilerplateName, bottomTree)
 	if err != nil {
 		return err
 	}
@@ -652,21 +748,11 @@ func New(loader loaders.Loader, manager *assets.Manager) *Template {
 		loader = DefaultTemplateLoader()
 	}
 	t := &Template{
-		Template:      template.New(""),
 		Loader:        loader,
 		AssetsManager: manager,
 		Trees:         make(map[string]*parse.Tree),
 	}
-	// This is required so text/template calls t.init()
-	// and initializes the common data structure
-	t.Template.New("")
-	funcs := FuncMap{
-		"__topAssets":    t.templateTopAssets,
-		"__bottomAssets": t.templateBottomAssets,
-		"asset":          t.templateAsset,
-	}
-	t.Funcs(funcs)
-	t.Template.Funcs(template.FuncMap(funcs)).Funcs(templateFuncs)
+	t.init()
 	return t
 }
 
@@ -690,16 +776,15 @@ func MustParse(loader loaders.Loader, manager *assets.Manager, name string) *Tem
 	return t
 }
 
-func compileTree(name, text string) *parse.Tree {
-	funcs := map[string]interface{}{
-		"__topAssets":    func() {},
-		"__bottomAssets": func() {},
-		"asset":          func() {},
-		"render":         func() {},
+func compileTree(text string) *parse.Tree {
+	funcs := template.FuncMap{
+		topAssetsFuncName:    func() {},
+		bottomAssetsFuncName: func() {},
+		"render":             func() {},
 	}
-	treeMap, err := parse.Parse(name, text, leftDelim, rightDelim, funcs)
+	treeMap, err := parse.Parse("", text, leftDelim, rightDelim, funcs)
 	if err != nil {
 		panic(err)
 	}
-	return treeMap[name]
+	return treeMap[""]
 }

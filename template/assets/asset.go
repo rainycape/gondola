@@ -34,7 +34,6 @@ type SingleAssetParser func(m *Manager, name string, options Options) ([]*Asset,
 type AssetParser func(m *Manager, names []string, options Options) ([]*Asset, error)
 
 type Asset struct {
-	Manager    *Manager
 	Name       string
 	Position   Position
 	Condition  *Condition
@@ -45,9 +44,9 @@ type Asset struct {
 	HTML       string
 }
 
-func (a *Asset) Rename(name string) error {
+func (a *Asset) Rename(m *Manager, name string) error {
 	a.Name = name
-	return a.SetURL(a.Manager.URL(name))
+	return a.SetURL(m.URL(name))
 }
 
 func (a *Asset) SetURL(url string) error {
@@ -62,6 +61,7 @@ func (a *Asset) SetURL(url string) error {
 }
 
 type Group struct {
+	Manager *Manager
 	Assets  []*Asset
 	Options Options
 }
@@ -75,8 +75,8 @@ func (g *Group) Names() []string {
 
 }
 
-func (a *Asset) Code() (string, error) {
-	f, _, err := a.Manager.Load(a.Name)
+func (a *Asset) Code(m *Manager) (string, error) {
+	f, _, err := m.Load(a.Name)
 	if err != nil {
 		return "", err
 	}
@@ -110,10 +110,8 @@ func Parse(m *Manager, name string, names []string, opts Options) (*Group, error
 			}
 		}
 	}
-	for _, v := range assets {
-		v.Manager = m
-	}
 	return &Group{
+		Manager: m,
 		Assets:  assets,
 		Options: opts,
 	}, nil

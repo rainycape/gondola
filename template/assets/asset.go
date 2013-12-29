@@ -8,9 +8,22 @@ import (
 type Position int
 
 const (
-	Top Position = 1 + iota
+	None Position = iota
+	Top
 	Bottom
 )
+
+func (p Position) String() string {
+	switch p {
+	case None:
+		return "None"
+	case Top:
+		return "Top"
+	case Bottom:
+		return "Bottom"
+	}
+	return fmt.Sprintf("invalid position %d", p)
+}
 
 var (
 	parsers  = map[string]AssetParser{}

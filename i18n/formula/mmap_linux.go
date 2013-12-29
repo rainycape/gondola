@@ -15,7 +15,9 @@ type mmapLinux struct {
 	used int
 }
 
-func (m *mmapLinux) Map(code []byte) (Formula, error) {
+type Formula32 func(int32) int32
+
+func (m *mmapLinux) Map(code []byte) (Formula32, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	if unused := len(m.page) - m.used; unused < len(code) {
@@ -37,7 +39,7 @@ func (m *mmapLinux) Map(code []byte) (Formula, error) {
 	m.used += len(code)
 	start := &p
 	entry := (**[]byte)(unsafe.Pointer(&start))
-	return *(*Formula)(unsafe.Pointer(entry)), nil
+	return *(*Formula32)(unsafe.Pointer(entry)), nil
 }
 
 func init() {

@@ -31,7 +31,7 @@ type assembler interface {
 }
 
 type mmapper interface {
-	Map(code []byte) (Formula, error)
+	Map(code []byte) (Formula32, error)
 }
 
 func jump(buf *bytes.Buffer, jumps *[]int, targets map[int]int, jump, cmp *instruction) error {
@@ -152,5 +152,11 @@ func vmJit(p Program) (f Formula, err error) {
 		fmt.Printf("%02x ", v)
 	}
 	fmt.Println("")*/
-	return mmap.Map(code)
+	fn, err := mmap.Map(code)
+	if err != nil {
+		return nil, err
+	}
+	return func(n int) int {
+		return int(fn(int32(n)))
+	}, nil
 }

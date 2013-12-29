@@ -5,8 +5,8 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"go/format"
 	"gnd.la/i18n/formula"
+	"go/format"
 	"html"
 	"io"
 	"io/ioutil"

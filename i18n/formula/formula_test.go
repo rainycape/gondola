@@ -43,6 +43,8 @@ var formulas = []*Test{
 	{"n * 3 >= 9", 2, map[int]int{0: 0, 2: 0, 3: 1, 4: 1}},
 }
 
+var compiledFormulas = formulas[:len(formulas)-4]
+
 func compile(code []byte, optimize bool, jit bool) (Formula, error) {
 	p, err := vmCompile(code)
 	if err != nil {
@@ -174,7 +176,7 @@ func BenchmarkFindCompiled(b *testing.B) {
 func benchmarkFormulas(b *testing.B, fns []Formula) {
 	b.ResetTimer()
 	for ii := 0; ii < b.N; ii++ {
-		for jj, v := range formulas {
+		for jj, v := range compiledFormulas {
 			fn := fns[jj]
 			for k, val := range v.Tests {
 				x := fn(k)
@@ -187,9 +189,9 @@ func benchmarkFormulas(b *testing.B, fns []Formula) {
 }
 
 func compileAndBenchmark(b *testing.B, fn func([]byte) (Formula, error)) {
-	fns := make([]Formula, len(formulas))
+	fns := make([]Formula, len(compiledFormulas))
 	var err error
-	for ii, v := range formulas {
+	for ii, v := range compiledFormulas {
 		fns[ii], err = fn([]byte(v.Expr))
 		if err != nil {
 			b.Fatal(err)
@@ -211,9 +213,9 @@ func BenchmarkJit(b *testing.B) {
 }
 
 func BenchmarkCompiled(b *testing.B) {
-	fns := make([]Formula, len(formulas))
+	fns := make([]Formula, len(compiledFormulas))
 	var err error
-	for ii, v := range formulas {
+	for ii, v := range compiledFormulas {
 		text := fmt.Sprintf("nplurals=%d; plural=(%s);", v.N, v.Expr)
 		fns[ii], _, err = Make(text)
 		if err != nil {

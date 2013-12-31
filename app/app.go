@@ -57,8 +57,7 @@ type ContextProcessor func(*Context) bool
 type ErrorHandler func(*Context, string, int) bool
 
 // LanguageHandler is use to determine the language
-// when serving a request. See function SetLanguageHandler()
-// in App.
+// when serving a request. See App.SetLanguageHandler().
 type LanguageHandler func(*Context) string
 
 type handlerInfo struct {

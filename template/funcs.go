@@ -136,7 +136,7 @@ func _map(args ...interface{}) (map[string]interface{}, error) {
 			} else if s, ok := v.(*string); ok {
 				key = *s
 			} else {
-				return nil, fmt.Errorf("Invalid argument to map at index %d, %t instead of string", ii, v)
+				return nil, fmt.Errorf("invalid argument to map at index %d, %s instead of string", ii, reflect.TypeOf(v))
 			}
 		} else {
 			m[key] = v

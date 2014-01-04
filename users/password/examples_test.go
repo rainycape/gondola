@@ -2,7 +2,7 @@ package password_test
 
 import (
 	"fmt"
-	"gnd.la/password"
+	"gnd.la/users/password"
 )
 
 func ExampleNew() {

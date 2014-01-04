@@ -7,7 +7,7 @@ import (
 	"gnd.la/form/input"
 	"gnd.la/html"
 	"gnd.la/i18n"
-	"gnd.la/password"
+	"gnd.la/users/password"
 	"gnd.la/util"
 	"gnd.la/util/structs"
 	"gnd.la/util/types"

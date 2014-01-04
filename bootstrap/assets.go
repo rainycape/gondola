@@ -50,23 +50,23 @@ func bootstrapParser(m *assets.Manager, names []string, options assets.Options) 
 				format = bootstrapCSSNoIconsFmt
 			}
 		}
-		as = append(as, assets.CSS(fmt.Sprintf("bootstrap-noicons-%s.css", bsV), fmt.Sprintf(format, bsV)))
-		as = append(as, assets.CSS(fmt.Sprintf("fontawesome-%s.css", faV), fmt.Sprintf(fontAwesomeFmt, faV)))
+		as = append(as, assets.CSS(fmt.Sprintf(format, bsV)))
+		as = append(as, assets.CSS(fmt.Sprintf(fontAwesomeFmt, faV)))
 	} else {
-		as = append(as, assets.CSS(fmt.Sprintf("bootstrap-%s.css", bsV), fmt.Sprintf(bootstrapCSSFmt, bsV)))
+		as = append(as, assets.CSS(fmt.Sprintf(bootstrapCSSFmt, bsV)))
 	}
 	if options.BoolOpt("theme") && bsVersion.Major == 3 {
-		as = append(as, assets.CSS(fmt.Sprintf("bootstrap-theme-%s.css", bsV), fmt.Sprintf(bootstrapCSSThemeFmt, bsV)))
+		as = append(as, assets.CSS(fmt.Sprintf(bootstrapCSSThemeFmt, bsV)))
 	}
 	// Required for IE8 support
-	html5Shiv := assets.Script("html5shiv.js", "https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js")
-	respondJs := assets.Script("respond.js", "https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js")
+	html5Shiv := assets.Script("https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js")
+	respondJs := assets.Script("https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js")
 	cond := &assets.Condition{Comparison: assets.ComparisonLessThan, Version: 9}
 	html5Shiv.Condition = cond
 	respondJs.Condition = cond
 	as = append(as, html5Shiv, respondJs)
 	if !options.BoolOpt("nojs") {
-		as = append(as, assets.Script(fmt.Sprintf("bootstrap-%s.js", bsV), fmt.Sprintf("bootstrap-%s.js", bsV)))
+		as = append(as, assets.Script(fmt.Sprintf("bootstrap-%s.js", bsV)))
 	}
 	return as, nil
 }

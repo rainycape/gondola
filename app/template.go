@@ -7,12 +7,12 @@ import (
 	"gnd.la/template/assets"
 	"io"
 	"net/http"
-	"reflect"
 )
 
-var reservedVariables = []string{"Ctx", "Request", "Exports"}
+var reservedVariables = []string{"Ctx", "Request"}
 
 type Template interface {
+	Template() *template.Template
 	Execute(w io.Writer, data interface{}) error
 	ExecuteTemplate(w io.Writer, name string, data interface{}) error
 	ExecuteVars(w io.Writer, data interface{}, vars map[string]interface{}) error
@@ -22,8 +22,8 @@ type Template interface {
 type TemplateProcessor func(*template.Template) (*template.Template, error)
 
 type tmpl struct {
-	*template.Template
-	app *App
+	tmpl *template.Template
+	app  *App
 }
 
 func (t *tmpl) reverse(name string, args ...interface{}) (string, error) {
@@ -37,9 +37,9 @@ func (t *tmpl) reverse(name string, args ...interface{}) (string, error) {
 func newTemplate(app *App, loader loaders.Loader, manager *assets.Manager) *tmpl {
 	t := &tmpl{}
 	t.app = app
-	t.Template = template.New(loader, manager)
-	t.Template.Debug = app.debug
-	t.Template.Funcs(template.FuncMap{
+	t.tmpl = template.New(loader, manager)
+	t.tmpl.Debug = app.debug
+	t.tmpl.Funcs(template.FuncMap{
 		"reverse": t.reverse,
 	})
 	return t
@@ -63,7 +63,7 @@ func (t *tmpl) ParseVars(file string, vars template.VarMap) error {
 			vars[k] = nil
 		}
 	}
-	return t.Template.ParseVars(file, vars)
+	return t.tmpl.ParseVars(file, vars)
 }
 
 func (t *tmpl) Parse(file string) error {
@@ -71,35 +71,23 @@ func (t *tmpl) Parse(file string) error {
 }
 
 func (t *tmpl) execute(w io.Writer, name string, data interface{}, vars template.VarMap) error {
+	// TODO: Don't ignore received cars
 	var context *Context
 	var request *http.Request
 	if context, _ = w.(*Context); context != nil {
 		request = context.R
 	}
-	va := map[string]interface{}{
-		"Ctx":     context,
-		"Request": request,
-		"Exports": t.app.Exports(),
+	vars, err := t.app.namespace.eval(context)
+	if err != nil {
+		return err
 	}
-	for k, v := range t.app.templateVars {
-		va[k] = v
-	}
-	for k, v := range vars {
-		va[k] = v
-	}
-	if context != nil {
-		in := []reflect.Value{reflect.ValueOf(context)}
-		for k, v := range t.app.templateVarFuncs {
-			if _, ok := va[k]; !ok {
-				out := v.Call(in)
-				if len(out) == 2 && !out[1].IsNil() {
-					return out[1].Interface().(error)
-				}
-				va[k] = out[0].Interface()
-			}
-		}
-	}
-	return t.Template.ExecuteTemplateVars(w, name, data, va)
+	vars["Ctx"] = context
+	vars["Request"] = request
+	return t.tmpl.ExecuteTemplateVars(w, name, data, vars)
+}
+
+func (t *tmpl) Template() *template.Template {
+	return t.tmpl
 }
 
 func (t *tmpl) Execute(w io.Writer, data interface{}) error {

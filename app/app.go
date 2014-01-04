@@ -18,11 +18,14 @@ import (
 	"gnd.la/template"
 	"gnd.la/template/assets"
 	"gnd.la/util"
+	"gnd.la/util/hashutil"
 	"gnd.la/util/internal/runtimeutil"
+	"gnd.la/util/internal/templateutil"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"os"
-	"reflect"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -70,10 +73,22 @@ type handlerInfo struct {
 }
 
 type includedApp struct {
-	prefix string
-	app    *App
-	base   string
-	main   string
+	prefix  string
+	app     *App
+	base    string
+	main    string
+	renames map[string]string
+}
+
+func (a *includedApp) assetFuncName() string {
+	return strings.ToLower(a.app.name) + "_" + template.AssetFuncName
+}
+
+func (a *includedApp) assetFunc(t *template.Template) func(string) (string, error) {
+	return func(arg string) (string, error) {
+		name := a.renames[arg]
+		return t.Asset(name)
+	}
 }
 
 const (
@@ -99,6 +114,7 @@ type App struct {
 	secret               string
 	encryptionKey        string
 	defaultLanguage      string
+	name                 string
 	defaultCookieOptions *cookies.Options
 	userFunc             UserFunc
 	assetsManager        *assets.Manager
@@ -106,9 +122,8 @@ type App struct {
 	templatesMutex       sync.RWMutex
 	templatesCache       map[string]Template
 	templateProcessors   []TemplateProcessor
-	templateVars         map[string]interface{}
-	templateVarFuncs     map[string]reflect.Value
-	exports              util.M
+	namespace            *namespace
+	hooks                []*template.Hook
 	debug                bool
 	started              time.Time
 	address              string
@@ -126,10 +141,7 @@ type App struct {
 	// Logger to use when logging requests. By default, it's
 	// gnd.la/log.Std, but you can set it to nil to avoid
 	// logging at all and gain a bit more of performance.
-	Logger *log.Logger
-	// The App name. Must be unique and non-empty across all included apps, but
-	// the main App doesn't need a name.
-	Name        string
+	Logger      *log.Logger
 	contextPool chan *Context
 }
 
@@ -197,28 +209,67 @@ func (app *App) AddRecoverHandler(rh RecoverHandler) {
 }
 
 func (app *App) Include(prefix string, included *App, base string, main string) {
-	if included.parent != nil {
-		panic(fmt.Errorf("app %v already has been included in another app", included))
+	if err := app.include(prefix, included, base, main); err != nil {
+		panic(err)
 	}
-	if included.Name == "" {
-		panic(fmt.Errorf("included app %v can't have an empty name", included))
+}
+
+func (app *App) include(prefix string, child *App, base string, main string) error {
+	if child.parent != nil {
+		return fmt.Errorf("app %v already has been included in another app", child)
 	}
-	included.SetDebug(app.debug)
-	included.parent = app
-	included.secret = app.secret
-	included.encryptionKey = app.encryptionKey
-	info := &includedApp{
+	if child.name == "" {
+		return fmt.Errorf("included app %v can't have an empty name", child)
+	}
+	// prefix must start with / and end without /,
+	// fix it if it doesn't match
+	if prefix == "" || prefix[0] != '/' {
+		prefix = "/" + prefix
+	}
+	for prefix[len(prefix)-1] == '/' {
+		prefix = prefix[:len(prefix)-1]
+	}
+	for _, v := range app.included {
+		if v.prefix == prefix {
+			return fmt.Errorf("can't include app at prefix %q, app %q is already using it", prefix, v.app.name)
+		}
+		if v.app.name == child.name {
+			return fmt.Errorf("duplicate app name %q", v.app.name)
+		}
+	}
+	child.SetDebug(app.debug)
+	child.parent = app
+	child.secret = app.secret
+	child.encryptionKey = app.encryptionKey
+	child.Logger = app.Logger
+	included := &includedApp{
 		prefix: prefix,
-		app:    included,
+		app:    child,
 		base:   base,
 		main:   main,
 	}
-	included.childInfo = info
-	app.included = append(app.included, info)
-	if app.exports == nil {
-		app.exports = make(util.M)
+	child.childInfo = included
+	if child.assetsManager != nil {
+		if err := app.importAssets(included); err != nil {
+			return fmt.Errorf("error importing %q assets: %s", child.name, err)
+		}
 	}
-	app.exports[included.Name] = included.Exports()
+	for _, v := range child.hooks {
+		app.rewriteAssets(v.Template, included)
+		root := v.Template.Trees[v.Template.Root()]
+		app.prepareNamespace(root, child.name)
+		app.hooks = append(app.hooks, v)
+	}
+	app.included = append(app.included, included)
+	if app.namespace == nil {
+		app.namespace = &namespace{}
+	}
+	if child.namespace != nil {
+		if err := app.namespace.addNs(child.name, child.namespace); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // TrustsXHeaders returns if the app uses X headers
@@ -304,6 +355,17 @@ func (app *App) SetDefaultCookieOptions(o *cookies.Options) {
 	app.defaultCookieOptions = o
 }
 
+func (app *App) Name() string {
+	return app.name
+}
+
+func (app *App) SetName(name string) {
+	if app.parent != nil {
+		panic(fmt.Errorf("can't rename app %q, it has been already included", app.name))
+	}
+	app.name = name
+}
+
 // ErrorHandler returns the error handler (if any)
 // associated with this app
 func (app *App) ErrorHandler() ErrorHandler {
@@ -382,50 +444,20 @@ func (app *App) AddTemplateProcessor(processor TemplateProcessor) {
 // they will be called with the current context to obtain the variable
 // that will be passed to the template. You must call this
 // function before any templates have been compiled. The value for
-// each variable in the map is its default value, and it can
+// each provided variable is its default value, and it can
 // be overriden by using ExecuteVars() rather than Execute() when
 // executing the template.
 func (app *App) AddTemplateVars(vars template.VarMap) {
-	if app.templateVars == nil {
-		app.templateVars = make(template.VarMap)
-		app.templateVarFuncs = make(map[string]reflect.Value)
+	if app.namespace == nil {
+		app.namespace = &namespace{}
 	}
-	for k, v := range vars {
-		if app.isReservedVariable(k) {
-			panic(fmt.Errorf("Variable %s is reserved", k))
-		}
-		if t := reflect.TypeOf(v); t.Kind() == reflect.Func {
-			inType := reflect.TypeOf(&Context{})
-			if t.NumIn() != 1 || t.In(0) != inType {
-				panic(fmt.Errorf("Template variable functions must receive a single %s argument", inType))
-			}
-			if t.NumOut() > 2 {
-				panic(fmt.Errorf("Template variable functions must return at most 2 arguments"))
-			}
-			if t.NumOut() == 2 {
-				o := t.Out(1)
-				if o.Kind() != reflect.Interface || o.Name() != "error" {
-					panic(fmt.Errorf("Template variable functions must return an error as their second argument"))
-				}
-			}
-			app.templateVarFuncs[k] = reflect.ValueOf(v)
-		} else {
-			app.templateVars[k] = v
-		}
+	if err := app.namespace.add(vars); err != nil {
+		panic(err)
 	}
 }
 
-func (app *App) Export(values util.M) {
-	if app.exports == nil {
-		app.exports = make(util.M)
-	}
-	for k, v := range values {
-		app.exports[k] = v
-	}
-}
-
-func (app *App) Exports() map[string]interface{} {
-	return app.exports
+func (app *App) AddHook(hook *template.Hook) {
+	app.hooks = append(app.hooks, hook)
 }
 
 // LoadTemplate loads a template using the template
@@ -440,7 +472,17 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := t.PrepareAssets(); err != nil {
+		funcs := make(template.FuncMap)
+		for _, v := range app.included {
+			funcs[v.assetFuncName()] = v.assetFunc(t.tmpl)
+		}
+		t.tmpl.Funcs(funcs)
+		for _, v := range app.hooks {
+			if err := t.tmpl.Hook(v); err != nil {
+				return nil, fmt.Errorf("error hooking %q: %s", v.Template.Root(), err)
+			}
+		}
+		if err := t.tmpl.PrepareAssets(); err != nil {
 			return nil, err
 		}
 		tmpl = t
@@ -455,69 +497,104 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 
 func (app *App) loadTemplate(name string) (*tmpl, error) {
 	t := newAppTemplate(app)
-	vars := make(template.VarMap, len(app.templateVars)+len(app.templateVarFuncs)+1)
-	vars["Exports"] = nil
-	for k, v := range app.templateVars {
-		vars[k] = v
-	}
-	for k, _ := range app.templateVarFuncs {
-		vars[k] = nil
+	var vars map[string]interface{}
+	if app.namespace != nil {
+		var err error
+		if vars, err = app.namespace.eval(nil); err != nil {
+			return nil, err
+		}
 	}
 	err := t.ParseVars(name, vars)
 	if err != nil {
 		return nil, err
 	}
 	for _, v := range app.templateProcessors {
-		t.Template, err = v(t.Template)
+		t.tmpl, err = v(t.tmpl)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if app.parent != nil {
-		return app.parent.chainTemplate(t, app)
+		return app.parent.chainTemplate(t, app.childInfo)
 	}
 	return t, nil
 }
 
-func (app *App) chainTemplate(t *tmpl, included *App) (*tmpl, error) {
-	base, err := app.loadTemplate(included.childInfo.base)
+func (app *App) prepareNamespace(tree *parse.Tree, ns string) {
+	// Mangle the Tree to set $Vars = $Vars.Name
+	// just before the with .Data node
+	for ii, node := range tree.Root.Nodes {
+		if _, ok := node.(*parse.WithNode); ok {
+			var nodes []parse.Node
+			nodes = append(nodes, tree.Root.Nodes[:ii]...)
+			nodes = append(nodes, &parse.ActionNode{
+				NodeType: parse.NodeAction,
+				Pipe: &parse.PipeNode{
+					NodeType: parse.NodePipe,
+					Decl:     []*parse.VariableNode{{NodeType: parse.NodeVariable, Ident: []string{"$Vars"}}},
+					Cmds: []*parse.CommandNode{{NodeType: parse.NodeCommand,
+						Args: []parse.Node{
+							&parse.FieldNode{NodeType: parse.NodeField, Ident: []string{"Vars", ns}},
+						},
+					}},
+				},
+			})
+			nodes = append(nodes, tree.Root.Nodes[ii:]...)
+			tree.Root.Nodes = nodes
+			break
+		}
+	}
+}
+
+func (app *App) rewriteAssets(t *template.Template, included *includedApp) error {
+	for _, group := range t.Assets() {
+		for _, a := range group.Assets {
+			if a.IsRemote() || a.IsHTML() {
+				continue
+			}
+			name := included.renames[a.Name]
+			if name == "" {
+				return fmt.Errorf("asset %q referenced from template %q does not exist", a.Name, t.Name)
+			}
+			a.Name = name
+		}
+		group.Manager = app.assetsManager
+	}
+	fname := included.assetFuncName()
+	for _, v := range t.Trees {
+		templateutil.WalkTree(v, func(n, p parse.Node) {
+			if n.Type() == parse.NodeIdentifier {
+				id := n.(*parse.IdentifierNode)
+				if id.Ident == template.AssetFuncName {
+					id.Ident = fname
+				}
+			}
+		})
+	}
+	return t.Rebuild()
+}
+
+func (app *App) chainTemplate(t *tmpl, included *includedApp) (*tmpl, error) {
+	base, err := app.loadTemplate(included.base)
 	if err != nil {
 		return nil, err
 	}
-	base.AddAssets(t.Assets())
-	for k, v := range t.Trees {
+	if err := app.rewriteAssets(t.tmpl, included); err != nil {
+		return nil, err
+	}
+	base.tmpl.AddAssets(t.tmpl.Assets())
+	for k, v := range t.tmpl.Trees {
 		// This will happen with built-in added templates, like
 		// TopAssets, BottomAssets...
-		if _, ok := base.Trees[k]; ok {
+		if _, ok := base.tmpl.Trees[k]; ok {
 			continue
 		}
 		name := k
-		if name == t.Root() {
-			name = included.childInfo.main
-			// Mangle the Tree to set $Exports = $Exports.Name
-			// just before the with .Data node
-			for ii, node := range v.Root.Nodes {
-				if _, ok := node.(*parse.WithNode); ok {
-					var nodes []parse.Node
-					nodes = append(nodes, v.Root.Nodes[:ii]...)
-					nodes = append(nodes, &parse.ActionNode{
-						NodeType: parse.NodeAction,
-						Pipe: &parse.PipeNode{
-							NodeType: parse.NodePipe,
-							Decl:     []*parse.VariableNode{{NodeType: parse.NodeVariable, Ident: []string{"$Exports"}}},
-							Cmds: []*parse.CommandNode{{NodeType: parse.NodeCommand, Args: []parse.Node{
-								&parse.FieldNode{NodeType: parse.NodeField, Ident: []string{"Exports", included.Name}},
-							},
-							}},
-						},
-					})
-					nodes = append(nodes, v.Root.Nodes[ii:]...)
-					v.Root.Nodes = nodes
-					break
-				}
-			}
+		if name == t.tmpl.Root() {
+			name = included.main
+			app.prepareNamespace(v, included.app.name)
 		}
-		if err := base.AddParseTree(name, v); err != nil {
+		if err := base.tmpl.AddParseTree(name, v); err != nil {
 			return nil, err
 		}
 	}
@@ -922,7 +999,7 @@ func (app *App) errorPage(ctx *Context, skip int, stackSkip int, req string, err
 		"Request":  req,
 		"Started":  strconv.FormatInt(app.started.Unix(), 10),
 	}
-	t.MustExecute(ctx, data)
+	t.tmpl.MustExecute(ctx, data)
 }
 
 // ServeHTTP is called from the net/http system. You shouldn't need
@@ -1065,16 +1142,47 @@ func (app *App) closeContext(ctx *Context) {
 	}
 }
 
-func (app *App) isReservedVariable(va string) bool {
-	for _, v := range reservedVariables {
-		if v == va {
-			return true
+func (app *App) importAssets(included *includedApp) error {
+	if am := included.app.assetsManager; am != nil {
+		m := app.assetsManager
+		prefix := strings.ToLower(included.app.name)
+		res, err := am.Loader().List()
+		if err != nil {
+			return err
 		}
+		renames := make(map[string]string)
+		for _, v := range res {
+			src, _, err := am.Load(v)
+			if err != nil {
+				return err
+			}
+			defer src.Close()
+			sum := hashutil.Fnv32a(src)
+			nonExt := v[:len(v)-len(path.Ext(v))]
+			dest := path.Join(prefix, nonExt+".gen."+sum+path.Ext(v))
+			renames[v] = dest
+			if f, _, _ := m.Load(dest); f != nil {
+				f.Close()
+				continue
+			}
+			f, err := m.Create(dest, true)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			if _, err := src.Seek(0, os.SEEK_SET); err != nil {
+				return err
+			}
+			if _, err := io.Copy(f, src); err != nil {
+				return err
+			}
+		}
+		included.renames = renames
 	}
-	return false
+	return nil
 }
 
-// Returns a new App initialized with the current default values.
+// New returns a new App initialized with the current default values.
 // See gnd.la/defaults for further information. Keep in mind that,
 // for performance reasons, the values from gnd.la/defaults are
 // copied to the app when it's created, so any changes made to

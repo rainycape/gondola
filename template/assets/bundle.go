@@ -14,64 +14,25 @@ import (
 	"strings"
 )
 
-type CodeType int
-
-const (
-	CodeTypeNone CodeType = iota
-	CodeTypeCss
-	CodeTypeJavascript
-)
-
-func (c CodeType) String() string {
-	switch c {
-	case CodeTypeCss:
-		return "CSS"
-	case CodeTypeJavascript:
-		return "Javascript"
-	}
-	return "unknown CodeType"
-}
-
-func (c CodeType) Ext() string {
-	switch c {
-	case CodeTypeCss:
-		return "css"
-	case CodeTypeJavascript:
-		return "js"
-	}
-	return ""
-}
-
 var (
 	errNoAssets = errors.New("no assets to bundle")
 	urlRe       = regexp.MustCompile("i?url\\s*?\\((.*?)\\)")
 )
 
-type bundledAssets []*Asset
-
-func (a bundledAssets) Names() []string {
-	var names []string
-	for _, v := range a {
-		names = append(names, v.Name)
-	}
-	return names
-}
-
-func (a bundledAssets) BundleName(m *Manager, ext string, o Options) (string, error) {
-	if len(a) == 0 {
-		return "", nil
-	}
+func bundleName(groups []*Group, ext string, o Options) (string, error) {
 	h := fnv.New32a()
-	for _, v := range a {
-		code, err := v.Code(m)
-		if err != nil {
-			return "", err
+	for _, group := range groups {
+		for _, asset := range group.Assets {
+			code, err := asset.Code(group.Manager)
+			if err != nil {
+				return "", err
+			}
+			io.WriteString(h, code)
 		}
-		io.WriteString(h, code)
 	}
 	io.WriteString(h, o.String())
 	sum := hex.EncodeToString(h.Sum(nil))
-	name := a[0].Name
+	name := groups[0].Assets[0].Name
 	if ext == "" {
 		ext = path.Ext(name)
 	} else {
@@ -80,64 +41,68 @@ func (a bundledAssets) BundleName(m *Manager, ext string, o Options) (string, er
 	return path.Join(path.Dir(name), "bundle.gen."+sum+ext), nil
 }
 
-func Bundle(m *Manager, assets []*Asset, opts Options) (*Asset, error) {
-	if len(assets) == 0 {
-		return nil, errNoAssets
-	}
-	codeType := CodeType(-1)
-	for _, v := range assets {
-		if v.CodeType == CodeTypeNone {
-			return nil, fmt.Errorf("asset %q does not specify a CodeType and can't be bundled", v.Name)
+func Bundle(groups []*Group, opts Options) (*Asset, error) {
+	assetType := Type(-1)
+	var names []string
+	for _, group := range groups {
+		for _, v := range group.Assets {
+			if v.Type == TypeOther {
+				return nil, fmt.Errorf("asset %q does not specify a Type and can't be bundled", v.Name)
+			}
+			if assetType < 0 {
+				assetType = v.Type
+			} else if assetType != v.Type {
+				return nil, fmt.Errorf("asset %q has different code type %s (first asset is of type %s)", v.Name, v.Type, assetType)
+			}
+			names = append(names, v.Name)
 		}
-		if codeType < 0 {
-			codeType = v.CodeType
-		} else if codeType != v.CodeType {
-			return nil, fmt.Errorf("asset %q has different code type %s (first asset is of type %s)", v.Name, v.CodeType, codeType)
-		}
 	}
-	bundler := bundlers[codeType]
+	bundler := bundlers[assetType]
 	if bundler == nil {
-		return nil, fmt.Errorf("no bundler for %s", codeType)
+		return nil, fmt.Errorf("no bundler for %s", assetType)
 	}
 	// Prepare the code, changing relative paths if required
-	name, err := bundledAssets(assets).BundleName(m, codeType.Ext(), opts)
+	name, err := bundleName(groups, assetType.Ext(), opts)
 	if err != nil {
 		return nil, err
 	}
-	dir := path.Dir(name)
-	names := bundledAssets(assets).Names()
+	// The bundle is output to the first manager
+	m := groups[0].Manager
 	// Check if the code has been already bundled
-	if f, _, err := m.Load(name); err == nil {
+	if f, _, _ := m.Load(name); f != nil {
 		f.Close()
 		log.Debugf("%s already bundled into %s and up to date", names, name)
 	} else {
+		dir := path.Dir(name)
 		log.Debugf("bundling %v", names)
 		var code []string
-		for _, v := range assets {
-			c, err := v.Code(m)
-			if err != nil {
-				return nil, fmt.Errorf("error getting code for asset %q: %s", v.Name, err)
-			}
-			if vd := path.Dir(v.Name); vd != dir {
-				if codeType == CodeTypeCss {
-					log.Debugf("asset %q will move from %v to %v, rewriting relative paths...", v.Name, vd, dir)
-					c = replaceRelativePaths(c, vd, dir)
-				} else {
-					log.Warningf("asset %q will move from %v to %v, relative paths might not work", v.Name, vd, dir)
+		for _, group := range groups {
+			for _, v := range group.Assets {
+				c, err := v.Code(group.Manager)
+				if err != nil {
+					return nil, fmt.Errorf("error getting code for asset %q: %s", v.Name, err)
 				}
+				if vd := path.Dir(v.Name); vd != dir {
+					if assetType == TypeCSS {
+						log.Debugf("asset %q will move from %v to %v, rewriting relative paths...", v.Name, vd, dir)
+						c = replaceRelativePaths(c, vd, dir)
+					} else {
+						log.Warningf("asset %q will move from %v to %v, relative paths might not work", v.Name, vd, dir)
+					}
+				}
+				code = append(code, c)
 			}
-			code = append(code, c)
 		}
 		// Bundle to a buf first. We don't want to create
 		// the file if the bundling fails.
 		var buf bytes.Buffer
 		reader := strings.NewReader(strings.Join(code, "\n\n"))
-		if err := bundler.Bundle(&buf, reader, m, opts); err != nil {
+		if err := bundler.Bundle(&buf, reader, opts); err != nil {
 			return nil, err
 		}
+		s := makeLinksCacheable(m, dir, buf.Bytes())
 		w, err := m.Create(name, true)
 		if err == nil {
-			s := makeLinksCacheable(m, dir, buf.Bytes())
 			if _, err := io.Copy(w, strings.NewReader(s)); err != nil {
 				w.Close()
 				return nil, err
@@ -152,7 +117,11 @@ func Bundle(m *Manager, assets []*Asset, opts Options) (*Asset, error) {
 			}
 		}
 	}
-	return bundler.Asset(name, m, opts)
+	return &Asset{
+		Name:     name,
+		Type:     assetType,
+		Position: groups[0].Assets[0].Position,
+	}, nil
 }
 
 func makeLinksCacheable(m *Manager, dir string, b []byte) string {

@@ -11,28 +11,32 @@ import (
 )
 
 var (
-	compilers = map[CodeType]map[string]Compiler{}
+	compilers = map[Type]map[string]Compiler{}
 )
 
 type Compiler interface {
-	Compile(w io.Writer, r io.Reader, m *Manager, opts Options) error
-	CodeType() CodeType
+	Compile(w io.Writer, r io.Reader, opts Options) error
+	Type() Type
 	Ext() string
 }
 
 func RegisterCompiler(c Compiler) {
-	codeType := c.CodeType()
-	typeCompilers := compilers[codeType]
+	typ := c.Type()
+	ext := c.Ext()
+	typeCompilers := compilers[typ]
 	if typeCompilers == nil {
 		typeCompilers = make(map[string]Compiler)
-		compilers[codeType] = typeCompilers
+		compilers[typ] = typeCompilers
 	}
-	typeCompilers["."+strings.ToLower(c.Ext())] = c
+	if ext != "" && ext[0] != '.' {
+		ext = "." + ext
+	}
+	typeCompilers[strings.ToLower(ext)] = c
 }
 
-func Compile(m *Manager, name string, codeType CodeType, opts Options) (string, error) {
+func Compile(m *Manager, name string, typ Type, opts Options) (string, error) {
 	ext := path.Ext(name)
-	compiler := compilers[codeType][strings.ToLower(ext)]
+	compiler := compilers[typ][strings.ToLower(ext)]
 	if compiler == nil {
 		return name, nil
 	}
@@ -42,8 +46,8 @@ func Compile(m *Manager, name string, codeType CodeType, opts Options) (string, 
 	}
 	defer f.Close()
 	fnv := hashutil.Fnv32a(f)
-	out := fmt.Sprintf("%s.gen.%s.%s", name, fnv, codeType.Ext())
-	if o, _, err := m.Load(out); err == nil {
+	out := fmt.Sprintf("%s.gen.%s.%s", name, fnv, typ.Ext())
+	if o, _, _ := m.Load(out); o != nil {
 		o.Close()
 		log.Debugf("%s already compiled to %s", name, out)
 		return out, nil
@@ -51,7 +55,7 @@ func Compile(m *Manager, name string, codeType CodeType, opts Options) (string, 
 	f.Seek(0, 0)
 	var buf bytes.Buffer
 	log.Debugf("compiling %s to %s", name, out)
-	if err := compiler.Compile(&buf, f, m, opts); err != nil {
+	if err := compiler.Compile(&buf, f, opts); err != nil {
 		return "", err
 	}
 	w, err := m.Create(out, true)

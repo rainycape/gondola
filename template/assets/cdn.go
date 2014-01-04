@@ -48,10 +48,10 @@ func cdnScriptParser(k, orig string) SingleAssetParser {
 		if options.Top() {
 			position = Top
 		}
-		script := Script(asset, src)
+		script := Script(src)
 		script.Position = position
 		if options.Async() {
-			script.Attributes["async"] = "async"
+			script.Attributes = Attributes{"async": "async"}
 		}
 		return []*Asset{script}, nil
 	}

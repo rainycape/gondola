@@ -5,16 +5,14 @@ import (
 )
 
 var (
-	bundlers = map[CodeType]Bundler{}
+	bundlers = map[Type]Bundler{}
 )
 
 func RegisterBundler(b Bundler) {
-	codeType := b.CodeType()
-	bundlers[codeType] = b
+	bundlers[b.Type()] = b
 }
 
 type Bundler interface {
-	Bundle(w io.Writer, r io.Reader, m *Manager, opts Options) error
-	Asset(name string, m *Manager, opts Options) (*Asset, error)
-	CodeType() CodeType
+	Bundle(w io.Writer, r io.Reader, opts Options) error
+	Type() Type
 }

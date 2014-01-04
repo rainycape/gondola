@@ -28,11 +28,18 @@ func (f *fsloader) Load(name string) (ReadSeekCloser, time.Time, error) {
 
 func (f *fsloader) Create(name string, overwrite bool) (io.WriteCloser, error) {
 	p := filepath.FromSlash(path.Join(f.dir, name))
+	if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+		return nil, err
+	}
 	flags := os.O_WRONLY | os.O_CREATE
 	if !overwrite {
 		flags |= os.O_EXCL
 	}
 	return os.OpenFile(p, flags, 0644)
+}
+
+func (f *fsloader) Dir() string {
+	return f.dir
 }
 
 func (f *fsloader) List() ([]string, error) {

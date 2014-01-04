@@ -2,7 +2,6 @@ package assets
 
 import (
 	"gnd.la/loaders"
-	"gnd.la/log"
 	"gnd.la/util/hashutil"
 	"io"
 	"io/ioutil"
@@ -16,7 +15,6 @@ import (
 )
 
 type Manager struct {
-	watcher      *Watcher
 	loader       loaders.Loader
 	prefix       string
 	prefixLength int
@@ -32,42 +30,7 @@ func NewManager(loader loaders.Loader, prefix string) *Manager {
 	runtime.SetFinalizer(m, func(manager *Manager) {
 		manager.Close()
 	})
-	m.watch()
 	return m
-}
-
-func (m *Manager) watch() {
-	if dirloader, ok := m.Loader().(loaders.DirLoader); ok {
-		watcher, err := NewWatcher(dirloader.Dir(), func(name string, deleted bool) {
-			m.mutex.RLock()
-			_, ok := m.cache[name]
-			m.mutex.RUnlock()
-			if ok {
-				m.mutex.Lock()
-				if deleted {
-					delete(m.cache, name)
-				} else {
-					h, err := m.hash(name)
-					if err == nil {
-						m.cache[name] = h
-					} else {
-						delete(m.cache, name)
-					}
-				}
-				m.mutex.Unlock()
-			}
-		})
-		if err != nil {
-			log.Warningf("Error creating watcher for %s: %s", dirloader.Dir, err)
-		} else if watcher != nil {
-			if err := watcher.Watch(); err == nil {
-				m.watcher = watcher
-			} else {
-				log.Warningf("Error watching %s: %s", dirloader.Dir, err)
-				watcher.Close()
-			}
-		}
-	}
 }
 
 func (m *Manager) hash(name string) (string, error) {
@@ -137,10 +100,5 @@ func (m *Manager) SetPrefix(prefix string) {
 }
 
 func (m *Manager) Close() error {
-	if m.watcher != nil {
-		err := m.watcher.Close()
-		m.watcher = nil
-		return err
-	}
 	return nil
 }

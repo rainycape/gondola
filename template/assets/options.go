@@ -56,12 +56,20 @@ func (o Options) Top() bool {
 	return o.BoolOpt("top")
 }
 
+func (o Options) Bottom() bool {
+	return o.BoolOpt("bottom")
+}
+
 func (o Options) Async() bool {
 	return o.BoolOpt("async")
 }
 
 func (o Options) Bundle() bool {
 	return o.BoolOpt("bundle")
+}
+
+func (o Options) Bundable() bool {
+	return o.BoolOpt("bundable")
 }
 
 func (o Options) Cdn() bool {

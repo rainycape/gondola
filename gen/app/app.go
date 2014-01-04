@@ -10,16 +10,22 @@ import (
 	"launchpad.net/goyaml"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 const appFilename = "app.yaml"
+
+type Templates struct {
+	Path  string            `yaml:"path"`
+	Hooks map[string]string `yaml:"hooks"`
+}
 
 type App struct {
 	Dir       string
 	Name      string            `yaml:"name"`
 	Handlers  map[string]string `yaml:"handlers"`
-	Exports   map[string]string `yaml:"exports"`
-	Templates string            `yaml:"templates"`
+	Vars      map[string]string `yaml:"vars"`
+	Templates *Templates        `yaml:"templates"`
 	Assets    string            `yaml:"assets"`
 }
 
@@ -30,25 +36,44 @@ func (app *App) Gen() error {
 	}
 	var buf bytes.Buffer
 	fmt.Fprintf(&buf, "package %s\n\n", pkg.Name())
-	buf.WriteString("import (\n\"gnd.la/app\"\n\"gnd.la/loaders\"\n\"gnd.la/template/assets\"\n)\n")
-	buf.WriteString("var _ = loaders.FSLoader\n")
-	buf.WriteString("var _ = assets.NewManager\n")
 	buf.WriteString(genutil.AutogenString())
+	buf.WriteString("import (\n\"gnd.la/app\"\n\"gnd.la/loaders\"\n\"gnd.la/template\"\n\"gnd.la/template/assets\"\n)\n")
+	buf.WriteString("var _ = loaders.FSLoader\n")
+	buf.WriteString("var _ = template.New\n")
+	buf.WriteString("var _ = assets.NewManager\n")
 	fmt.Fprintf(&buf, "var (\n App *app.App\n)\n")
 	buf.WriteString("func init() {\n")
 	buf.WriteString("App = app.New()\n")
-	fmt.Fprintf(&buf, "App.Name = %q\n", app.Name)
-	if app.Templates != "" {
-		fmt.Fprintf(&buf, "templatesLoader := loaders.FSLoader(%q)\n", filepath.Join(app.Dir, app.Templates))
-		buf.WriteString("App.SetTemplatesLoader(templatesLoader)\n")
-	}
+	fmt.Fprintf(&buf, "App.SetName(%q)\n", app.Name)
 	if app.Assets != "" {
 		fmt.Fprintf(&buf, "assetsLoader := loaders.FSLoader(%q)\n", filepath.Join(app.Dir, app.Assets))
-		buf.WriteString("const prefix = \"assets\"\n")
+		buf.WriteString("const prefix = \"/assets/\"\n")
 		buf.WriteString("manager := assets.NewManager(assetsLoader, prefix)\n")
 		buf.WriteString("App.SetAssetsManager(manager)\n")
 		buf.WriteString("assetsHandler := assets.Handler(manager)\n")
 		buf.WriteString("App.Handle(\"^\"+prefix, func(ctx *app.Context) { assetsHandler(ctx, ctx.R) })\n")
+	}
+	if app.Templates != nil && app.Templates.Path != "" {
+		re := regexp.MustCompile("\\W")
+		fmt.Fprintf(&buf, "templatesLoader := loaders.FSLoader(%q)\n", filepath.Join(app.Dir, app.Templates.Path))
+		buf.WriteString("App.SetTemplatesLoader(templatesLoader)\n")
+		for k, v := range app.Templates.Hooks {
+			var pos string
+			switch strings.ToLower(v) {
+			case "top":
+				pos = "assets.Top"
+			case "bottom":
+				pos = "assets.Bottom"
+			case "none":
+				pos = "assets.None"
+			default:
+				return fmt.Errorf("invalid hook position %q", v)
+			}
+			suffix := re.ReplaceAllString(k, "_")
+			fmt.Fprintf(&buf, "tmpl_%s, err := App.LoadTemplate(%q)\n", suffix, k)
+			buf.WriteString("if err != nil {\npanic(err)\n}\n")
+			fmt.Fprintf(&buf, "App.AddHook(&template.Hook{Template: tmpl_%s.Template(), Position: %s})\n", suffix, pos)
+		}
 	}
 	scope := pkg.Scope()
 	for k, v := range app.Handlers {
@@ -66,22 +91,27 @@ func (app *App) Gen() error {
 			return fmt.Errorf("invalid handler type %s", obj.Type())
 		}
 	}
-	if len(app.Exports) > 0 {
-		buf.WriteString("App.Export(map[string]interface{}{\n")
-		for k, v := range app.Exports {
-			varname := k
-			key := v
-			if key == "" {
-				key = k
+	if len(app.Vars) > 0 {
+		buf.WriteString("App.AddTemplateVars(map[string]interface{}{\n")
+		for k, v := range app.Vars {
+			ident := k
+			name := v
+			if name == "" {
+				name = ident
 			}
-			obj := scope.Lookup(k)
+			obj := scope.Lookup(ident)
 			if obj == nil {
-				return fmt.Errorf("could not find export named %q", k)
+				return fmt.Errorf("could not find identifier named %q", ident)
 			}
-			if _, ok := obj.(*types.Var); ok {
-				varname = "&" + varname
+			rhs := ident
+			if va, ok := obj.(*types.Var); ok {
+				tn := va.Type().String()
+				if strings.Contains(tn, ".") {
+					tn = "interface{}"
+				}
+				rhs = fmt.Sprintf("func() %s { return %s }", tn, ident)
 			}
-			fmt.Fprintf(&buf, "%q: %s,\n", key, varname)
+			fmt.Fprintf(&buf, "%q: %s,\n", name, rhs)
 		}
 		buf.WriteString("})\n")
 	}

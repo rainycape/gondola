@@ -1,12 +1,10 @@
 package assets
 
-func CSS(name string, href string) *Asset {
+func CSS(name string) *Asset {
 	return &Asset{
-		Name:       name,
-		Position:   Top,
-		CodeType:   CodeTypeCss,
-		Tag:        "link",
-		Attributes: Attributes{"rel": "stylesheet", "type": "text/css", "href": href},
+		Name:     name,
+		Position: Top,
+		Type:     TypeCSS,
 	}
 }
 
@@ -17,12 +15,17 @@ func cssParser(m *Manager, names []string, options Options) ([]*Asset, error) {
 			media = v
 		}
 	}
+	pos := Top
+	if options.Bottom() {
+		pos = Bottom
+	}
 	assets := make([]*Asset, len(names))
 	for ii, v := range names {
-		asset := CSS(v, m.URL(v))
+		asset := CSS(v)
 		if media != "" {
-			asset.Attributes["media"] = media
+			asset.Attributes = Attributes{"media": media}
 		}
+		asset.Position = pos
 		assets[ii] = asset
 	}
 	return assets, nil

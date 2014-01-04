@@ -3,6 +3,7 @@ package assets
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 )
 
 type Position int
@@ -25,9 +26,38 @@ func (p Position) String() string {
 	return fmt.Sprintf("invalid position %d", p)
 }
 
+type Type int
+
+const (
+	TypeOther Type = iota
+	TypeCSS
+	TypeJavascript
+)
+
+func (t Type) String() string {
+	switch t {
+	case TypeOther:
+		return "Other"
+	case TypeCSS:
+		return "CSS"
+	case TypeJavascript:
+		return "Javascript"
+	}
+	return fmt.Sprintf("unknown Type %d", t)
+}
+
+func (t Type) Ext() string {
+	switch t {
+	case TypeCSS:
+		return "css"
+	case TypeJavascript:
+		return "js"
+	}
+	return ""
+}
+
 var (
-	parsers  = map[string]AssetParser{}
-	urlAttrs = []string{"href", "src"}
+	parsers = map[string]AssetParser{}
 )
 
 type SingleAssetParser func(m *Manager, name string, options Options) ([]*Asset, error)
@@ -35,29 +65,20 @@ type AssetParser func(m *Manager, names []string, options Options) ([]*Asset, er
 
 type Asset struct {
 	Name       string
+	Type       Type
 	Position   Position
 	Condition  *Condition
-	CodeType   CodeType
-	Tag        string
-	Closed     bool
 	Attributes Attributes
 	HTML       string
 }
 
-func (a *Asset) Rename(m *Manager, name string) error {
-	a.Name = name
-	return a.SetURL(m.URL(name))
+func (a *Asset) IsRemote() bool {
+	name := strings.ToLower(a.Name)
+	return strings.HasPrefix(name, "//") || strings.HasPrefix(name, "http://") || strings.HasPrefix(name, "https://")
 }
 
-func (a *Asset) SetURL(url string) error {
-	for _, v := range urlAttrs {
-		if _, ok := a.Attributes[v]; ok {
-			a.Attributes[v] = url
-			return nil
-		}
-		return nil
-	}
-	return fmt.Errorf("can't set URL on asset %q - doesn't have any ot these attributs %s", a.Name, urlAttrs)
+func (a *Asset) IsHTML() bool {
+	return a.HTML != ""
 }
 
 type Group struct {

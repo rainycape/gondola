@@ -22,7 +22,7 @@ func googleFontsParser(m *Manager, names []string, options Options) ([]*Asset, e
 	if subset != "" {
 		values.Add("subset", subset)
 	}
-	return []*Asset{CSS("google-fonts.css", "//fonts.googleapis.com/css?"+values.Encode())}, nil
+	return []*Asset{CSS("//fonts.googleapis.com/css?" + values.Encode())}, nil
 }
 
 func init() {

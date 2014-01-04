@@ -7,7 +7,7 @@ import (
 	"os/exec"
 )
 
-func command(path string, args []string, w io.Writer, r io.Reader, m *Manager, opts Options) error {
+func command(path string, args []string, w io.Writer, r io.Reader, opts Options) error {
 	var cmdArgs []string
 	cmdArgs = append(cmdArgs, args...)
 	cmdArgs = append(cmdArgs, "-")

@@ -12,16 +12,16 @@ var (
 type lessCompiler struct {
 }
 
-func (c *lessCompiler) Compile(w io.Writer, r io.Reader, m *Manager, opts Options) error {
+func (c *lessCompiler) Compile(w io.Writer, r io.Reader, opts Options) error {
 	if lesscPath != "" {
-		return command(lesscPath, []string{"--no-color"}, w, r, m, opts)
+		return command(lesscPath, []string{"--no-color"}, w, r, opts)
 	}
 	_, _, err := reducer("less", w, r)
 	return err
 }
 
-func (c *lessCompiler) CodeType() CodeType {
-	return CodeTypeCss
+func (c *lessCompiler) Type() Type {
+	return TypeCSS
 }
 
 func (c *lessCompiler) Ext() string {

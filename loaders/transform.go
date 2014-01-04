@@ -2,7 +2,6 @@ package loaders
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"time"
@@ -69,8 +68,5 @@ func (t *transformLoader) Create(name string, overwrite bool) (io.WriteCloser, e
 }
 
 func (t *transformLoader) List() ([]string, error) {
-	if lister, ok := t.loader.(Lister); ok {
-		return lister.List()
-	}
-	return nil, fmt.Errorf("%T does not implement Lister()", t.loader)
+	return t.loader.List()
 }

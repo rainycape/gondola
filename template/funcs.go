@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"gnd.la/app/serialize"
 	"gnd.la/html"
-	"gnd.la/template/assets"
 	"gnd.la/util/types"
 	"html/template"
 	"math"
@@ -318,7 +317,6 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"add":       add,
 	"even":      even,
 	"odd":       odd,
-	"render":    assets.Render,
 	"concat":    concat,
 	"and":       and,
 	"or":        or,

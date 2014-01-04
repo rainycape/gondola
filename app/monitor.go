@@ -9,7 +9,7 @@ func monitorHandler(ctx *Context) {
 	if err := t.Parse("monitor.html"); err != nil {
 		panic(err)
 	}
-	t.MustExecute(ctx, nil)
+	t.tmpl.MustExecute(ctx, nil)
 }
 
 func monitorAPIHandler(ctx *Context) {

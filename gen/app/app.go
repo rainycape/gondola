@@ -5,6 +5,7 @@ import (
 	"code.google.com/p/go.tools/go/types"
 	"fmt"
 	"gnd.la/gen/genutil"
+	"gnd.la/loaders"
 	"gnd.la/log"
 	"io/ioutil"
 	"launchpad.net/goyaml"
@@ -29,7 +30,19 @@ type App struct {
 	Assets    string            `yaml:"assets"`
 }
 
-func (app *App) Gen() error {
+func (app *App) writeLoader(buf *bytes.Buffer, dir string, release bool) error {
+	if release {
+		return loaders.Bake(buf, dir, nil, loaders.CompressTgz)
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(buf, "loaders.FSLoader(%q)\n", abs)
+	return nil
+}
+
+func (app *App) Gen(release bool) error {
 	pkg, err := genutil.NewPackage(app.Dir)
 	if err != nil {
 		return err
@@ -46,7 +59,10 @@ func (app *App) Gen() error {
 	buf.WriteString("App = app.New()\n")
 	fmt.Fprintf(&buf, "App.SetName(%q)\n", app.Name)
 	if app.Assets != "" {
-		fmt.Fprintf(&buf, "assetsLoader := loaders.FSLoader(%q)\n", filepath.Join(app.Dir, app.Assets))
+		buf.WriteString("assetsLoader := ")
+		if err := app.writeLoader(&buf, filepath.Join(app.Dir, app.Assets), release); err != nil {
+			return err
+		}
 		buf.WriteString("const prefix = \"/assets/\"\n")
 		buf.WriteString("manager := assets.NewManager(assetsLoader, prefix)\n")
 		buf.WriteString("App.SetAssetsManager(manager)\n")
@@ -54,9 +70,12 @@ func (app *App) Gen() error {
 		buf.WriteString("App.Handle(\"^\"+prefix, func(ctx *app.Context) { assetsHandler(ctx, ctx.R) })\n")
 	}
 	if app.Templates != nil && app.Templates.Path != "" {
-		re := regexp.MustCompile("\\W")
-		fmt.Fprintf(&buf, "templatesLoader := loaders.FSLoader(%q)\n", filepath.Join(app.Dir, app.Templates.Path))
+		buf.WriteString("templatesLoader := ")
+		if err := app.writeLoader(&buf, filepath.Join(app.Dir, app.Templates.Path), release); err != nil {
+			return err
+		}
 		buf.WriteString("App.SetTemplatesLoader(templatesLoader)\n")
+		re := regexp.MustCompile("\\W")
 		for k, v := range app.Templates.Hooks {
 			var pos string
 			switch strings.ToLower(v) {

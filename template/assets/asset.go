@@ -81,6 +81,19 @@ func (a *Asset) IsHTML() bool {
 	return a.HTML != ""
 }
 
+func (a *Asset) Code(m *Manager) (string, error) {
+	f, _, err := m.Load(a.Name)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	data, err := ioutil.ReadAll(f)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 type Group struct {
 	Manager *Manager
 	Assets  []*Asset
@@ -94,19 +107,6 @@ func (g *Group) Names() []string {
 	}
 	return names
 
-}
-
-func (a *Asset) Code(m *Manager) (string, error) {
-	f, _, err := m.Load(a.Name)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	data, err := ioutil.ReadAll(f)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
 }
 
 func Parse(m *Manager, name string, names []string, opts Options) (*Group, error) {

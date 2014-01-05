@@ -521,9 +521,12 @@ func (t *Template) assetFunc(arg string) (string, error) {
 }
 
 func (t *Template) prepareVars() error {
-	for _, tr := range t.Trees {
+	for k, tr := range t.Trees {
 		if len(tr.Root.Nodes) == 0 {
 			// Empty template
+			continue
+		}
+		if k == topBoilerplateName || k == bottomBoilerplateName {
 			continue
 		}
 		// Skip the first node, since it sets $Vars.

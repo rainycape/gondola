@@ -561,6 +561,9 @@ func (app *App) prepareNamespace(tree *parse.Tree, ns string) {
 }
 
 func (app *App) rewriteAssets(t *template.Template, included *includedApp) error {
+	if app.debug {
+		return nil
+	}
 	for _, group := range t.Assets() {
 		for _, a := range group.Assets {
 			if a.IsRemote() || a.IsHTML() {
@@ -1167,7 +1170,10 @@ func (app *App) closeContext(ctx *Context) {
 }
 
 func (app *App) importAssets(included *includedApp) error {
-	if am := included.app.assetsManager; am != nil {
+	am := included.app.assetsManager
+	if app.debug {
+		am.SetPrefix(included.prefix + am.Prefix())
+	} else {
 		m := app.assetsManager
 		prefix := strings.ToLower(included.app.name)
 		res, err := am.Loader().List()

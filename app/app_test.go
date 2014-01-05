@@ -37,6 +37,7 @@ func TestReverse(t *testing.T) {
 	a.HandleOptions("^/program/(\\d+)/(?:version/(\\d+)/)?$", helloHandler, &Options{Name: "programoptversion"})
 	a.HandleOptions("^/program/(\\d+)/(?:version/(\\d+)/)?(?:revision/(\\d+)/)?$", helloHandler, &Options{Name: "programrevision"})
 	a.HandleOptions("^/archive/(\\d+)?$", helloHandler, &Options{Name: "archive"})
+	a.HandleOptions("^/history/$", helloHandler, &Options{Name: "history"})
 	a.HandleOptions("^/image/(\\w+)\\.(\\w+)$", helloHandler, &Options{Name: "image"})
 	a.HandleOptions("^/image/(\\w+)\\-(\\w+)$", helloHandler, &Options{Name: "imagedash"})
 	a.HandleOptions("^/image/(\\w+)\\\\(\\w+)$", helloHandler, &Options{Name: "imageslash"})
@@ -52,6 +53,7 @@ func TestReverse(t *testing.T) {
 
 	testReverse(t, "/archive/19700101", a, "archive", "19700101")
 	testReverse(t, "/archive/", a, "archive")
+	testReverse(t, "/history/", a, "history")
 
 	// TODO: These don't work
 	/*

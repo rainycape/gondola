@@ -150,6 +150,12 @@ func (app *App) Handle(pattern string, handler Handler) {
 	app.HandleOptions(pattern, handler, nil)
 }
 
+// HandleNamed is a shorthand for HandleOptions, passing an Options instance
+// with just the name set.
+func (app *App) HandleNamed(pattern string, handler Handler, name string) {
+	app.HandleOptions(pattern, handler, &Options{Name: name})
+}
+
 // HandleOptions adds a new handler to the App. If the Options include a
 // non-empty name, it can be be reversed using Context.Reverse or
 // the "reverse" template function. To add a host-specific Handler,

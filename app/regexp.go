@@ -43,7 +43,7 @@ func walk(r *syntax.Regexp, f func(*syntax.Regexp) bool) bool {
 	return stop
 }
 
-func formatRegexp(r *regexp.Regexp, strict bool, args ...interface{}) (string, error) {
+func formatRegexp(r *regexp.Regexp, strict bool, args []interface{}) (string, error) {
 	re, _ := syntax.Parse(r.String(), syntax.Perl)
 	max := re.MaxCap()
 	min := minCap(re)

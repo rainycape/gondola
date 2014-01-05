@@ -722,7 +722,7 @@ func (app *App) reverse(name string, args []interface{}) (string, error) {
 func (app *App) reverseHandler(name string, args []interface{}) (bool, string, error) {
 	for _, v := range app.handlers {
 		if v.name == name {
-			reversed, err := formatRegexp(v.re, true, args...)
+			reversed, err := formatRegexp(v.re, true, args)
 			if err != nil {
 				if acerr, ok := err.(*argumentCountError); ok {
 					if acerr.MinArguments == acerr.MaxArguments {

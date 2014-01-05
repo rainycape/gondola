@@ -12,15 +12,15 @@ import (
 	"strconv"
 )
 
-// SerializationFormat indicates the format used
+// Format indicates the format used
 // to serialize an object.
-type SerializationFormat int
+type Format int
 
 const (
 	// Serialize to JSON
-	Json SerializationFormat = iota
+	JSON Format = iota
 	// Serialize to XML
-	Xml
+	XML
 )
 
 // JSONWriter is the interface implemented by types which
@@ -61,16 +61,16 @@ func putBuffer(buf *bytes.Buffer) {
 	}
 }
 
-// Write serializes value using the SerializationFormat f and writes it
+// Write serializes value using the Format f and writes it
 // to w. If w also implements http.ResponseWriter, it sets the appropiate
 // headers too. Returns the number of bytes written and any error that might
 // occur while serializing or writing the serialized data.
-func Write(w io.Writer, value interface{}, f SerializationFormat) (int, error) {
+func Write(w io.Writer, value interface{}, f Format) (int, error) {
 	var data []byte
 	var contentType string
 	var err error
 	switch f {
-	case Json:
+	case JSON:
 		switch v := value.(type) {
 		case []byte:
 			data = v
@@ -88,7 +88,7 @@ func Write(w io.Writer, value interface{}, f SerializationFormat) (int, error) {
 			data, err = json.Marshal(value)
 		}
 		contentType = "application/json"
-	case Xml:
+	case XML:
 		switch v := value.(type) {
 		case []byte:
 			data = v
@@ -110,12 +110,12 @@ func Write(w io.Writer, value interface{}, f SerializationFormat) (int, error) {
 	return w.Write(data)
 }
 
-// WriteJson is equivalent to Write(w, value, Json)
-func WriteJson(w io.Writer, value interface{}) (int, error) {
-	return Write(w, value, Json)
+// WriteJSON is equivalent to Write(w, value, JSON)
+func WriteJSON(w io.Writer, value interface{}) (int, error) {
+	return Write(w, value, JSON)
 }
 
-// WriteXml is equivalent to Write(w, value, Xml)
-func WriteXml(w io.Writer, value interface{}) (int, error) {
-	return Write(w, value, Xml)
+// WriteXML is equivalent to Write(w, value, XML)
+func WriteXML(w io.Writer, value interface{}) (int, error) {
+	return Write(w, value, XML)
 }

@@ -3,7 +3,7 @@
 // When used correctly, these methods can easily give a ~200-300% performance
 // increase when serializing objects to JSON while also reducing memory usage
 // by ~95-99%. For taking advantage of these gains, you must use
-// gnd.la/app/serialize or Context.WriteJson to encode to JSON, since
+// gnd.la/app/serialize or Context.WriteJSON to encode to JSON, since
 // json.Marshal won't use these methods correctly and might even have worse
 // performance when these methods are implemented.
 //

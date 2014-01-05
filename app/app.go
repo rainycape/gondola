@@ -1227,7 +1227,7 @@ func New() *App {
 	// is restarted.
 	if m.debug {
 		m.Handle(devStatusPage, func(ctx *Context) {
-			ctx.WriteJson(map[string]interface{}{
+			ctx.WriteJSON(map[string]interface{}{
 				"built":   nil,
 				"started": strconv.FormatInt(m.started.Unix(), 10),
 			})

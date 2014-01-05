@@ -459,7 +459,7 @@ func (p *Project) Handler(ctx *app.Context) {
 func (p *Project) StatusHandler(ctx *app.Context) {
 	built := formatTime(p.built)
 	started := formatTime(p.started)
-	ctx.WriteJson(map[string]interface{}{
+	ctx.WriteJSON(map[string]interface{}{
 		"built":   built,
 		"started": started,
 	})

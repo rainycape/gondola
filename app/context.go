@@ -422,14 +422,14 @@ func (c *Context) MustExecute(name string, data interface{}) {
 	}
 }
 
-// WriteJson is equivalent to serialize.WriteJson(ctx, data)
-func (c *Context) WriteJson(data interface{}) (int, error) {
-	return serialize.WriteJson(c, data)
+// WriteJSON is equivalent to serialize.WriteJSON(ctx, data)
+func (c *Context) WriteJSON(data interface{}) (int, error) {
+	return serialize.WriteJSON(c, data)
 }
 
-// WriteXml is equivalent to serialize.WriteXml(ctx, data)
-func (c *Context) WriteXml(data interface{}) (int, error) {
-	return serialize.WriteXml(c, data)
+// WriteXML is equivalent to serialize.WriteXML(ctx, data)
+func (c *Context) WriteXML(data interface{}) (int, error) {
+	return serialize.WriteXML(c, data)
 }
 
 // Elapsed returns the duration since this context started

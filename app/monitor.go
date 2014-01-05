@@ -18,7 +18,7 @@ func monitorAPIHandler(ctx *Context) {
 	data := map[string]interface{}{
 		"mem": &stats,
 	}
-	if _, err := ctx.WriteJson(data); err != nil {
+	if _, err := ctx.WriteJSON(data); err != nil {
 		panic(err)
 	}
 }

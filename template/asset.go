@@ -22,6 +22,8 @@ func executeAsset(t *Template, name string) (string, error) {
 		return "", err
 	}
 	tmpl := template.New(name)
+	tmpl.Funcs(template.FuncMap(templateFuncs))
+	tmpl.Funcs(template.FuncMap(t.funcMap))
 	if _, err := tmpl.Parse(string(data)); err != nil {
 		return "", err
 	}

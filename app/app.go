@@ -702,10 +702,14 @@ func (app *App) MustReverse(name string, args ...interface{}) string {
 // If the handler is also restricted to a given hostname, the return value
 // will be a scheme relative url e.g. //www.example.com/article/...
 func (app *App) Reverse(name string, args ...interface{}) (string, error) {
+	return app.reverse(name, args)
+}
+
+func (app *App) reverse(name string, args []interface{}) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("no handler name specified")
 	}
-	found, s, err := app.reverse(name, args)
+	found, s, err := app.reverseHandler(name, args)
 	if err != nil {
 		return "", err
 	}
@@ -715,7 +719,7 @@ func (app *App) Reverse(name string, args ...interface{}) (string, error) {
 	return s, nil
 }
 
-func (app *App) reverse(name string, args []interface{}) (bool, string, error) {
+func (app *App) reverseHandler(name string, args []interface{}) (bool, string, error) {
 	for _, v := range app.handlers {
 		if v.name == name {
 			reversed, err := formatRegexp(v.re, true, args...)
@@ -737,8 +741,8 @@ func (app *App) reverse(name string, args []interface{}) (bool, string, error) {
 		}
 	}
 	for _, v := range app.included {
-		if found, s, err := v.app.reverse(name, args); found {
-			return found, v.prefix + s, err
+		if found, s, err := v.app.reverseHandler(name, args); found {
+			return found, s, err
 		}
 	}
 	return false, "", nil

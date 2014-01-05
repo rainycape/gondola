@@ -28,8 +28,7 @@ type tmpl struct {
 
 func (t *tmpl) reverse(name string, args ...interface{}) (string, error) {
 	if t.app != nil {
-		_, s, err := t.app.reverse(name, args)
-		return s, err
+		return t.app.reverse(name, args)
 	}
 	return "", fmt.Errorf("can't reverse %s because the app is not available", name)
 }

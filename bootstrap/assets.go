@@ -71,6 +71,11 @@ func bootstrapParser(m *assets.Manager, names []string, options assets.Options) 
 	return as, nil
 }
 
+func fontAwesomeParser(m *assets.Manager, version string, opts assets.Options) ([]*assets.Asset, error) {
+	return []*assets.Asset{assets.CSS(fmt.Sprintf(fontAwesomeFmt, version))}, nil
+}
+
 func init() {
 	assets.Register("bootstrap", bootstrapParser)
+	assets.Register("fontawesome", assets.SingleParser(fontAwesomeParser))
 }

@@ -69,6 +69,31 @@ func (app *App) Gen(release bool) error {
 		buf.WriteString("assetsHandler := assets.Handler(manager)\n")
 		buf.WriteString("App.Handle(\"^\"+prefix, func(ctx *app.Context) { assetsHandler(ctx, ctx.R) })\n")
 	}
+	scope := pkg.Scope()
+	if len(app.Vars) > 0 {
+		buf.WriteString("App.AddTemplateVars(map[string]interface{}{\n")
+		for k, v := range app.Vars {
+			ident := k
+			name := v
+			if name == "" {
+				name = ident
+			}
+			obj := scope.Lookup(ident)
+			if obj == nil {
+				return fmt.Errorf("could not find identifier named %q", ident)
+			}
+			rhs := ident
+			if va, ok := obj.(*types.Var); ok {
+				tn := va.Type().String()
+				if strings.Contains(tn, ".") {
+					tn = "interface{}"
+				}
+				rhs = fmt.Sprintf("func() %s { return %s }", tn, ident)
+			}
+			fmt.Fprintf(&buf, "%q: %s,\n", name, rhs)
+		}
+		buf.WriteString("})\n")
+	}
 	if app.Templates != nil && app.Templates.Path != "" {
 		buf.WriteString("templatesLoader := ")
 		if err := app.writeLoader(&buf, filepath.Join(app.Dir, app.Templates.Path), release); err != nil {
@@ -94,7 +119,6 @@ func (app *App) Gen(release bool) error {
 			fmt.Fprintf(&buf, "App.AddHook(&template.Hook{Template: tmpl_%s.Template(), Position: %s})\n", suffix, pos)
 		}
 	}
-	scope := pkg.Scope()
 	for k, v := range app.Handlers {
 		obj := scope.Lookup(k)
 		if obj == nil {
@@ -109,30 +133,6 @@ func (app *App) Gen(release bool) error {
 		default:
 			return fmt.Errorf("invalid handler type %s", obj.Type())
 		}
-	}
-	if len(app.Vars) > 0 {
-		buf.WriteString("App.AddTemplateVars(map[string]interface{}{\n")
-		for k, v := range app.Vars {
-			ident := k
-			name := v
-			if name == "" {
-				name = ident
-			}
-			obj := scope.Lookup(ident)
-			if obj == nil {
-				return fmt.Errorf("could not find identifier named %q", ident)
-			}
-			rhs := ident
-			if va, ok := obj.(*types.Var); ok {
-				tn := va.Type().String()
-				if strings.Contains(tn, ".") {
-					tn = "interface{}"
-				}
-				rhs = fmt.Sprintf("func() %s { return %s }", tn, ident)
-			}
-			fmt.Fprintf(&buf, "%q: %s,\n", name, rhs)
-		}
-		buf.WriteString("})\n")
 	}
 	buf.WriteString("}\n")
 	out := filepath.Join(pkg.Dir(), "gondola_app.go")

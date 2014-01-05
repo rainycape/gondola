@@ -63,6 +63,7 @@ type Template struct {
 	AssetsManager *assets.Manager
 	Trees         map[string]*parse.Tree
 	Minify        bool
+	Final         bool
 	funcMap       FuncMap
 	vars          VarMap
 	root          string
@@ -377,6 +378,13 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 			case "extend", "extends":
 				if extended || len(values) > 1 {
 					return fmt.Errorf("templates can only extend one template")
+				}
+				if t.Final {
+					return fmt.Errorf("template has been declared as final")
+				}
+				if strings.ToLower(values[0]) == "none" {
+					t.Final = true
+					break
 				}
 				extended = true
 				inc = false

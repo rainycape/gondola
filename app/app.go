@@ -528,7 +528,7 @@ func (app *App) loadTemplate(name string) (*tmpl, error) {
 			return nil, err
 		}
 	}
-	if app.parent != nil {
+	if app.parent != nil && !t.tmpl.Final {
 		return app.parent.chainTemplate(t, app.childInfo)
 	}
 	return t, nil

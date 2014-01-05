@@ -740,6 +740,12 @@ func (app *App) reverseHandler(name string, args []interface{}) (bool, string, e
 				}
 				return true, "", fmt.Errorf("error reversing handler %q: %s", name, err)
 			}
+			if app.childInfo != nil {
+				// Don't use path.Join, it will remove any trailing
+				// slashes. Since the prefix has been sanitized in
+				// Include, we can just prepend it.
+				reversed = app.childInfo.prefix + reversed
+			}
 			if v.host != "" {
 				reversed = fmt.Sprintf("//%s%s", v.host, reversed)
 			}

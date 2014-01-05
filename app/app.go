@@ -241,6 +241,8 @@ func (app *App) include(prefix string, child *App, base string, main string) err
 	child.parent = app
 	child.secret = app.secret
 	child.encryptionKey = app.encryptionKey
+	child.languageHandler = app.languageHandler
+	child.userFunc = app.userFunc
 	child.Logger = app.Logger
 	included := &includedApp{
 		prefix: prefix,
@@ -393,6 +395,9 @@ func (app *App) LanguageHandler() LanguageHandler {
 // a language handler it uses the language specified by gnd.la/defaults.
 func (app *App) SetLanguageHandler(handler LanguageHandler) {
 	app.languageHandler = handler
+	for _, v := range app.included {
+		v.app.languageHandler = handler
+	}
 }
 
 func (app *App) UserFunc() UserFunc {
@@ -401,6 +406,9 @@ func (app *App) UserFunc() UserFunc {
 
 func (app *App) SetUserFunc(f UserFunc) {
 	app.userFunc = f
+	for _, v := range app.included {
+		v.app.userFunc = f
+	}
 }
 
 // AssetsManager returns the manager for static assets

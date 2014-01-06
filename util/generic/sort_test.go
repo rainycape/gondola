@@ -98,6 +98,19 @@ func TestSortMethod(t *testing.T) {
 	}
 }
 
+func TestSortFunc(t *testing.T) {
+	var t1 []*Test1
+	t1 = append(t1, tests...)
+	SortFunc(t1, func(i, j *Test1) bool {
+		return i.Name < j.Name
+	})
+	for ii, v := range t1 {
+		if ex := string(chars[ii]); ex != v.Name {
+			t.Errorf("bad value at index %d. want %s, got %s", ii, ex, v.Name)
+		}
+	}
+}
+
 func BenchmarkSortLong(b *testing.B) {
 	b.ReportAllocs()
 	for ii := 0; ii < b.N; ii++ {

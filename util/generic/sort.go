@@ -1,6 +1,8 @@
 package generic
 
 import (
+	"fmt"
+	"reflect"
 	"sort"
 )
 
@@ -66,4 +68,51 @@ func Sort(data interface{}, key string) {
 	} else {
 		sort.Sort(srt)
 	}
+}
+
+type funcSortable struct {
+	val reflect.Value
+	fn  reflect.Value
+}
+
+func (fs *funcSortable) Len() int {
+	return fs.val.Len()
+}
+
+func (fs *funcSortable) Less(i, j int) bool {
+	vi := fs.val.Index(i)
+	vj := fs.val.Index(j)
+	res := fs.fn.Call([]reflect.Value{vi, vj})
+	return res[0].Bool()
+}
+
+func (fs *funcSortable) Swap(i, j int) {
+	vi := fs.val.Index(i)
+	vj := fs.val.Index(j)
+	tmp := reflect.New(vi.Type()).Elem()
+	tmp.Set(vi)
+	vi.Set(vj)
+	vj.Set(tmp)
+}
+
+var boolType = reflect.TypeOf(true)
+
+// SortFunc shorts the given slice or array using the provided less
+// function. The function must accept two arguments of the same type
+// of the slice element and must return just one bool argument.
+func SortFunc(data interface{}, less interface{}) {
+	val := reflect.ValueOf(data)
+	if val.Kind() != reflect.Array && val.Kind() != reflect.Slice {
+		panic(fmt.Errorf("first argument to SortFunc must be slice or array, not %T", data))
+	}
+	fn := reflect.ValueOf(less)
+	if fn.Kind() != reflect.Func {
+		panic(fmt.Errorf("second argument to SortFunc must be func, not %T", less))
+	}
+	elem := val.Type().Elem()
+	ft := fn.Type()
+	if ft.NumIn() != 2 || ft.In(0) != elem || ft.In(1) != elem || ft.NumOut() != 1 || ft.Out(0) != boolType {
+		panic(fmt.Errorf("less function for %s must be func(%s, %s) bool, not %s", val.Type(), elem, elem, ft))
+	}
+	sort.Sort(&funcSortable{val, fn})
 }

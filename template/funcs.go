@@ -175,7 +175,7 @@ func deref(arg interface{}) (interface{}, error) {
 	return v.Elem().Interface(), nil
 }
 
-func mult(args ...interface{}) (interface{}, error) {
+func mult(args ...interface{}) (float64, error) {
 	val := 1.0
 	for ii, v := range args {
 		value := reflect.ValueOf(v)
@@ -196,11 +196,12 @@ func mult(args ...interface{}) (interface{}, error) {
 			return 0, fmt.Errorf("Invalid argument of type %T passed to mult at index %d", v, ii)
 		}
 	}
-	if math.Floor(val) == val {
-		return int(val), nil
-	}
 	return val, nil
+}
 
+func imult(args ...interface{}) (int, error) {
+	val, err := mult(args...)
+	return int(val), err
 }
 
 func add(args ...interface{}) (interface{}, error) {
@@ -313,6 +314,7 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"append":    _append,
 	"deref":     deref,
 	"mult":      mult,
+	"imult":     imult,
 	"divisible": divisible,
 	"add":       add,
 	"even":      even,

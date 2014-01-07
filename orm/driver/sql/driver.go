@@ -146,6 +146,7 @@ func (d *Driver) Operate(m driver.Model, q query.Q, op *operation.Operation) (dr
 	if err != nil {
 		return nil, err
 	}
+	dbName = unquote(dbName)
 	var buf bytes.Buffer
 	buf.WriteString("UPDATE ")
 	buf.WriteByte('"')
@@ -167,7 +168,11 @@ func (d *Driver) Operate(m driver.Model, q query.Q, op *operation.Operation) (dr
 		params = append(params, op.Value)
 	case operation.OpSet:
 		if f, ok := op.Value.(operation.Field); ok {
-			buf.WriteString(string(f))
+			fieldName, _, err := m.Map(string(f))
+			if err != nil {
+				return nil, err
+			}
+			buf.WriteString(unquote(fieldName))
 		} else {
 			buf.WriteString(d.backend.Placeholder(1))
 			params = append(params, op.Value)

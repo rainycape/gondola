@@ -135,6 +135,10 @@ func (t *Template) PrepareAssets() error {
 		if v.Options.Bundle() && v.Options.Cdn() {
 			return fmt.Errorf("asset group %s has incompatible options \"bundle\" and \"cdn\"", v.Names())
 		}
+		// Make a copy of the group, so assets get executed and compiled, every
+		// time the template is loaded. This is specially useful while developing
+		// a Gondola app which uses compilable or executable assets.
+		v = copyGroup(v)
 		// Check if any assets have to be compiled (LESS, CoffeScript, etc...)
 		for _, a := range v.Assets {
 			name, err := assets.Compile(v.Manager, a.Name, a.Type, v.Options)
@@ -849,4 +853,17 @@ func canBundle(g1, g2 *assets.Group) bool {
 		}
 	}
 	return false
+}
+
+func copyGroup(src *assets.Group) *assets.Group {
+	copies := make([]*assets.Asset, len(src.Assets))
+	for ii, v := range src.Assets {
+		a := *v
+		copies[ii] = &a
+	}
+	return &assets.Group{
+		Manager: src.Manager,
+		Assets:  copies,
+		Options: src.Options,
+	}
 }

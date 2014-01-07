@@ -73,10 +73,16 @@ func (t *Task) deleteLocked() {
 
 func (t *Task) execute(now bool) {
 	if now {
-		executeTask(t)
+		t.executeTask()
 	}
 	for _ = range t.ticker.C {
-		executeTask(t)
+		t.executeTask()
+	}
+}
+
+func (t *Task) executeTask() {
+	if _, err := executeTask(t); err != nil {
+		log.Error(err)
 	}
 }
 
@@ -98,9 +104,7 @@ func afterTask(task *Task, started time.Time, terr *error) {
 	if err := recover(); err != nil {
 		skip, stackSkip, _, _ := runtimeutil.GetPanic()
 		var buf bytes.Buffer
-		buf.WriteString(fmt.Sprintf("Panic executing task %s: ", name))
-		buf.WriteString(fmt.Sprintf("%v", err))
-		buf.WriteByte('\n')
+		fmt.Fprintf(&buf, "Panic executing task %s: %v\n", name, err)
 		stack := runtimeutil.FormatStack(stackSkip)
 		location, code := runtimeutil.FormatCaller(skip, 5, true, true)
 		if location != "" {
@@ -146,18 +150,18 @@ func canRunTask(task *Task) error {
 	return nil
 }
 
-func executeTask(task *Task) (bool, error) {
-	if err := canRunTask(task); err != nil {
-		return false, err
+func executeTask(task *Task) (ran bool, err error) {
+	if err = canRunTask(task); err != nil {
+		return
 	}
 	ctx := task.App.NewContext(contextProvider(0))
 	defer task.App.CloseContext(ctx)
 	started := time.Now()
 	log.Debugf("Starting task %s at %v", task.Name(), started)
-	var err error
+	ran = true
 	defer afterTask(task, started, &err)
 	task.Handler(ctx)
-	return true, err
+	return
 }
 
 // Register registers a new task that might be run with Run, but

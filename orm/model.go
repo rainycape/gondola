@@ -180,11 +180,14 @@ func (j *joinModel) Join() driver.Join {
 
 func (j *joinModel) String() string {
 	s := []string{j.model.name}
-	for cur := j; cur.join != nil; cur = cur.join.model {
+	if j.skip {
+		s = append(s, "(Skipped)")
+	}
+	if j.join != nil {
 		s = append(s, " JOIN ")
-		s = append(s, cur.join.model.name)
+		s = append(s, j.join.model.String())
 		s = append(s, " ON ")
-		s = append(s, fmt.Sprintf("%+v", cur.join.q))
+		s = append(s, fmt.Sprintf("%+v", j.join.q))
 	}
 	return strings.Join(s, "")
 }

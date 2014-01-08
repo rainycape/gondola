@@ -79,7 +79,7 @@ func (ns *namespace) addNs(name string, ans *namespace) error {
 }
 
 func (ns *namespace) eval(ctx *Context) (map[string]interface{}, error) {
-	m := make(map[string]interface{}, len(ns.vars)+len(ns.funcs)+len(ns.namespaces))
+	m := make(map[string]interface{}, len(ns.vars)+len(ns.funcs)+len(ns.namespaces)+2)
 	for k, v := range ns.vars {
 		m[k] = v
 	}
@@ -99,6 +99,10 @@ func (ns *namespace) eval(ctx *Context) (map[string]interface{}, error) {
 			return nil, out[1].Interface().(error)
 		}
 		m[k] = out[0].Interface()
+	}
+	m["Ctx"] = ctx
+	if ctx != nil {
+		m["Request"] = ctx.R
 	}
 	var err error
 	for k, v := range ns.namespaces {

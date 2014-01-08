@@ -42,6 +42,9 @@ func eval(obj interface{}, varname string) (string, error) {
 	if dot >= 0 {
 		k = k[:dot]
 	}
+	if k == "Vars" {
+		return eval(obj, varname[dot+1:])
+	}
 	res, err := lookup(v, k)
 	if err != nil {
 		return "", err

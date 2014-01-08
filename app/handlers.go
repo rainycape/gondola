@@ -19,10 +19,10 @@ func RedirectHandler(destination string, permanent bool) Handler {
 
 // SignOutHandler can be added directly to an App. It signs out the
 // current user (if any) and redirects back to the previous
-// page unless the request was made via ajax.
+// page unless the request was made via XHR.
 func SignOutHandler(ctx *Context) {
 	ctx.SignOut()
-	if !ctx.IsAjax() {
+	if !ctx.IsXHR() {
 		ctx.RedirectBack()
 	}
 }

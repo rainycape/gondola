@@ -450,9 +450,9 @@ func (c *Context) RemoteAddress() string {
 	return ""
 }
 
-// IsAjax returns wheter the request was made via ajax. Internally,
+// IsXHR returns wheter the request was made via XMLHTTPRequest. Internally,
 // it uses X-Requested-With, which is set by all major JS libraries.
-func (c *Context) IsAjax() bool {
+func (c *Context) IsXHR() bool {
 	return c.R != nil && c.R.Header.Get("X-Requested-With") == "XMLHttpRequest"
 }
 

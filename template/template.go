@@ -834,8 +834,8 @@ func MustParse(loader loaders.Loader, manager *assets.Manager, name string) *Tem
 
 func compileTree(text string) *parse.Tree {
 	funcs := template.FuncMap{
-		topAssetsFuncName:    func() {},
-		bottomAssetsFuncName: func() {},
+		topAssetsFuncName:    nop,
+		bottomAssetsFuncName: nop,
 	}
 	treeMap, err := parse.Parse("", text, leftDelim, rightDelim, funcs)
 	if err != nil {
@@ -867,3 +867,5 @@ func copyGroup(src *assets.Group) *assets.Group {
 		Options: src.Options,
 	}
 }
+
+func nop() interface{} { return nil }

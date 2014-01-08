@@ -24,28 +24,28 @@ func DefaultFunctions() []*Function {
 		{Name: "gnd.la/i18n.Sprintf"},
 		{Name: "gnd.la/i18n.NewError"},
 		{Name: "gnd.la/app.Context.T"},
-		{Name: "T", Template: true},
+		{Name: "t", Template: true},
 		// Singular functions with context
 		{Name: "gnd.la/i18n.Tc", Context: true},
 		{Name: "gnd.la/i18n.Sprintfc", Context: true},
 		{Name: "gnd.la/i18n.Errorfc", Context: true},
 		{Name: "gnd.la/i18n.NewErrorc", Context: true},
 		{Name: "gnd.la/app.Context.Tc", Context: true},
-		{Name: "Tc", Template: true, Context: true},
+		{Name: "tc", Template: true, Context: true},
 		// Plural functions without context
 		{Name: "gnd.la/i18n.Tn", Plural: true},
 		{Name: "gnd.la/i18n.Sprintfn", Plural: true},
 		{Name: "gnd.la/i18n.Errorfn", Plural: true},
 		{Name: "gnd.la/i18n.NewErrorn", Plural: true},
 		{Name: "gnd.la/app.Context.Tn", Plural: true},
-		{Name: "Tn", Template: true, Plural: true},
+		{Name: "tn", Template: true, Plural: true},
 		// Plural functions with context
 		{Name: "gnd.la/i18n.Tnc", Context: true, Plural: true},
 		{Name: "gnd.la/i18n.Errorfnc", Context: true, Plural: true},
 		{Name: "gnd.la/i18n.Sprintfnc", Context: true, Plural: true},
 		{Name: "gnd.la/i18n.NewErrornc", Context: true, Plural: true},
 		{Name: "gnd.la/app.Context.Tnc", Context: true, Plural: true},
-		{Name: "Tnc", Template: true, Context: true, Plural: true},
+		{Name: "tnc", Template: true, Context: true, Plural: true},
 	}
 }
 

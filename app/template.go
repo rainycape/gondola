@@ -5,8 +5,10 @@ import (
 	"gnd.la/loaders"
 	"gnd.la/template"
 	"gnd.la/template/assets"
+	"gnd.la/util/internal/templateutil"
 	"io"
 	"net/http"
+	"text/template/parse"
 )
 
 var reservedVariables = []string{"Ctx", "Request"}
@@ -40,6 +42,10 @@ func newTemplate(app *App, loader loaders.Loader, manager *assets.Manager) *tmpl
 	t.tmpl.Debug = app.debug
 	t.tmpl.Funcs(template.FuncMap{
 		"reverse": t.reverse,
+		"t":       nop,
+		"tn":      nop,
+		"tc":      nop,
+		"tnc":     nop,
 	})
 	return t
 }
@@ -76,13 +82,19 @@ func (t *tmpl) execute(w io.Writer, name string, data interface{}, vars template
 	if context, _ = w.(*Context); context != nil {
 		request = context.R
 	}
-	vars, err := t.app.namespace.eval(context)
-	if err != nil {
-		return err
+	var tvars map[string]interface{}
+	var err error
+	if t.app.namespace != nil {
+		tvars, err = t.app.namespace.eval(context)
+		if err != nil {
+			return err
+		}
+	} else {
+		tvars = make(map[string]interface{})
 	}
-	vars["Ctx"] = context
-	vars["Request"] = request
-	return t.tmpl.ExecuteTemplateVars(w, name, data, vars)
+	tvars["Ctx"] = context
+	tvars["Request"] = request
+	return t.tmpl.ExecuteTemplateVars(w, name, data, tvars)
 }
 
 func (t *tmpl) Template() *template.Template {
@@ -104,3 +116,42 @@ func (t *tmpl) ExecuteVars(w io.Writer, data interface{}, vars map[string]interf
 func (t *tmpl) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars map[string]interface{}) error {
 	return t.execute(w, name, data, vars)
 }
+
+func (t *tmpl) replaceNode(n, p parse.Node, fname string) error {
+	nn := &parse.VariableNode{
+		NodeType: parse.NodeVariable,
+		Pos:      n.Position(),
+		Ident:    []string{"$Vars", "Ctx", fname},
+	}
+	return templateutil.ReplaceNode(n, p, nn)
+}
+
+func (t *tmpl) rewriteTranslationFuncs() error {
+	for _, tr := range t.tmpl.Trees {
+		var err error
+		templateutil.WalkTree(tr, func(n, p parse.Node) {
+			if err != nil {
+				return
+			}
+			if n.Type() == parse.NodeIdentifier {
+				id := n.(*parse.IdentifierNode)
+				switch id.Ident {
+				case "t":
+					err = t.replaceNode(n, p, "T")
+				case "tn":
+					err = t.replaceNode(n, p, "Tn")
+				case "tc":
+					err = t.replaceNode(n, p, "Tc")
+				case "tnc":
+					err = t.replaceNode(n, p, "Tnc")
+				}
+			}
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return t.tmpl.Rebuild()
+}
+
+func nop() interface{} { return nil }

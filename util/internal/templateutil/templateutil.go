@@ -73,6 +73,33 @@ func walkNode(node, parent parse.Node, f func(n, p parse.Node)) {
 	}
 }
 
+// ReplaceNode replaces the n node in parent p with nn.
+func ReplaceNode(n parse.Node, p parse.Node, nn parse.Node) error {
+	found := false
+	switch pn := p.(type) {
+	/*case *parse.ActionNode:
+	case *parse.PipeNode:*/
+	case *parse.CommandNode:
+		for ii, v := range pn.Args {
+			if v == n {
+				pn.Args[ii] = nn
+				found = true
+				break
+			}
+		}
+	/*case *parse.ListNode:
+	case *parse.IfNode:
+	case *parse.WithNode:
+	case *parse.RangeNode:*/
+	default:
+		return fmt.Errorf("can't replace node in %T", pn)
+	}
+	if !found {
+		return fmt.Errorf("could not find node %v in parent %v", n, p)
+	}
+	return nil
+}
+
 // Parse parses the given text as a set of template trees, adding placeholders
 // for undefined functions and variables.
 func Parse(name string, text string) (map[string]*parse.Tree, error) {

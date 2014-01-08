@@ -496,6 +496,9 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 				return nil, fmt.Errorf("error hooking %q: %s", v.Template.Root(), err)
 			}
 		}
+		if err := t.rewriteTranslationFuncs(); err != nil {
+			return nil, err
+		}
 		if err := t.tmpl.PrepareAssets(); err != nil {
 			return nil, err
 		}

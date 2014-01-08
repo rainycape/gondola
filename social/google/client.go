@@ -1,4 +1,4 @@
-package gplus
+package google
 
 import (
 	"net/http"

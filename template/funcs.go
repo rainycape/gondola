@@ -117,10 +117,6 @@ func nz(x interface{}) bool {
 	return false
 }
 
-func lower(x string) string {
-	return strings.ToLower(x)
-}
-
 func join(x []string, sep string) string {
 	return strings.Join(x, sep)
 }
@@ -307,7 +303,6 @@ var templateFuncs template.FuncMap = template.FuncMap{
 	"json":      _json,
 	"jsons":     jsons,
 	"nz":        nz,
-	"lower":     lower,
 	"join":      join,
 	"map":       _map,
 	"slice":     _slice,

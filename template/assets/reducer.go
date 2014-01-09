@@ -14,6 +14,7 @@ import (
 //  Reducer + "css"
 //  Reducer + "js"
 //  Reducer + "less"
+//  Reducer + "coffee"
 //  ...
 //
 // The code to reduce or compile will be sent in

@@ -3,13 +3,9 @@ package admin
 import (
 	"fmt"
 	"gnd.la/app"
-	"gnd.la/loaders"
 	"gnd.la/log"
 	"io"
-	"io/ioutil"
 	"os"
-	"path/filepath"
-	"regexp"
 )
 
 // Builtin admin commands implemented here
@@ -55,30 +51,6 @@ func makeAssets(ctx *app.Context) {
 	makeAppAssets(ctx.App())
 }
 
-func rmGen(ctx *app.Context) {
-	if am := ctx.App().AssetsManager(); am != nil {
-		if dl, ok := am.Loader().(loaders.DirLoader); ok {
-			re := regexp.MustCompile("(?i).+\\.gen\\..+")
-			filepath.Walk(dl.Dir(), func(path string, info os.FileInfo, err error) error {
-				if !info.IsDir() && re.MatchString(path) {
-					log.Debugf("Removing %s", path)
-					if err := os.Remove(path); err != nil {
-						panic(err)
-					}
-					dir := filepath.Dir(path)
-					if infos, err := ioutil.ReadDir(dir); err == nil && len(infos) == 0 {
-						log.Debugf("Removing empty dir %s", dir)
-						if err := os.Remove(dir); err != nil {
-							panic(err)
-						}
-					}
-				}
-				return nil
-			})
-		}
-	}
-}
-
 func init() {
 	Register(catFile, &Options{
 		Help:  "Prints a file from the blobstore to the stdout",
@@ -86,8 +58,5 @@ func init() {
 	})
 	Register(makeAssets, &Options{
 		Help: "Pre-compile and bundle all app assets",
-	})
-	Register(rmGen, &Options{
-		Help: "Remove Gondola generated files (identifier by *.gen.*)",
 	})
 }

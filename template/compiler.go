@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"gnd.la/util/types"
 	"io"
-	"math"
 	"reflect"
 	"text/template/parse"
 )
@@ -40,9 +39,11 @@ const (
 	opSTACKDOT
 )
 
+type valType uint32
+
 type inst struct {
 	op  uint8
-	val uint64
+	val valType
 }
 
 type variable struct {
@@ -115,12 +116,6 @@ func (s *state) execute(name string, dot reflect.Value) error {
 	for ii := 0; ii < len(code); ii++ {
 		v := code[ii]
 		switch v.op {
-		case opBOOL:
-			val := false
-			if v.val > 0 {
-				val = true
-			}
-			s.stack = append(s.stack, reflect.ValueOf(val))
 		case opFIELD:
 			var res reflect.Value
 			p := len(s.stack) - 1
@@ -136,17 +131,13 @@ func (s *state) execute(name string, dot reflect.Value) error {
 			// opFIELD overwrites the stack
 			s.stack[p] = res
 		case opFUNC:
-			args := int(v.val >> 32)
-			i := int(v.val & 0xFFFFFFFF)
+			args := int(v.val >> 16)
+			i := int(v.val & 0xFFFF)
 			fn := s.p.funcs[i]
 			// function existence is checked at compile time
 			if err := s.call(fn.val, fn.name, args); err != nil {
 				return err
 			}
-		case opFLOAT:
-			s.stack = append(s.stack, reflect.ValueOf(math.Float64frombits(v.val)))
-		case opINT:
-			s.stack = append(s.stack, reflect.ValueOf(int64(v.val)))
 		case opJMP:
 			ii += int(v.val)
 		case opJMPF:
@@ -155,6 +146,8 @@ func (s *state) execute(name string, dot reflect.Value) error {
 				//				fmt.Println("FALSE JMP", v.val)
 				ii += int(v.val)
 			}
+		case opBOOL, opFLOAT, opINT, opUINT:
+			s.stack = append(s.stack, s.p.values[v.val])
 		case opJMPT:
 			p := len(s.stack)
 			if p > 0 && isTrue(s.stack[p-1]) {
@@ -187,8 +180,6 @@ func (s *state) execute(name string, dot reflect.Value) error {
 			s.stack = append(s.stack, stackable(dot))
 		case opSTRING:
 			s.stack = append(s.stack, s.p.rstrings[int(v.val)])
-		case opUINT:
-			s.stack = append(s.stack, reflect.ValueOf(v.val))
 		case opWB:
 			if _, err := s.w.Write(s.p.bs[int(v.val)]); err != nil {
 				return err
@@ -212,6 +203,7 @@ type Program struct {
 	funcs    []*fn
 	strings  []string
 	rstrings []reflect.Value
+	values   []reflect.Value
 	bs       [][]byte
 	code     map[string][]inst
 	// used only during compilation
@@ -219,25 +211,25 @@ type Program struct {
 	cmd []int
 }
 
-func (p *Program) inst(op uint8, val uint64) {
+func (p *Program) inst(op uint8, val valType) {
 	p.buf = append(p.buf, inst{op: op, val: val})
 }
 
-func (p *Program) addString(s string) uint64 {
+func (p *Program) addString(s string) valType {
 	for ii, v := range p.strings {
 		if v == s {
-			return uint64(ii)
+			return valType(ii)
 		}
 	}
 	p.strings = append(p.strings, s)
 	p.rstrings = append(p.rstrings, reflect.ValueOf(s))
-	return uint64(len(p.strings) - 1)
+	return valType(len(p.strings) - 1)
 }
 
-func (p *Program) addFunc(f interface{}, name string) uint64 {
+func (p *Program) addFunc(f interface{}, name string) valType {
 	for ii, v := range p.funcs {
 		if v.name == name {
-			return uint64(ii)
+			return valType(ii)
 		}
 	}
 	// TODO: Check it's really a reflect.Func
@@ -248,13 +240,18 @@ func (p *Program) addFunc(f interface{}, name string) uint64 {
 		variadic: val.Type().IsVariadic(),
 		numIn:    val.Type().NumIn(),
 	})
-	return uint64(len(p.funcs) - 1)
+	return valType(len(p.funcs) - 1)
+}
+
+func (p *Program) addValue(v interface{}) valType {
+	p.values = append(p.values, reflect.ValueOf(v))
+	return valType(len(p.values) - 1)
 }
 
 func (p *Program) addWB(b []byte) {
 	pos := len(p.bs)
 	p.bs = append(p.bs, b)
-	p.inst(opWB, uint64(pos))
+	p.inst(opWB, valType(pos))
 }
 
 func (p *Program) addSTRING(s string) {
@@ -285,7 +282,7 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		skip += 2
 	}
 	p.buf = buf
-	p.inst(opJMPF, uint64(skip))
+	p.inst(opJMPF, valType(skip))
 	if nt == parse.NodeWith {
 		p.inst(opPUSHDOT, 0)
 	}
@@ -294,7 +291,7 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		p.inst(opPOPDOT, 0)
 	}
 	if c := len(elseList); c > 0 {
-		p.inst(opJMP, uint64(c))
+		p.inst(opJMP, valType(c))
 		p.buf = append(p.buf, elseList...)
 	}
 	return nil
@@ -312,11 +309,7 @@ func (p *Program) walk(n parse.Node) error {
 		}
 		p.inst(opPOP, 0)
 	case *parse.BoolNode:
-		val := uint64(0)
-		if x.True {
-			val = 1
-		}
-		p.inst(opBOOL, val)
+		p.inst(opBOOL, p.addValue(x.True))
 	case *parse.CommandNode:
 		p.cmd = append(p.cmd, len(x.Args))
 		// Command nodes are pushed on reverse order, so they are
@@ -352,7 +345,7 @@ func (p *Program) walk(n parse.Node) error {
 		if fn == nil {
 			return fmt.Errorf("undefined function %q", x.Ident)
 		}
-		val := uint64(args<<32) | p.addFunc(fn, x.Ident)
+		val := valType(args<<16) | p.addFunc(fn, x.Ident)
 		p.inst(opFUNC, val)
 	case *parse.IfNode:
 		if err := p.walkBranch(parse.NodeIf, &x.BranchNode); err != nil {
@@ -369,11 +362,11 @@ func (p *Program) walk(n parse.Node) error {
 		case x.IsComplex:
 			return errNoComplex
 		case x.IsFloat:
-			p.inst(opFLOAT, math.Float64bits(x.Float64))
+			p.inst(opFLOAT, p.addValue(x.Float64))
 		case x.IsInt:
-			p.inst(opINT, uint64(x.Int64))
+			p.inst(opINT, p.addValue(x.Int64))
 		case x.IsUint:
-			p.inst(opUINT, x.Uint64)
+			p.inst(opUINT, p.addValue(x.Uint64))
 		}
 	case *parse.PipeNode:
 		for _, v := range x.Cmds {
@@ -448,7 +441,7 @@ func isPrintable(typ reflect.Type) bool {
 
 func stackable(v reflect.Value) reflect.Value {
 	if v.IsValid() && v.Type() == emptyType {
-		return reflect.ValueOf(v.Interface())
+		v = reflect.ValueOf(v.Interface())
 	}
 	return v
 }

@@ -181,6 +181,8 @@ func (s *state) execute(name string, dot reflect.Value) error {
 		case opVAR:
 			name := s.p.strings[int(v.val)]
 			s.stack = append(s.stack, s.varValue(name))
+		case opDOT:
+			s.stack = append(s.stack, dot)
 		case opJMP:
 			ii += int(v.val)
 		case opJMPF:
@@ -325,10 +327,13 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 	}
 	list := append([]inst{{op: opPOP}}, p.buf...)
 	p.buf = nil
-	if err := p.walk(b.ElseList); err != nil {
-		return err
+	var elseList []inst
+	if b.ElseList != nil {
+		if err := p.walk(b.ElseList); err != nil {
+			return err
+		}
+		elseList = append([]inst{{op: opPOP}}, p.buf...)
 	}
-	elseList := append([]inst{{op: opPOP}}, p.buf...)
 	skip := len(list)
 	if len(elseList) > 0 {
 		skip += 1

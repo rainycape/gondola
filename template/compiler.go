@@ -454,23 +454,54 @@ func (p *Program) walk(n parse.Node) error {
 }
 
 func (p *Program) Execute(w io.Writer, data interface{}) error {
+	return p.ExecuteTemplateVars(w, p.tmpl.Root(), data, nil)
+}
+
+func (p *Program) ExecuteTemplate(w io.Writer, name string, data interface{}) error {
+	return p.ExecuteTemplateVars(w, name, data, nil)
+}
+
+func (p *Program) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error {
+	return p.ExecuteTemplateVars(w, "", data, vars)
+}
+
+func (p *Program) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars VarMap) error {
 	s := &state{
 		p: p,
 		w: w,
 	}
-	return s.execute(p.tmpl.Root(), reflect.ValueOf(data))
+	if vars != nil {
+		s.pushVar("Vars", reflect.ValueOf(vars))
+	}
+	return s.execute(name, reflect.ValueOf(data))
 }
 
 func NewProgram(tmpl *Template) (*Program, error) {
 	p := &Program{tmpl: tmpl, code: make(map[string][]inst)}
 	for k, v := range tmpl.Trees {
-		if err := p.walk(v.Root); err != nil {
+		root := simplifyList(v.Root)
+		if err := p.walk(root); err != nil {
 			return nil, err
 		}
 		p.code[k] = p.buf
 		p.buf = nil
 	}
 	return p, nil
+}
+
+// simplifyList removes all nodes injected by Gondola
+// to implement the Vars system, since *Program implements
+// support for that directly and does not require introducing
+// extra nodes.
+func simplifyList(root *parse.ListNode) *parse.ListNode {
+	if len(root.Nodes) == 2 && root.Nodes[0].String() == fmt.Sprintf("{{$%s := .%s}}", varsKey, varsKey) {
+		if wn, ok := root.Nodes[1].(*parse.WithNode); ok && wn.Pipe.String() == "."+dataKey {
+			// TODO: Simplify "template" nodes, otherwise we end up calling
+			// templates with incorrect data
+			return wn.List
+		}
+	}
+	return root
 }
 
 func isTrue(v reflect.Value) bool {

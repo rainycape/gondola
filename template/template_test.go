@@ -94,7 +94,7 @@ func TestCompiler(t *testing.T) {
 			continue
 		}
 		var buf bytes.Buffer
-		if err := pr.Execute(&buf, map[string]interface{}{dataKey: v.data}); err != nil {
+		if err := pr.Execute(&buf, v.data); err != nil {
 			t.Errorf("error executing %q: %s", v.tmpl, err)
 			continue
 		}
@@ -104,10 +104,18 @@ func TestCompiler(t *testing.T) {
 	}
 }
 
+func benchmarkTests() []*templateTest {
+	var tests []*templateTest
+	tests = append(tests, ftests...)
+	tests = append(tests, compilerTests...)
+	return tests
+}
+
 func BenchmarkExecute(b *testing.B) {
 	b.ReportAllocs()
-	templates := make([]*Template, len(ftests))
-	for ii, v := range ftests {
+	tests := benchmarkTests()
+	templates := make([]*Template, len(tests))
+	for ii, v := range tests {
 		tmpl := parseText(b, v.tmpl)
 		if tmpl == nil {
 			b.Fatalf("can't parse %q", v.tmpl)
@@ -118,7 +126,7 @@ func BenchmarkExecute(b *testing.B) {
 	b.ResetTimer()
 	for ii := 0; ii < b.N; ii++ {
 		for ii, v := range templates {
-			v.Execute(&buf, ftests[ii].data)
+			v.Execute(&buf, tests[ii].data)
 			buf.Reset()
 		}
 	}
@@ -126,8 +134,9 @@ func BenchmarkExecute(b *testing.B) {
 
 func BenchmarkExecuteProgram(b *testing.B) {
 	b.ReportAllocs()
-	programs := make([]*Program, len(ftests))
-	for ii, v := range ftests {
+	tests := benchmarkTests()
+	programs := make([]*Program, len(tests))
+	for ii, v := range tests {
 		tmpl := parseText(b, v.tmpl)
 		if tmpl == nil {
 			b.Fatalf("can't parse %q", v.tmpl)
@@ -142,7 +151,7 @@ func BenchmarkExecuteProgram(b *testing.B) {
 	b.ResetTimer()
 	for ii := 0; ii < b.N; ii++ {
 		for ii, v := range programs {
-			v.Execute(&buf, ftests[ii].data)
+			v.Execute(&buf, tests[ii].data)
 			buf.Reset()
 		}
 	}

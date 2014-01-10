@@ -18,6 +18,8 @@ var (
 	emptyType    = reflect.TypeOf((*interface{})(nil)).Elem()
 )
 
+// TODO: Remove variables inside if or with when exiting the scope
+
 const (
 	opNOP uint8 = iota
 	opBOOL
@@ -36,7 +38,9 @@ const (
 	opPUSHDOT
 	opPOPDOT
 	opPOP
+	opSETVAR
 	opSTACKDOT
+	opVAR
 )
 
 type valType uint32
@@ -138,6 +142,9 @@ func (s *state) execute(name string, dot reflect.Value) error {
 			if err := s.call(fn.val, fn.name, args); err != nil {
 				return err
 			}
+		case opVAR:
+			name := s.p.strings[int(v.val)]
+			s.stack = append(s.stack, s.varValue(name))
 		case opJMP:
 			ii += int(v.val)
 		case opJMPF:
@@ -146,6 +153,9 @@ func (s *state) execute(name string, dot reflect.Value) error {
 				//				fmt.Println("FALSE JMP", v.val)
 				ii += int(v.val)
 			}
+		case opSETVAR:
+			name := s.p.strings[int(v.val)]
+			s.pushVar(name, s.stack[len(s.stack)-1])
 		case opBOOL, opFLOAT, opINT, opUINT:
 			s.stack = append(s.stack, s.p.values[v.val])
 		case opJMPT:
@@ -374,11 +384,20 @@ func (p *Program) walk(n parse.Node) error {
 				return err
 			}
 		}
-		// TODO: Set variables
+		for _, variable := range x.Decl {
+			// Remove $
+			p.inst(opSETVAR, p.addString(variable.Ident[0][1:]))
+		}
 	case *parse.StringNode:
 		p.addSTRING(x.Text)
 	case *parse.TextNode:
 		p.addWB(x.Text)
+	case *parse.VariableNode:
+		// Remove $ sign
+		p.inst(opVAR, p.addString(x.Ident[0][1:]))
+		for _, v := range x.Ident[1:] {
+			p.inst(opFIELD, p.addString(v))
+		}
 	case *parse.WithNode:
 		if err := p.walkBranch(parse.NodeWith, &x.BranchNode); err != nil {
 			return err

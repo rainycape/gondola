@@ -14,6 +14,7 @@ type functionTest struct {
 
 var (
 	ftests = []*functionTest{
+		{"{{ $one := 1 }}{{ $two := 2 }}{{ $three := 3 }}{{ $one }}+{{ $two }}+{{ $three }}={{ add $one $two $three }}", nil, "1+2+3=6"},
 		{"{{ add 2 3 }}", nil, "5"},
 		{"{{ to_lower .foo }}", map[string]string{"foo": "BAR"}, "bar"},
 		{"{{ to_upper .foo }}", map[string]string{"foo": "bar"}, "BAR"},

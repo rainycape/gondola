@@ -138,12 +138,9 @@ func (s *state) execute(name string, dot reflect.Value) error {
 		case opFUNC:
 			args := int(v.val >> 32)
 			i := int(v.val & 0xFFFFFFFF)
-			name := s.p.strings[i]
-			fn := s.p.tmpl.funcMap[name]
-			if fn == nil {
-				return fmt.Errorf("undefined function %q", name)
-			}
-			if err := s.call(reflect.ValueOf(fn), name, args); err != nil {
+			fn := s.p.funcs[i]
+			// function existence is checked at compile time
+			if err := s.call(fn.val, fn.name, args); err != nil {
 				return err
 			}
 		case opFLOAT:
@@ -203,8 +200,16 @@ func (s *state) execute(name string, dot reflect.Value) error {
 	return nil
 }
 
+type fn struct {
+	name     string
+	val      reflect.Value
+	variadic bool
+	numIn    int
+}
+
 type Program struct {
 	tmpl     *Template
+	funcs    []*fn
 	strings  []string
 	rstrings []reflect.Value
 	bs       [][]byte
@@ -219,10 +224,31 @@ func (p *Program) inst(op uint8, val uint64) {
 }
 
 func (p *Program) addString(s string) uint64 {
-	pos := len(p.strings)
+	for ii, v := range p.strings {
+		if v == s {
+			return uint64(ii)
+		}
+	}
 	p.strings = append(p.strings, s)
 	p.rstrings = append(p.rstrings, reflect.ValueOf(s))
-	return uint64(pos)
+	return uint64(len(p.strings) - 1)
+}
+
+func (p *Program) addFunc(f interface{}, name string) uint64 {
+	for ii, v := range p.funcs {
+		if v.name == name {
+			return uint64(ii)
+		}
+	}
+	// TODO: Check it's really a reflect.Func
+	val := reflect.ValueOf(f)
+	p.funcs = append(p.funcs, &fn{
+		name:     name,
+		val:      val,
+		variadic: val.Type().IsVariadic(),
+		numIn:    val.Type().NumIn(),
+	})
+	return uint64(len(p.funcs) - 1)
 }
 
 func (p *Program) addWB(b []byte) {
@@ -321,8 +347,12 @@ func (p *Program) walk(n parse.Node) error {
 		if len(p.cmd) == 0 {
 			return fmt.Errorf("identifier %q outside of command?", x.Ident)
 		}
-		args := p.cmd[len(p.cmd)-1] - 1 // first ar is identifier
-		val := uint64(args<<32) | p.addString(x.Ident)
+		args := p.cmd[len(p.cmd)-1] - 1 // first arg is identifier
+		fn := p.tmpl.funcMap[x.Ident]
+		if fn == nil {
+			return fmt.Errorf("undefined function %q", x.Ident)
+		}
+		val := uint64(args<<32) | p.addFunc(fn, x.Ident)
 		p.inst(opFUNC, val)
 	case *parse.IfNode:
 		if err := p.walkBranch(parse.NodeIf, &x.BranchNode); err != nil {

@@ -6,6 +6,7 @@ import (
 	"gnd.la/util/types"
 	"io"
 	"reflect"
+	"sort"
 	"text/template/parse"
 )
 
@@ -20,16 +21,22 @@ var (
 
 // TODO: Remove variables inside if or with when exiting the scope
 
+type opcode uint8
+
 const (
-	opNOP uint8 = iota
+	opNOP opcode = iota
 	opBOOL
 	opFIELD
 	opFLOAT
 	opFUNC
 	opINT
+	opITER
 	opJMP
-	opJMPT
+	opJMPE
 	opJMPF
+	opJMPT
+	opMARK
+	opNEXT
 	opUINT
 	opWB
 	opDOT
@@ -46,8 +53,104 @@ const (
 type valType uint32
 
 type inst struct {
-	op  uint8
+	op  opcode
 	val valType
+}
+
+func encodeVal(high int, low valType) valType {
+	return valType(high<<16) | low
+}
+
+func decodeVal(val valType) (int, int) {
+	return int(val >> 16), int(val & 0xFFFF)
+}
+
+var endIter = reflect.ValueOf(-1)
+
+type iterator interface {
+	Next() (reflect.Value, reflect.Value)
+}
+
+type nilIterator struct {
+}
+
+func (it *nilIterator) Next() (reflect.Value, reflect.Value) {
+	return endIter, reflect.Value{}
+}
+
+type sliceIterator struct {
+	val    reflect.Value
+	pos    int
+	length int
+}
+
+func (it *sliceIterator) Next() (reflect.Value, reflect.Value) {
+	if it.pos < it.length {
+		val := it.val.Index(it.pos)
+		pos := reflect.ValueOf(it.pos)
+		it.pos++
+		return pos, val
+	}
+	return endIter, reflect.Value{}
+}
+
+type mapIterator struct {
+	val  reflect.Value
+	keys []reflect.Value
+	pos  int
+}
+
+func (it *mapIterator) Next() (reflect.Value, reflect.Value) {
+	if it.pos < len(it.keys) {
+		k := it.keys[it.pos]
+		val := it.val.MapIndex(k)
+		it.pos++
+		return k, val
+	}
+	return endIter, reflect.Value{}
+}
+
+type chanIterator struct {
+	val reflect.Value
+	pos int
+}
+
+func (it *chanIterator) Next() (reflect.Value, reflect.Value) {
+	pos := endIter
+	val, ok := it.val.Recv()
+	if ok {
+		pos = reflect.ValueOf(it.pos)
+		it.pos++
+	}
+	return pos, val
+}
+
+func newIterator(v reflect.Value) (iterator, error) {
+	for v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
+		if v.IsNil() {
+			return &nilIterator{}, nil
+		}
+	}
+	switch v.Kind() {
+	case reflect.Slice, reflect.Array:
+		if v.Len() == 0 {
+			return &nilIterator{}, nil
+		}
+		return &sliceIterator{val: v, length: v.Len()}, nil
+	case reflect.Map:
+		if v.Len() == 0 {
+			return &nilIterator{}, nil
+		}
+		return &mapIterator{val: v, keys: sortKeys(v.MapKeys())}, nil
+	case reflect.Chan:
+		if v.IsNil() {
+			return &nilIterator{}, nil
+		}
+		return &chanIterator{val: v}, nil
+	case reflect.Invalid:
+		return &nilIterator{}, nil
+	}
+	return nil, fmt.Errorf("can't range over %T", v.Interface())
 }
 
 type variable struct {
@@ -60,6 +163,7 @@ type state struct {
 	w     io.Writer
 	vars  []variable
 	stack []reflect.Value
+	marks []int
 	dot   []reflect.Value
 }
 
@@ -82,14 +186,13 @@ func (s *state) setVar(n int, value reflect.Value) {
 	s.vars[len(s.vars)-n].value = value
 }
 
-func (s *state) varValue(name string) reflect.Value {
+func (s *state) varValue(name string) (reflect.Value, error) {
 	for i := s.varMark() - 1; i >= 0; i-- {
 		if s.vars[i].name == name {
-			return s.vars[i].value
+			return s.vars[i].value, nil
 		}
 	}
-	s.errorf("undefined variable: %s", name)
-	return zero
+	return reflect.Value{}, fmt.Errorf("undefined variable: %q", name)
 }
 
 // call fn, remove its args from the stack and push the result
@@ -118,12 +221,27 @@ func (s *state) execute(name string, dot reflect.Value) error {
 	}
 	for ii := 0; ii < len(code); ii++ {
 		v := code[ii]
+		//		fmt.Printf("PC %d, OPCODE %d, val %v\n", ii, v.op, v.val)
 		switch v.op {
+		case opMARK:
+			s.marks = append(s.marks, len(s.stack))
+		case opPOP:
+			if v.val == 0 {
+				// if and else blocks pop before entering the block, so we might have no mark
+				if len(s.marks) > 0 {
+					// POP until mark
+					p := len(s.marks) - 1
+					s.stack = s.stack[:s.marks[p]]
+					s.marks = s.marks[:p]
+				}
+			} else {
+				s.stack = s.stack[:len(s.stack)-int(v.val)]
+			}
 		case opFIELD:
 			var res reflect.Value
 			p := len(s.stack) - 1
 			top := s.stack[p]
-			i := int(v.val & 0xFFFF)
+			args, i := decodeVal(v.val)
 			//			fmt.Println("FIELD", s.p.strings[int(v.val)])
 			if top.IsValid() {
 				if top.Kind() == reflect.Map && top.Type().Key().Kind() == reflect.String {
@@ -143,7 +261,6 @@ func (s *state) execute(name string, dot reflect.Value) error {
 						// the dot or the result of the last field lookup, so
 						// we have to nuke it.
 						s.stack = s.stack[:len(s.stack)-1]
-						args := int(v.val >> 16)
 						if err := s.call(fn, name, args); err != nil {
 							return err
 						}
@@ -171,8 +288,7 @@ func (s *state) execute(name string, dot reflect.Value) error {
 			// opFIELD overwrites the stack
 			s.stack[p] = res
 		case opFUNC:
-			args := int(v.val >> 16)
-			i := int(v.val & 0xFFFF)
+			args, i := decodeVal(v.val)
 			fn := s.p.funcs[i]
 			// function existence is checked at compile time
 			if err := s.call(fn.val, fn.name, args); err != nil {
@@ -180,33 +296,51 @@ func (s *state) execute(name string, dot reflect.Value) error {
 			}
 		case opVAR:
 			name := s.p.strings[int(v.val)]
-			s.stack = append(s.stack, s.varValue(name))
+			v, err := s.varValue(name)
+			if err != nil {
+				return err
+			}
+			s.stack = append(s.stack, v)
 		case opDOT:
 			s.stack = append(s.stack, dot)
+		case opITER:
+			iter, err := newIterator(s.stack[len(s.stack)-1])
+			if err != nil {
+				return err
+			}
+			s.stack = append(s.stack, reflect.ValueOf(iter))
+		case opNEXT:
+			iter, ok := s.stack[len(s.stack)-1].Interface().(iterator)
+			if !ok {
+				return fmt.Errorf("ITER called without iterator")
+			}
+			idx, val := iter.Next()
+			s.stack = append(s.stack, idx, val)
 		case opJMP:
-			ii += int(v.val)
+			ii += int(int32(v.val))
 		case opJMPF:
 			p := len(s.stack)
 			if p == 0 || !isTrue(s.stack[p-1]) {
-				//				fmt.Println("FALSE JMP", v.val)
+				ii += int(v.val)
+			}
+		case opJMPE:
+			p := len(s.stack) - 2
+			idx := s.stack[p]
+			if idx.Kind() == reflect.Int && idx.Int() == -1 {
+				// pop idx and val
+				s.stack = s.stack[:p]
 				ii += int(v.val)
 			}
 		case opSETVAR:
 			name := s.p.strings[int(v.val)]
-			s.pushVar(name, s.stack[len(s.stack)-1])
+			p := len(s.stack) - 1
+			s.pushVar(name, s.stack[p])
 		case opBOOL, opFLOAT, opINT, opUINT:
 			s.stack = append(s.stack, s.p.values[v.val])
 		case opJMPT:
 			p := len(s.stack)
 			if p > 0 && isTrue(s.stack[p-1]) {
 				ii += int(v.val)
-			}
-		case opPOP:
-			if v.val == 0 {
-				// POP all
-				s.stack = s.stack[:0]
-			} else {
-				s.stack = s.stack[:len(s.stack)-int(v.val)]
 			}
 		case opPRINT:
 			v := s.stack[len(s.stack)-1]
@@ -259,7 +393,7 @@ type Program struct {
 	cmd []int
 }
 
-func (p *Program) inst(op uint8, val valType) {
+func (p *Program) inst(op opcode, val valType) {
 	p.buf = append(p.buf, inst{op: op, val: val})
 }
 
@@ -311,8 +445,7 @@ func (p *Program) addFIELD(name string) {
 	if len(p.cmd) > 0 {
 		args = p.cmd[len(p.cmd)-1] - 1 // first arg is the FieldNode
 	}
-	val := valType(args<<16) | p.addString(name)
-	p.inst(opFIELD, val)
+	p.inst(opFIELD, encodeVal(args, p.addString(name)))
 }
 
 func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
@@ -326,9 +459,9 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		return err
 	}
 	list := append([]inst{{op: opPOP}}, p.buf...)
-	p.buf = nil
 	var elseList []inst
 	if b.ElseList != nil {
+		p.buf = nil
 		if err := p.walk(b.ElseList); err != nil {
 			return err
 		}
@@ -336,19 +469,69 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 	}
 	skip := len(list)
 	if len(elseList) > 0 {
+		// Skip the JMP at the start of the elseList
 		skip += 1
 	}
-	if nt == parse.NodeWith {
-		skip += 2
-	}
 	p.buf = buf
-	p.inst(opJMPF, valType(skip))
-	if nt == parse.NodeWith {
+	switch nt {
+	case parse.NodeIf:
+		p.inst(opJMPF, valType(skip))
+		p.buf = append(p.buf, list...)
+	case parse.NodeWith:
+		// if false, skip the PUSHDOT and POPDOT
+		p.inst(opJMPF, valType(skip+2))
 		p.inst(opPUSHDOT, 0)
-	}
-	p.buf = append(p.buf, list...)
-	if nt == parse.NodeWith {
+		p.buf = append(p.buf, list...)
 		p.inst(opPOPDOT, 0)
+	case parse.NodeRange:
+		// remove the opPOP from the list, we need
+		// iter to be kept on the stack. add also PUSHDOT
+		// and POPDOT.
+		list = append([]inst{{op: opPUSHDOT}}, list[1:]...)
+		toPop := 2
+		// if there are variables declared, add instructions
+		// for setting them
+		if len(b.Pipe.Decl) > 0 {
+			toPop--
+			list = append([]inst{{op: opSETVAR, val: p.addString(b.Pipe.Decl[0].Ident[0][1:])}, {op: opPOP, val: 1}}, list...)
+			if len(b.Pipe.Decl) > 1 {
+				toPop--
+				list = append([]inst{{op: opSETVAR, val: p.addString(b.Pipe.Decl[1].Ident[0][1:])}, {op: opPOP, val: 1}}, list...)
+			}
+		}
+		// pop variables which haven't beeen popped by setvar
+		if toPop > 0 {
+			list = append(list, inst{op: opPOPDOT}, inst{op: opPOP, val: valType(toPop)})
+		}
+		// add a jump back to 2 instructions before the
+		// list, which will call NEXT and JMPE again.
+		list = append(list, inst{op: opJMP, val: valType(-len(list) - 3)})
+		// initialize the iter
+		p.inst(opITER, 0)
+		// call next for the first time
+		p.inst(opNEXT, 0)
+		if elseList == nil {
+			// no elseList. just iterate and jump out of the
+			// loop once we reach the end of the iteration
+			p.inst(opJMPE, valType(len(list)))
+		} else {
+			// if the iteration stopped in the first step, we
+			// need to jump to elseList, skipping the JMP at its
+			// start (for range loops the JMP is not really needed,
+			// but one extra instruction won't hurt much). We also
+			// need to skip the 3 instructions following this one.
+			p.inst(opJMPE, valType(len(list)+1+3))
+			// Now jump the following two instructions, they're used for
+			// subsequent iterations
+			p.inst(opJMP, 2)
+			// 2nd and the rest of iterations start here
+			p.inst(opNEXT, 0)
+			// If ended, jump outside list and elseList
+			p.inst(opJMPE, valType(len(list)+len(elseList)+1))
+		}
+		p.buf = append(p.buf, list...)
+	default:
+		return fmt.Errorf("invalid branch type %v", nt)
 	}
 	if c := len(elseList); c > 0 {
 		p.inst(opJMP, valType(c))
@@ -358,9 +541,9 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 }
 
 func (p *Program) walk(n parse.Node) error {
-	//	fmt.Printf("NODE %T %+v\n", n, n)
 	switch x := n.(type) {
 	case *parse.ActionNode:
+		p.inst(opMARK, 0)
 		if err := p.walk(x.Pipe); err != nil {
 			return err
 		}
@@ -405,8 +588,7 @@ func (p *Program) walk(n parse.Node) error {
 		if fn == nil {
 			return fmt.Errorf("undefined function %q", x.Ident)
 		}
-		val := valType(args<<16) | p.addFunc(fn, x.Ident)
-		p.inst(opFUNC, val)
+		p.inst(opFUNC, encodeVal(args, p.addFunc(fn, x.Ident)))
 	case *parse.IfNode:
 		if err := p.walkBranch(parse.NodeIf, &x.BranchNode); err != nil {
 			return err
@@ -437,6 +619,10 @@ func (p *Program) walk(n parse.Node) error {
 		for _, variable := range x.Decl {
 			// Remove $
 			p.inst(opSETVAR, p.addString(variable.Ident[0][1:]))
+		}
+	case *parse.RangeNode:
+		if err := p.walkBranch(parse.NodeRange, &x.BranchNode); err != nil {
+			return err
 		}
 	case *parse.StringNode:
 		p.addSTRING(x.Text)
@@ -542,6 +728,49 @@ func isPrintable(typ reflect.Type) bool {
 func stackable(v reflect.Value) reflect.Value {
 	if v.IsValid() && v.Type() == emptyType {
 		v = reflect.ValueOf(v.Interface())
+	}
+	return v
+}
+
+// The following types and functions have been copied from text/template
+
+// Types to help sort the keys in a map for reproducible output.
+
+type rvs []reflect.Value
+
+func (x rvs) Len() int      { return len(x) }
+func (x rvs) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
+
+type rvInts struct{ rvs }
+
+func (x rvInts) Less(i, j int) bool { return x.rvs[i].Int() < x.rvs[j].Int() }
+
+type rvUints struct{ rvs }
+
+func (x rvUints) Less(i, j int) bool { return x.rvs[i].Uint() < x.rvs[j].Uint() }
+
+type rvFloats struct{ rvs }
+
+func (x rvFloats) Less(i, j int) bool { return x.rvs[i].Float() < x.rvs[j].Float() }
+
+type rvStrings struct{ rvs }
+
+func (x rvStrings) Less(i, j int) bool { return x.rvs[i].String() < x.rvs[j].String() }
+
+// sortKeys sorts (if it can) the slice of reflect.Values, which is a slice of map keys.
+func sortKeys(v []reflect.Value) []reflect.Value {
+	if len(v) <= 1 {
+		return v
+	}
+	switch v[0].Kind() {
+	case reflect.Float32, reflect.Float64:
+		sort.Sort(rvFloats{v})
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		sort.Sort(rvInts{v})
+	case reflect.String:
+		sort.Sort(rvStrings{v})
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		sort.Sort(rvUints{v})
 	}
 	return v
 }

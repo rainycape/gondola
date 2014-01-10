@@ -49,10 +49,11 @@ var (
 		{"{{ with .A }}{{ . }}{{ else }}no{{ end }}", map[string]string{"A": "yes"}, "yes"},
 		{"{{ with .A }}{{ . }}{{ else }}no{{ end }}", nil, "no"},
 		{"{{ with .A }}{{ . }}{{ end }}", nil, ""},
-		/*{"{{ range . }}{{ . }}{{ end }}", []int{1, 2, 3}, "123"},
+		{"{{ range . }}{{ . }}{{ end }}", []int{1, 2, 3}, "123"},
 		{"{{ range $idx, $el := . }}{{ $idx }}{{ $el }}{{ end }}", []int{1, 2, 3}, "011223"},
 		{"{{ range $el := . }}{{ $el }}{{ end }}", []int{1, 2, 3}, "123"},
-		{"{{ range . }}{{ else }}nope{{ end }}", nil, "nope"},*/
+		{"{{ range . }}{{ else }}nope{{ end }}", nil, "nope"},
+		{"{{ range $k, $v := . }}{{ $k }}={{ $v }}{{ end }}", map[string]int{"b": 2, "c": 3, "a": 1}, "a=1b=2c=3"},
 	}
 )
 

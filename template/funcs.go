@@ -293,7 +293,7 @@ func toHtml(s string) template.HTML {
 	return template.HTML(strings.Replace(html.Escape(s), "\n", "<br>", -1))
 }
 
-var templateFuncs template.FuncMap = template.FuncMap{
+var templateFuncs = FuncMap{
 	"eq":        eq,
 	"neq":       neq,
 	"lt":        lt,

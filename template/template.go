@@ -84,8 +84,7 @@ func (t *Template) init() {
 		bottomAssetsFuncName: t.templateBottomAssets,
 		AssetFuncName:        t.Asset,
 	}
-	t.Funcs(funcs)
-	t.Template.Funcs(template.FuncMap(funcs)).Funcs(templateFuncs)
+	t.Funcs(funcs).Funcs(templateFuncs)
 }
 
 func (t *Template) Root() string {
@@ -643,7 +642,7 @@ func (t *Template) rewriteTemplateNodes(tree *parse.Tree) {
 	})
 }
 
-func (t *Template) Funcs(funcs FuncMap) {
+func (t *Template) Funcs(funcs FuncMap) *Template {
 	if t.funcMap == nil {
 		t.funcMap = make(FuncMap)
 	}
@@ -651,6 +650,7 @@ func (t *Template) Funcs(funcs FuncMap) {
 		t.funcMap[k] = v
 	}
 	t.Template.Funcs(template.FuncMap(t.funcMap))
+	return t
 }
 
 func (t *Template) Include(name string) error {

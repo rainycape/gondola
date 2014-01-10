@@ -3,17 +3,29 @@ package template
 import (
 	"bytes"
 	"gnd.la/loaders"
+	"gnd.la/template/assets"
 	"testing"
 )
 
-type functionTest struct {
+type templateTest struct {
 	tmpl   string
 	data   interface{}
 	result string
 }
 
+type testType struct {
+}
+
+func (t *testType) Foo() string {
+	return "bar"
+}
+
+func (t *testType) Bar(s string) string {
+	return "bared-" + s
+}
+
 var (
-	ftests = []*functionTest{
+	ftests = []*templateTest{
 		{"{{ $one := 1 }}{{ $two := 2 }}{{ $three := 3 }}{{ $one }}+{{ $two }}+{{ $three }}={{ add $one $two $three }}", nil, "1+2+3=6"},
 		{"{{ add 2 3 }}", nil, "5"},
 		{"{{ to_lower .foo }}", map[string]string{"foo": "BAR"}, "bar"},
@@ -26,6 +38,18 @@ var (
 		{"{{ concat (concat \"foo\" \"bar\") \"baz\" }}", nil, "foobarbaz"},
 		{"{{ if divisible 5 2 }}1{{ else }}0{{ end }}", nil, "0"},
 		{"{{ if divisible 4 2 }}1{{ else }}0{{ end }}", nil, "1"},
+	}
+	compilerTests = []*templateTest{
+		{"{{ call .foo }}", map[string]interface{}{"foo": func() string { return "bar" }}, "bar"},
+		{"{{ .Foo }}", struct{ Foo string }{"bar"}, "bar"},
+		{"{{ .Foo }}", &testType{}, "bar"},
+		{"{{ .Bar \"this\" }}", &testType{}, "bared-this"},
+		{"{{ .t.Bar .foo }}", map[string]interface{}{"t": &testType{}, "foo": "foo"}, "bared-foo"},
+		{"{{ .t.Bar (concat .foo \"bar\") }}", map[string]interface{}{"t": &testType{}, "foo": "foo"}, "bared-foobar"},
+		/*{"{{ range . }}{{ . }}{{ end }}", []int{1, 2, 3}, "123"},
+		{"{{ range $idx, $el := . }}{{ $idx }}{{ $el }}{{ end }}", []int{1, 2, 3}, "011223"},
+		{"{{ range $el := . }}{{ $el }}{{ end }}", []int{1, 2, 3}, "123"},
+		{"{{ range . }}{{ else }}nope{{ end }}", nil, "nope"},*/
 	}
 )
 
@@ -56,7 +80,10 @@ func TestFunctions(t *testing.T) {
 }
 
 func TestCompiler(t *testing.T) {
-	for _, v := range ftests {
+	var tests []*templateTest
+	tests = append(tests, ftests...)
+	tests = append(tests, compilerTests...)
+	for _, v := range tests {
 		tmpl := parseText(t, v.tmpl)
 		if tmpl == nil {
 			continue
@@ -67,7 +94,7 @@ func TestCompiler(t *testing.T) {
 			continue
 		}
 		var buf bytes.Buffer
-		if err := pr.Execute(&buf, v.data); err != nil {
+		if err := pr.Execute(&buf, map[string]interface{}{dataKey: v.data}); err != nil {
 			t.Errorf("error executing %q: %s", v.tmpl, err)
 			continue
 		}

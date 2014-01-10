@@ -94,14 +94,13 @@ func (s *state) varValue(name string) reflect.Value {
 
 // call fn, remove its args from the stack and push the result
 func (s *state) call(fn reflect.Value, name string, args int) error {
-	//	fmt.Println("WILL CALL", name, args)
+	//	fmt.Println("WILL CALL", name, args, len(s.stack), s.stack)
 	pos := len(s.stack) - args
 	in := s.stack[pos:]
 	// arguments are in reverse order
 	for ii := 0; ii < len(in)/2; ii++ {
 		in[ii], in[len(in)-1-ii] = in[len(in)-1-ii], in[ii]
 	}
-	//	fmt.Println("WILL CALL", name, in)
 	res := fn.Call(in)
 	//	fmt.Println("CALLED", name, res)
 	if len(res) == 2 && !res[1].IsNil() {
@@ -124,12 +123,49 @@ func (s *state) execute(name string, dot reflect.Value) error {
 			var res reflect.Value
 			p := len(s.stack) - 1
 			top := s.stack[p]
+			i := int(v.val & 0xFFFF)
 			//			fmt.Println("FIELD", s.p.strings[int(v.val)])
 			if top.IsValid() {
-				if top.Kind() == reflect.Map && top.Type().Key() == stringType {
-					k := s.p.rstrings[int(v.val)]
+				if top.Kind() == reflect.Map && top.Type().Key().Kind() == reflect.String {
+					k := s.p.rstrings[i]
 					res = stackable(top.MapIndex(k))
 					//					fmt.Println("KEYED", k, res, top.Interface())
+				} else {
+					name := s.p.strings[i]
+					// get pointer methods and try to call a method by that name
+					ptr := top
+					if ptr.Kind() != reflect.Interface && ptr.CanAddr() {
+						ptr = ptr.Addr()
+					}
+					if fn := ptr.MethodByName(name); fn.IsValid() {
+						// when calling a function from a field, there will be
+						// and extra argument at the top of the stack, either
+						// the dot or the result of the last field lookup, so
+						// we have to nuke it.
+						s.stack = s.stack[:len(s.stack)-1]
+						args := int(v.val >> 16)
+						if err := s.call(fn, name, args); err != nil {
+							return err
+						}
+						// s.call already puts the result in the stack
+						break
+					}
+					// try to get a field by that name
+					for top.Kind() == reflect.Ptr {
+						if top.IsNil() {
+							return fmt.Errorf("nil pointer evaluationg field %q on type %T", name, top.Interface())
+						}
+						top = top.Elem()
+					}
+					if top.Kind() != reflect.Struct {
+						return fmt.Errorf("can't evaluate field on type %T", top.Interface())
+					}
+					res = top.FieldByName(name)
+					if !res.IsValid() {
+						// TODO: Check if the type has a pointer method which we couldn't
+						// address, to provide a better error message
+						return fmt.Errorf("%q is not a field of struct type %T", name, top.Interface())
+					}
 				}
 			}
 			// opFIELD overwrites the stack
@@ -268,6 +304,15 @@ func (p *Program) addSTRING(s string) {
 	p.inst(opSTRING, p.addString(s))
 }
 
+func (p *Program) addFIELD(name string) {
+	var args int
+	if len(p.cmd) > 0 {
+		args = p.cmd[len(p.cmd)-1] - 1 // first arg is the FieldNode
+	}
+	val := valType(args<<16) | p.addString(name)
+	p.inst(opFIELD, val)
+}
+
 func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 	if err := p.walk(b.Pipe); err != nil {
 		return err
@@ -344,7 +389,7 @@ func (p *Program) walk(n parse.Node) error {
 	case *parse.FieldNode:
 		p.inst(opSTACKDOT, 0)
 		for _, v := range x.Ident {
-			p.inst(opFIELD, p.addString(v))
+			p.addFIELD(v)
 		}
 	case *parse.IdentifierNode:
 		if len(p.cmd) == 0 {
@@ -396,7 +441,7 @@ func (p *Program) walk(n parse.Node) error {
 		// Remove $ sign
 		p.inst(opVAR, p.addString(x.Ident[0][1:]))
 		for _, v := range x.Ident[1:] {
-			p.inst(opFIELD, p.addString(v))
+			p.addFIELD(v)
 		}
 	case *parse.WithNode:
 		if err := p.walkBranch(parse.NodeWith, &x.BranchNode); err != nil {

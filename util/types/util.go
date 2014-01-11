@@ -57,7 +57,12 @@ func Equal(obj1, obj2 interface{}) bool {
 // and whether the value has a meaningful truth value. This function is a copy of the
 // one found in text/template
 func IsTrue(value interface{}) (truth, ok bool) {
-	val := reflect.ValueOf(value)
+	return IsTrueVal(reflect.ValueOf(value))
+}
+
+// IsTrueVal works like IsTrue, but accepts a reflect.Value rather
+// than an interface{}.
+func IsTrueVal(val reflect.Value) (truth, ok bool) {
 	if !val.IsValid() {
 		// Something like var x interface{}, never set. It's a form of nil.
 		return false, true

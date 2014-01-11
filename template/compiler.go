@@ -180,7 +180,29 @@ func (s *state) dup() *state {
 	}
 }
 
-func (s *state) errorf(format string, args ...interface{}) {
+func (s *state) formatErr(pc int, tmpl string, err error) error {
+	tr := s.p.tmpl.Trees[tmpl]
+	if tr != nil {
+		ctx := s.p.context[tmpl]
+		for ii, v := range ctx {
+			if v.pc > pc {
+				if ii > 0 {
+					node := ctx[ii-1].node
+					loc, _ := tr.ErrorContext(node)
+					if loc != "" {
+						return fmt.Errorf("%s: %s", loc, err.Error())
+					}
+				}
+				break
+			}
+		}
+	}
+	return err
+}
+
+func (s *state) errorf(pc int, tmpl string, format string, args ...interface{}) error {
+	err := fmt.Errorf(format, args...)
+	return s.formatErr(pc, tmpl, err)
 }
 
 func (s *state) pushVar(name string, value reflect.Value) {
@@ -226,15 +248,15 @@ func (s *state) call(fn reflect.Value, name string, args int) error {
 	return nil
 }
 
-func (s *state) execute(name string, dot reflect.Value) error {
-	code := s.p.code[name]
-	s.dot = []reflect.Value{dot}
+func (s *state) execute(tmpl string, dot reflect.Value) error {
+	code := s.p.code[tmpl]
 	if code == nil {
-		return fmt.Errorf("template %q does not exist", name)
+		return fmt.Errorf("template %q does not exist", tmpl)
 	}
-	for ii := 0; ii < len(code); ii++ {
-		v := code[ii]
-		//		fmt.Printf("PC %d, OPCODE %d, val %v\n", ii, v.op, v.val)
+	s.dot = []reflect.Value{dot}
+	s.pushVar("", dot)
+	for pc := 0; pc < len(code); pc++ {
+		v := code[pc]
 		switch v.op {
 		case opMARK:
 			s.marks = append(s.marks, len(s.stack))
@@ -284,18 +306,18 @@ func (s *state) execute(name string, dot reflect.Value) error {
 					// try to get a field by that name
 					for top.Kind() == reflect.Ptr {
 						if top.IsNil() {
-							return fmt.Errorf("nil pointer evaluationg field %q on type %T", name, top.Interface())
+							return s.errorf(pc, tmpl, "nil pointer evaluationg field %q on type %T", name, top.Interface())
 						}
 						top = top.Elem()
 					}
 					if top.Kind() != reflect.Struct {
-						return fmt.Errorf("can't evaluate field on type %T", top.Interface())
+						return s.errorf(pc, tmpl, "can't evaluate field on type %T", top.Interface())
 					}
 					res = top.FieldByName(name)
 					if !res.IsValid() {
 						// TODO: Check if the type has a pointer method which we couldn't
 						// address, to provide a better error message
-						return fmt.Errorf("%q is not a field of struct type %T", name, top.Interface())
+						return s.errorf(pc, tmpl, "%q is not a field of struct type %T", name, top.Interface())
 					}
 				}
 			}
@@ -306,13 +328,13 @@ func (s *state) execute(name string, dot reflect.Value) error {
 			// function existence is checked at compile time
 			fn := s.p.funcs[i]
 			if err := s.call(fn.val, fn.name, args); err != nil {
-				return err
+				return s.formatErr(pc, tmpl, err)
 			}
 		case opVAR:
 			name := s.p.strings[int(v.val)]
 			v, err := s.varValue(name)
 			if err != nil {
-				return err
+				return s.formatErr(pc, tmpl, err)
 			}
 			s.stack = append(s.stack, v)
 		case opDOT:
@@ -320,22 +342,22 @@ func (s *state) execute(name string, dot reflect.Value) error {
 		case opITER:
 			iter, err := newIterator(s.stack[len(s.stack)-1])
 			if err != nil {
-				return err
+				return s.formatErr(pc, tmpl, err)
 			}
 			s.stack = append(s.stack, reflect.ValueOf(iter))
 		case opNEXT:
 			iter, ok := s.stack[len(s.stack)-1].Interface().(iterator)
 			if !ok {
-				return fmt.Errorf("ITER called without iterator")
+				return s.errorf(pc, tmpl, "ITER called without iterator")
 			}
 			idx, val := iter.Next()
 			s.stack = append(s.stack, idx, val)
 		case opJMP:
-			ii += int(int32(v.val))
+			pc += int(int32(v.val))
 		case opJMPF:
 			p := len(s.stack)
 			if p == 0 || !isTrue(s.stack[p-1]) {
-				ii += int(v.val)
+				pc += int(v.val)
 			}
 		case opJMPE:
 			p := len(s.stack) - 2
@@ -343,7 +365,7 @@ func (s *state) execute(name string, dot reflect.Value) error {
 			if idx.Kind() == reflect.Int && idx.Int() == -1 {
 				// pop idx and val
 				s.stack = s.stack[:p]
-				ii += int(v.val)
+				pc += int(v.val)
 			}
 		case opSETVAR:
 			name := s.p.strings[int(v.val)]
@@ -354,6 +376,7 @@ func (s *state) execute(name string, dot reflect.Value) error {
 			dup := s.dup()
 			dupDot := s.stack[len(s.stack)-1]
 			if err := dup.execute(name, dupDot); err != nil {
+				// execute already returns the formatted error
 				return err
 			}
 		case opBOOL, opFLOAT, opINT, opUINT:
@@ -361,16 +384,16 @@ func (s *state) execute(name string, dot reflect.Value) error {
 		case opJMPT:
 			p := len(s.stack)
 			if p > 0 && isTrue(s.stack[p-1]) {
-				ii += int(v.val)
+				pc += int(v.val)
 			}
 		case opPRINT:
 			v := s.stack[len(s.stack)-1]
 			val, ok := printableValue(v)
 			if !ok {
-				return fmt.Errorf("can't print value of type %s", v.Type())
+				return s.errorf(pc, tmpl, "can't print value of type %s", v.Type())
 			}
 			if _, err := fmt.Fprint(s.w, val); err != nil {
-				return err
+				return s.formatErr(pc, tmpl, err)
 			}
 		case opPUSHDOT:
 			s.dot = append(s.dot, dot)
@@ -385,10 +408,10 @@ func (s *state) execute(name string, dot reflect.Value) error {
 			s.stack = append(s.stack, s.p.rstrings[int(v.val)])
 		case opWB:
 			if _, err := s.w.Write(s.p.bs[int(v.val)]); err != nil {
-				return err
+				return s.formatErr(pc, tmpl, err)
 			}
 		default:
-			return fmt.Errorf("invalid opcode %d", v.op)
+			return s.errorf(pc, tmpl, "invalid opcode %d", v.op)
 		}
 	}
 	return nil
@@ -401,6 +424,11 @@ type fn struct {
 	numIn    int
 }
 
+type context struct {
+	pc   int
+	node parse.Node
+}
+
 type Program struct {
 	tmpl     *Template
 	funcs    []*fn
@@ -409,10 +437,12 @@ type Program struct {
 	values   []reflect.Value
 	bs       [][]byte
 	code     map[string][]inst
+	context  map[string][]context
 	// used only during compilation
 	buf  []inst
 	cmd  []int
 	pipe []int
+	ctx  []context
 }
 
 func (p *Program) inst(op opcode, val valType) {
@@ -669,6 +699,7 @@ func (p *Program) walk(n parse.Node) error {
 	default:
 		return fmt.Errorf("can't compile node %T", n)
 	}
+	p.ctx = append(p.ctx, context{pc: len(p.buf), node: n})
 	return nil
 }
 
@@ -699,16 +730,18 @@ func NewProgram(tmpl *Template) (*Program, error) {
 	tmpl.Execute(ioutil.Discard, nil)
 	// Add escaping functions
 	addHTMLFunctions(tmpl)
-	p := &Program{tmpl: tmpl, code: make(map[string][]inst)}
+	p := &Program{tmpl: tmpl, code: make(map[string][]inst), context: make(map[string][]context)}
 	for k, v := range tmpl.Trees {
 		root := simplifyList(v.Root)
 		if err := p.walk(root); err != nil {
 			return nil, err
 		}
 		p.code[k] = p.buf
+		p.context[k] = p.ctx
 		p.buf = nil
 		p.cmd = nil
 		p.pipe = nil
+		p.ctx = nil
 	}
 	return p, nil
 }

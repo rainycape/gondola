@@ -51,6 +51,7 @@ var (
 		{"{{ with .A }}{{ . }}{{ else }}no{{ end }}", nil, "no"},
 		{"{{ with .A }}{{ . }}{{ end }}", nil, ""},
 		{"{{ range . }}{{ . }}{{ end }}", []int{1, 2, 3}, "123"},
+		{"{{ range . }}{{ . }}{{ end }}{{ . }}", []int{1, 2, 3}, "123[1 2 3]"},
 		{"{{ range $idx, $el := . }}{{ $idx }}{{ $el }}{{ end }}", []int{1, 2, 3}, "011223"},
 		{"{{ range $el := . }}{{ $el }}{{ end }}", []int{1, 2, 3}, "123"},
 		{"{{ range . }}{{ else }}nope{{ end }}", nil, "nope"},

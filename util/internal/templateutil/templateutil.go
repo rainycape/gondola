@@ -23,52 +23,55 @@ var (
 // WalkTree visits all the nodes in the tree, calling f
 // for every node with its parent.
 func WalkTree(tree *parse.Tree, f func(n, p parse.Node)) {
-	walkNode(tree.Root, nil, f)
+	WalkNode(tree.Root, nil, f)
 }
 
-func walkNode(node, parent parse.Node, f func(n, p parse.Node)) {
+// WalkNode visits all nodes starting from node, calling f
+// with its parent. For the first call, the parent value is
+// the one received as the second argument.
+func WalkNode(node, parent parse.Node, f func(n, p parse.Node)) {
 	if node == nil {
 		return
 	}
 	f(node, parent)
 	switch x := node.(type) {
 	case *parse.ActionNode:
-		walkNode(x.Pipe, x, f)
+		WalkNode(x.Pipe, x, f)
 	case *parse.PipeNode:
 		for _, v := range x.Decl {
-			walkNode(v, x, f)
+			WalkNode(v, x, f)
 		}
 		for _, v := range x.Cmds {
-			walkNode(v, x, f)
+			WalkNode(v, x, f)
 		}
 	case *parse.CommandNode:
 		for _, v := range x.Args {
-			walkNode(v, x, f)
+			WalkNode(v, x, f)
 		}
 	case *parse.ListNode:
 		for _, v := range x.Nodes {
-			walkNode(v, x, f)
+			WalkNode(v, x, f)
 		}
 	case *parse.IfNode:
 		if x.List != nil {
-			walkNode(x.List, x, f)
+			WalkNode(x.List, x, f)
 		}
 		if x.ElseList != nil {
-			walkNode(x.ElseList, x, f)
+			WalkNode(x.ElseList, x, f)
 		}
 	case *parse.WithNode:
 		if x.List != nil {
-			walkNode(x.List, x, f)
+			WalkNode(x.List, x, f)
 		}
 		if x.ElseList != nil {
-			walkNode(x.ElseList, x, f)
+			WalkNode(x.ElseList, x, f)
 		}
 	case *parse.RangeNode:
 		if x.List != nil {
-			walkNode(x.List, x, f)
+			WalkNode(x.List, x, f)
 		}
 		if x.ElseList != nil {
-			walkNode(x.ElseList, x, f)
+			WalkNode(x.ElseList, x, f)
 		}
 	}
 }

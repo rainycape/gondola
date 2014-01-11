@@ -40,6 +40,7 @@ var (
 		{"{{ if divisible 4 2 }}1{{ else }}0{{ end }}", nil, "1"},
 	}
 	compilerTests = []*templateTest{
+		{"{{ \"output\" | printf \"%s\" }}", nil, "output"},
 		{"{{ call .foo }}", map[string]interface{}{"foo": func() string { return "bar" }}, "bar"},
 		{"{{ .Foo }}", struct{ Foo string }{"bar"}, "bar"},
 		{"{{ .Foo }}", &testType{}, "bar"},
@@ -62,6 +63,17 @@ func parseText(tb testing.TB, text string) *Template {
 	tmpl, err := Parse(loader, nil, "template.html")
 	if err != nil {
 		tb.Errorf("error parsing %q: %s", text, err)
+	}
+	return tmpl
+}
+
+func parseTestTemplate(tb testing.TB, name string) *Template {
+	loader := loaders.FSLoader("_testdata")
+	tmpl := New(loader, assets.NewManager(loader, ""))
+	tmpl.Funcs(FuncMap{"t": func(s string) string { return s }})
+	if err := tmpl.Parse(name); err != nil {
+		tb.Errorf("error parsing %q: %s", name, err)
+		return nil
 	}
 	return tmpl
 }
@@ -104,6 +116,48 @@ func TestCompiler(t *testing.T) {
 		}
 		if buf.String() != v.result {
 			t.Errorf("expecting %q executing %q, got %q", v.result, v.tmpl, buf.String())
+		}
+	}
+}
+
+func TestBigTemplate(t *testing.T) {
+	const name = "1.html"
+	tmpl := parseTestTemplate(t, name)
+	if tmpl != nil {
+		var buf bytes.Buffer
+		if err := tmpl.Execute(&buf, nil); err != nil {
+			t.Errorf("error executing template %s: %s", name, err)
+		}
+	}
+}
+
+func TestCompileBigTemplate(t *testing.T) {
+	const name = "1.html"
+	tmpl := parseTestTemplate(t, name)
+	if tmpl != nil {
+		pr, err := NewProgram(tmpl)
+		if err != nil {
+			t.Fatalf("can't compile template %q: %s", name, err)
+		}
+		var buf1 bytes.Buffer
+		if err := tmpl.Execute(&buf1, nil); err != nil {
+			t.Errorf("error executing template %s: %s", name, err)
+		}
+		var buf2 bytes.Buffer
+		if err := pr.Execute(&buf2, nil); err != nil {
+			t.Errorf("error executing program %s: %s", name, err)
+		}
+		if buf1.String() != buf2.String() {
+			s1 := buf1.String()
+			s2 := buf2.String()
+			t.Logf("len(s1) = %d, len(s2) = %d", len(s1), len(s2))
+			for ii := 0; ii < len(s1) && ii < len(s2); ii++ {
+				if s1[ii] != s2[ii] {
+					t.Logf("char %d: s1 %s s2 %s\n", ii, string(s1[ii]), string(s2[ii]))
+					break
+				}
+			}
+			t.Errorf("program output differs - interpreted: \n\n%v\n\n - compiled: \n\n%v\n\n", s1, s2)
 		}
 	}
 }

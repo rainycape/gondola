@@ -3,20 +3,24 @@ package template
 import (
 	"errors"
 	"fmt"
+	"gnd.la/util/internal/templateutil"
 	"gnd.la/util/types"
 	"io"
+	"io/ioutil"
 	"reflect"
 	"sort"
+	"strings"
 	"text/template/parse"
+	"unsafe"
 )
 
 var (
 	errNoComplex = errors.New("complex number are not supported by the template compiler")
-	zero         reflect.Value
 	errType      = reflect.TypeOf((*error)(nil)).Elem()
 	stringType   = reflect.TypeOf("")
 	stringerType = reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
 	emptyType    = reflect.TypeOf((*interface{})(nil)).Elem()
+	zero         = reflect.Zero(emptyType)
 )
 
 // TODO: Remove variables inside if or with when exiting the scope
@@ -37,17 +41,18 @@ const (
 	opJMPT
 	opMARK
 	opNEXT
-	opUINT
-	opWB
 	opDOT
 	opPRINT
-	opSTRING
 	opPUSHDOT
 	opPOPDOT
 	opPOP
 	opSETVAR
 	opSTACKDOT
+	opSTRING
+	opTEMPLATE
+	opUINT
 	opVAR
+	opWB
 )
 
 type valType uint32
@@ -167,6 +172,14 @@ type state struct {
 	dot   []reflect.Value
 }
 
+func (s *state) dup() *state {
+	return &state{
+		p:    s.p,
+		w:    s.w,
+		vars: []variable{s.vars[0]}, // pass $Vars
+	}
+}
+
 func (s *state) errorf(format string, args ...interface{}) {
 }
 
@@ -197,7 +210,7 @@ func (s *state) varValue(name string) (reflect.Value, error) {
 
 // call fn, remove its args from the stack and push the result
 func (s *state) call(fn reflect.Value, name string, args int) error {
-	//	fmt.Println("WILL CALL", name, args, len(s.stack), s.stack)
+	//fmt.Println("WILL CALL", name, args, len(s.stack), s.stack)
 	pos := len(s.stack) - args
 	in := s.stack[pos:]
 	// arguments are in reverse order
@@ -205,7 +218,7 @@ func (s *state) call(fn reflect.Value, name string, args int) error {
 		in[ii], in[len(in)-1-ii] = in[len(in)-1-ii], in[ii]
 	}
 	res := fn.Call(in)
-	//	fmt.Println("CALLED", name, res)
+	//fmt.Println("CALLED", name, res)
 	if len(res) == 2 && !res[1].IsNil() {
 		return fmt.Errorf("error calling %q: %s", name, res[1].Interface())
 	}
@@ -238,16 +251,17 @@ func (s *state) execute(name string, dot reflect.Value) error {
 				s.stack = s.stack[:len(s.stack)-int(v.val)]
 			}
 		case opFIELD:
-			var res reflect.Value
+			res := zero
 			p := len(s.stack) - 1
 			top := s.stack[p]
 			args, i := decodeVal(v.val)
-			//			fmt.Println("FIELD", s.p.strings[int(v.val)])
 			if top.IsValid() {
 				if top.Kind() == reflect.Map && top.Type().Key().Kind() == reflect.String {
 					k := s.p.rstrings[i]
 					res = stackable(top.MapIndex(k))
-					//					fmt.Println("KEYED", k, res, top.Interface())
+					/*if !res.IsValid() {
+						res = reflect.Zero(top.Type().Elem())
+					}*/
 				} else {
 					name := s.p.strings[i]
 					// get pointer methods and try to call a method by that name
@@ -289,8 +303,8 @@ func (s *state) execute(name string, dot reflect.Value) error {
 			s.stack[p] = res
 		case opFUNC:
 			args, i := decodeVal(v.val)
-			fn := s.p.funcs[i]
 			// function existence is checked at compile time
+			fn := s.p.funcs[i]
 			if err := s.call(fn.val, fn.name, args); err != nil {
 				return err
 			}
@@ -335,6 +349,13 @@ func (s *state) execute(name string, dot reflect.Value) error {
 			name := s.p.strings[int(v.val)]
 			p := len(s.stack) - 1
 			s.pushVar(name, s.stack[p])
+		case opTEMPLATE:
+			name := s.p.strings[int(v.val)]
+			dup := s.dup()
+			dupDot := s.stack[len(s.stack)-1]
+			if err := dup.execute(name, dupDot); err != nil {
+				return err
+			}
 		case opBOOL, opFLOAT, opINT, opUINT:
 			s.stack = append(s.stack, s.p.values[v.val])
 		case opJMPT:
@@ -389,8 +410,9 @@ type Program struct {
 	bs       [][]byte
 	code     map[string][]inst
 	// used only during compilation
-	buf []inst
-	cmd []int
+	buf  []inst
+	cmd  []int
+	pipe []int
 }
 
 func (p *Program) inst(op opcode, val valType) {
@@ -444,6 +466,9 @@ func (p *Program) addFIELD(name string) {
 	var args int
 	if len(p.cmd) > 0 {
 		args = p.cmd[len(p.cmd)-1] - 1 // first arg is the FieldNode
+		if len(p.pipe) > 0 && p.pipe[len(p.pipe)-1] > 0 {
+			args++
+		}
 	}
 	p.inst(opFIELD, encodeVal(args, p.addString(name)))
 }
@@ -499,7 +524,7 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 				list = append([]inst{{op: opSETVAR, val: p.addString(b.Pipe.Decl[1].Ident[0][1:])}, {op: opPOP, val: 1}}, list...)
 			}
 		}
-		// pop variables which haven't beeen popped by setvar
+		// pop variables which haven't beeen popped yet
 		if toPop > 0 {
 			list = append(list, inst{op: opPOPDOT}, inst{op: opPOP, val: valType(toPop)})
 		}
@@ -564,13 +589,6 @@ func (p *Program) walk(n parse.Node) error {
 				return err
 			}
 		}
-		/*} else {
-			for _, node := range x.Args {
-				if err := p.walk(node); err != nil {
-					return err
-				}
-			}
-		}*/
 		p.cmd = p.cmd[:len(p.cmd)-1]
 	case *parse.DotNode:
 		p.inst(opDOT, 0)
@@ -584,6 +602,9 @@ func (p *Program) walk(n parse.Node) error {
 			return fmt.Errorf("identifier %q outside of command?", x.Ident)
 		}
 		args := p.cmd[len(p.cmd)-1] - 1 // first arg is identifier
+		if len(p.pipe) > 0 && p.pipe[len(p.pipe)-1] > 0 {
+			args++
+		}
 		fn := p.tmpl.funcMap[x.Ident]
 		if fn == nil {
 			return fmt.Errorf("undefined function %q", x.Ident)
@@ -611,10 +632,12 @@ func (p *Program) walk(n parse.Node) error {
 			p.inst(opUINT, p.addValue(x.Uint64))
 		}
 	case *parse.PipeNode:
-		for _, v := range x.Cmds {
+		for ii, v := range x.Cmds {
+			p.pipe = append(p.pipe, ii)
 			if err := p.walk(v); err != nil {
 				return err
 			}
+			p.pipe = p.pipe[:len(p.pipe)-1]
 		}
 		for _, variable := range x.Decl {
 			// Remove $
@@ -626,6 +649,11 @@ func (p *Program) walk(n parse.Node) error {
 		}
 	case *parse.StringNode:
 		p.addSTRING(x.Text)
+	case *parse.TemplateNode:
+		if err := p.walk(x.Pipe); err != nil {
+			return err
+		}
+		p.inst(opTEMPLATE, p.addString(x.Name))
 	case *parse.TextNode:
 		p.addWB(x.Text)
 	case *parse.VariableNode:
@@ -661,13 +689,16 @@ func (p *Program) ExecuteTemplateVars(w io.Writer, name string, data interface{}
 		p: p,
 		w: w,
 	}
-	if vars != nil {
-		s.pushVar("Vars", reflect.ValueOf(vars))
-	}
+	s.pushVar("Vars", reflect.ValueOf(vars))
 	return s.execute(name, reflect.ValueOf(data))
 }
 
 func NewProgram(tmpl *Template) (*Program, error) {
+	// Need to execute it once, for html/template to add
+	// the escaping hooks.
+	tmpl.Execute(ioutil.Discard, nil)
+	// Add escaping functions
+	addHTMLFunctions(tmpl)
 	p := &Program{tmpl: tmpl, code: make(map[string][]inst)}
 	for k, v := range tmpl.Trees {
 		root := simplifyList(v.Root)
@@ -676,8 +707,31 @@ func NewProgram(tmpl *Template) (*Program, error) {
 		}
 		p.code[k] = p.buf
 		p.buf = nil
+		p.cmd = nil
+		p.pipe = nil
 	}
 	return p, nil
+}
+
+type rvalue struct {
+	typ unsafe.Pointer
+	val unsafe.Pointer
+}
+
+func addHTMLFunctions(tmpl *Template) {
+	v := reflect.ValueOf(tmpl.Template).Elem()
+	textTemplate := v.FieldByName("text").Elem()
+	common := textTemplate.FieldByName("common").Elem()
+	parseFuncs := common.FieldByName("parseFuncs")
+	p := (*rvalue)(unsafe.Pointer(&parseFuncs))
+	m := *(*map[string]interface{})(p.val)
+	funcs := make(FuncMap)
+	for k, v := range m {
+		if strings.HasPrefix(k, "html_") {
+			funcs[k] = v
+		}
+	}
+	tmpl.Funcs(funcs)
 }
 
 // simplifyList removes all nodes injected by Gondola
@@ -685,11 +739,34 @@ func NewProgram(tmpl *Template) (*Program, error) {
 // support for that directly and does not require introducing
 // extra nodes.
 func simplifyList(root *parse.ListNode) *parse.ListNode {
-	if len(root.Nodes) == 2 && root.Nodes[0].String() == fmt.Sprintf("{{$%s := .%s}}", varsKey, varsKey) {
-		if wn, ok := root.Nodes[1].(*parse.WithNode); ok && wn.Pipe.String() == "."+dataKey {
-			// TODO: Simplify "template" nodes, otherwise we end up calling
-			// templates with incorrect data
-			return wn.List
+	if len(root.Nodes) > 0 && root.Nodes[0].String() == fmt.Sprintf("{{$%s := .%s}}", varsKey, varsKey) {
+		count := len(root.Nodes)
+		if wn, ok := root.Nodes[count-1].(*parse.WithNode); ok && wn.Pipe.String() == "."+dataKey {
+			list := wn.List
+			list.Nodes = append(root.Nodes[1:count-1], wn.List.Nodes...)
+			var templates []*parse.TemplateNode
+			templateutil.WalkNode(wn.List, nil, func(n, p parse.Node) {
+				if tn, ok := n.(*parse.TemplateNode); ok {
+					templates = append(templates, tn)
+				}
+			})
+			for _, v := range templates {
+				if v.Pipe != nil {
+					if len(v.Pipe.Cmds) == 1 {
+						cmd := v.Pipe.Cmds[0]
+						switch len(cmd.Args) {
+						case 3: // template had no arguments
+							v.Pipe = nil
+						case 5: // original pipe was 5th arg
+							v.Pipe = cmd.Args[4].(*parse.PipeNode)
+						default:
+							fmt.Println(len(cmd.Args), v.Pipe)
+							panic("something went bad")
+						}
+					}
+				}
+			}
+			return list
 		}
 	}
 	return root

@@ -39,6 +39,7 @@ func Gen(pkgName string, opts *Options) error {
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("package %s\n\n", pkg.Name()))
 	buf.WriteString(genutil.AutogenString())
+	buf.WriteString("import \"fmt\"\n\nvar _ = fmt.Sprintf\n")
 	var include *regexp.Regexp
 	var exclude *regexp.Regexp
 	if opts != nil {
@@ -99,7 +100,7 @@ func genString(named *types.Named, scope *types.Scope, opts *Options, buf *bytes
 			buf.WriteString(fmt.Sprintf("return %q\n", v))
 		}
 		buf.WriteString("}\n")
-		buf.WriteString(fmt.Sprintf("return \"unknown %s\"", strings.ToLower(name)))
+		fmt.Fprintf(buf, "return fmt.Sprintf(\"unknown %s %%v\", %s)", strings.ToLower(name), varname)
 		buf.WriteString("}\n")
 	}
 	return nil

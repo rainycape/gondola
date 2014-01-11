@@ -429,6 +429,13 @@ type context struct {
 	node parse.Node
 }
 
+type scratch struct {
+	buf  []inst
+	cmd  []int
+	pipe []int
+	ctx  []context
+}
+
 type Program struct {
 	tmpl     *Template
 	funcs    []*fn
@@ -439,14 +446,11 @@ type Program struct {
 	code     map[string][]inst
 	context  map[string][]context
 	// used only during compilation
-	buf  []inst
-	cmd  []int
-	pipe []int
-	ctx  []context
+	s *scratch
 }
 
 func (p *Program) inst(op opcode, val valType) {
-	p.buf = append(p.buf, inst{op: op, val: val})
+	p.s.buf = append(p.s.buf, inst{op: op, val: val})
 }
 
 func (p *Program) addString(s string) valType {
@@ -494,9 +498,9 @@ func (p *Program) addSTRING(s string) {
 
 func (p *Program) addFIELD(name string) {
 	var args int
-	if len(p.cmd) > 0 {
-		args = p.cmd[len(p.cmd)-1] - 1 // first arg is the FieldNode
-		if len(p.pipe) > 0 && p.pipe[len(p.pipe)-1] > 0 {
+	if len(p.s.cmd) > 0 {
+		args = p.s.cmd[len(p.s.cmd)-1] - 1 // first arg is the FieldNode
+		if len(p.s.pipe) > 0 && p.s.pipe[len(p.s.pipe)-1] > 0 {
 			args++
 		}
 	}
@@ -508,35 +512,35 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		return err
 	}
 	// Save buf
-	buf := p.buf
-	p.buf = nil
+	buf := p.s.buf
+	p.s.buf = nil
 	if err := p.walk(b.List); err != nil {
 		return err
 	}
-	list := append([]inst{{op: opPOP}}, p.buf...)
+	list := append([]inst{{op: opPOP}}, p.s.buf...)
 	var elseList []inst
 	if b.ElseList != nil {
-		p.buf = nil
+		p.s.buf = nil
 		if err := p.walk(b.ElseList); err != nil {
 			return err
 		}
-		elseList = append([]inst{{op: opPOP}}, p.buf...)
+		elseList = append([]inst{{op: opPOP}}, p.s.buf...)
 	}
 	skip := len(list)
 	if len(elseList) > 0 {
 		// Skip the JMP at the start of the elseList
 		skip += 1
 	}
-	p.buf = buf
+	p.s.buf = buf
 	switch nt {
 	case parse.NodeIf:
 		p.inst(opJMPF, valType(skip))
-		p.buf = append(p.buf, list...)
+		p.s.buf = append(p.s.buf, list...)
 	case parse.NodeWith:
 		// if false, skip the PUSHDOT and POPDOT
 		p.inst(opJMPF, valType(skip+2))
 		p.inst(opPUSHDOT, 0)
-		p.buf = append(p.buf, list...)
+		p.s.buf = append(p.s.buf, list...)
 		p.inst(opPOPDOT, 0)
 	case parse.NodeRange:
 		// remove the opPOP from the list, we need
@@ -609,7 +613,7 @@ func (p *Program) walk(n parse.Node) error {
 	case *parse.BoolNode:
 		p.inst(opBOOL, p.addValue(x.True))
 	case *parse.CommandNode:
-		p.cmd = append(p.cmd, len(x.Args))
+		p.s.cmd = append(p.s.cmd, len(x.Args))
 		// Command nodes are pushed on reverse order, so they are
 		// evaluated from right to left. If we encounter a function
 		// while executing it, we can just grab the arguments from the stack
@@ -619,7 +623,7 @@ func (p *Program) walk(n parse.Node) error {
 				return err
 			}
 		}
-		p.cmd = p.cmd[:len(p.cmd)-1]
+		p.s.cmd = p.s.cmd[:len(p.s.cmd)-1]
 	case *parse.DotNode:
 		p.inst(opDOT, 0)
 	case *parse.FieldNode:
@@ -628,11 +632,11 @@ func (p *Program) walk(n parse.Node) error {
 			p.addFIELD(v)
 		}
 	case *parse.IdentifierNode:
-		if len(p.cmd) == 0 {
+		if len(p.s.cmd) == 0 {
 			return fmt.Errorf("identifier %q outside of command?", x.Ident)
 		}
-		args := p.cmd[len(p.cmd)-1] - 1 // first arg is identifier
-		if len(p.pipe) > 0 && p.pipe[len(p.pipe)-1] > 0 {
+		args := p.s.cmd[len(p.s.cmd)-1] - 1 // first arg is identifier
+		if len(p.s.pipe) > 0 && p.s.pipe[len(p.s.pipe)-1] > 0 {
 			args++
 		}
 		fn := p.tmpl.funcMap[x.Ident]
@@ -663,11 +667,11 @@ func (p *Program) walk(n parse.Node) error {
 		}
 	case *parse.PipeNode:
 		for ii, v := range x.Cmds {
-			p.pipe = append(p.pipe, ii)
+			p.s.pipe = append(p.s.pipe, ii)
 			if err := p.walk(v); err != nil {
 				return err
 			}
-			p.pipe = p.pipe[:len(p.pipe)-1]
+			p.s.pipe = p.s.pipe[:len(p.s.pipe)-1]
 		}
 		for _, variable := range x.Decl {
 			// Remove $
@@ -699,7 +703,7 @@ func (p *Program) walk(n parse.Node) error {
 	default:
 		return fmt.Errorf("can't compile node %T", n)
 	}
-	p.ctx = append(p.ctx, context{pc: len(p.buf), node: n})
+	p.s.ctx = append(p.s.ctx, context{pc: len(p.s.buf), node: n})
 	return nil
 }
 
@@ -733,15 +737,13 @@ func NewProgram(tmpl *Template) (*Program, error) {
 	p := &Program{tmpl: tmpl, code: make(map[string][]inst), context: make(map[string][]context)}
 	for k, v := range tmpl.Trees {
 		root := simplifyList(v.Root)
+		p.s = new(scratch)
 		if err := p.walk(root); err != nil {
 			return nil, err
 		}
-		p.code[k] = p.buf
-		p.context[k] = p.ctx
-		p.buf = nil
-		p.cmd = nil
-		p.pipe = nil
-		p.ctx = nil
+		p.code[k] = p.s.buf
+		p.context[k] = p.s.ctx
+		p.s = nil
 	}
 	return p, nil
 }

@@ -48,6 +48,7 @@ var (
 	defineRe                 = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
 	topTree                  = compileTree(topBoilerplate)
 	bottomTree               = compileTree(bottomBoilerplate)
+	templatePrepend          = fmt.Sprintf("{{ $%s := .%s }}", varsKey, varsKey)
 )
 
 type Hook struct {
@@ -463,8 +464,7 @@ func (t *Template) load(name string, included bool) error {
 	// error when it finds a variable which wasn't
 	// previously defined
 	// Prepend to the template and to any define nodes found
-	prepend := "{{ $Vars := .Vars }}"
-	s = prepend + defineRe.ReplaceAllString(s, "$0"+strings.Replace(prepend, "$", "$$", -1))
+	s = templatePrepend + defineRe.ReplaceAllString(s, "$0"+strings.Replace(templatePrepend, "$", "$$", -1))
 	treeMap, err := parse.Parse(name, s, leftDelim, rightDelim, templateFuncs, t.funcMap)
 	if err != nil {
 		return err

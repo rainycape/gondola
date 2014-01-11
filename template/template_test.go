@@ -57,6 +57,11 @@ var (
 		{"{{ range . }}{{ else }}nope{{ end }}", nil, "nope"},
 		{"{{ range $k, $v := . }}{{ $k }}={{ $v }}{{ end }}", map[string]int{"b": 2, "c": 3, "a": 1}, "a=1b=2c=3"},
 	}
+	compilerErrorTests = []*templateTest{
+		{"{{ range . }}{{ else }}nope{{ end }}", 5, "template.html:1:9: can't range over int"},
+		{"{{ . }}\n{{ range . }}{{ else }}nope{{ end }}", 5, "template.html:2:9: can't range over int"},
+		{"{{ . }}\n{{ range .foo }}{{ else }}nope{{ end }}\n{{ range .bar }}{{ . }}{{ end }} ", map[string]interface{}{"foo": []int{}, "bar": ""}, "template.html:3:9: can't range over string"},
+	}
 )
 
 func parseText(tb testing.TB, text string) *Template {
@@ -117,6 +122,30 @@ func TestCompiler(t *testing.T) {
 		}
 		if buf.String() != v.result {
 			t.Errorf("expecting %q executing %q, got %q", v.result, v.tmpl, buf.String())
+		}
+	}
+}
+
+func TestCompilerErrors(t *testing.T) {
+	for _, v := range compilerErrorTests {
+		tmpl := parseText(t, v.tmpl)
+		if tmpl == nil {
+			continue
+		}
+		pr, err := NewProgram(tmpl)
+		if err != nil {
+			t.Errorf("error compiling %q: %s", v.tmpl, err)
+			continue
+		}
+		var buf bytes.Buffer
+		err = pr.Execute(&buf, v.data)
+		if err == nil {
+			t.Errorf("expecting an error when executing %q, got nil", v.tmpl)
+			continue
+		}
+		if err.Error() != v.result {
+			t.Logf("template is %q", v.tmpl)
+			t.Errorf("expecting error %q, got %q", v.result, err.Error())
 		}
 	}
 }

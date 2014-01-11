@@ -190,6 +190,21 @@ func (s *state) formatErr(pc int, tmpl string, err error) error {
 					node := ctx[ii-1].node
 					loc, _ := tr.ErrorContext(node)
 					if loc != "" {
+						// Need to check if the error was in line 1, to remove
+						// the length of the text we prepend to templates.
+						// TODO: Actually, that's prepended after every define,
+						// eventually fix that too.
+						p := strings.SplitN(loc, ":", 2)
+						if len(p) == 2 {
+							var line int
+							var pos int
+							if _, err := fmt.Sscanf(p[1], "%d:%d", &line, &pos); err == nil {
+								if line == 1 {
+									pos -= len(templatePrepend)
+								}
+								loc = fmt.Sprintf("%s:%d:%d", p[0], line, pos)
+							}
+						}
 						return fmt.Errorf("%s: %s", loc, err.Error())
 					}
 				}
@@ -436,6 +451,55 @@ type scratch struct {
 	ctx  []context
 }
 
+// snap returns a *scratch with the buf amd ctx of this
+// scratch, while setting this scratch's buf and
+// ctx to nil. used while compiling branches
+func (s *scratch) snap() *scratch {
+	ret := &scratch{buf: s.buf, ctx: s.ctx}
+	s.buf = nil
+	s.ctx = nil
+	return ret
+}
+
+// restore sets the scrach buf and ctx to p.buf and p.ctx
+func (s *scratch) restore(p *scratch) {
+	s.buf = p.buf
+	s.ctx = p.ctx
+}
+
+// prepend prepends one instruction to the scrach, adjusting
+// the values in ctx
+func (s *scratch) prepend(op opcode, val valType) *scratch {
+	s.buf = append([]inst{{op: op, val: val}}, s.buf...)
+	for _, v := range s.ctx {
+		v.pc++
+	}
+	return s
+}
+
+func (s *scratch) popFront(count int) *scratch {
+	s.buf = s.buf[count:]
+	for _, v := range s.ctx {
+		v.pc -= count
+	}
+	return s
+}
+
+func (s *scratch) append(op opcode, val valType) *scratch {
+	s.buf = append(s.buf, inst{op: op, val: val})
+	return s
+}
+
+// add adds another scratch at the end of this one. ctx in p
+// is adjusted.
+func (s *scratch) add(p *scratch) {
+	for _, v := range s.ctx {
+		v.pc += len(s.buf)
+	}
+	s.buf = append(s.buf, p.buf...)
+	s.ctx = append(s.ctx, s.ctx...)
+}
+
 type Program struct {
 	tmpl     *Template
 	funcs    []*fn
@@ -511,60 +575,60 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 	if err := p.walk(b.Pipe); err != nil {
 		return err
 	}
-	// Save buf
-	buf := p.s.buf
-	p.s.buf = nil
+	saved := p.s.snap()
 	if err := p.walk(b.List); err != nil {
 		return err
 	}
-	list := append([]inst{{op: opPOP}}, p.s.buf...)
-	var elseList []inst
+	list := p.s.snap().prepend(opPOP, 0)
+	var elseList *scratch
 	if b.ElseList != nil {
-		p.s.buf = nil
 		if err := p.walk(b.ElseList); err != nil {
 			return err
 		}
-		elseList = append([]inst{{op: opPOP}}, p.s.buf...)
+		// if the else is empty, just ignore it
+		if len(p.s.buf) > 0 {
+			elseList = p.s.snap().prepend(opPOP, 0)
+		}
 	}
-	skip := len(list)
-	if len(elseList) > 0 {
+	p.s.restore(saved)
+	skip := len(list.buf)
+	if elseList != nil {
 		// Skip the JMP at the start of the elseList
 		skip += 1
 	}
-	p.s.buf = buf
 	switch nt {
 	case parse.NodeIf:
 		p.inst(opJMPF, valType(skip))
-		p.s.buf = append(p.s.buf, list...)
+		p.s.add(list)
 	case parse.NodeWith:
 		// if false, skip the PUSHDOT and POPDOT
 		p.inst(opJMPF, valType(skip+2))
 		p.inst(opPUSHDOT, 0)
-		p.s.buf = append(p.s.buf, list...)
+		p.s.add(list)
 		p.inst(opPOPDOT, 0)
 	case parse.NodeRange:
 		// remove the opPOP from the list, we need
 		// iter to be kept on the stack. add also PUSHDOT
 		// and POPDOT.
-		list = append([]inst{{op: opPUSHDOT}}, list[1:]...)
+		list.popFront(1).prepend(opPUSHDOT, 0).append(opPOPDOT, 0)
 		toPop := 2
 		// if there are variables declared, add instructions
 		// for setting them
 		if len(b.Pipe.Decl) > 0 {
 			toPop--
-			list = append([]inst{{op: opSETVAR, val: p.addString(b.Pipe.Decl[0].Ident[0][1:])}, {op: opPOP, val: 1}}, list...)
+			list.prepend(opPOP, 1).prepend(opSETVAR, p.addString(b.Pipe.Decl[0].Ident[0][1:]))
 			if len(b.Pipe.Decl) > 1 {
 				toPop--
-				list = append([]inst{{op: opSETVAR, val: p.addString(b.Pipe.Decl[1].Ident[0][1:])}, {op: opPOP, val: 1}}, list...)
+				list.prepend(opPOP, 1).prepend(opSETVAR, p.addString(b.Pipe.Decl[1].Ident[0][1:]))
 			}
 		}
 		// pop variables which haven't beeen popped yet
 		if toPop > 0 {
-			list = append(list, inst{op: opPOPDOT}, inst{op: opPOP, val: valType(toPop)})
+			list.append(opPOP, valType(toPop))
 		}
 		// add a jump back to 2 instructions before the
 		// list, which will call NEXT and JMPE again.
-		list = append(list, inst{op: opJMP, val: valType(-len(list) - 3)})
+		list.append(opJMP, valType(-len(list.buf)-3))
 		// initialize the iter
 		p.inst(opITER, 0)
 		// call next for the first time
@@ -572,29 +636,33 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		if elseList == nil {
 			// no elseList. just iterate and jump out of the
 			// loop once we reach the end of the iteration
-			p.inst(opJMPE, valType(len(list)))
+			p.inst(opJMPE, valType(len(list.buf)))
 		} else {
 			// if the iteration stopped in the first step, we
 			// need to jump to elseList, skipping the JMP at its
 			// start (for range loops the JMP is not really needed,
 			// but one extra instruction won't hurt much). We also
 			// need to skip the 3 instructions following this one.
-			p.inst(opJMPE, valType(len(list)+1+3))
+			p.inst(opJMPE, valType(len(list.buf)+1+3))
 			// Now jump the following two instructions, they're used for
 			// subsequent iterations
 			p.inst(opJMP, 2)
 			// 2nd and the rest of iterations start here
 			p.inst(opNEXT, 0)
 			// If ended, jump outside list and elseList
-			p.inst(opJMPE, valType(len(list)+len(elseList)+1))
+			out := len(list.buf) + 1
+			if elseList != nil {
+				out += len(elseList.buf)
+			}
+			p.inst(opJMPE, valType(out))
 		}
-		p.buf = append(p.buf, list...)
+		p.s.add(list)
 	default:
 		return fmt.Errorf("invalid branch type %v", nt)
 	}
-	if c := len(elseList); c > 0 {
-		p.inst(opJMP, valType(c))
-		p.buf = append(p.buf, elseList...)
+	if elseList != nil {
+		p.inst(opJMP, valType(len(elseList.buf)))
+		p.s.add(elseList)
 	}
 	return nil
 }

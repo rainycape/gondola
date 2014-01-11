@@ -7,10 +7,12 @@ package gen
 
 import (
 	"fmt"
-	"github.com/kylelemons/go-gypsy/yaml"
 	"gnd.la/gen/genutil"
 	"gnd.la/gen/json"
 	"gnd.la/gen/strings"
+	"gnd.la/util/types"
+	"io/ioutil"
+	"launchpad.net/goyaml"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -30,15 +32,15 @@ func Gen(pkgName string, config string) error {
 		}
 		config = filepath.Join(pkg.Dir(), "genfile.yaml")
 	}
-	f, err := yaml.ReadFile(config)
+	data, err := ioutil.ReadFile(config)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not read %s: %s", config, err)
 	}
-	root, ok := f.Root.(yaml.Map)
-	if !ok {
-		return fmt.Errorf("top level object in genfile.yaml must be a map")
+	var opts map[string]interface{}
+	if err := goyaml.Unmarshal(data, &opts); err != nil {
+		return fmt.Errorf("could not decode YAML: %s", err)
 	}
-	for k, v := range root {
+	for k, v := range opts {
 		switch k {
 		case "json":
 			opts, err := jsonOptions(v)
@@ -56,183 +58,180 @@ func Gen(pkgName string, config string) error {
 			if err := strings.Gen(pkgName, opts); err != nil {
 				return err
 			}
+		case "template":
 		}
 	}
 	return nil
 }
 
-func jsonOptions(node yaml.Node) (*json.Options, error) {
-	if m, ok := node.(yaml.Map); ok {
-		opts := &json.Options{}
-		var err error
-		for k, v := range m {
-			switch k {
-			case "marshal-json":
-				opts.MarshalJSON = nodeToBool(v)
-			case "buffer-size":
-				if opts.BufferSize, err = nodeToInt(v); err != nil {
-					return nil, err
-				}
-			case "max-buffer-size":
-				if opts.MaxBufferSize, err = nodeToInt(v); err != nil {
-					return nil, err
-				}
-			case "buffer-count":
-				if opts.BufferCount, err = nodeToInt(v); err != nil {
-					return nil, err
-				}
-			case "buffers-per-proc":
-				if opts.BuffersPerProc, err = nodeToInt(v); err != nil {
-					return nil, err
-				}
-			case "include":
-				if val := nodeToString(v); val != "" {
-					include, err := regexp.Compile(val)
-					if err != nil {
-						return nil, err
-					}
-					opts.Include = include
-				}
-			case "exclude":
-				if val := nodeToString(v); val != "" {
-					exclude, err := regexp.Compile(val)
-					if err != nil {
-						return nil, err
-					}
-					opts.Exclude = exclude
-				}
-			case "methods":
-				if methods, ok := v.(yaml.Map); ok {
-					opts.Methods = make(map[string][]*json.Method)
-					for typeName, val := range methods {
-						if typeMethods, ok := val.(yaml.Map); ok {
-							for methodName, node := range typeMethods {
-								method := &json.Method{
-									Name: methodName,
-								}
-								switch value := node.(type) {
-								case yaml.Map:
-									method.Key = nodeToString(value["key"])
-									method.OmitEmpty = nodeToBool(value["omitempty"])
-								case yaml.Scalar:
-									method.Key = nodeToString(value)
-								default:
-									return nil, fmt.Errorf("method value for %s must be scalar or map", methodName)
-								}
-								if method.Key == "" {
-									method.Key = method.Name
-								}
-								opts.Methods[typeName] = append(opts.Methods[typeName], method)
-							}
-						}
-					}
-				}
-			}
-		}
-		return opts, nil
+func jsonOptions(val interface{}) (*json.Options, error) {
+	m, ok := toMap(val)
+	if !ok {
+		return nil, fmt.Errorf("JSON options must be a map")
 	}
-	return nil, nil
-}
-
-func stringsOptions(node yaml.Node) (*strings.Options, error) {
-	if m, ok := node.(yaml.Map); ok {
-		opts := &strings.Options{}
-		for k, v := range m {
-			switch k {
-			case "include":
-				if val := nodeToString(v); val != "" {
-					include, err := regexp.Compile(val)
-					if err != nil {
-						return nil, err
-					}
-					opts.Include = include
+	opts := &json.Options{}
+	var err error
+	for k, v := range m {
+		switch k {
+		case "marshal-json":
+			opts.MarshalJSON, _ = types.IsTrue(v)
+		case "buffer-size":
+			if opts.BufferSize, err = types.ToInt(v); err != nil {
+				return nil, err
+			}
+		case "max-buffer-size":
+			if opts.MaxBufferSize, err = types.ToInt(v); err != nil {
+				return nil, err
+			}
+		case "buffer-count":
+			if opts.BufferCount, err = types.ToInt(v); err != nil {
+				return nil, err
+			}
+		case "buffers-per-proc":
+			if opts.BuffersPerProc, err = types.ToInt(v); err != nil {
+				return nil, err
+			}
+		case "include":
+			if val := types.ToString(v); val != "" {
+				include, err := regexp.Compile(val)
+				if err != nil {
+					return nil, err
 				}
-			case "exclude":
-				if val := nodeToString(v); val != "" {
-					exclude, err := regexp.Compile(val)
-					if err != nil {
-						return nil, err
-					}
-					opts.Exclude = exclude
+				opts.Include = include
+			}
+		case "exclude":
+			if val := types.ToString(v); val != "" {
+				exclude, err := regexp.Compile(val)
+				if err != nil {
+					return nil, err
 				}
-			case "options":
-				if options, ok := v.(yaml.Map); ok {
-					opts.TypeOptions = make(map[string]*strings.TypeOptions)
-					for typeName, val := range options {
-						valMap, ok := val.(yaml.Map)
-						if !ok {
-							return nil, fmt.Errorf("%s type options must be a map", typeName)
+				opts.Exclude = exclude
+			}
+		case "methods":
+			methods, ok := toMap(v)
+			if !ok {
+				return nil, fmt.Errorf("JSON methods must be a map")
+			}
+			opts.Methods = make(map[string][]*json.Method)
+			for typeName, val := range methods {
+				if typeMethods, ok := toMap(val); ok {
+					for methodName, node := range typeMethods {
+						method := &json.Method{
+							Name: methodName,
 						}
-						typeOptions := &strings.TypeOptions{}
-						tr := nodeToString(valMap["transform"])
-						switch tr {
-						case "":
-						case "uppercase":
-							typeOptions.Transform = strings.ToUpper
-						case "lowercase":
-							typeOptions.Transform = strings.ToLower
+						switch value := node.(type) {
+						case map[interface{}]interface{}:
+							method.Key = types.ToString(value["key"])
+							method.OmitEmpty, _ = types.IsTrue(value["omitempty"])
+						case string:
+							method.Key = types.ToString(value)
 						default:
-							return nil, fmt.Errorf("invalid transform %q", tr)
+							return nil, fmt.Errorf("method value for %s must be string or map", methodName)
 						}
-						if slice := valMap["slice"]; slice != nil {
-							var err error
-							if typeOptions.SliceBegin, typeOptions.SliceEnd, err = parseSlice(slice); err != nil {
-								return nil, err
-							}
+						if method.Key == "" {
+							method.Key = method.Name
 						}
-						opts.TypeOptions[typeName] = typeOptions
+						opts.Methods[typeName] = append(opts.Methods[typeName], method)
 					}
 				}
 			}
 		}
-		return opts, nil
 	}
-	return nil, nil
+	return opts, nil
 }
 
-func nodeToBool(node yaml.Node) bool {
-	switch n := node.(type) {
-	case yaml.List:
-		return len(n) > 0
-	case yaml.Map:
-		return len(n) > 0
-	case yaml.Scalar:
-		val, _ := strconv.ParseBool(n.String())
-		return val
+func stringsOptions(val interface{}) (*strings.Options, error) {
+	m, ok := toMap(val)
+	if !ok {
+		return nil, fmt.Errorf("strings options must be a map, not %T", val)
 	}
-	return false
+	opts := &strings.Options{}
+	for k, v := range m {
+		switch k {
+		case "include":
+			if val := types.ToString(v); val != "" {
+				include, err := regexp.Compile(val)
+				if err != nil {
+					return nil, err
+				}
+				opts.Include = include
+			}
+		case "exclude":
+			if val := types.ToString(v); val != "" {
+				exclude, err := regexp.Compile(val)
+				if err != nil {
+					return nil, err
+				}
+				opts.Exclude = exclude
+			}
+		case "options":
+			options, ok := toMap(v)
+			if !ok {
+				return nil, fmt.Errorf("options inside string options must be a map")
+			}
+			opts.TypeOptions = make(map[string]*strings.TypeOptions)
+			for typeName, val := range options {
+				valMap, ok := toMap(val)
+				if !ok {
+					return nil, fmt.Errorf("%s type options must be a map", typeName)
+				}
+				typeOptions := &strings.TypeOptions{}
+				tr := types.ToString(valMap["transform"])
+				switch tr {
+				case "":
+				case "uppercase":
+					typeOptions.Transform = strings.ToUpper
+				case "lowercase":
+					typeOptions.Transform = strings.ToLower
+				default:
+					return nil, fmt.Errorf("invalid transform %q", tr)
+				}
+				if slice := valMap["slice"]; slice != nil {
+					var err error
+					if typeOptions.SliceBegin, typeOptions.SliceEnd, err = parseSlice(slice); err != nil {
+						return nil, err
+					}
+				}
+				opts.TypeOptions[typeName] = typeOptions
+			}
+		}
+	}
+	return opts, nil
 }
 
-func nodeToString(node yaml.Node) string {
-	if s, ok := node.(yaml.Scalar); ok {
-		return s.String()
+func toMap(val interface{}) (map[string]interface{}, bool) {
+	switch v := val.(type) {
+	case map[string]interface{}:
+		return v, true
+	case map[interface{}]interface{}:
+		m := make(map[string]interface{})
+		for k, v := range v {
+			if s, ok := k.(string); ok {
+				m[s] = v
+			} else {
+				return nil, false
+			}
+		}
+		return m, true
 	}
-	return ""
+	return nil, false
 }
 
-func nodeToInt(node yaml.Node) (int, error) {
-	switch n := node.(type) {
-	case yaml.Scalar:
-		return strconv.Atoi(n.String())
-	}
-	return 0, fmt.Errorf("invalid int node %v", node)
-}
-
-func parseSlice(node yaml.Node) (int, int, error) {
-	switch n := node.(type) {
-	case yaml.Scalar:
-		return _parseSlice(n.String())
-	case yaml.Map:
-		if len(n) == 1 {
-			for k, v := range n {
+func parseSlice(val interface{}) (int, int, error) {
+	switch v := val.(type) {
+	case string:
+		return _parseSlice(v)
+	case map[interface{}]interface{}:
+		if len(v) == 1 {
+			for k, v := range v {
 				if v == nil {
-					v = yaml.Scalar("0")
+					v = "0"
 				}
 				return _parseSlice(fmt.Sprintf("%v:%v", k, v))
 			}
 		}
 	}
-	return 0, 0, fmt.Errorf("invalid slice spec %v", node)
+	return 0, 0, fmt.Errorf("invalid slice spec %v", val)
 }
 
 func _parseSlice(s string) (int, int, error) {

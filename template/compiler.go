@@ -296,8 +296,8 @@ func (s *state) call(fn reflect.Value, name string, args int) error {
 }
 
 func (s *state) execute(tmpl string, dot reflect.Value) error {
-	code := s.p.code[tmpl]
-	if code == nil {
+	code, ok := s.p.code[tmpl]
+	if !ok {
 		return fmt.Errorf("template %q does not exist", tmpl)
 	}
 	s.dot = []reflect.Value{dot}

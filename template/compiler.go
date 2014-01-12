@@ -304,13 +304,12 @@ func (s *state) execute(tmpl string, dot reflect.Value) error {
 			s.marks = append(s.marks, len(s.stack))
 		case opPOP:
 			if v.val == 0 {
-				// if and else blocks pop before entering the block, so we might have no mark
-				if len(s.marks) > 0 {
-					// POP until mark
-					p := len(s.marks) - 1
-					s.stack = s.stack[:s.marks[p]]
-					s.marks = s.marks[:p]
-				}
+				// POP until mark
+				// if there's no mark, let it crash, it must be a bug
+				// and it will be easier to find
+				p := len(s.marks) - 1
+				s.stack = s.stack[:s.marks[p]]
+				s.marks = s.marks[:p]
 			} else {
 				s.stack = s.stack[:len(s.stack)-int(v.val)]
 			}
@@ -413,6 +412,8 @@ func (s *state) execute(tmpl string, dot reflect.Value) error {
 			name := s.p.strings[int(v.val)]
 			p := len(s.stack) - 1
 			s.pushVar(name, s.stack[p])
+			// SETVAR pops
+			s.stack = s.stack[:p]
 		case opTEMPLATE:
 			name := s.p.strings[int(v.val)]
 			dup := s.dup()
@@ -530,6 +531,69 @@ func (s *scratch) add(p *scratch) {
 	s.ctx = append(s.ctx, s.ctx...)
 }
 
+func (s *scratch) marksAndPops() bool {
+	if len(s.buf) > 0 {
+		if last := s.buf[len(s.buf)-1]; last.op == opPOP && last.val == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *scratch) pushes() int {
+	if s.marksAndPops() {
+		return 0
+	}
+	pushes := 0
+	for _, v := range s.buf {
+		switch v.op {
+		case opSTRING, opDOT, opVAL, opVAR, opFUNC:
+			pushes++
+		case opFIELD:
+			// can't know in advance, since it might
+			// overwrite when there's a lookup or
+			// might reduce the number of arguments
+			// if it's a function call
+			return -1
+		}
+	}
+	return pushes
+}
+
+func (s *scratch) pops() int {
+	if s.marksAndPops() {
+		return 0
+	}
+	pops := 0
+	for _, v := range s.buf {
+		switch v.op {
+		case opPOP:
+			pops += int(v.val)
+		case opSETVAR:
+			pops++
+		case opFUNC:
+			args, _ := decodeVal(v.val)
+			pops += args
+		}
+	}
+	return pops
+}
+
+func (s *scratch) putPop() error {
+	pushes := s.pushes()
+	if pushes == -1 {
+		// can't know in advance, have to mark
+		s.prepend(opMARK, 0).append(opPOP, 0)
+	} else {
+		if delta := pushes - s.pops(); delta > 0 {
+			s.append(opPOP, valType(delta))
+		} else if delta < 0 {
+			return fmt.Errorf("can't POP more than you PUSH!! %d", delta)
+		}
+	}
+	return nil
+}
+
 type Program struct {
 	tmpl     *Template
 	funcs    []*fn
@@ -622,7 +686,7 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 	if err := p.walk(b.List); err != nil {
 		return err
 	}
-	list := p.s.snap().prepend(opPOP, 0)
+	list := p.s.snap()
 	var elseList *scratch
 	if b.ElseList != nil {
 		if err := p.walk(b.ElseList); err != nil {
@@ -630,7 +694,7 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		}
 		// if the else is empty, just ignore it
 		if len(p.s.buf) > 0 {
-			elseList = p.s.snap().prepend(opPOP, 0)
+			elseList = p.s.snap()
 		}
 	}
 	p.s.restore(saved)
@@ -653,16 +717,16 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		// remove the opPOP from the list, we need
 		// iter to be kept on the stack. add also PUSHDOT
 		// and POPDOT.
-		list.popFront(1).prepend(opPUSHDOT, 0).append(opPOPDOT, 0)
+		list.prepend(opPUSHDOT, 0).append(opPOPDOT, 0)
 		toPop := 2
 		// if there are variables declared, add instructions
 		// for setting them
 		if len(b.Pipe.Decl) > 0 {
 			toPop--
-			list.prepend(opPOP, 1).prepend(opSETVAR, p.addString(b.Pipe.Decl[0].Ident[0][1:]))
+			list.prepend(opSETVAR, p.addString(b.Pipe.Decl[0].Ident[0][1:]))
 			if len(b.Pipe.Decl) > 1 {
 				toPop--
-				list.prepend(opPOP, 1).prepend(opSETVAR, p.addString(b.Pipe.Decl[1].Ident[0][1:]))
+				list.prepend(opSETVAR, p.addString(b.Pipe.Decl[1].Ident[0][1:]))
 			}
 		}
 		// pop variables which haven't beeen popped yet
@@ -713,7 +777,7 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 func (p *Program) walk(n parse.Node) error {
 	switch x := n.(type) {
 	case *parse.ActionNode:
-		p.inst(opMARK, 0)
+		s := p.s.snap()
 		if err := p.walk(x.Pipe); err != nil {
 			return err
 		}
@@ -724,7 +788,12 @@ func (p *Program) walk(n parse.Node) error {
 				p.inst(opPRINT, 0)
 			}
 		}
-		p.inst(opPOP, 0)
+		pipe := p.s.snap()
+		p.s.restore(s)
+		if err := pipe.putPop(); err != nil {
+			return err
+		}
+		p.s.add(pipe)
 	case *parse.BoolNode:
 		p.inst(opVAL, p.addValue(x.True))
 	case *parse.CommandNode:

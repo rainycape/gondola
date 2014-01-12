@@ -472,11 +472,12 @@ type context struct {
 }
 
 type scratch struct {
-	buf     []inst
-	cmd     []int
-	pipe    []int
-	ctx     []context
-	noPrint bool
+	buf        []inst
+	cmd        []int
+	pipe       []int
+	ctx        []context
+	noPrint    bool
+	branchPipe bool
 }
 
 // snap returns a *scratch with the buf amd ctx of this
@@ -611,9 +612,11 @@ func (p *Program) prevFuncReturnType() reflect.Type {
 }
 
 func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
+	p.s.branchPipe = true
 	if err := p.walk(b.Pipe); err != nil {
 		return err
 	}
+	p.s.branchPipe = false
 	saved := p.s.snap()
 	if err := p.walk(b.List); err != nil {
 		return err
@@ -830,9 +833,11 @@ func (p *Program) walk(n parse.Node) error {
 			}
 			p.s.pipe = p.s.pipe[:len(p.s.pipe)-1]
 		}
-		for _, variable := range x.Decl {
-			// Remove $
-			p.inst(opSETVAR, p.addString(variable.Ident[0][1:]))
+		if !p.s.branchPipe {
+			for _, variable := range x.Decl {
+				// Remove $
+				p.inst(opSETVAR, p.addString(variable.Ident[0][1:]))
+			}
 		}
 	case *parse.RangeNode:
 		if err := p.walkBranch(parse.NodeRange, &x.BranchNode); err != nil {

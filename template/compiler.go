@@ -1,7 +1,6 @@
 package template
 
 import (
-	"errors"
 	"fmt"
 	"gnd.la/util/internal/templateutil"
 	"gnd.la/util/types"
@@ -14,7 +13,6 @@ import (
 )
 
 var (
-	errNoComplex     = errors.New("complex number are not supported by the template compiler")
 	errType          = reflect.TypeOf((*error)(nil)).Elem()
 	stringType       = reflect.TypeOf("")
 	htmlType         = reflect.TypeOf(HTML(""))
@@ -30,11 +28,8 @@ type opcode uint8
 
 const (
 	opNOP opcode = iota
-	opBOOL
 	opFIELD
-	opFLOAT
 	opFUNC
-	opINT
 	opITER
 	opJMP
 	opJMPE
@@ -51,7 +46,7 @@ const (
 	opSTACKDOT
 	opSTRING
 	opTEMPLATE
-	opUINT
+	opVAL
 	opVAR
 	opWB
 )
@@ -397,7 +392,7 @@ func (s *state) execute(tmpl string, dot reflect.Value) error {
 				// execute already returns the formatted error
 				return err
 			}
-		case opBOOL, opFLOAT, opINT, opUINT:
+		case opVAL:
 			s.stack = append(s.stack, s.p.values[v.val])
 		case opJMPT:
 			p := len(s.stack)
@@ -698,7 +693,7 @@ func (p *Program) walk(n parse.Node) error {
 		}
 		p.inst(opPOP, 0)
 	case *parse.BoolNode:
-		p.inst(opBOOL, p.addValue(x.True))
+		p.inst(opVAL, p.addValue(x.True))
 	case *parse.CommandNode:
 		p.s.cmd = append(p.s.cmd, len(x.Args))
 		// Command nodes are pushed on reverse order, so they are
@@ -784,16 +779,20 @@ func (p *Program) walk(n parse.Node) error {
 			}
 		}
 	case *parse.NumberNode:
+		var val valType
 		switch {
 		case x.IsComplex:
-			return errNoComplex
+			val = p.addValue(x.Complex128)
 		case x.IsFloat:
-			p.inst(opFLOAT, p.addValue(x.Float64))
+			val = p.addValue(x.Float64)
 		case x.IsInt:
-			p.inst(opINT, p.addValue(x.Int64))
+			val = p.addValue(x.Int64)
 		case x.IsUint:
-			p.inst(opUINT, p.addValue(x.Uint64))
+			val = p.addValue(x.Uint64)
+		default:
+			return fmt.Errorf("invalid number node %v", x)
 		}
+		p.inst(opVAL, val)
 	case *parse.PipeNode:
 		for ii, v := range x.Cmds {
 			p.s.pipe = append(p.s.pipe, ii)

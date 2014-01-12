@@ -9,6 +9,7 @@ import (
 	"gnd.la/log"
 	"gnd.la/template/assets"
 	"gnd.la/util"
+	itemplate "gnd.la/util/internal/template"
 	"gnd.la/util/internal/templateutil"
 	"gnd.la/util/textutil"
 	"html/template"
@@ -57,7 +58,7 @@ type Hook struct {
 }
 
 type Template struct {
-	*template.Template
+	*itemplate.Template
 	Name          string
 	Debug         bool
 	Loader        loaders.Loader
@@ -76,7 +77,7 @@ type Template struct {
 }
 
 func (t *Template) init() {
-	t.Template = template.New("")
+	t.Template = itemplate.New("")
 	// This is required so text/template calls t.init()
 	// and initializes the common data structure
 	t.Template.New("")
@@ -649,7 +650,7 @@ func (t *Template) Funcs(funcs FuncMap) *Template {
 	for k, v := range funcs {
 		t.funcMap[k] = v
 	}
-	t.Template.Funcs(template.FuncMap(t.funcMap))
+	t.Template.Funcs(itemplate.FuncMap(t.funcMap))
 	return t
 }
 

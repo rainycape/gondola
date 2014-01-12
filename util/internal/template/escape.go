@@ -733,6 +733,7 @@ func (e *escaper) commit() {
 		if _, err := e.tmpl.text.AddParseTree(t.Name(), t.Tree); err != nil {
 			panic("error adding derived template")
 		}
+		e.tmpl.set[t.Name()] = &Template{true, t, t.Tree, e.tmpl.nameSpace}
 	}
 	for n, s := range e.actionNodeEdits {
 		ensurePipelineContains(n.Pipe, s)

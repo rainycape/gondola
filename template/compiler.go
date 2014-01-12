@@ -599,6 +599,19 @@ func (s *scratch) putPop() error {
 	return nil
 }
 
+// argc returns the number of arguments for the
+// function/field being parsed
+func (s *scratch) argc() int {
+	var argc int
+	if len(s.cmd) > 0 {
+		argc = s.cmd[len(s.cmd)-1]
+		if len(s.pipe) > 0 && s.pipe[len(s.pipe)-1] > 0 {
+			argc++
+		}
+	}
+	return argc
+}
+
 type Program struct {
 	tmpl     *Template
 	funcs    []*fn
@@ -660,14 +673,7 @@ func (p *Program) addSTRING(s string) {
 }
 
 func (p *Program) addFIELD(name string) {
-	var args int
-	if len(p.s.cmd) > 0 {
-		args = p.s.cmd[len(p.s.cmd)-1] - 1 // first arg is the FieldNode
-		if len(p.s.pipe) > 0 && p.s.pipe[len(p.s.pipe)-1] > 0 {
-			args++
-		}
-	}
-	p.inst(opFIELD, encodeVal(args, p.addString(name)))
+	p.inst(opFIELD, encodeVal(p.s.argc(), p.addString(name)))
 }
 
 func (p *Program) prevFuncReturnType() reflect.Type {
@@ -802,15 +808,18 @@ func (p *Program) walk(n parse.Node) error {
 	case *parse.BoolNode:
 		p.inst(opVAL, p.addValue(x.True))
 	case *parse.CommandNode:
-		p.s.cmd = append(p.s.cmd, len(x.Args))
 		// Command nodes are pushed on reverse order, so they are
 		// evaluated from right to left. If we encounter a function
 		// while executing it, we can just grab the arguments from the stack
+		argc := 0
+		p.s.cmd = append(p.s.cmd, argc)
 		for ii := len(x.Args) - 1; ii >= 0; ii-- {
+			p.s.cmd[len(p.s.cmd)-1] = argc
 			node := x.Args[ii]
 			if err := p.walk(node); err != nil {
 				return err
 			}
+			argc++
 		}
 		p.s.cmd = p.s.cmd[:len(p.s.cmd)-1]
 	case *parse.DotNode:
@@ -866,15 +875,11 @@ func (p *Program) walk(n parse.Node) error {
 			// Function optimized away
 			break
 		}
-		args := p.s.cmd[len(p.s.cmd)-1] - 1 // first arg is identifier
-		if len(p.s.pipe) > 0 && p.s.pipe[len(p.s.pipe)-1] > 0 {
-			args++
-		}
 		fn := p.tmpl.funcMap[name]
 		if fn == nil {
 			return fmt.Errorf("undefined function %q", name)
 		}
-		p.inst(opFUNC, encodeVal(args, p.addFunc(fn, name)))
+		p.inst(opFUNC, encodeVal(p.s.argc(), p.addFunc(fn, name)))
 	case *parse.IfNode:
 		if err := p.walkBranch(parse.NodeIf, &x.BranchNode); err != nil {
 			return err

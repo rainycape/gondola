@@ -10,7 +10,6 @@ import (
 	"gnd.la/html"
 	"gnd.la/util/types"
 	"html/template"
-	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -200,7 +199,7 @@ func imult(args ...interface{}) (int, error) {
 	return int(val), err
 }
 
-func add(args ...interface{}) (interface{}, error) {
+func add(args ...interface{}) (float64, error) {
 	val := 0.0
 	for ii, v := range args {
 		value := reflect.ValueOf(v)
@@ -221,11 +220,12 @@ func add(args ...interface{}) (interface{}, error) {
 			return 0, fmt.Errorf("invalid argument of type %T passed to add() at index %d", v, ii)
 		}
 	}
-	if math.Floor(val) == val {
-		return int(val), nil
-	}
 	return val, nil
+}
 
+func iadd(args ...interface{}) (int, error) {
+	val, err := add(args...)
+	return int(val), err
 }
 
 func concat(args ...interface{}) string {
@@ -312,6 +312,7 @@ var templateFuncs = FuncMap{
 	"imult":     imult,
 	"divisible": divisible,
 	"add":       add,
+	"iadd":      iadd,
 	"even":      even,
 	"odd":       odd,
 	"concat":    concat,

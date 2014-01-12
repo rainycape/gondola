@@ -372,7 +372,7 @@ func (s *state) execute(tmpl string, dot reflect.Value) error {
 		case opJMPF:
 			p := len(s.stack)
 			if p == 0 || !isTrue(s.stack[p-1]) {
-				pc += int(v.val)
+				pc += int(int32(v.val))
 			}
 		case opJMPE:
 			p := len(s.stack) - 2
@@ -380,7 +380,7 @@ func (s *state) execute(tmpl string, dot reflect.Value) error {
 			if idx.Kind() == reflect.Int && idx.Int() == -1 {
 				// pop idx and val
 				s.stack = s.stack[:p]
-				pc += int(v.val)
+				pc += int(int32(v.val))
 			}
 		case opSETVAR:
 			name := s.p.strings[int(v.val)]
@@ -399,7 +399,7 @@ func (s *state) execute(tmpl string, dot reflect.Value) error {
 		case opJMPT:
 			p := len(s.stack)
 			if p > 0 && isTrue(s.stack[p-1]) {
-				pc += int(v.val)
+				pc += int(int32(v.val))
 			}
 		case opPRINT:
 			v := s.stack[len(s.stack)-1]

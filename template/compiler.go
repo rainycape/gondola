@@ -334,7 +334,7 @@ func (s *state) execute(tmpl string, dot reflect.Value) error {
 					name := s.p.strings[i]
 					// get pointer methods and try to call a method by that name
 					ptr := top
-					if ptr.Kind() != reflect.Interface && ptr.CanAddr() {
+					if ptr.Kind() != reflect.Interface && ptr.Kind() != reflect.Ptr && ptr.CanAddr() {
 						ptr = ptr.Addr()
 					}
 					if fn := ptr.MethodByName(name); fn.IsValid() {

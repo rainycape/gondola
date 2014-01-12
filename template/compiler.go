@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gnd.la/util/internal/templateutil"
 	"gnd.la/util/types"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"reflect"
@@ -13,12 +14,14 @@ import (
 )
 
 var (
-	errNoComplex = errors.New("complex number are not supported by the template compiler")
-	errType      = reflect.TypeOf((*error)(nil)).Elem()
-	stringType   = reflect.TypeOf("")
-	stringerType = reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
-	emptyType    = reflect.TypeOf((*interface{})(nil)).Elem()
-	zero         = reflect.Zero(emptyType)
+	errNoComplex     = errors.New("complex number are not supported by the template compiler")
+	errType          = reflect.TypeOf((*error)(nil)).Elem()
+	stringType       = reflect.TypeOf("")
+	htmlType         = reflect.TypeOf(HTML(""))
+	templateHtmlType = reflect.TypeOf(template.HTML(""))
+	stringerType     = reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
+	emptyType        = reflect.TypeOf((*interface{})(nil)).Elem()
+	zero             = reflect.Zero(emptyType)
 )
 
 // TODO: Remove variables inside if or with when exiting the scope
@@ -571,6 +574,17 @@ func (p *Program) addFIELD(name string) {
 	p.inst(opFIELD, encodeVal(args, p.addString(name)))
 }
 
+func (p *Program) prevFuncReturnType() reflect.Type {
+	if len(p.s.buf) > 0 {
+		if in := p.s.buf[len(p.s.buf)-1]; in.op == opFUNC {
+			_, i := decodeVal(in.val)
+			fn := p.funcs[i]
+			return fn.val.Type().Out(0)
+		}
+	}
+	return nil
+}
+
 func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 	if err := p.walk(b.Pipe); err != nil {
 		return err
@@ -703,15 +717,38 @@ func (p *Program) walk(n parse.Node) error {
 		if len(p.s.cmd) == 0 {
 			return fmt.Errorf("identifier %q outside of command?", x.Ident)
 		}
+		name := x.Ident
+		if name == "html_template_htmlescaper" {
+			// Check if the input of this function is a string or template.HTML
+			// and either use the specialized function or remove the escaping
+			// entirely when possible.
+			if typ := p.prevFuncReturnType(); typ != nil {
+				switch {
+				case types.IsNumeric(typ):
+					name = ""
+				case typ.Kind() == reflect.String:
+					switch typ {
+					case stringType:
+						name = "html_template_htmlstringescaper"
+					case htmlType, templateHtmlType:
+						name = ""
+					}
+				}
+			}
+		}
+		if name == "" {
+			// Function optimized away
+			break
+		}
 		args := p.s.cmd[len(p.s.cmd)-1] - 1 // first arg is identifier
 		if len(p.s.pipe) > 0 && p.s.pipe[len(p.s.pipe)-1] > 0 {
 			args++
 		}
-		fn := p.tmpl.funcMap[x.Ident]
+		fn := p.tmpl.funcMap[name]
 		if fn == nil {
-			return fmt.Errorf("undefined function %q", x.Ident)
+			return fmt.Errorf("undefined function %q", name)
 		}
-		p.inst(opFUNC, encodeVal(args, p.addFunc(fn, x.Ident)))
+		p.inst(opFUNC, encodeVal(args, p.addFunc(fn, name)))
 	case *parse.IfNode:
 		if err := p.walkBranch(parse.NodeIf, &x.BranchNode); err != nil {
 			return err

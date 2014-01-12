@@ -22,3 +22,16 @@ func SettableValue(val interface{}) (reflect.Value, error) {
 	}
 	return v, nil
 }
+
+// IsNumeric returns true iff the type is one of
+// the int, uint, float or complex types.
+func IsNumeric(typ reflect.Type) bool {
+	k := typ.Kind()
+	return k == reflect.Int || k == reflect.Uint ||
+		k == reflect.Float64 || k == reflect.Float32 ||
+		k == reflect.Int8 || k == reflect.Uint8 ||
+		k == reflect.Int16 || k == reflect.Uint16 ||
+		k == reflect.Int32 || k == reflect.Uint32 ||
+		k == reflect.Int64 || k == reflect.Uint64 ||
+		k == reflect.Complex128 || k == reflect.Complex64
+}

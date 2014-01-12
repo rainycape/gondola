@@ -972,9 +972,7 @@ func (p *Program) ExecuteTemplateVars(w io.Writer, name string, data interface{}
 }
 
 func NewProgram(tmpl *Template) (*Program, error) {
-	// Need to execute it once, for html/template to add
-	// the escaping hooks.
-	tmpl.Execute(ioutil.Discard, nil)
+	addEscaping(tmpl)
 	// Add escaping functions
 	tmpl.Funcs(htmlEscapeFuncs)
 	p := &Program{tmpl: tmpl, code: make(map[string][]inst), context: make(map[string][]context)}
@@ -989,6 +987,18 @@ func NewProgram(tmpl *Template) (*Program, error) {
 		p.s = nil
 	}
 	return p, nil
+}
+
+func addEscaping(tmpl *Template) {
+	// Unfortunately, there's a bug in text/template executor which
+	// ends up panic'ing if there's an error in a mangled template, so
+	// we must wrap this in a recover.
+	defer func() {
+		recover()
+	}()
+	// Need to execute it once, for html/template to add
+	// the escaping hooks.
+	tmpl.Execute(ioutil.Discard, nil)
 }
 
 // simplifyList removes all nodes injected by Gondola

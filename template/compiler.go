@@ -43,7 +43,6 @@ const (
 	opPOPDOT
 	opPOP
 	opSETVAR
-	opSTACKDOT
 	opSTRING
 	opTEMPLATE
 	opVAL
@@ -415,8 +414,6 @@ func (s *state) execute(tmpl string, dot reflect.Value) error {
 			p := len(s.dot) - 1
 			dot = s.dot[p]
 			s.dot = s.dot[:p]
-		case opSTACKDOT:
-			s.stack = append(s.stack, stackable(dot))
 		case opSTRING:
 			s.stack = append(s.stack, s.p.rstrings[int(v.val)])
 		case opWB:
@@ -709,7 +706,7 @@ func (p *Program) walk(n parse.Node) error {
 	case *parse.DotNode:
 		p.inst(opDOT, 0)
 	case *parse.FieldNode:
-		p.inst(opSTACKDOT, 0)
+		p.inst(opDOT, 0)
 		for _, v := range x.Ident {
 			p.addFIELD(v)
 		}

@@ -508,6 +508,7 @@ func (s *scratch) prepend(op opcode, val valType) *scratch {
 
 func (s *scratch) popFront(count int) *scratch {
 	s.buf = s.buf[count:]
+	s.ctx = s.ctx[count:]
 	for _, v := range s.ctx {
 		v.pc -= count
 	}

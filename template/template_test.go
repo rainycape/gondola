@@ -263,6 +263,8 @@ func benchmarkBig(b *testing.B, pr bool) {
 			pr.Execute(&buf, nil)
 		}
 	} else {
+		// Execute once to add the escaping
+		tmpl.Execute(&buf, nil)
 		b.ResetTimer()
 		for ii := 0; ii < b.N; ii++ {
 			tmpl.Execute(&buf, nil)

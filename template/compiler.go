@@ -725,10 +725,8 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		p.s.add(list)
 		p.inst(opPOPDOT, 0)
 	case parse.NodeRange:
-		// remove the opPOP from the list, we need
-		// iter to be kept on the stack. add also PUSHDOT
-		// and POPDOT.
-		list.prepend(opPUSHDOT, 0).append(opPOPDOT, 0)
+		// pop the dot at the end of every iteration
+		list.append(opPOPDOT, 0)
 		toPop := 2
 		// if there are variables declared, add instructions
 		// for setting them
@@ -740,10 +738,14 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 				list.prepend(opSETVAR, p.addString(b.Pipe.Decl[1].Ident[0][1:]))
 			}
 		}
-		// pop variables which haven't beeen popped yet
+		// pop until the iterator
 		if toPop > 0 {
-			list.append(opPOP, valType(toPop))
+			list.prepend(opPOP, valType(toPop))
 		}
+		// start each iteration with the dot set. note that we're
+		// prepending here, so this executes before setting the vars
+		// and popping
+		list.prepend(opPUSHDOT, 0)
 		// add a jump back to 2 instructions before the
 		// list, which will call NEXT and JMPE again.
 		list.append(opJMP, valType(-len(list.buf)-3))

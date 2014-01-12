@@ -47,6 +47,10 @@ func htmlEscaper(args ...interface{}) string {
 	return htmlReplacer(s, htmlReplacementTable, true)
 }
 
+func htmlStringEscaper(s string) string {
+	return htmlReplacer(s, htmlReplacementTable, true)
+}
+
 // htmlReplacementTable contains the runes that need to be escaped
 // inside a quoted attribute value or in a text node.
 var htmlReplacementTable = []string{

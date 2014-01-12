@@ -49,20 +49,21 @@ func escapeTemplates(tmpl *Template, names ...string) error {
 
 // funcMap maps command names to functions that render their inputs safe.
 var EscapeFuncMap = template.FuncMap{
-	"html_template_attrescaper":     attrEscaper,
-	"html_template_commentescaper":  commentEscaper,
-	"html_template_cssescaper":      cssEscaper,
-	"html_template_cssvaluefilter":  cssValueFilter,
-	"html_template_htmlnamefilter":  htmlNameFilter,
-	"html_template_htmlescaper":     htmlEscaper,
-	"html_template_jsregexpescaper": jsRegexpEscaper,
-	"html_template_jsstrescaper":    jsStrEscaper,
-	"html_template_jsvalescaper":    jsValEscaper,
-	"html_template_nospaceescaper":  htmlNospaceEscaper,
-	"html_template_rcdataescaper":   rcdataEscaper,
-	"html_template_urlescaper":      urlEscaper,
-	"html_template_urlfilter":       urlFilter,
-	"html_template_urlnormalizer":   urlNormalizer,
+	"html_template_attrescaper":       attrEscaper,
+	"html_template_commentescaper":    commentEscaper,
+	"html_template_cssescaper":        cssEscaper,
+	"html_template_cssvaluefilter":    cssValueFilter,
+	"html_template_htmlnamefilter":    htmlNameFilter,
+	"html_template_htmlescaper":       htmlEscaper,
+	"html_template_htmlstringescaper": htmlStringEscaper,
+	"html_template_jsregexpescaper":   jsRegexpEscaper,
+	"html_template_jsstrescaper":      jsStrEscaper,
+	"html_template_jsvalescaper":      jsValEscaper,
+	"html_template_nospaceescaper":    htmlNospaceEscaper,
+	"html_template_rcdataescaper":     rcdataEscaper,
+	"html_template_urlescaper":        urlEscaper,
+	"html_template_urlfilter":         urlFilter,
+	"html_template_urlnormalizer":     urlNormalizer,
 }
 
 // equivEscapers matches contextual escapers to equivalent template builtins.

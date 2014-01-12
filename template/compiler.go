@@ -975,6 +975,15 @@ func NewProgram(tmpl *Template) (*Program, error) {
 	addEscaping(tmpl)
 	// Add escaping functions
 	tmpl.Funcs(htmlEscapeFuncs)
+	// html/template might introduce new trees. it renames the
+	// template invocations, but we must add the trees ourselves
+	for _, v := range tmpl.Templates() {
+		if v.Tree != nil {
+			if tmpl.Trees[v.Tree.Name] == nil {
+				tmpl.Trees[v.Tree.Name] = v.Tree
+			}
+		}
+	}
 	p := &Program{tmpl: tmpl, code: make(map[string][]inst), context: make(map[string][]context)}
 	for k, v := range tmpl.Trees {
 		root := simplifyList(v.Root)

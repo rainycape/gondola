@@ -390,7 +390,7 @@ func (s *state) execute(tmpl string, dot reflect.Value) error {
 		case opNEXT:
 			iter, ok := s.stack[len(s.stack)-1].Interface().(iterator)
 			if !ok {
-				return s.errorf(pc, tmpl, "ITER called without iterator")
+				return s.errorf(pc, tmpl, "NEXT called without iterator")
 			}
 			idx, val := iter.Next()
 			s.stack = append(s.stack, idx, val)

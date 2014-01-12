@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strings"
 	"text/template/parse"
-	"unsafe"
 )
 
 var (
@@ -801,7 +800,7 @@ func NewProgram(tmpl *Template) (*Program, error) {
 	// the escaping hooks.
 	tmpl.Execute(ioutil.Discard, nil)
 	// Add escaping functions
-	addHTMLFunctions(tmpl)
+	tmpl.Funcs(htmlEscapeFuncs)
 	p := &Program{tmpl: tmpl, code: make(map[string][]inst), context: make(map[string][]context)}
 	for k, v := range tmpl.Trees {
 		root := simplifyList(v.Root)
@@ -814,27 +813,6 @@ func NewProgram(tmpl *Template) (*Program, error) {
 		p.s = nil
 	}
 	return p, nil
-}
-
-type rvalue struct {
-	typ unsafe.Pointer
-	val unsafe.Pointer
-}
-
-func addHTMLFunctions(tmpl *Template) {
-	v := reflect.ValueOf(tmpl.Template).Elem()
-	textTemplate := v.FieldByName("text").Elem()
-	common := textTemplate.FieldByName("common").Elem()
-	parseFuncs := common.FieldByName("parseFuncs")
-	p := (*rvalue)(unsafe.Pointer(&parseFuncs))
-	m := *(*map[string]interface{})(p.val)
-	funcs := make(FuncMap)
-	for k, v := range m {
-		if strings.HasPrefix(k, "html_") {
-			funcs[k] = v
-		}
-	}
-	tmpl.Funcs(funcs)
 }
 
 // simplifyList removes all nodes injected by Gondola

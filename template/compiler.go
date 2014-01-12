@@ -895,14 +895,14 @@ func (p *Program) walk(n parse.Node) error {
 	case *parse.NumberNode:
 		var val valType
 		switch {
-		case x.IsComplex:
-			val = p.addValue(x.Complex128)
+		case x.IsInt:
+			val = p.addValue(int(x.Int64))
+		case x.IsUint:
+			val = p.addValue(int(x.Uint64))
 		case x.IsFloat:
 			val = p.addValue(x.Float64)
-		case x.IsInt:
-			val = p.addValue(x.Int64)
-		case x.IsUint:
-			val = p.addValue(x.Uint64)
+		case x.IsComplex:
+			val = p.addValue(x.Complex128)
 		default:
 			return fmt.Errorf("invalid number node %v", x)
 		}

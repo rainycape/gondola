@@ -244,3 +244,36 @@ func BenchmarkExecuteProgram(b *testing.B) {
 		}
 	}
 }
+
+func benchmarkBig(b *testing.B, pr bool) {
+	b.ReportAllocs()
+	const name = "1.html"
+	tmpl := parseTestTemplate(b, name)
+	if tmpl == nil {
+		return
+	}
+	var buf bytes.Buffer
+	if pr {
+		pr, err := NewProgram(tmpl)
+		if err != nil {
+			b.Fatalf("can't compile template %q: %s", name, err)
+		}
+		b.ResetTimer()
+		for ii := 0; ii < b.N; ii++ {
+			pr.Execute(&buf, nil)
+		}
+	} else {
+		b.ResetTimer()
+		for ii := 0; ii < b.N; ii++ {
+			tmpl.Execute(&buf, nil)
+		}
+	}
+}
+
+func BenchmarkBig(b *testing.B) {
+	benchmarkBig(b, false)
+}
+
+func BenchmarkBigProgram(b *testing.B) {
+	benchmarkBig(b, true)
+}

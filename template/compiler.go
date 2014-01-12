@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"reflect"
+	"runtime"
 	"strings"
 	"text/template/parse"
 )
@@ -160,6 +161,8 @@ type variable struct {
 	value reflect.Value
 }
 
+var statePool = make(chan *state, runtime.GOMAXPROCS(0))
+
 type state struct {
 	p     *Program
 	w     io.Writer
@@ -169,11 +172,38 @@ type state struct {
 	dot   []reflect.Value
 }
 
+func newState(p *Program, w io.Writer) *state {
+	select {
+	case s := <-statePool:
+		s.reset()
+		s.p = p
+		s.w = w
+		return s
+	default:
+		return &state{
+			p: p,
+			w: w,
+		}
+	}
+}
+
 func (s *state) dup() *state {
-	return &state{
-		p:    s.p,
-		w:    s.w,
-		vars: []variable{s.vars[0]}, // pass $Vars
+	ns := newState(s.p, s.w)
+	ns.vars = append(ns.vars, s.vars[0]) // pass $Vars
+	return ns
+}
+
+func (s *state) reset() {
+	s.vars = s.vars[:0]
+	s.stack = s.stack[:0]
+	s.marks = s.marks[:0]
+	s.dot = s.dot[:0]
+}
+
+func (s *state) put() {
+	select {
+	case statePool <- s:
+	default:
 	}
 }
 
@@ -387,7 +417,9 @@ func (s *state) execute(tmpl string, dot reflect.Value) error {
 			name := s.p.strings[int(v.val)]
 			dup := s.dup()
 			dupDot := s.stack[len(s.stack)-1]
-			if err := dup.execute(name, dupDot); err != nil {
+			err := dup.execute(name, dupDot)
+			dup.put()
+			if err != nil {
 				// execute already returns the formatted error
 				return err
 			}
@@ -845,12 +877,11 @@ func (p *Program) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error 
 }
 
 func (p *Program) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars VarMap) error {
-	s := &state{
-		p: p,
-		w: w,
-	}
+	s := newState(p, w)
 	s.pushVar("Vars", reflect.ValueOf(vars))
-	return s.execute(name, reflect.ValueOf(data))
+	err := s.execute(name, reflect.ValueOf(data))
+	s.put()
+	return err
 }
 
 func NewProgram(tmpl *Template) (*Program, error) {

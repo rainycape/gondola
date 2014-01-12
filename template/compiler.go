@@ -448,10 +448,11 @@ type context struct {
 }
 
 type scratch struct {
-	buf  []inst
-	cmd  []int
-	pipe []int
-	ctx  []context
+	buf     []inst
+	cmd     []int
+	pipe    []int
+	ctx     []context
+	noPrint bool
 }
 
 // snap returns a *scratch with the buf amd ctx of this
@@ -689,7 +690,11 @@ func (p *Program) walk(n parse.Node) error {
 			return err
 		}
 		if len(x.Pipe.Decl) == 0 {
-			p.inst(opPRINT, 0)
+			if p.s.noPrint {
+				p.s.noPrint = false
+			} else {
+				p.inst(opPRINT, 0)
+			}
 		}
 		p.inst(opPOP, 0)
 	case *parse.BoolNode:
@@ -717,7 +722,26 @@ func (p *Program) walk(n parse.Node) error {
 		if len(p.s.cmd) == 0 {
 			return fmt.Errorf("identifier %q outside of command?", x.Ident)
 		}
+		if x.Ident == topAssetsFuncName || x.Ident == bottomAssetsFuncName {
+			// These functions won't change their output once we reach this
+			// point and they return template.HTML. We can just call them now
+			// and add a WB instruction with the result, thus avoiding the function
+			// call and the useless escaping. We also need to ignore the rest
+			// of the pipeline.
+			var b []byte
+			if x.Ident == topAssetsFuncName {
+				b = []byte(p.tmpl.topAssets)
+			} else {
+				b = []byte(p.tmpl.bottomAssets)
+			}
+			p.addWB(b)
+			p.s.noPrint = true
+			break
+		}
 		name := x.Ident
+		if p.s.noPrint && strings.HasPrefix(name, "html_") {
+			break
+		}
 		if name == "html_template_htmlescaper" {
 			// Check if the input of this function is a string or template.HTML
 			// and either use the specialized function or remove the escaping

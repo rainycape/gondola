@@ -112,7 +112,7 @@ func Gen(pkgName string, opts *Options) error {
 		exclude = opts.Exclude
 	}
 	var methods bytes.Buffer
-	for _, v := range pkg.ExportedTypes(include, exclude) {
+	for _, v := range pkg.Types(include, exclude) {
 		methods.Reset()
 		if err := jsonMarshal(v, opts, &methods); err != nil {
 			log.Warningf("Skipping type %s: %s", v.Obj().Name(), err)

@@ -48,7 +48,7 @@ func Gen(pkgName string, opts *Options) error {
 	}
 	var methods bytes.Buffer
 	scope := pkg.Scope()
-	for _, v := range pkg.ExportedTypes(include, exclude) {
+	for _, v := range pkg.Types(include, exclude) {
 		methods.Reset()
 		if err := genString(v, scope, opts, &methods); err != nil {
 			log.Warningf("Skipping %v: %s", v, err)

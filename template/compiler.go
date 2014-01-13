@@ -529,11 +529,12 @@ func (s *scratch) append(op opcode, val valType) *scratch {
 // add adds another scratch at the end of this one. ctx in p
 // is adjusted.
 func (s *scratch) add(p *scratch) {
-	for _, v := range s.ctx {
-		v.pc += len(s.buf)
+	c := len(s.buf)
+	for _, v := range p.ctx {
+		v.pc += c
 	}
 	s.buf = append(s.buf, p.buf...)
-	s.ctx = append(s.ctx, s.ctx...)
+	s.ctx = append(s.ctx, p.ctx...)
 }
 
 func (s *scratch) marksAndPops() bool {

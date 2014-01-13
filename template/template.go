@@ -61,7 +61,7 @@ type Template struct {
 	AssetsManager *assets.Manager
 	Minify        bool
 	tmpl          *itemplate.Template
-	prog          *Program
+	prog          *program
 	name          string
 	Debug         bool
 	loader        loaders.Loader
@@ -199,7 +199,7 @@ func (t *Template) Compile() error {
 	if err := t.prepareAssets(); err != nil {
 		return err
 	}
-	prog, err := NewProgram(t)
+	prog, err := newProgram(t)
 	if err != nil {
 		return err
 	}
@@ -655,7 +655,7 @@ func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error
 
 func (t *Template) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars VarMap) error {
 	var buf bytes.Buffer
-	err := t.prog.ExecuteTemplateVars(&buf, name, data, vars)
+	err := t.prog.execute(&buf, name, data, vars)
 	if err != nil {
 		return err
 	}

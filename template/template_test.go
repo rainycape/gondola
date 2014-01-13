@@ -120,13 +120,8 @@ func TestCompiler(t *testing.T) {
 		if tmpl == nil {
 			continue
 		}
-		pr, err := NewProgram(tmpl)
-		if err != nil {
-			t.Errorf("error compiling %q: %s", v.tmpl, err)
-			continue
-		}
 		var buf bytes.Buffer
-		if err := pr.Execute(&buf, v.data); err != nil {
+		if err := tmpl.Execute(&buf, v.data); err != nil {
 			t.Errorf("error executing %q: %s", v.tmpl, err)
 			continue
 		}
@@ -142,13 +137,8 @@ func TestCompilerErrors(t *testing.T) {
 		if tmpl == nil {
 			continue
 		}
-		pr, err := NewProgram(tmpl)
-		if err != nil {
-			t.Errorf("error compiling %q: %s", v.tmpl, err)
-			continue
-		}
 		var buf bytes.Buffer
-		err = pr.Execute(&buf, v.data)
+		err := tmpl.Execute(&buf, v.data)
 		if err == nil {
 			t.Errorf("expecting an error when executing %q, got nil", v.tmpl)
 			continue

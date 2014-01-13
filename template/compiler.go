@@ -163,7 +163,7 @@ type variable struct {
 var statePool = make(chan *state, runtime.GOMAXPROCS(0))
 
 type state struct {
-	p     *Program
+	p     *program
 	w     io.Writer
 	vars  []variable
 	stack []reflect.Value
@@ -171,7 +171,7 @@ type state struct {
 	dot   []reflect.Value
 }
 
-func newState(p *Program, w io.Writer) *state {
+func newState(p *program, w io.Writer) *state {
 	select {
 	case s := <-statePool:
 		s.reset()
@@ -612,7 +612,7 @@ func (s *scratch) argc() int {
 	return argc
 }
 
-type Program struct {
+type program struct {
 	tmpl     *Template
 	funcs    []*fn
 	strings  []string
@@ -625,11 +625,11 @@ type Program struct {
 	s *scratch
 }
 
-func (p *Program) inst(op opcode, val valType) {
+func (p *program) inst(op opcode, val valType) {
 	p.s.buf = append(p.s.buf, inst{op: op, val: val})
 }
 
-func (p *Program) addString(s string) valType {
+func (p *program) addString(s string) valType {
 	for ii, v := range p.strings {
 		if v == s {
 			return valType(ii)
@@ -640,7 +640,7 @@ func (p *Program) addString(s string) valType {
 	return valType(len(p.strings) - 1)
 }
 
-func (p *Program) addFunc(f interface{}, name string) valType {
+func (p *program) addFunc(f interface{}, name string) valType {
 	for ii, v := range p.funcs {
 		if v.name == name {
 			return valType(ii)
@@ -657,26 +657,26 @@ func (p *Program) addFunc(f interface{}, name string) valType {
 	return valType(len(p.funcs) - 1)
 }
 
-func (p *Program) addValue(v interface{}) valType {
+func (p *program) addValue(v interface{}) valType {
 	p.values = append(p.values, reflect.ValueOf(v))
 	return valType(len(p.values) - 1)
 }
 
-func (p *Program) addWB(b []byte) {
+func (p *program) addWB(b []byte) {
 	pos := len(p.bs)
 	p.bs = append(p.bs, b)
 	p.inst(opWB, valType(pos))
 }
 
-func (p *Program) addSTRING(s string) {
+func (p *program) addSTRING(s string) {
 	p.inst(opSTRING, p.addString(s))
 }
 
-func (p *Program) addFIELD(name string) {
+func (p *program) addFIELD(name string) {
 	p.inst(opFIELD, encodeVal(p.s.argc(), p.addString(name)))
 }
 
-func (p *Program) prevFuncReturnType() reflect.Type {
+func (p *program) prevFuncReturnType() reflect.Type {
 	if len(p.s.buf) > 0 {
 		if in := p.s.buf[len(p.s.buf)-1]; in.op == opFUNC {
 			_, i := decodeVal(in.val)
@@ -687,7 +687,7 @@ func (p *Program) prevFuncReturnType() reflect.Type {
 	return nil
 }
 
-func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
+func (p *program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 	p.inst(opMARK, 0)
 	p.s.branchPipe = true
 	if err := p.walk(b.Pipe); err != nil {
@@ -787,7 +787,7 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 	return nil
 }
 
-func (p *Program) walk(n parse.Node) error {
+func (p *program) walk(n parse.Node) error {
 	switch x := n.(type) {
 	case *parse.ActionNode:
 		s := p.s.snap()
@@ -949,19 +949,7 @@ func (p *Program) walk(n parse.Node) error {
 	return nil
 }
 
-func (p *Program) Execute(w io.Writer, data interface{}) error {
-	return p.ExecuteTemplateVars(w, p.tmpl.Root(), data, nil)
-}
-
-func (p *Program) ExecuteTemplate(w io.Writer, name string, data interface{}) error {
-	return p.ExecuteTemplateVars(w, name, data, nil)
-}
-
-func (p *Program) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error {
-	return p.ExecuteTemplateVars(w, "", data, vars)
-}
-
-func (p *Program) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars VarMap) error {
+func (p *program) execute(w io.Writer, name string, data interface{}, vars VarMap) error {
 	s := newState(p, w)
 	s.pushVar("Vars", reflect.ValueOf(vars))
 	err := s.execute(name, reflect.ValueOf(data))
@@ -969,7 +957,7 @@ func (p *Program) ExecuteTemplateVars(w io.Writer, name string, data interface{}
 	return err
 }
 
-func NewProgram(tmpl *Template) (*Program, error) {
+func newProgram(tmpl *Template) (*program, error) {
 	if strings.Contains(tmpl.contentType, "html") {
 		addEscaping(tmpl)
 		// Add escaping functions
@@ -984,7 +972,7 @@ func NewProgram(tmpl *Template) (*Program, error) {
 			}
 		}
 	}
-	p := &Program{tmpl: tmpl, code: make(map[string][]inst), context: make(map[string][]*context)}
+	p := &program{tmpl: tmpl, code: make(map[string][]inst), context: make(map[string][]*context)}
 	for k, v := range tmpl.trees {
 		p.s = new(scratch)
 		if err := p.walk(v.Root); err != nil {

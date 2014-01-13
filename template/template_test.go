@@ -58,6 +58,7 @@ var (
 		{"{{ range $idx, $el := . }}{{ . }}{{ end }}", []int{1, 2, 3}, "123"},
 		{"{{ range . }}{{ else }}nope{{ end }}", nil, "nope"},
 		{"{{ range $k, $v := . }}{{ $k }}={{ $v }}{{ end }}", map[string]int{"b": 2, "c": 3, "a": 1}, "a=1b=2c=3"},
+		{"{{ range . }}{{ range . }}{{ if even . }}{{ . }}{{ end }}{{ end }}{{ end }}", [][]int{[]int{1, 2, 3, 4, 5, 6}}, "246"},
 	}
 	compilerErrorTests = []*templateTest{
 		{"{{ range . }}{{ else }}nope{{ end }}", 5, "template.html:1:9: can't range over int"},

@@ -552,7 +552,7 @@ func (s *scratch) pushes() int {
 	pushes := 0
 	for _, v := range s.buf {
 		switch v.op {
-		case opSTRING, opDOT, opVAL, opVAR, opFUNC:
+		case opSTRING, opDOT, opVAL, opVAR, opFUNC, opITER:
 			pushes++
 		case opFIELD:
 			// can't know in advance, since it might
@@ -597,6 +597,24 @@ func (s *scratch) putPop() error {
 		}
 	}
 	return nil
+}
+
+func (s *scratch) takePop() int {
+	if len(s.buf) > 0 {
+		p := len(s.buf) - 1
+		last := s.buf[p]
+		if last.op == opPOP {
+			s.buf = s.buf[:p]
+			return int(last.val)
+		}
+	}
+	return -1
+}
+
+func (s *scratch) addPop(pop int) {
+	if pop >= 0 {
+		s.append(opPOP, valType(pop))
+	}
 }
 
 // argc returns the number of arguments for the
@@ -688,13 +706,13 @@ func (p *program) prevFuncReturnType() reflect.Type {
 }
 
 func (p *program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
-	p.inst(opMARK, 0)
+	saved := p.s.snap()
 	p.s.branchPipe = true
 	if err := p.walk(b.Pipe); err != nil {
 		return err
 	}
 	p.s.branchPipe = false
-	saved := p.s.snap()
+	pipe := p.s.snap()
 	if err := p.walk(b.List); err != nil {
 		return err
 	}
@@ -710,6 +728,11 @@ func (p *program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		}
 	}
 	p.s.restore(saved)
+	if err := pipe.putPop(); err != nil {
+		return err
+	}
+	pop := pipe.takePop()
+	p.s.add(pipe)
 	skip := len(list.buf)
 	if elseList != nil {
 		// Skip the JMP at the start of the elseList
@@ -750,6 +773,15 @@ func (p *program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		list.append(opJMP, valType(-len(list.buf)-3))
 		// initialize the iter
 		p.inst(opITER, 0)
+		// need to pop the iter after the range is done
+		switch pop {
+		case -1:
+			pop = 1
+		case 0:
+			break
+		default:
+			pop++
+		}
 		// call next for the first time
 		p.inst(opNEXT, 0)
 		if elseList == nil {
@@ -783,7 +815,7 @@ func (p *program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		p.inst(opJMP, valType(len(elseList.buf)))
 		p.s.add(elseList)
 	}
-	p.inst(opPOP, 0)
+	p.s.addPop(pop)
 	return nil
 }
 

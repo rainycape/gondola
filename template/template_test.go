@@ -189,8 +189,8 @@ func BenchmarkExecute(b *testing.B) {
 	for ii := 0; ii < b.N; ii++ {
 		for ii, v := range templates {
 			v.Execute(&buf, tests[ii].data)
-			buf.Reset()
 		}
+		buf.Reset()
 	}
 }
 
@@ -205,5 +205,6 @@ func BenchmarkBig(b *testing.B) {
 	b.ResetTimer()
 	for ii := 0; ii < b.N; ii++ {
 		tmpl.Execute(&buf, nil)
+		buf.Reset()
 	}
 }

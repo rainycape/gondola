@@ -58,47 +58,52 @@ type Hook struct {
 }
 
 type Template struct {
-	*itemplate.Template
-	Name          string
-	Debug         bool
-	Loader        loaders.Loader
 	AssetsManager *assets.Manager
-	Trees         map[string]*parse.Tree
 	Minify        bool
-	Final         bool
+	tmpl          *itemplate.Template
+	prog          *Program
+	name          string
+	Debug         bool
+	loader        loaders.Loader
+	trees         map[string]*parse.Tree
+	final         bool
 	funcMap       FuncMap
 	vars          VarMap
 	root          string
 	assetGroups   []*assets.Group
-	topAssets     template.HTML
-	bottomAssets  template.HTML
+	topAssets     []byte
+	bottomAssets  []byte
 	contentType   string
 	hooks         []*Hook
 }
 
 func (t *Template) init() {
-	t.Template = itemplate.New("")
+	t.tmpl = itemplate.New("")
 	// This is required so text/template calls t.init()
 	// and initializes the common data structure
-	t.Template.New("")
+	t.tmpl.New("")
 	funcs := FuncMap{
-		topAssetsFuncName:    t.templateTopAssets,
-		bottomAssetsFuncName: t.templateBottomAssets,
+		topAssetsFuncName:    nop,
+		bottomAssetsFuncName: nop,
 		AssetFuncName:        t.Asset,
 	}
 	t.Funcs(funcs).Funcs(templateFuncs)
+}
+
+func (t *Template) Name() string {
+	return t.name
+}
+
+func (t *Template) IsFinal() bool {
+	return t.final
 }
 
 func (t *Template) Root() string {
 	return t.root
 }
 
-func (t *Template) templateTopAssets() template.HTML {
-	return t.topAssets
-}
-
-func (t *Template) templateBottomAssets() template.HTML {
-	return t.bottomAssets
+func (t *Template) Trees() map[string]*parse.Tree {
+	return t.trees
 }
 
 func (t *Template) Asset(arg string) (string, error) {
@@ -113,17 +118,103 @@ func (t *Template) Assets() []*assets.Group {
 }
 
 func (t *Template) AddAssets(groups []*assets.Group) error {
-	if t.topAssets != "" || t.bottomAssets != "" {
-		return ErrAssetsAlreadyPrepared
+	if err := t.noCompiled("can't add assets"); err != nil {
+		return err
 	}
 	t.assetGroups = append(t.assetGroups, groups...)
 	return nil
 }
 
-func (t *Template) PrepareAssets() error {
-	if t.topAssets != "" || t.bottomAssets != "" {
-		return ErrAssetsAlreadyPrepared
+func (t *Template) Hook(hook *Hook) error {
+	if err := t.noCompiled("can't add hook"); err != nil {
+		return err
 	}
+	for _, h := range hook.Template.hooks {
+		if err := t.Hook(h); err != nil {
+			return err
+		}
+	}
+	ha := hook.Template.Assets()
+	if len(ha) > 0 {
+		if err := t.AddAssets(ha); err != nil {
+			return err
+		}
+	}
+	for k, v := range hook.Template.trees {
+		if _, ok := t.trees[k]; ok {
+			if k != topBoilerplateName && k != bottomBoilerplateName {
+				return fmt.Errorf("duplicate template %q", k)
+			}
+		} else {
+			if err := t.AddParseTree(k, v.Copy()); err != nil {
+				return err
+			}
+		}
+	}
+	var key string
+	switch hook.Position {
+	case assets.Top:
+		key = topBoilerplateName
+	case assets.Bottom:
+		key = bottomBoilerplateName
+	case assets.None:
+		// must be manually referenced from
+		// another template
+	default:
+		return fmt.Errorf("invalid hook position %d", hook.Position)
+	}
+	if key != "" {
+		node := &parse.TemplateNode{
+			NodeType: parse.NodeTemplate,
+			Name:     hook.Template.Root(),
+			Pipe: &parse.PipeNode{
+				NodeType: parse.NodePipe,
+				Cmds: []*parse.CommandNode{
+					&parse.CommandNode{
+						NodeType: parse.NodeCommand,
+						Args:     []parse.Node{&parse.DotNode{}},
+					},
+				},
+			},
+		}
+		tree := t.trees[key].Copy()
+		tree.Root.Nodes = append(tree.Root.Nodes, node)
+		t.trees[key] = tree
+	}
+	t.hooks = append(t.hooks, hook)
+	return nil
+}
+
+func (t *Template) Compile() error {
+	if err := t.noCompiled("can't compile"); err != nil {
+		return err
+	}
+	for _, v := range t.referencedTemplates() {
+		if _, ok := t.trees[v]; !ok {
+			log.Debugf("adding missing template %q as empty", v)
+			tree := compileTree("")
+			t.AddParseTree(v, tree)
+		}
+	}
+	if err := t.prepareAssets(); err != nil {
+		return err
+	}
+	prog, err := NewProgram(t)
+	if err != nil {
+		return err
+	}
+	t.prog = prog
+	return nil
+}
+
+func (t *Template) noCompiled(msg string) error {
+	if t.prog != nil {
+		return fmt.Errorf("%s, template is already compiled", msg)
+	}
+	return nil
+}
+
+func (t *Template) prepareAssets() error {
 	var groups [][]*assets.Group
 	for _, v := range t.assetGroups {
 		if (t.Debug && v.Options.NoDebug()) || (!t.Debug && v.Options.Debug()) {
@@ -225,68 +316,8 @@ func (t *Template) PrepareAssets() error {
 			}
 		}
 	}
-	t.topAssets = template.HTML(top.String())
-	t.bottomAssets = template.HTML(bottom.String())
-	return nil
-}
-
-func (t *Template) Hook(hook *Hook) error {
-	for _, h := range hook.Template.hooks {
-		if err := t.Hook(h); err != nil {
-			return err
-		}
-	}
-	ha := hook.Template.Assets()
-	if len(ha) > 0 {
-		if err := t.AddAssets(ha); err != nil {
-			return err
-		}
-	}
-	for k, v := range hook.Template.Trees {
-		if _, ok := t.Trees[k]; ok {
-			if k != topBoilerplateName && k != bottomBoilerplateName {
-				return fmt.Errorf("duplicate template %q", k)
-			}
-		} else {
-			if err := t.AddParseTree(k, v.Copy()); err != nil {
-				return err
-			}
-		}
-	}
-	var key string
-	switch hook.Position {
-	case assets.Top:
-		key = topBoilerplateName
-	case assets.Bottom:
-		key = bottomBoilerplateName
-	case assets.None:
-		// must be manually referenced from
-		// another template
-	default:
-		return fmt.Errorf("invalid hook position %d", hook.Position)
-	}
-	if key != "" {
-		node := &parse.TemplateNode{
-			NodeType: parse.NodeTemplate,
-			Name:     hook.Template.Root(),
-			Pipe: &parse.PipeNode{
-				NodeType: parse.NodePipe,
-				Cmds: []*parse.CommandNode{
-					&parse.CommandNode{
-						NodeType: parse.NodeCommand,
-						Args:     []parse.Node{&parse.DotNode{}},
-					},
-				},
-			},
-		}
-		tree := t.Trees[key].Copy()
-		tree.Root.Nodes = append(tree.Root.Nodes, node)
-		t.Trees[key] = tree
-	}
-	if err := t.Rebuild(); err != nil {
-		return err
-	}
-	t.hooks = append(t.hooks, hook)
+	t.topAssets = top.Bytes()
+	t.bottomAssets = bottom.Bytes()
 	return nil
 }
 
@@ -384,11 +415,11 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 				if extended || len(values) > 1 {
 					return fmt.Errorf("templates can only extend one template")
 				}
-				if t.Final {
+				if t.final {
 					return fmt.Errorf("template has been declared as final")
 				}
 				if strings.ToLower(values[0]) == "none" {
-					t.Final = true
+					t.final = true
 					break
 				}
 				extended = true
@@ -400,6 +431,15 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 					if err != nil {
 						return err
 					}
+				}
+			case "content-type", "mime-type":
+				switch len(values) {
+				case 1:
+					t.contentType = values[0]
+				case 2:
+					t.contentType = fmt.Sprintf("%s; charset=%s", values[0], values[1])
+				default:
+					return fmt.Errorf("%q must have one or two values (e.g. \"text/html\" or \"text/html, UTF-8\" - without quotes", key)
 				}
 			default:
 				if t.AssetsManager == nil {
@@ -420,7 +460,7 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 }
 
 func (t *Template) loadText(name string) (string, error) {
-	f, _, err := t.Loader.Load(name)
+	f, _, err := t.loader.Load(name)
 	if err != nil {
 		return "", err
 	}
@@ -472,7 +512,10 @@ func (t *Template) load(name string, included bool) error {
 	}
 	var renames map[string]string
 	for k, v := range treeMap {
-		if _, contains := t.Trees[k]; contains {
+		// Remove the first node, since it's there to set
+		// $Vars := .Vars, so the parser does not complain
+		v.Root.Nodes = v.Root.Nodes[1:]
+		if _, contains := t.trees[k]; contains {
 			log.Debugf("Template %s redefined", k)
 			// Redefinition of a template, which is allowed
 			// by gondola templates. Just rename this
@@ -490,17 +533,18 @@ func (t *Template) load(name string, included bool) error {
 				}
 			}
 		}
-		t.rewriteTemplateNodes(v)
 		err := t.AddParseTree(k, v)
 		if err != nil {
 			return err
 		}
 	}
-	mimeType := mime.TypeByExtension(path.Ext(t.Name))
-	if mimeType == "" {
-		mimeType = "text/html; charset=utf-8"
+	if t.contentType == "" {
+		mimeType := mime.TypeByExtension(path.Ext(t.name))
+		if mimeType == "" {
+			mimeType = "text/html; charset=utf-8"
+		}
+		t.contentType = mimeType
 	}
-	t.contentType = mimeType
 	if renames != nil {
 		t.renameTemplates(renames)
 	}
@@ -508,7 +552,7 @@ func (t *Template) load(name string, included bool) error {
 }
 
 func (t *Template) walkTrees(nt parse.NodeType, f func(parse.Node)) {
-	for _, v := range t.Trees {
+	for _, v := range t.trees {
 		templateutil.WalkTree(v, func(n, p parse.Node) {
 			if n.Type() == nt {
 				f(n)
@@ -532,113 +576,11 @@ func (t *Template) assetFunc(arg string) (string, error) {
 	return "", ErrNoAssetsManager
 }
 
-func (t *Template) prepareVars() error {
-	for k, tr := range t.Trees {
-		if len(tr.Root.Nodes) == 0 {
-			// Empty template
-			continue
-		}
-		if k == topBoilerplateName || k == bottomBoilerplateName {
-			continue
-		}
-		// Skip the first node, since it sets $Vars.
-		// Then wrap the rest of template in a WithNode, which sets
-		// the dot to .Data
-		field := &parse.FieldNode{
-			NodeType: parse.NodeField,
-			Ident:    []string{dataKey},
-		}
-		command := &parse.CommandNode{
-			NodeType: parse.NodeCommand,
-			Args:     []parse.Node{field},
-		}
-		pipe := &parse.PipeNode{
-			NodeType: parse.NodePipe,
-			Cmds:     []*parse.CommandNode{command},
-		}
-		var nodes []parse.Node
-		nodes = append(nodes, tr.Root.Nodes[0])
-		root := tr.Root.Nodes[1:]
-		newRoot := &parse.ListNode{
-			NodeType: parse.NodeList,
-			Nodes:    root,
-		}
-		// The list needs to be copied, otherwise the
-		// html/template escaper complains that the
-		// node is shared between templates
-		with := &parse.WithNode{
-			parse.BranchNode{
-				NodeType: parse.NodeWith,
-				Pipe:     pipe,
-				List:     newRoot,
-				ElseList: newRoot.CopyList(),
-			},
-		}
-		nodes = append(nodes, with)
-		tr.Root = &parse.ListNode{
-			NodeType: parse.NodeList,
-			Nodes:    nodes,
-		}
-	}
-	return nil
-}
-
 func (t *Template) renameTemplates(renames map[string]string) {
 	t.walkTrees(parse.NodeTemplate, func(n parse.Node) {
 		node := n.(*parse.TemplateNode)
 		if rename, ok := renames[node.Name]; ok {
 			node.Name = rename
-		}
-	})
-}
-
-func (t *Template) rewriteTemplateNodes(tree *parse.Tree) {
-	// Rewrite any template nodes to pass also the variables, since
-	// they are not inherited
-	templateArgs := []parse.Node{
-		parse.NewIdentifier("map"),
-		&parse.StringNode{
-			NodeType: parse.NodeString,
-			Quoted:   fmt.Sprintf("%q", varsKey),
-			Text:     varsKey,
-		},
-		&parse.VariableNode{
-			NodeType: parse.NodeVariable,
-			Ident:    []string{fmt.Sprintf("$%s", varsKey)},
-		},
-		&parse.StringNode{
-			NodeType: parse.NodeString,
-			Quoted:   fmt.Sprintf("%q", dataKey),
-			Text:     dataKey,
-		},
-	}
-	templateutil.WalkTree(tree, func(n, p parse.Node) {
-		if n.Type() != parse.NodeTemplate {
-			return
-		}
-		node := n.(*parse.TemplateNode)
-		if node.Pipe == nil {
-			// No data, just pass variables
-			command := &parse.CommandNode{
-				NodeType: parse.NodeCommand,
-				Args:     templateArgs[:len(templateArgs)-1],
-			}
-			node.Pipe = &parse.PipeNode{
-				NodeType: parse.NodePipe,
-				Cmds:     []*parse.CommandNode{command},
-			}
-		} else {
-			newPipe := &parse.PipeNode{
-				NodeType: parse.NodePipe,
-				Cmds:     node.Pipe.Cmds,
-			}
-			args := make([]parse.Node, len(templateArgs), len(templateArgs)+1)
-			copy(args, templateArgs)
-			command := &parse.CommandNode{
-				NodeType: parse.NodeCommand,
-				Args:     append(args, newPipe),
-			}
-			node.Pipe.Cmds = []*parse.CommandNode{command}
 		}
 	})
 }
@@ -650,7 +592,7 @@ func (t *Template) Funcs(funcs FuncMap) *Template {
 	for k, v := range funcs {
 		t.funcMap[k] = v
 	}
-	t.Template.Funcs(itemplate.FuncMap(t.funcMap))
+	t.tmpl.Funcs(itemplate.FuncMap(funcs))
 	return t
 }
 
@@ -670,7 +612,9 @@ func (t *Template) Parse(name string) error {
 }
 
 func (t *Template) ParseVars(name string, vars VarMap) error {
-	t.Name = name
+	if t.name == "" {
+		t.name = name
+	}
 	t.vars = vars
 	err := t.load(name, false)
 	if err != nil {
@@ -685,31 +629,20 @@ func (t *Template) ParseVars(name string, vars VarMap) error {
 	if err != nil {
 		return err
 	}
-	/*for _, v := range t.referencedTemplates() {
-		if _, ok := t.Trees[v]; !ok {
-			log.Debugf("adding missing template %q as empty", v)
-			tree := compileTree("")
-			t.AddParseTree(v, tree)
-		}
-	}*/
-	if err := t.prepareVars(); err != nil {
-		return err
-	}
 	return nil
 }
 
 func (t *Template) AddParseTree(name string, tree *parse.Tree) error {
-	_, err := t.Template.AddParseTree(name, tree)
+	_, err := t.tmpl.AddParseTree(name, tree)
 	if err != nil {
-		panic(err)
 		return err
 	}
-	t.Trees[name] = tree
+	t.trees[name] = tree
 	return nil
 }
 
 func (t *Template) Execute(w io.Writer, data interface{}) error {
-	return t.ExecuteTemplateVars(w, "", data, nil)
+	return t.ExecuteTemplateVars(w, t.root, data, nil)
 }
 
 func (t *Template) ExecuteTemplate(w io.Writer, name string, data interface{}) error {
@@ -717,19 +650,12 @@ func (t *Template) ExecuteTemplate(w io.Writer, name string, data interface{}) e
 }
 
 func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error {
-	return t.ExecuteTemplateVars(w, "", data, vars)
+	return t.ExecuteTemplateVars(w, t.root, data, vars)
 }
 
 func (t *Template) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars VarMap) error {
-	templateData := map[string]interface{}{
-		varsKey: vars,
-		dataKey: data,
-	}
 	var buf bytes.Buffer
-	if name == "" {
-		name = t.root
-	}
-	err := t.Template.ExecuteTemplate(&buf, name, templateData)
+	err := t.prog.ExecuteTemplateVars(&buf, name, data, vars)
 	if err != nil {
 		return err
 	}
@@ -764,21 +690,6 @@ func (t *Template) MustExecute(w io.Writer, data interface{}) {
 	}
 }
 
-// Rebuild rebuilds the template from its trees. Calling this function
-// is required in order to commit any modification to the template trees.
-func (t *Template) Rebuild() error {
-	// Since text/template won't let us remove nor replace a parse
-	// tree, we have to create a new html/template from scratch
-	// and add the trees we have.
-	t.init()
-	for k, v := range t.Trees {
-		if err := t.AddParseTree(k, v); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // AddFuncs registers new functions which will be available to
 // the templates. Please, note that you must register the functions
 // before compiling a template that uses them, otherwise the template
@@ -805,9 +716,9 @@ func New(loader loaders.Loader, manager *assets.Manager) *Template {
 		loader = DefaultTemplateLoader()
 	}
 	t := &Template{
-		Loader:        loader,
 		AssetsManager: manager,
-		Trees:         make(map[string]*parse.Tree),
+		loader:        loader,
+		trees:         make(map[string]*parse.Tree),
 	}
 	t.init()
 	return t

@@ -264,7 +264,7 @@ func (app *App) include(prefix string, child *App, base string, main string) err
 	}
 	for _, v := range child.hooks {
 		app.rewriteAssets(v.Template, included)
-		root := v.Template.Trees[v.Template.Root()]
+		root := v.Template.Trees()[v.Template.Root()]
 		app.prepareNamespace(root, child.name)
 		app.hooks = append(app.hooks, v)
 	}
@@ -499,7 +499,7 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 		if err := t.rewriteTranslationFuncs(); err != nil {
 			return nil, err
 		}
-		if err := t.tmpl.PrepareAssets(); err != nil {
+		if err := t.prepare(); err != nil {
 			return nil, err
 		}
 		tmpl = t
@@ -531,7 +531,7 @@ func (app *App) loadTemplate(name string) (*tmpl, error) {
 			return nil, err
 		}
 	}
-	if app.parent != nil && !t.tmpl.Final {
+	if app.parent != nil && !t.tmpl.IsFinal() {
 		return app.parent.chainTemplate(t, app.childInfo)
 	}
 	return t, nil
@@ -539,28 +539,21 @@ func (app *App) loadTemplate(name string) (*tmpl, error) {
 
 func (app *App) prepareNamespace(tree *parse.Tree, ns string) {
 	// Mangle the Tree to set $Vars = $Vars.Name
-	// just before the with .Data node
-	for ii, node := range tree.Root.Nodes {
-		if _, ok := node.(*parse.WithNode); ok {
-			var nodes []parse.Node
-			nodes = append(nodes, tree.Root.Nodes[:ii]...)
-			nodes = append(nodes, &parse.ActionNode{
-				NodeType: parse.NodeAction,
-				Pipe: &parse.PipeNode{
-					NodeType: parse.NodePipe,
-					Decl:     []*parse.VariableNode{{NodeType: parse.NodeVariable, Ident: []string{"$Vars"}}},
-					Cmds: []*parse.CommandNode{{NodeType: parse.NodeCommand,
-						Args: []parse.Node{
-							&parse.FieldNode{NodeType: parse.NodeField, Ident: []string{"Vars", ns}},
-						},
-					}},
+	var nodes []parse.Node
+	nodes = append(nodes, &parse.ActionNode{
+		NodeType: parse.NodeAction,
+		Pipe: &parse.PipeNode{
+			NodeType: parse.NodePipe,
+			Decl:     []*parse.VariableNode{{NodeType: parse.NodeVariable, Ident: []string{"$Vars"}}},
+			Cmds: []*parse.CommandNode{{NodeType: parse.NodeCommand,
+				Args: []parse.Node{
+					&parse.VariableNode{NodeType: parse.NodeVariable, Ident: []string{"$Vars", ns}},
 				},
-			})
-			nodes = append(nodes, tree.Root.Nodes[ii:]...)
-			tree.Root.Nodes = nodes
-			break
-		}
-	}
+			}},
+		},
+	})
+	nodes = append(nodes, tree.Root.Nodes...)
+	tree.Root.Nodes = nodes
 }
 
 func (app *App) rewriteAssets(t *template.Template, included *includedApp) error {
@@ -581,7 +574,7 @@ func (app *App) rewriteAssets(t *template.Template, included *includedApp) error
 		group.Manager = app.assetsManager
 	}
 	fname := included.assetFuncName()
-	for _, v := range t.Trees {
+	for _, v := range t.Trees() {
 		templateutil.WalkTree(v, func(n, p parse.Node) {
 			if n.Type() == parse.NodeIdentifier {
 				id := n.(*parse.IdentifierNode)
@@ -591,7 +584,7 @@ func (app *App) rewriteAssets(t *template.Template, included *includedApp) error
 			}
 		})
 	}
-	return t.Rebuild()
+	return nil
 }
 
 func (app *App) chainTemplate(t *tmpl, included *includedApp) (*tmpl, error) {
@@ -603,10 +596,10 @@ func (app *App) chainTemplate(t *tmpl, included *includedApp) (*tmpl, error) {
 		return nil, err
 	}
 	base.tmpl.AddAssets(t.tmpl.Assets())
-	for k, v := range t.tmpl.Trees {
+	for k, v := range t.tmpl.Trees() {
 		// This will happen with built-in added templates, like
 		// TopAssets, BottomAssets...
-		if _, ok := base.tmpl.Trees[k]; ok {
+		if _, ok := base.tmpl.Trees()[k]; ok {
 			continue
 		}
 		name := k
@@ -1016,6 +1009,9 @@ func (app *App) logError(ctx *Context, err interface{}) {
 func (app *App) errorPage(ctx *Context, skip int, stackSkip int, req string, err interface{}) {
 	t := newInternalTemplate(app)
 	if terr := t.Parse("panic.html"); terr != nil {
+		panic(terr)
+	}
+	if terr := t.prepare(); terr != nil {
 		panic(terr)
 	}
 	stack := runtimeutil.FormatStackHTML(stackSkip + 1)

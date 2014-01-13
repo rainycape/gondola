@@ -71,6 +71,11 @@ func parseText(tb testing.TB, text string) *Template {
 	tmpl, err := Parse(loader, nil, "template.html")
 	if err != nil {
 		tb.Errorf("error parsing %q: %s", text, err)
+		return nil
+	}
+	if err := tmpl.Compile(); err != nil {
+		tb.Errorf("error compiling %q: %s", text, err)
+		return nil
 	}
 	return tmpl
 }
@@ -81,6 +86,10 @@ func parseTestTemplate(tb testing.TB, name string) *Template {
 	tmpl.Funcs(FuncMap{"t": func(s string) string { return s }})
 	if err := tmpl.Parse(name); err != nil {
 		tb.Errorf("error parsing %q: %s", name, err)
+		return nil
+	}
+	if err := tmpl.Compile(); err != nil {
+		tb.Errorf("error compiling %q: %s", name, err)
 		return nil
 	}
 	return tmpl
@@ -105,7 +114,6 @@ func TestFunctions(t *testing.T) {
 
 func TestCompiler(t *testing.T) {
 	var tests []*templateTest
-	tests = append(tests, ftests...)
 	tests = append(tests, compilerTests...)
 	for _, v := range tests {
 		tmpl := parseText(t, v.tmpl)
@@ -163,37 +171,6 @@ func TestBigTemplate(t *testing.T) {
 	}
 }
 
-func TestCompileBigTemplate(t *testing.T) {
-	const name = "1.html"
-	tmpl := parseTestTemplate(t, name)
-	if tmpl != nil {
-		pr, err := NewProgram(tmpl)
-		if err != nil {
-			t.Fatalf("can't compile template %q: %s", name, err)
-		}
-		var buf1 bytes.Buffer
-		if err := tmpl.Execute(&buf1, nil); err != nil {
-			t.Errorf("error executing template %s: %s", name, err)
-		}
-		var buf2 bytes.Buffer
-		if err := pr.Execute(&buf2, nil); err != nil {
-			t.Errorf("error executing program %s: %s", name, err)
-		}
-		if buf1.String() != buf2.String() {
-			s1 := buf1.String()
-			s2 := buf2.String()
-			t.Logf("len(s1) = %d, len(s2) = %d", len(s1), len(s2))
-			for ii := 0; ii < len(s1) && ii < len(s2); ii++ {
-				if s1[ii] != s2[ii] {
-					t.Logf("char %d: s1 %s s2 %s\n", ii, string(s1[ii]), string(s2[ii]))
-					break
-				}
-			}
-			t.Errorf("program output differs - interpreted: \n\n%v\n\n - compiled: \n\n%v\n\n", s1, s2)
-		}
-	}
-}
-
 func benchmarkTests() []*templateTest {
 	var tests []*templateTest
 	tests = append(tests, ftests...)
@@ -222,32 +199,7 @@ func BenchmarkExecute(b *testing.B) {
 	}
 }
 
-func BenchmarkExecuteProgram(b *testing.B) {
-	b.ReportAllocs()
-	tests := benchmarkTests()
-	programs := make([]*Program, len(tests))
-	for ii, v := range tests {
-		tmpl := parseText(b, v.tmpl)
-		if tmpl == nil {
-			b.Fatalf("can't parse %q", v.tmpl)
-		}
-		pr, err := NewProgram(tmpl)
-		if err != nil {
-			b.Fatalf("can't compile %", v.tmpl)
-		}
-		programs[ii] = pr
-	}
-	var buf bytes.Buffer
-	b.ResetTimer()
-	for ii := 0; ii < b.N; ii++ {
-		for ii, v := range programs {
-			v.Execute(&buf, tests[ii].data)
-			buf.Reset()
-		}
-	}
-}
-
-func benchmarkBig(b *testing.B, pr bool) {
+func BenchmarkBig(b *testing.B) {
 	b.ReportAllocs()
 	const name = "1.html"
 	tmpl := parseTestTemplate(b, name)
@@ -255,29 +207,8 @@ func benchmarkBig(b *testing.B, pr bool) {
 		return
 	}
 	var buf bytes.Buffer
-	if pr {
-		pr, err := NewProgram(tmpl)
-		if err != nil {
-			b.Fatalf("can't compile template %q: %s", name, err)
-		}
-		b.ResetTimer()
-		for ii := 0; ii < b.N; ii++ {
-			pr.Execute(&buf, nil)
-		}
-	} else {
-		// Execute once to add the escaping
+	b.ResetTimer()
+	for ii := 0; ii < b.N; ii++ {
 		tmpl.Execute(&buf, nil)
-		b.ResetTimer()
-		for ii := 0; ii < b.N; ii++ {
-			tmpl.Execute(&buf, nil)
-		}
 	}
-}
-
-func BenchmarkBig(b *testing.B) {
-	benchmarkBig(b, false)
-}
-
-func BenchmarkBigProgram(b *testing.B) {
-	benchmarkBig(b, true)
 }

@@ -94,6 +94,9 @@ func (t *tmpl) execute(w io.Writer, name string, data interface{}, vars template
 	}
 	tvars["Ctx"] = context
 	tvars["Request"] = request
+	if name == "" {
+		name = t.tmpl.Root()
+	}
 	return t.tmpl.ExecuteTemplateVars(w, name, data, tvars)
 }
 
@@ -127,7 +130,7 @@ func (t *tmpl) replaceNode(n, p parse.Node, fname string) error {
 }
 
 func (t *tmpl) rewriteTranslationFuncs() error {
-	for _, tr := range t.tmpl.Trees {
+	for _, tr := range t.tmpl.Trees() {
 		var err error
 		templateutil.WalkTree(tr, func(n, p parse.Node) {
 			if err != nil {
@@ -151,7 +154,14 @@ func (t *tmpl) rewriteTranslationFuncs() error {
 			return err
 		}
 	}
-	return t.tmpl.Rebuild()
+	return nil
+}
+
+func (t *tmpl) prepare() error {
+	if err := t.tmpl.Compile(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func nop() interface{} { return nil }

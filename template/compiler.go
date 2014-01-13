@@ -2,7 +2,6 @@ package template
 
 import (
 	"fmt"
-	"gnd.la/util/internal/templateutil"
 	"gnd.la/util/types"
 	"html/template"
 	"io"
@@ -213,7 +212,7 @@ func (s *state) formatErr(pc int, tmpl string, err error) error {
 		// which has not text. Use the unmangled version instead.
 		tmpl = tmpl[:p-1]
 	}
-	tr := s.p.tmpl.Trees[tmpl]
+	tr := s.p.tmpl.trees[tmpl]
 	if tr != nil {
 		ctx := s.p.context[tmpl]
 		for ii, v := range ctx {
@@ -279,7 +278,6 @@ func (s *state) varValue(name string) (reflect.Value, error) {
 
 // call fn, remove its args from the stack and push the result
 func (s *state) call(fn reflect.Value, name string, args int) error {
-	//fmt.Println("WILL CALL", name, args, len(s.stack), s.stack)
 	pos := len(s.stack) - args
 	in := s.stack[pos:]
 	// arguments are in reverse order
@@ -690,6 +688,7 @@ func (p *Program) prevFuncReturnType() reflect.Type {
 }
 
 func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
+	p.inst(opMARK, 0)
 	p.s.branchPipe = true
 	if err := p.walk(b.Pipe); err != nil {
 		return err
@@ -784,6 +783,7 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		p.inst(opJMP, valType(len(elseList.buf)))
 		p.s.add(elseList)
 	}
+	p.inst(opPOP, 0)
 	return nil
 }
 
@@ -836,16 +836,14 @@ func (p *Program) walk(n parse.Node) error {
 			return fmt.Errorf("identifier %q outside of command?", x.Ident)
 		}
 		if x.Ident == topAssetsFuncName || x.Ident == bottomAssetsFuncName {
-			// These functions won't change their output once we reach this
-			// point and they return template.HTML. We can just call them now
-			// and add a WB instruction with the result, thus avoiding the function
-			// call and the useless escaping. We also need to ignore the rest
-			// of the pipeline.
+			// These functions don't exist anymore, we translate
+			// them to WB calls, since assets can't be added once the
+			// template is compiled
 			var b []byte
 			if x.Ident == topAssetsFuncName {
-				b = []byte(p.tmpl.topAssets)
+				b = p.tmpl.topAssets
 			} else {
-				b = []byte(p.tmpl.bottomAssets)
+				b = p.tmpl.bottomAssets
 			}
 			p.addWB(b)
 			p.s.noPrint = true
@@ -972,23 +970,24 @@ func (p *Program) ExecuteTemplateVars(w io.Writer, name string, data interface{}
 }
 
 func NewProgram(tmpl *Template) (*Program, error) {
-	addEscaping(tmpl)
-	// Add escaping functions
-	tmpl.Funcs(htmlEscapeFuncs)
-	// html/template might introduce new trees. it renames the
-	// template invocations, but we must add the trees ourselves
-	for _, v := range tmpl.Templates() {
-		if v.Tree != nil {
-			if tmpl.Trees[v.Tree.Name] == nil {
-				tmpl.Trees[v.Tree.Name] = v.Tree
+	if strings.Contains(tmpl.contentType, "html") {
+		addEscaping(tmpl)
+		// Add escaping functions
+		tmpl.Funcs(htmlEscapeFuncs)
+		// html/template might introduce new trees. it renames the
+		// template invocations, but we must add the trees ourselves
+		for _, v := range tmpl.tmpl.Templates() {
+			if v.Tree != nil {
+				if tmpl.trees[v.Tree.Name] == nil {
+					tmpl.trees[v.Tree.Name] = v.Tree
+				}
 			}
 		}
 	}
-	p := &Program{tmpl: tmpl, code: make(map[string][]inst), context: make(map[string][]context)}
-	for k, v := range tmpl.Trees {
-		root := simplifyList(v.Root)
+	p := &Program{tmpl: tmpl, code: make(map[string][]inst), context: make(map[string][]*context)}
+	for k, v := range tmpl.trees {
 		p.s = new(scratch)
-		if err := p.walk(root); err != nil {
+		if err := p.walk(v.Root); err != nil {
 			return nil, err
 		}
 		p.code[k] = p.s.buf
@@ -1005,47 +1004,12 @@ func addEscaping(tmpl *Template) {
 	defer func() {
 		recover()
 	}()
+	// Add the root template when the name "", so html/template
+	// can find it and escape all the trees from it
+	tmpl.tmpl.AddParseTree("", tmpl.trees[tmpl.root])
 	// Need to execute it once, for html/template to add
 	// the escaping hooks.
-	tmpl.Execute(ioutil.Discard, nil)
-}
-
-// simplifyList removes all nodes injected by Gondola
-// to implement the Vars system, since *Program implements
-// support for that directly and does not require introducing
-// extra nodes.
-func simplifyList(root *parse.ListNode) *parse.ListNode {
-	if len(root.Nodes) > 0 && root.Nodes[0].String() == fmt.Sprintf("{{$%s := .%s}}", varsKey, varsKey) {
-		count := len(root.Nodes)
-		if wn, ok := root.Nodes[count-1].(*parse.WithNode); ok && wn.Pipe.String() == "."+dataKey {
-			list := wn.List
-			list.Nodes = append(root.Nodes[1:count-1], wn.List.Nodes...)
-			var templates []*parse.TemplateNode
-			templateutil.WalkNode(wn.List, nil, func(n, p parse.Node) {
-				if tn, ok := n.(*parse.TemplateNode); ok {
-					templates = append(templates, tn)
-				}
-			})
-			for _, v := range templates {
-				if v.Pipe != nil {
-					if len(v.Pipe.Cmds) == 1 {
-						cmd := v.Pipe.Cmds[0]
-						switch len(cmd.Args) {
-						case 3: // template had no arguments
-							v.Pipe = nil
-						case 5: // original pipe was 5th arg
-							v.Pipe = cmd.Args[4].(*parse.PipeNode)
-						default:
-							fmt.Println(len(cmd.Args), v.Pipe)
-							panic("something went bad")
-						}
-					}
-				}
-			}
-			return list
-		}
-	}
-	return root
+	tmpl.tmpl.Execute(ioutil.Discard, nil)
 }
 
 func isTrue(v reflect.Value) bool {

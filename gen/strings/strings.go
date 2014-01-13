@@ -100,7 +100,7 @@ func genString(named *types.Named, scope *types.Scope, opts *Options, buf *bytes
 			buf.WriteString(fmt.Sprintf("return %q\n", v))
 		}
 		buf.WriteString("}\n")
-		fmt.Fprintf(buf, "return fmt.Sprintf(\"unknown %s %%v\", %s)", strings.ToLower(name), varname)
+		fmt.Fprintf(buf, "return fmt.Sprintf(\"unknown %s %%d\", %s)", strings.ToLower(name), varname)
 		buf.WriteString("}\n")
 	}
 	return nil

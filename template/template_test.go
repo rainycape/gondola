@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"gnd.la/loaders"
 	"gnd.la/template/assets"
+	"html/template"
+	"io/ioutil"
+	"path/filepath"
 	"testing"
 )
 
@@ -173,7 +176,7 @@ func benchmarkTests() []*templateTest {
 	return tests
 }
 
-func BenchmarkExecute(b *testing.B) {
+func BenchmarkTemplate(b *testing.B) {
 	b.ReportAllocs()
 	tests := benchmarkTests()
 	templates := make([]*Template, len(tests))
@@ -194,12 +197,67 @@ func BenchmarkExecute(b *testing.B) {
 	}
 }
 
+func BenchmarkHTMLTemplate(b *testing.B) {
+	b.ReportAllocs()
+	tests := benchmarkTests()
+	templates := make([]*template.Template, len(tests))
+	for ii, v := range tests {
+		tmpl := template.New("template.html")
+		tmpl.Funcs(template.FuncMap(templateFuncs))
+		_, err := tmpl.Parse(v.tmpl)
+		if err != nil {
+			b.Fatalf("can't parse %q: %s", v.tmpl, err)
+		}
+		// Execute once to add the escaping hooks
+		tmpl.Execute(ioutil.Discard, nil)
+		templates[ii] = tmpl
+	}
+	var buf bytes.Buffer
+	b.ResetTimer()
+	for ii := 0; ii < b.N; ii++ {
+		for ii, v := range templates {
+			v.Execute(&buf, tests[ii].data)
+		}
+		buf.Reset()
+	}
+}
+
 func BenchmarkBig(b *testing.B) {
 	b.ReportAllocs()
 	const name = "1.html"
 	tmpl := parseTestTemplate(b, name)
 	if tmpl == nil {
 		return
+	}
+	var buf bytes.Buffer
+	b.ResetTimer()
+	for ii := 0; ii < b.N; ii++ {
+		tmpl.Execute(&buf, nil)
+		buf.Reset()
+	}
+}
+
+func BenchmarkHTMLBig(b *testing.B) {
+	b.ReportAllocs()
+	tmpl := template.New("")
+	tmpl.Funcs(template.FuncMap{"t": func(s string) string { return s }})
+	tmpl.Funcs(template.FuncMap(templateFuncs))
+	readFile := func(name string) string {
+		data, err := ioutil.ReadFile(filepath.Join("_testdata", name))
+		if err != nil {
+			b.Fatal(err)
+		}
+		return "{{ $Vars := .Vars }}\n" + string(data)
+	}
+	if _, err := tmpl.Parse(readFile("1.html")); err != nil {
+		b.Fatal(err)
+	}
+	t2 := tmpl.New("2.html")
+	if _, err := t2.Parse(readFile("2.html")); err != nil {
+		b.Fatal(err)
+	}
+	if err := tmpl.Execute(ioutil.Discard, nil); err != nil {
+		b.Fatal(err)
 	}
 	var buf bytes.Buffer
 	b.ResetTimer()

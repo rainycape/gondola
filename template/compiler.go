@@ -729,20 +729,18 @@ func (p *Program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 	case parse.NodeRange:
 		// pop the dot at the end of every iteration
 		list.append(opPOPDOT, 0)
-		toPop := 2
 		// if there are variables declared, add instructions
-		// for setting them
+		// for setting them, then pop until the iterator is at
+		// the top
 		if len(b.Pipe.Decl) > 0 {
-			toPop--
-			list.prepend(opSETVAR, p.addString(b.Pipe.Decl[0].Ident[0][1:]))
 			if len(b.Pipe.Decl) > 1 {
-				toPop--
+				list.prepend(opSETVAR, p.addString(b.Pipe.Decl[0].Ident[0][1:]))
 				list.prepend(opSETVAR, p.addString(b.Pipe.Decl[1].Ident[0][1:]))
+			} else {
+				list.prepend(opPOP, 1).prepend(opSETVAR, p.addString(b.Pipe.Decl[0].Ident[0][1:]))
 			}
-		}
-		// pop until the iterator
-		if toPop > 0 {
-			list.prepend(opPOP, valType(toPop))
+		} else {
+			list.prepend(opPOP, 2)
 		}
 		// start each iteration with the dot set. note that we're
 		// prepending here, so this executes before setting the vars

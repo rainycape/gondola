@@ -877,7 +877,9 @@ func (p *program) walk(n parse.Node) error {
 			} else {
 				b = p.tmpl.bottomAssets
 			}
-			p.addWB(b)
+			if len(b) > 0 {
+				p.addWB(b)
+			}
 			p.s.noPrint = true
 			break
 		}

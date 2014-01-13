@@ -988,6 +988,54 @@ func (p *program) walk(n parse.Node) error {
 	return nil
 }
 
+func (p *program) stitchTree(name string) {
+	code := p.code[name]
+	for ii, v := range code {
+		if code[ii].op == opTEMPLATE {
+			tmpl := p.strings[int(v.val)]
+			sub := p.code[tmpl]
+			// look for jumps before this opTEMPLATE
+			// which need to be adjusted
+			var stitched []inst
+			for jj, in := range code[:ii] {
+				op := in.op
+				switch op {
+				case opJMP, opJMPT, opJMPF, opJMPE:
+					val := int(int32(in.val))
+					if jj+val > ii {
+						stitched = append(stitched, inst{op, valType(int32(val + len(sub) - 1))})
+						continue
+					}
+				}
+				stitched = append(stitched, in)
+			}
+			stitched = append(stitched, sub...)
+			// look for jumps after this opTEMPLATE
+			// which need to be adjusted
+			for jj, in := range code[ii+1:] {
+				op := in.op
+				switch op {
+				case opJMP, opJMPT, opJMPF, opJMPE:
+					val := int(int32(in.val))
+					if jj+val < 0 {
+						stitched = append(stitched, inst{op, valType(int32(val - len(sub) + 1))})
+						continue
+					}
+				}
+				stitched = append(stitched, in)
+			}
+			// replace the tree
+			p.code[name] = stitched
+			// don't let the stichin' stop!
+			p.stitchTree(name)
+		}
+	}
+}
+
+func (p *program) stitch() {
+	p.stitchTree(p.tmpl.root)
+}
+
 func (p *program) execute(w io.Writer, name string, data interface{}, vars VarMap) error {
 	s := newState(p, w)
 	s.pushVar("Vars", reflect.ValueOf(vars))
@@ -1021,6 +1069,7 @@ func newProgram(tmpl *Template) (*program, error) {
 		p.context[k] = p.s.ctx
 		p.s = nil
 	}
+	p.stitch()
 	return p, nil
 }
 

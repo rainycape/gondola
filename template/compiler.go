@@ -481,7 +481,7 @@ type scratch struct {
 	buf        []inst
 	cmd        []int
 	pipe       []int
-	ctx        []context
+	ctx        []*context
 	noPrint    bool
 	branchPipe bool
 }
@@ -514,7 +514,6 @@ func (s *scratch) prepend(op opcode, val valType) *scratch {
 
 func (s *scratch) popFront(count int) *scratch {
 	s.buf = s.buf[count:]
-	s.ctx = s.ctx[count:]
 	for _, v := range s.ctx {
 		v.pc -= count
 	}
@@ -530,8 +529,10 @@ func (s *scratch) append(op opcode, val valType) *scratch {
 // is adjusted.
 func (s *scratch) add(p *scratch) {
 	c := len(s.buf)
-	for _, v := range p.ctx {
-		v.pc += c
+	if c > 0 {
+		for _, v := range p.ctx {
+			v.pc += c
+		}
 	}
 	s.buf = append(s.buf, p.buf...)
 	s.ctx = append(s.ctx, p.ctx...)
@@ -621,7 +622,7 @@ type Program struct {
 	values   []reflect.Value
 	bs       [][]byte
 	code     map[string][]inst
-	context  map[string][]context
+	context  map[string][]*context
 	// used only during compilation
 	s *scratch
 }
@@ -948,7 +949,7 @@ func (p *Program) walk(n parse.Node) error {
 	default:
 		return fmt.Errorf("can't compile node %T", n)
 	}
-	p.s.ctx = append(p.s.ctx, context{pc: len(p.s.buf), node: n})
+	p.s.ctx = append(p.s.ctx, &context{pc: len(p.s.buf), node: n})
 	return nil
 }
 

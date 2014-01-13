@@ -958,10 +958,17 @@ func (p *program) walk(n parse.Node) error {
 	case *parse.StringNode:
 		p.addSTRING(x.Text)
 	case *parse.TemplateNode:
+		s := p.s.snap()
 		if err := p.walk(x.Pipe); err != nil {
 			return err
 		}
+		pipe := p.s.snap()
+		p.s.restore(s)
+		pipe.putPop()
+		pop := pipe.takePop()
+		p.s.add(pipe)
 		p.inst(opTEMPLATE, p.addString(x.Name))
+		p.s.addPop(pop)
 	case *parse.TextNode:
 		p.addWB(x.Text)
 	case *parse.VariableNode:

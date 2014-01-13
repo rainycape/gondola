@@ -59,6 +59,10 @@ var (
 		{"{{ range . }}{{ else }}nope{{ end }}", nil, "nope"},
 		{"{{ range $k, $v := . }}{{ $k }}={{ $v }}{{ end }}", map[string]int{"b": 2, "c": 3, "a": 1}, "a=1b=2c=3"},
 		{"{{ range . }}{{ range . }}{{ if even . }}{{ . }}{{ end }}{{ end }}{{ end }}", [][]int{[]int{1, 2, 3, 4, 5, 6}}, "246"},
+		{"{{ define \"a\" }}a{{ end }}{{ range . }}{{ template \"a\" . }}{{ end }}", []int{1, 2, 3}, "aaa"},
+		{"{{ define \"a\" }}a{{ . }}{{ . }}{{ end }}{{ range . }}{{ template \"a\" . }}{{ end }}", []int{1, 2, 3}, "a11a22a33"},
+		{"{{ define \"a\" }}a{{ . }}{{ . }}{{ end }}{{ if . }}{{ template \"a\" . }}{{ end }}", 0, ""},
+		{"{{ define \"a\" }}a{{ . }}{{ . }}{{ end }}{{ if . }}{{ template \"a\" . }}{{ end }}", 1, "a11"},
 	}
 	compilerErrorTests = []*templateTest{
 		{"{{ range . }}{{ else }}nope{{ end }}", 5, "template.html:1:9: can't range over int"},

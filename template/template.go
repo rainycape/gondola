@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"path"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"text/template/parse"
@@ -653,9 +654,17 @@ func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error
 	return t.ExecuteTemplateVars(w, t.root, data, vars)
 }
 
+var bufPool = make(chan *bytes.Buffer, runtime.GOMAXPROCS(0))
+
 func (t *Template) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars VarMap) error {
-	var buf bytes.Buffer
-	err := t.prog.execute(&buf, name, data, vars)
+	var buf *bytes.Buffer
+	select {
+	case buf = <-bufPool:
+		buf.Reset()
+	default:
+		buf = new(bytes.Buffer)
+	}
+	err := t.prog.execute(buf, name, data, vars)
 	if err != nil {
 		return err
 	}
@@ -669,7 +678,7 @@ func (t *Template) ExecuteTemplateVars(w io.Writer, name string, data interface{
 		copy(bc, b)
 		r := bytes.NewReader(bc)
 		buf.Reset()
-		if err := html.Minify(&buf, r); err != nil {
+		if err := html.Minify(buf, r); err != nil {
 			return err
 		}
 	}
@@ -679,6 +688,10 @@ func (t *Template) ExecuteTemplateVars(w io.Writer, name string, data interface{
 		header.Set("Content-Length", strconv.Itoa(buf.Len()))
 	}
 	_, err = w.Write(buf.Bytes())
+	select {
+	case bufPool <- buf:
+	default:
+	}
 	return err
 }
 

@@ -632,6 +632,23 @@ func (t *Template) renameTemplates(renames map[string]string) {
 	})
 }
 
+func (t *Template) addHtmlEscaping() {
+	// Unfortunately, there's a bug in text/template executor which
+	// ends up panic'ing if there's an error in a mangled template, so
+	// we must wrap this in a recover.
+	defer func() {
+		recover()
+	}()
+	// Add the root template when the name "", so html/template
+	// can find it and escape all the trees from it
+	if _, ok := t.trees[""]; !ok && t.root != "" {
+		t.tmpl.AddParseTree("", t.trees[t.root])
+	}
+	// Need to execute it once, for html/template to add
+	// the escaping hooks.
+	t.tmpl.Execute(ioutil.Discard, nil)
+}
+
 func (t *Template) Funcs(funcs FuncMap) *Template {
 	if t.funcMap == nil {
 		t.funcMap = make(FuncMap)

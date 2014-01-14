@@ -5,7 +5,6 @@ import (
 	"gnd.la/util/types"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"reflect"
 	"runtime"
 	"strings"
@@ -1075,7 +1074,7 @@ func (p *program) execute(w io.Writer, name string, data interface{}, vars VarMa
 
 func newProgram(tmpl *Template) (*program, error) {
 	if strings.Contains(tmpl.contentType, "html") {
-		addEscaping(tmpl)
+		tmpl.addHtmlEscaping()
 		// Add escaping functions
 		tmpl.Funcs(htmlEscapeFuncs)
 		// html/template might introduce new trees. it renames the
@@ -1100,21 +1099,6 @@ func newProgram(tmpl *Template) (*program, error) {
 	}
 	p.stitch()
 	return p, nil
-}
-
-func addEscaping(tmpl *Template) {
-	// Unfortunately, there's a bug in text/template executor which
-	// ends up panic'ing if there's an error in a mangled template, so
-	// we must wrap this in a recover.
-	defer func() {
-		recover()
-	}()
-	// Add the root template when the name "", so html/template
-	// can find it and escape all the trees from it
-	tmpl.tmpl.AddParseTree("", tmpl.trees[tmpl.root])
-	// Need to execute it once, for html/template to add
-	// the escaping hooks.
-	tmpl.tmpl.Execute(ioutil.Discard, nil)
 }
 
 func isTrue(v reflect.Value) bool {

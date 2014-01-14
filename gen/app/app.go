@@ -38,7 +38,7 @@ func (app *App) writeLoader(buf *bytes.Buffer, dir string, release bool) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(buf, "loaders.FSLoader(%q)\n", abs)
+	fmt.Fprintf(buf, "loaders.MemLoader(loaders.FSLoader(%q))\n", abs)
 	return nil
 }
 

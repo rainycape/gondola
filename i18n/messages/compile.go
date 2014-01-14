@@ -15,20 +15,22 @@ func Compile(filename string, translations []*po.Po) error {
 	dir := filepath.Dir(filename)
 	p, err := build.ImportDir(dir, 0)
 	if err == nil {
-		buf.WriteString(fmt.Sprintf("package %s\n", p.Name))
+		fmt.Fprintf(&buf, "package %s\n", p.Name)
 	}
 	buf.WriteString("import \"gnd.la/i18n/table\"\n")
 	buf.WriteString(genutil.AutogenString())
 	buf.WriteString("func init() {\n")
 	for _, v := range translations {
 		table := poToTable(v)
+		form, err := funcFromFormula(v.Attrs["Plural-Forms"])
+		if err != nil {
+			return err
+		}
 		data, err := table.Encode()
 		if err != nil {
 			return err
 		}
-		buf.WriteString("table.Register(\"")
-		buf.WriteString(v.Attrs["Language"])
-		buf.WriteString(fmt.Sprintf("\", %q)\n", data))
+		fmt.Fprintf(&buf, "table.Register(%q, func (n int) int {\n%s\n}, %q)\n", v.Attrs["Language"], form, data)
 	}
 	buf.WriteString("\n}\n")
 	return genutil.WriteAutogen(filename, buf.Bytes())
@@ -43,7 +45,7 @@ func poToTable(p *po.Po) *table.Table {
 		key := table.Key(v.Context, v.Singular, v.Plural)
 		translations[key] = v.Translations
 	}
-	tbl, err := table.New(p.Attrs["Plural-Forms"], translations)
+	tbl, err := table.New(nil, translations)
 	// This shouldn't happen because the formula was validated when loading
 	// the .po file.
 	if err != nil {

@@ -2,17 +2,17 @@ package table
 
 import (
 	"bytes"
-	"strings"
 	"compress/gzip"
 	"gnd.la/encoding/binary"
-	"gnd.la/i18n/formula"
 	"io"
+	"strings"
 )
+
+type Formula func(n int) int
 
 type Table struct {
 	translations map[string]Translation
-	formulaFn    formula.Formula
-	formulaText  string
+	formula      Formula
 }
 
 func (t *Table) Singular(ctx string, msg string) string {
@@ -26,7 +26,7 @@ func (t *Table) Singular(ctx string, msg string) string {
 func (t *Table) Plural(ctx string, singular string, plural string, n int) string {
 	k := Key(ctx, singular, plural)
 	if tr := t.translations[k]; tr != nil {
-		ii := t.formulaFn(n)
+		ii := t.formula(n)
 		if ii < len(tr) {
 			return tr[ii]
 		}
@@ -41,9 +41,6 @@ func (t *Table) Encode() (string, error) {
 	var buf bytes.Buffer
 	w, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
 	if err != nil {
-		return "", err
-	}
-	if err := writeString(w, t.formulaText); err != nil {
 		return "", err
 	}
 	if err := binary.Write(w, binary.BigEndian, int32(len(t.translations))); err != nil {
@@ -69,12 +66,11 @@ func (t *Table) Encode() (string, error) {
 }
 
 func (t *Table) Update(other *Table) error {
-	if other.formulaFn != nil {
-		t.formulaFn = other.formulaFn
-		t.formulaText = other.formulaText
-		for k, v := range other.translations {
-			t.translations[k] = v
-		}
+	if other.formula != nil {
+		t.formula = other.formula
+	}
+	for k, v := range other.translations {
+		t.translations[k] = v
 	}
 	return nil
 }
@@ -85,14 +81,6 @@ func Decode(data string) (*Table, error) {
 		return nil, err
 	}
 	defer r.Close()
-	fn, err := readString(r)
-	if err != nil {
-		return nil, err
-	}
-	formulaFn, _, err := formula.Make(fn)
-	if err != nil {
-		return nil, err
-	}
 	var count int32
 	if err := binary.Read(r, binary.BigEndian, &count); err != nil {
 		return nil, err
@@ -121,20 +109,13 @@ func Decode(data string) (*Table, error) {
 	}
 	return &Table{
 		translations: translations,
-		formulaFn:    formulaFn,
-		formulaText:  fn,
 	}, nil
 }
 
-func New(pluralFormula string, translations map[string]Translation) (*Table, error) {
-	fn, _, err := formula.Make(pluralFormula)
-	if err != nil {
-		return nil, err
-	}
+func New(formula Formula, translations map[string]Translation) (*Table, error) {
 	return &Table{
 		translations: translations,
-		formulaText:  pluralFormula,
-		formulaFn:    fn,
+		formula:      formula,
 	}, nil
 }
 

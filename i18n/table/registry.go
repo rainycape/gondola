@@ -7,8 +7,13 @@ import (
 	"sync"
 )
 
+type registered struct {
+	formula Formula
+	data    string
+}
+
 var (
-	registry = make(map[string]string)
+	registry = make(map[string]*registered)
 	decoded  = make(map[string]*Table)
 	cache    = make(map[string]*Table)
 	mu       sync.RWMutex
@@ -22,11 +27,12 @@ var (
 // or "en_GB". Note that internally all codes are translated to
 // uppercase and dashes are translated to underscores. This means
 // that the languages "ES-ES", "es_es" and "es_ES" are equivalent.
-// The second parameter is a compressed language table. If there's already
+// The second parameter is the language plural formula.
+// The third parameter is a compressed language table. If there's already
 // a table registered for the given language, it will be updated with
 // the new table, adding or updating entries as required.
-func Register(lang string, data string) {
-	if err := register(lang, data); err != nil {
+func Register(lang string, formula Formula, data string) {
+	if err := register(lang, formula, data); err != nil {
 		panic(err)
 	}
 }
@@ -35,7 +41,7 @@ func languageKey(k string) string {
 	return strings.ToUpper(strings.Replace(k, "_", "-", -1))
 }
 
-func register(lang string, data string) error {
+func register(lang string, formula Formula, data string) error {
 	if len(lang) != 2 && len(lang) != 5 {
 		return fmt.Errorf("invalid language code %q, please see the documentation for Register()", lang)
 	}
@@ -43,10 +49,10 @@ func register(lang string, data string) error {
 		return fmt.Errorf("invalid table for language %q, no data", lang)
 	}
 	key := languageKey(lang)
-	if prev := registry[key]; prev == "" {
-		registry[key] = data
+	if prev := registry[key]; prev == nil {
+		registry[key] = &registered{formula, data}
 	} else {
-		prevt, err := Decode(prev)
+		prevt, err := Decode(prev.data)
 		if err != nil {
 			return err
 		}
@@ -61,7 +67,7 @@ func register(lang string, data string) error {
 		if err != nil {
 			return err
 		}
-		registry[key] = compressed
+		registry[key] = &registered{formula, compressed}
 	}
 	return nil
 }
@@ -126,10 +132,16 @@ func getSkippingCache(key string) *Table {
 	if t := decoded[key]; t != nil {
 		return t
 	}
-	if d := registry[key]; d != "" {
-		t, err := Decode(d)
+	if d := registry[key]; d != nil {
+		t, err := Decode(d.data)
 		if err != nil {
 			panic(err)
+		}
+		if d.formula != nil {
+			t.formula = d.formula
+		}
+		if t.formula == nil {
+			t.formula = defaultFormula
 		}
 		mu.Lock()
 		decoded[key] = t
@@ -137,4 +149,11 @@ func getSkippingCache(key string) *Table {
 		return t
 	}
 	return nil
+}
+
+func defaultFormula(n int) int {
+	if n != 0 {
+		return 1
+	}
+	return 0
 }

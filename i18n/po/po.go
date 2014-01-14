@@ -2,7 +2,6 @@ package po
 
 import (
 	"fmt"
-	"gnd.la/i18n/formula"
 	"io"
 	"os"
 	"strconv"
@@ -156,23 +155,6 @@ func parsePo(r io.Reader, filename string) (*Po, error) {
 				}
 			}
 			break
-		}
-	}
-	// If there are not Attrs, it's a pot file
-	if len(po.Attrs) > 0 {
-		// Make sure Plural-Forms is ok
-		pf := po.Attrs["Plural-Forms"]
-		_, n, err := formula.Make(pf)
-		if err != nil {
-			if filename != "" {
-				return nil, fmt.Errorf("error parsing Plural-Forms in %s: %s", filename, err)
-			}
-			return nil, fmt.Errorf("error parsing Plural-Forms: %s", err)
-		}
-		// Check that there are no messages with more forms than n
-		for _, v := range po.Messages {
-			if len(v.Translations) > n {
-			}
 		}
 	}
 	return po, nil

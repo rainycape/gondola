@@ -16,9 +16,16 @@ var (
 	stringType       = reflect.TypeOf("")
 	htmlType         = reflect.TypeOf(HTML(""))
 	templateHtmlType = reflect.TypeOf(template.HTML(""))
+	jsType           = reflect.TypeOf(JS(""))
+	templateJsType   = reflect.TypeOf(template.JS(""))
 	stringerType     = reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
 	emptyType        = reflect.TypeOf((*interface{})(nil)).Elem()
 	zero             = reflect.Zero(emptyType)
+)
+
+const (
+	templateHtmlEscaper = "html_template_htmlescaper"
+	templateJsEscaper   = "html_template_jsvalescaper"
 )
 
 // TODO: Remove variables inside if or with when exiting the scope
@@ -903,10 +910,12 @@ func (p *program) walk(n parse.Node) error {
 			break
 		}
 		name := x.Ident
-		if p.s.noPrint && strings.HasPrefix(name, "html_") {
-			break
-		}
-		if name == "html_template_htmlescaper" {
+		if strings.HasPrefix(name, "html_") {
+			if p.s.noPrint {
+				// previous pipeline was precomputed
+				// and translated to a opWB
+				break
+			}
 			// Check if the input of this function is a string or template.HTML
 			// and either use the specialized function or remove the escaping
 			// entirely when possible.
@@ -917,9 +926,18 @@ func (p *program) walk(n parse.Node) error {
 				case typ.Kind() == reflect.String:
 					switch typ {
 					case stringType:
-						name = "html_template_htmlstringescaper"
+						if name == templateHtmlEscaper {
+							// specialized to avoid type assertions
+							name = "html_template_htmlstringescaper"
+						}
 					case htmlType, templateHtmlType:
-						name = ""
+						if name == templateHtmlEscaper {
+							name = ""
+						}
+					case jsType, templateJsType:
+						if name == templateJsEscaper {
+							name = ""
+						}
 					}
 				}
 			}

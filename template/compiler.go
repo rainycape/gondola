@@ -293,14 +293,28 @@ func (s *state) call(fn reflect.Value, name string, args int) error {
 	return nil
 }
 
-func (s *state) execute(tmpl string, dot reflect.Value) error {
+func (s *state) recover(pc *int, tmpl *string, err *error) {
+	if r := recover(); r != nil {
+		e, ok := r.(error)
+		if !ok {
+			e = fmt.Errorf("%v", r)
+		}
+		// TODO: Check if we can find if we were calling
+		// a function, either from a opFUNC or opFIELD.
+		*err = s.formatErr(*pc, *tmpl, e)
+	}
+}
+
+func (s *state) execute(tmpl string, dot reflect.Value) (err error) {
 	code, ok := s.p.code[tmpl]
 	if !ok {
 		return fmt.Errorf("template %q does not exist", tmpl)
 	}
 	s.dot = []reflect.Value{dot}
 	s.pushVar("", dot)
-	for pc := 0; pc < len(code); pc++ {
+	var pc int
+	defer s.recover(&pc, &tmpl, &err)
+	for pc = 0; pc < len(code); pc++ {
 		v := code[pc]
 		switch v.op {
 		case opMARK:

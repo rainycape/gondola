@@ -125,6 +125,19 @@ func (t *Template) init() {
 	t.Funcs(funcs).Funcs(templateFuncs)
 }
 
+func (t *Template) rebuild() error {
+	// Since text/template won't let us remove nor replace a parse
+	// tree, we have to create a new html/template from scratch
+	// and add the trees we have.
+	t.init()
+	for k, v := range t.trees {
+		if err := t.AddParseTree(k, v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (t *Template) Name() string {
 	return t.name
 }
@@ -215,6 +228,9 @@ func (t *Template) Hook(hook *Hook) error {
 		tree := t.trees[key].Copy()
 		tree.Root.Nodes = append(tree.Root.Nodes, node)
 		t.trees[key] = tree
+		// we must regenerate the html/template structure, so
+		// it sees this new template call and escapes it.
+		t.rebuild()
 	}
 	t.hooks = append(t.hooks, hook)
 	return nil

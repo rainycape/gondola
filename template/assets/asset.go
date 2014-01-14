@@ -81,6 +81,25 @@ func (a *Asset) IsHTML() bool {
 	return a.HTML != ""
 }
 
+func (a *Asset) IsTemplate() bool {
+	return a.Name != "" && a.Name[0] == '(' && a.Name[len(a.Name)-1] == ')'
+}
+
+func (a *Asset) TemplateName() string {
+	if a.IsTemplate() {
+		return a.Name[1 : len(a.Name)-1]
+	}
+	return ""
+}
+
+func (a *Asset) Rename(name string) {
+	if a.IsTemplate() {
+		a.Name = fmt.Sprintf("(%s)", name)
+	} else {
+		a.Name = name
+	}
+}
+
 func (a *Asset) Code(m *Manager) (string, error) {
 	f, _, err := m.Load(a.Name)
 	if err != nil {

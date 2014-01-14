@@ -567,11 +567,15 @@ func (app *App) rewriteAssets(t *template.Template, included *includedApp) error
 			if a.IsRemote() || a.IsHTML() {
 				continue
 			}
-			name := included.renames[a.Name]
-			if name == "" {
-				return fmt.Errorf("asset %q referenced from template %q does not exist", a.Name, t.Name)
+			orig := a.Name
+			if a.IsTemplate() {
+				orig = a.TemplateName()
 			}
-			a.Name = name
+			name := included.renames[orig]
+			if name == "" {
+				return fmt.Errorf("asset %q referenced from template %q does not exist", a.Name, t.Name())
+			}
+			a.Rename(name)
 		}
 		group.Manager = app.assetsManager
 	}

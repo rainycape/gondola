@@ -94,6 +94,21 @@ func (app *App) Gen(release bool) error {
 		}
 		buf.WriteString("})\n")
 	}
+	for k, v := range app.Handlers {
+		obj := scope.Lookup(k)
+		if obj == nil {
+			return fmt.Errorf("could not find handler named %q", k)
+		}
+		if _, err := regexp.Compile(v); err != nil {
+			return fmt.Errorf("invalid pattern %q: %s", v, err)
+		}
+		switch obj.Type().String() {
+		case "*gnd.la/app.HandlerInfo", "gnd.la/app.HandlerInfo":
+			fmt.Fprintf(&buf, "App.HandleOptions(%q, %s.Handler, %s.Options)\n", v, obj.Name(), obj.Name())
+		default:
+			return fmt.Errorf("invalid handler type %s", obj.Type())
+		}
+	}
 	if app.Templates != nil && app.Templates.Path != "" {
 		buf.WriteString("templatesLoader := ")
 		if err := app.writeLoader(&buf, filepath.Join(app.Dir, app.Templates.Path), release); err != nil {
@@ -117,21 +132,6 @@ func (app *App) Gen(release bool) error {
 			fmt.Fprintf(&buf, "tmpl_%s, err := App.LoadTemplate(%q)\n", suffix, k)
 			buf.WriteString("if err != nil {\npanic(err)\n}\n")
 			fmt.Fprintf(&buf, "App.AddHook(&template.Hook{Template: tmpl_%s.Template(), Position: %s})\n", suffix, pos)
-		}
-	}
-	for k, v := range app.Handlers {
-		obj := scope.Lookup(k)
-		if obj == nil {
-			return fmt.Errorf("could not find handler named %q", k)
-		}
-		if _, err := regexp.Compile(v); err != nil {
-			return fmt.Errorf("invalid pattern %q: %s", v, err)
-		}
-		switch obj.Type().String() {
-		case "*gnd.la/app.HandlerInfo", "gnd.la/app.HandlerInfo":
-			fmt.Fprintf(&buf, "App.HandleOptions(%q, %s.Handler, %s.Options)\n", v, obj.Name(), obj.Name())
-		default:
-			return fmt.Errorf("invalid handler type %s", obj.Type())
 		}
 	}
 	buf.WriteString("}\n")

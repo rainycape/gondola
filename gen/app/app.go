@@ -58,13 +58,14 @@ func (app *App) Gen(release bool) error {
 	buf.WriteString("func init() {\n")
 	buf.WriteString("App = app.New()\n")
 	fmt.Fprintf(&buf, "App.SetName(%q)\n", app.Name)
+	buf.WriteString("var manager *assets.Manager\n")
 	if app.Assets != "" {
 		buf.WriteString("assetsLoader := ")
 		if err := app.writeLoader(&buf, filepath.Join(app.Dir, app.Assets), release); err != nil {
 			return err
 		}
 		buf.WriteString("const prefix = \"/assets/\"\n")
-		buf.WriteString("manager := assets.NewManager(assetsLoader, prefix)\n")
+		buf.WriteString("manager = assets.NewManager(assetsLoader, prefix)\n")
 		buf.WriteString("App.SetAssetsManager(manager)\n")
 		buf.WriteString("assetsHandler := assets.Handler(manager)\n")
 		buf.WriteString("App.Handle(\"^\"+prefix, func(ctx *app.Context) { assetsHandler(ctx, ctx.R) })\n")
@@ -129,9 +130,10 @@ func (app *App) Gen(release bool) error {
 				return fmt.Errorf("invalid hook position %q", v)
 			}
 			suffix := re.ReplaceAllString(k, "_")
-			fmt.Fprintf(&buf, "tmpl_%s, err := App.LoadTemplate(%q)\n", suffix, k)
-			buf.WriteString("if err != nil {\npanic(err)\n}\n")
-			fmt.Fprintf(&buf, "App.AddHook(&template.Hook{Template: tmpl_%s.Template(), Position: %s})\n", suffix, pos)
+			name := fmt.Sprintf("tmpl_%s", suffix)
+			fmt.Fprintf(&buf, "%s := template.New(templatesLoader, manager)\n", name)
+			fmt.Fprintf(&buf, "if err := %s.Parse(%q); err != nil {\npanic(err)\n}\n", name, k)
+			fmt.Fprintf(&buf, "App.AddHook(&template.Hook{Template: %s, Position: %s})\n", name, pos)
 		}
 	}
 	buf.WriteString("}\n")

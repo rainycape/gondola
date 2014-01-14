@@ -1011,6 +1011,8 @@ func (p *program) walk(n parse.Node) error {
 }
 
 func (p *program) stitchTree(name string) {
+	// TODO: Save the name of the original template somewhere
+	// so we can recover it for error messages.
 	code := p.code[name]
 	for ii, v := range code {
 		if code[ii].op == opTEMPLATE {
@@ -1055,6 +1057,7 @@ func (p *program) stitchTree(name string) {
 }
 
 func (p *program) stitch() {
+	return // see todo in stitchTree
 	p.stitchTree(p.tmpl.root)
 }
 

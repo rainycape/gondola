@@ -188,7 +188,13 @@ func newState(p *program, w io.Writer) *state {
 
 func (s *state) dup() *state {
 	ns := newState(s.p, s.w)
-	ns.vars = append(ns.vars, s.vars[0]) // pass $Vars
+	// pass $Vars with the current value to the template
+	for ii := s.varMark() - 1; ii >= 0; ii-- {
+		if s.vars[ii].name == varsKey {
+			ns.vars = append(ns.vars, s.vars[ii])
+			break
+		}
+	}
 	return ns
 }
 

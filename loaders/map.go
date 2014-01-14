@@ -78,7 +78,7 @@ func (m *mapLoader) List() ([]string, error) {
 }
 
 // MapLoader returns a Loader which loads resources from the
-// given map.
+// given map. Created resources are saved in memory.
 func MapLoader(m map[string][]byte) Loader {
 	items := map[string]*mapItem{}
 	for k, v := range m {

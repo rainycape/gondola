@@ -263,7 +263,9 @@ func (app *App) include(prefix string, child *App, base string, main string) err
 		}
 	}
 	for _, v := range child.hooks {
-		app.rewriteAssets(v.Template, included)
+		if err := app.rewriteAssets(v.Template, included); err != nil {
+			return err
+		}
 		root := v.Template.Trees()[v.Template.Root()]
 		app.prepareNamespace(root, child.name)
 		app.hooks = append(app.hooks, v)

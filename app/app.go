@@ -533,8 +533,11 @@ func (app *App) loadTemplate(name string) (*tmpl, error) {
 			return nil, err
 		}
 	}
-	if app.parent != nil && !t.tmpl.IsFinal() {
-		return app.parent.chainTemplate(t, app.childInfo)
+	if app.parent != nil {
+		if !t.tmpl.IsFinal() {
+			return app.parent.chainTemplate(t, app.childInfo)
+		}
+		t.tmpl.Namespace = app.name
 	}
 	return t, nil
 }
@@ -559,6 +562,11 @@ func (app *App) prepareNamespace(tree *parse.Tree, ns string) {
 }
 
 func (app *App) rewriteAssets(t *template.Template, included *includedApp) error {
+	for _, group := range t.Assets() {
+		for _, a := range group.Assets {
+			a.Namespace = included.app.name
+		}
+	}
 	if app.debug {
 		return nil
 	}
@@ -617,6 +625,7 @@ func (app *App) chainTemplate(t *tmpl, included *includedApp) (*tmpl, error) {
 			return nil, err
 		}
 	}
+	base.tmpl.Namespace = t.tmpl.Namespace
 	return base, nil
 }
 

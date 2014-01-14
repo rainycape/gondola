@@ -65,11 +65,19 @@ type AssetParser func(m *Manager, names []string, options Options) ([]*Asset, er
 
 type Asset struct {
 	Name       string
+	Namespace  string
 	Type       Type
 	Position   Position
 	Condition  *Condition
 	Attributes Attributes
 	HTML       string
+}
+
+func (a *Asset) String() string {
+	if a.Name != "" {
+		return a.Name
+	}
+	return fmt.Sprintf("%q (%s)", a.HTML, a.Type)
 }
 
 func (a *Asset) IsRemote() bool {

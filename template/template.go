@@ -18,6 +18,7 @@ import (
 	"mime"
 	"net/http"
 	"path"
+	"reflect"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -26,7 +27,39 @@ import (
 )
 
 type FuncMap map[string]interface{}
+
 type VarMap map[string]interface{}
+
+func (v VarMap) Unpack(ns string) VarMap {
+	var key string
+	var rem string
+	if p := strings.SplitN(ns, ".", 2); len(p) > 1 {
+		key = p[0]
+		rem = p[1]
+	} else {
+		key = ns
+	}
+	var ret VarMap
+	val := v[key]
+	switch x := val.(type) {
+	case VarMap:
+		ret = x
+	case map[string]interface{}:
+		ret = VarMap(x)
+	}
+	rv := reflect.ValueOf(val)
+	if rv.IsValid() && rv.Kind() == reflect.Map && rv.Type().Key().Kind() == reflect.String {
+		m := make(map[string]interface{}, rv.Len())
+		for _, k := range rv.MapKeys() {
+			m[k.String()] = rv.MapIndex(k).Interface()
+		}
+		ret = VarMap(m)
+	}
+	if ret != nil && rem != "" {
+		return ret.Unpack(rem)
+	}
+	return ret
+}
 
 const (
 	leftDelim             = "{{"
@@ -61,6 +94,7 @@ type Hook struct {
 type Template struct {
 	AssetsManager *assets.Manager
 	Minify        bool
+	Namespace     string
 	tmpl          *itemplate.Template
 	prog          *program
 	name          string
@@ -234,6 +268,13 @@ func (t *Template) prepareAssets() error {
 		v = copyGroup(v)
 		// Check if any assets have to be compiled (LESS, CoffeScript, etc...)
 		for _, a := range v.Assets {
+			if a.IsTemplate() {
+				name, err := executeAsset(t, v.Manager, a)
+				if err != nil {
+					return err
+				}
+				a.Name = name
+			}
 			name, err := assets.Compile(v.Manager, a.Name, a.Type, v.Options)
 			if err != nil {
 				return fmt.Errorf("error compiling asset %q: %s", a.Name, err)
@@ -397,17 +438,6 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 			values, err := t.parseCommentVariables(splitted)
 			if err != nil {
 				return fmt.Errorf("error parsing values for asset key %q: %s", key, err)
-			}
-			for ii, val := range values {
-				// Check if the asset is a template
-				if val != "" && val[0] == '(' && val[len(val)-1] == ')' {
-					name := val[1 : len(val)-1]
-					var err error
-					values[ii], err = executeAsset(t, name)
-					if err != nil {
-						return fmt.Errorf("error executing asset template %s: %s", name, err)
-					}
-				}
 			}
 
 			inc := true

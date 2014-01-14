@@ -992,7 +992,11 @@ func (p *program) walk(n parse.Node) error {
 		p.inst(opTEMPLATE, p.addString(x.Name))
 		p.s.addPop(pop)
 	case *parse.TextNode:
-		p.addWB(x.Text)
+		text := x.Text
+		if len(p.s.buf) == 0 && len(x.Text) > 1 && strings.Contains(p.tmpl.contentType, "html") && x.Text[0] == '\n' && x.Text[1] == '<' {
+			text = text[1:]
+		}
+		p.addWB(text)
 	case *parse.VariableNode:
 		// Remove $ sign
 		p.inst(opVAR, p.addString(x.Ident[0][1:]))

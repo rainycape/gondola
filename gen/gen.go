@@ -107,33 +107,39 @@ func jsonOptions(val interface{}) (*json.Options, error) {
 				}
 				opts.Exclude = exclude
 			}
-		case "methods":
-			methods, ok := toMap(v)
+		case "types":
+			jsonTypes, ok := toMap(v)
 			if !ok {
-				return nil, fmt.Errorf("JSON methods must be a map")
+				return nil, fmt.Errorf("JSON %s must be a map", k)
 			}
-			opts.Methods = make(map[string][]*json.Method)
-			for typeName, val := range methods {
-				if typeMethods, ok := toMap(val); ok {
-					for methodName, node := range typeMethods {
-						method := &json.Method{
-							Name: methodName,
-						}
-						switch value := node.(type) {
-						case map[interface{}]interface{}:
-							method.Key = types.ToString(value["key"])
-							method.OmitEmpty, _ = types.IsTrue(value["omitempty"])
-						case string:
-							method.Key = types.ToString(value)
-						default:
-							return nil, fmt.Errorf("method value for %s must be string or map", methodName)
-						}
-						if method.Key == "" {
-							method.Key = method.Name
-						}
-						opts.Methods[typeName] = append(opts.Methods[typeName], method)
-					}
+			for tn, t := range jsonTypes {
+				typeFields, ok := toMap(t)
+				if !ok {
+					return nil, fmt.Errorf("JSON type options for %s must be a map", tn)
 				}
+				var jsonFields []*json.Field
+				for key, node := range typeFields {
+					field := &json.Field{
+						Key: key,
+					}
+					switch value := node.(type) {
+					case map[interface{}]interface{}:
+						field.Name = types.ToString(value["name"])
+						field.OmitEmpty, _ = types.IsTrue(value["omitempty"])
+					case string:
+						field.Name = types.ToString(value)
+					default:
+						return nil, fmt.Errorf("field/method value for %s must be string or map", key)
+					}
+					if field.Name == "" {
+						field.Name = field.Key
+					}
+					jsonFields = append(jsonFields, field)
+				}
+				if opts.TypeFields == nil {
+					opts.TypeFields = make(map[string][]*json.Field)
+				}
+				opts.TypeFields[tn] = jsonFields
 			}
 		}
 	}

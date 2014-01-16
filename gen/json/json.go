@@ -36,16 +36,22 @@ import (
 	"fmt"
 	"gnd.la/gen/genutil"
 	"gnd.la/log"
+	"gnd.la/util/generic"
 	"gnd.la/util/structs"
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 const (
 	defaultBufSize = 8 * 1024
 )
 
-type Method struct {
+// Field indicates a JSON field to be included in the output.
+// Key indicates the key used in the JSON, while name indicate
+// the field or method (in that case, it should receive no arguments)
+// name.
+type Field struct {
 	Key       string
 	Name      string
 	OmitEmpty bool
@@ -73,10 +79,15 @@ type Options struct {
 	// If not zero, this takes precedence over BufferCount. The number of
 	// maximum buffers will be GOMAXPROCS * BuffersPerProc.
 	BuffersPerProc int
-	// Methods indicates struct methods which should be included in the JSON
-	// output. The key in the map is the type name in the package (e.g.
-	// MyStruct not mypackage.MyStruct).
-	Methods map[string][]*Method
+	// TypeFields contains the per-type fields. The key in the map is the
+	// type name in the package (e.g. MyStruct not mypackage.MyStruct).
+	// Field tags are ignored for types that explicitely specify their
+	// fields. Additionally, specific fields for contains might be
+	// specified using the container.type syntax (e.g. MyOtherStruct.MyStruct
+	// or MySliceType.MyStruct will set the fields for MyStruct only when
+	// it's contained in MyOtherStruct or MySliceType respectively).
+	// Any type in this map is included regardless of Include and Exclude.
+	TypeFields map[string][]*Field
 	// If not nil, only types matching this regexp will be included.
 	Include *regexp.Regexp
 	// If not nil, types matching this regexp will be excluded.
@@ -84,8 +95,9 @@ type Options struct {
 }
 
 // Gen generates a WriteJSON method and, optionally, MarshalJSON for every
-// exported type in the given package. The package might be either an
-// absolute path or an import path.
+// selected type in the given package. The package might be either an
+// absolute path or an import path. See Options to learn how to select
+// types and specify type options
 func Gen(pkgName string, opts *Options) error {
 	pkg, err := genutil.NewPackage(pkgName)
 	if err != nil {
@@ -111,8 +123,18 @@ func Gen(pkgName string, opts *Options) error {
 		include = opts.Include
 		exclude = opts.Exclude
 	}
+	var names []string
+	if opts != nil {
+		for k := range opts.TypeFields {
+			names = append(names, strings.Split(k, ".")...)
+		}
+	}
+	typs, err := pkg.SelectedTypes(include, exclude, names)
+	if err != nil {
+		return err
+	}
 	var methods bytes.Buffer
-	for _, v := range pkg.Types(include, exclude) {
+	for _, v := range typs {
 		methods.Reset()
 		if err := jsonMarshal(v, opts, &methods); err != nil {
 			log.Warningf("Skipping type %s: %s", v.Obj().Name(), err)
@@ -182,78 +204,161 @@ func fieldTag(tag string) *structs.Tag {
 	return structs.NewStringTagNamed(tag, "json")
 }
 
-func jsonStruct(st *types.Struct, p types.Type, name string, opts *Options, buf *bytes.Buffer) error {
-	buf.WriteString("buf.WriteByte('{')\n")
+func fieldByName(st *types.Struct, name string) *types.Var {
 	count := st.NumFields()
-	hasFields := false
 	for ii := 0; ii < count; ii++ {
 		field := st.Field(ii)
-		if field.IsExported() {
-			key := field.Name()
-			omitEmpty := false
-			tag := st.Tag(ii)
-			if ftag := fieldTag(tag); ftag != nil {
-				if n := ftag.Name(); n != "" {
-					key = n
-				}
-				omitEmpty = ftag.Has("omitempty")
+		if field.Name() == name {
+			return field
+		}
+	}
+	return nil
+}
+
+func methodByName(tn *types.Named, name string) (*types.Var, error) {
+	count := tn.NumMethods()
+	for ii := 0; ii < count; ii++ {
+		fn := tn.Method(ii)
+		if fn.Name() == name {
+			signature := fn.Type().(*types.Signature)
+			if p := signature.Params(); p != nil || p.Len() > 1 {
+				fmt.Println("SIGN", signature, p, p.Len())
+				return nil, fmt.Errorf("method %s on type %s requires arguments", name, tn.Obj().Name())
 			}
-			if key != "-" {
-				if hasFields {
-					buf.WriteString("buf.WriteByte(',')\n")
-				}
-				hasFields = true
-				if err := jsonField(field, key, name+"."+field.Name(), omitEmpty, opts, buf); err != nil {
-					return err
-				}
+			res := signature.Results()
+			if res == nil || res.Len() != 1 {
+				return nil, fmt.Errorf("method %s on type %s must return exactly one value", name, tn.Obj().Name())
+			}
+			return res.At(0), nil
+		}
+	}
+	return nil, nil
+}
+
+func namesSelectors(names []string) []string {
+	if len(names) <= 1 {
+		return names
+	}
+	selectors := []string{strings.Join(names, ".")}
+	for ii := 0; ii < len(names)-1; ii++ {
+		var cur []string
+		cur = append(cur, names[:ii]...)
+		cur = append(cur, names[ii+1:]...)
+		selectors = append(selectors, namesSelectors(cur)...)
+	}
+	generic.SortFunc(selectors, func(s1, s2 string) bool {
+		c1 := strings.Count(s1, ".")
+		c2 := strings.Count(s2, ".")
+		if c1 != c2 {
+			return c1 > c2
+		}
+		suf1 := strings.HasSuffix(selectors[0], s1)
+		suf2 := strings.HasSuffix(selectors[0], s2)
+		if suf1 != suf2 {
+			return suf1
+		}
+		return len(s1) > len(s2)
+	})
+	return selectors
+}
+
+func typeSelectors(typs []types.Type) []string {
+	var names []string
+	for _, v := range typs {
+		if n, ok := v.(*types.Named); ok {
+			names = append(names, n.Obj().Name())
+		}
+	}
+	return namesSelectors(names)
+}
+
+func appendType(typs []types.Type, typ types.Type) []types.Type {
+	var t []types.Type
+	t = append(t, typs...)
+	t = append(t, typ)
+	return t
+}
+
+func jsonStructFields(st *types.Struct, opts *Options) []*Field {
+	var fields []*Field
+	count := st.NumFields()
+	for ii := 0; ii < count; ii++ {
+		field := st.Field(ii)
+		key := field.Name()
+		omitEmpty := false
+		tag := st.Tag(ii)
+		if ftag := fieldTag(tag); ftag != nil {
+			if n := ftag.Name(); n != "" {
+				key = n
+			}
+			omitEmpty = ftag.Has("omitempty")
+		} else if !field.IsExported() {
+			continue
+		}
+		if key != "-" {
+			fields = append(fields, &Field{Key: key, Name: field.Name(), OmitEmpty: omitEmpty})
+		}
+	}
+	return fields
+}
+
+func jsonStruct(st *types.Struct, parents []types.Type, name string, opts *Options, buf *bytes.Buffer) error {
+	buf.WriteString("buf.WriteByte('{')\n")
+	var named *types.Named
+	if len(parents) > 0 {
+		p := parents[len(parents)-1]
+		if n, ok := p.(*types.Named); ok {
+			named = n
+		}
+	}
+	var fields []*Field
+	if opts != nil {
+		for _, v := range typeSelectors(parents) {
+			if fields = opts.TypeFields[v]; fields != nil {
+				break
 			}
 		}
 	}
-	if opts != nil {
-		if named, ok := p.(*types.Named); ok {
-			methods := opts.Methods[named.Obj().Name()]
-			count := named.NumMethods()
-			for _, v := range methods {
-				found := false
-				for ii := 0; ii < count; ii++ {
-					fn := named.Method(ii)
-					if fn.Name() == v.Name {
-						found = true
-						signature := fn.Type().(*types.Signature)
-						if p := signature.Params(); p != nil || p.Len() > 0 {
-							return fmt.Errorf("method %s on type %s requires arguments", v.Name, named.Obj().Name())
-						}
-						res := signature.Results()
-						if res == nil || res.Len() != 1 {
-							return fmt.Errorf("method %s on type %s must return exactly one value", v.Name, named.Obj().Name())
-						}
-						if hasFields {
-							buf.WriteString("buf.WriteByte(',')\n")
-						}
-						hasFields = true
-						if err := jsonField(res.At(0), v.Key, name+"."+v.Name+"()", v.OmitEmpty, opts, buf); err != nil {
-							return err
-						}
-						break
-					}
-				}
-				if !found {
-					return fmt.Errorf("type %s does not have method %s", named.Obj().Name(), v.Name)
-				}
+	if fields == nil {
+		fields = jsonStructFields(st, opts)
+	}
+	typs := appendType(parents, st)
+	for ii, v := range fields {
+		field := fieldByName(st, v.Name)
+		var suffix string
+		if field == nil && named != nil {
+			var err error
+			field, err = methodByName(named, v.Name)
+			if err != nil {
+				return err
 			}
+			suffix = "()"
+		}
+		if field == nil {
+			var t types.Type = st
+			if named != nil {
+				t = named
+			}
+			return fmt.Errorf("type %s does not have a field nor method called %q", t, v.Name)
+		}
+		if ii > 0 {
+			buf.WriteString("buf.WriteByte(',')\n")
+		}
+		if err := jsonField(field, typs, v.Key, name+"."+v.Name+suffix, v.OmitEmpty, opts, buf); err != nil {
+			return err
 		}
 	}
 	buf.WriteString("buf.WriteByte('}')\n")
 	return nil
 }
 
-func jsonSlice(sl *types.Slice, p types.Type, name string, opts *Options, buf *bytes.Buffer) error {
+func jsonSlice(sl *types.Slice, parents []types.Type, name string, opts *Options, buf *bytes.Buffer) error {
 	buf.WriteString("buf.WriteByte('[')\n")
 	buf.WriteString(fmt.Sprintf("for ii, v := range %s {\n", name))
 	buf.WriteString("if ii > 0 {\n")
 	buf.WriteString("buf.WriteByte(',')\n")
 	buf.WriteString("}\n")
-	if err := jsonValue(sl.Elem(), nil, "v", opts, buf); err != nil {
+	if err := jsonValue(sl.Elem(), parents, "v", opts, buf); err != nil {
 		return err
 	}
 	buf.WriteString("}\n")
@@ -261,63 +366,66 @@ func jsonSlice(sl *types.Slice, p types.Type, name string, opts *Options, buf *b
 	return nil
 }
 
-func jsonField(field *types.Var, key string, name string, omitEmpty bool, opts *Options, buf *bytes.Buffer) error {
+func jsonField(field *types.Var, parents []types.Type, key string, name string, omitEmpty bool, opts *Options, buf *bytes.Buffer) error {
 	// TODO: omitEmpty
 	buf.WriteString(fmt.Sprintf("buf.WriteString(%q)\n", fmt.Sprintf("%q", key)))
 	buf.WriteString("buf.WriteByte(':')\n")
-	if err := jsonValue(field.Type(), nil, name, opts, buf); err != nil {
+	if err := jsonValue(field.Type(), parents, name, opts, buf); err != nil {
 		return err
 	}
 	return nil
 }
 
-func jsonValue(vtype types.Type, ptype types.Type, name string, opts *Options, buf *bytes.Buffer) error {
+func jsonValue(vtype types.Type, parents []types.Type, name string, opts *Options, buf *bytes.Buffer) error {
 	switch typ := vtype.(type) {
 	case *types.Basic:
 		k := typ.Kind()
-		_, isPointer := ptype.(*types.Pointer)
+		var isPointer bool
+		if len(parents) > 0 {
+			_, isPointer = parents[len(parents)-1].(*types.Pointer)
+		}
 		if isPointer {
 			name = "*" + name
 		}
 		switch k {
 		case types.Bool:
-			buf.WriteString(fmt.Sprintf("buf.WriteString(strconv.FormatBool(%s))\n", name))
+			fmt.Fprintf(buf, "buf.WriteString(strconv.FormatBool(%s))\n", name)
 		case types.Int, types.Int8, types.Int16, types.Int32, types.Int64:
-			buf.WriteString(fmt.Sprintf("buf.WriteString(strconv.FormatInt(int64(%s), 10))\n", name))
+			fmt.Fprintf(buf, "buf.WriteString(strconv.FormatInt(int64(%s), 10))\n", name)
 		case types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
-			buf.WriteString(fmt.Sprintf("buf.WriteString(strconv.FormatUint(uint64(%s), 10))\n", name))
+			fmt.Fprintf(buf, "buf.WriteString(strconv.FormatUint(uint64(%s), 10))\n", name)
 		case types.Float32, types.Float64:
 			bitSize := 64
 			if k == types.Float32 {
 				bitSize = 32
 			}
-			buf.WriteString(fmt.Sprintf("buf.WriteString(strconv.FormatFloat(float64(%s), 'g', -1, %d))\n", name, bitSize))
+			fmt.Fprintf(buf, "buf.WriteString(strconv.FormatFloat(float64(%s), 'g', -1, %d))\n", name, bitSize)
 		case types.String:
-			buf.WriteString(fmt.Sprintf("jsonEncodeString(buf, string(%s))\n", name))
+			fmt.Fprintf(buf, "jsonEncodeString(buf, string(%s))\n", name)
 		default:
 			return fmt.Errorf("can't encode basic kind %v", typ.Kind())
 		}
 	case *types.Named:
 		if typ.Obj().Pkg().Name() == "time" && typ.Obj().Name() == "Time" {
-			buf.WriteString(fmt.Sprintf("buf.WriteString(strconv.FormatInt(%s.UTC().Unix(), 10))\n", name))
+			fmt.Fprintf(buf, "buf.WriteString(strconv.FormatInt(%s.UTC().Unix(), 10))\n", name)
 		} else {
-			if err := jsonValue(typ.Underlying(), typ, name, opts, buf); err != nil {
+			if err := jsonValue(typ.Underlying(), appendType(parents, typ), name, opts, buf); err != nil {
 				return err
 			}
 		}
 	case *types.Slice:
-		if err := jsonSlice(typ, ptype, name, opts, buf); err != nil {
+		if err := jsonSlice(typ, parents, name, opts, buf); err != nil {
 			return err
 		}
 	case *types.Struct:
-		if err := jsonStruct(typ, ptype, name, opts, buf); err != nil {
+		if err := jsonStruct(typ, parents, name, opts, buf); err != nil {
 			return err
 		}
 	case *types.Pointer:
 		buf.WriteString(fmt.Sprintf("if %s == nil {\n", name))
 		buf.WriteString("buf.WriteString(\"null\")\n")
 		buf.WriteString("} else {\n")
-		if err := jsonValue(typ.Elem(), typ, name, opts, buf); err != nil {
+		if err := jsonValue(typ.Elem(), appendType(parents, typ), name, opts, buf); err != nil {
 			return err
 		}
 		buf.WriteString("}\n")

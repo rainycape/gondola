@@ -27,7 +27,11 @@ func (p *Package) Dir() string {
 	return p.dir
 }
 
-func (p *Package) types(exported bool, include *regexp.Regexp, exclude *regexp.Regexp) []*types.Named {
+func (p *Package) types(exported bool, include *regexp.Regexp, exclude *regexp.Regexp, names []string) ([]*types.Named, error) {
+	required := make(map[string]bool, len(names))
+	for _, v := range names {
+		required[v] = true
+	}
 	var packageTypes []*types.Named
 	scope := p.Scope()
 	for _, v := range scope.Names() {
@@ -43,6 +47,7 @@ func (p *Package) types(exported bool, include *regexp.Regexp, exclude *regexp.R
 		}
 		if named, ok := obj.Type().(*types.Named); ok {
 			name := named.Obj().Name()
+			delete(required, name)
 			if exclude != nil && exclude.MatchString(name) {
 				continue
 			}
@@ -52,19 +57,45 @@ func (p *Package) types(exported bool, include *regexp.Regexp, exclude *regexp.R
 			packageTypes = append(packageTypes, named)
 		}
 	}
-	return packageTypes
+	for v := range required {
+		obj := scope.Lookup(v)
+		if obj == nil {
+			return nil, fmt.Errorf("can't find type %q", v)
+		}
+		typ := obj.Type()
+		named, ok := typ.(*types.Named)
+		if !ok {
+			return nil, fmt.Errorf("%q is not a type, it's %s", v, typ)
+		}
+		packageTypes = append(packageTypes, named)
+	}
+	return packageTypes, nil
 }
 
 // Types returns the types declared in the package which match the required constraints.
 // If excluded != nil, any type matching it gets excluded. If include != nil, only types
 // matching it are returned.
 func (p *Package) Types(include *regexp.Regexp, exclude *regexp.Regexp) []*types.Named {
-	return p.types(false, include, exclude)
+	t, _ := p.types(false, include, exclude, nil)
+	return t
 }
 
 // ExportedTypes works like Types, but only returns types that are exported.
 func (p *Package) ExportedTypes(include *regexp.Regexp, exclude *regexp.Regexp) []*types.Named {
-	return p.types(true, include, exclude)
+	t, _ := p.types(true, include, exclude, nil)
+	return t
+}
+
+// SelectedTypes works similarly to Types, but tests all types if include != nil or exclude != nil,
+// otherwise it acts like p.ExportedTypes(nil, nil). Types explicitely named in the names argument
+// are always included in the returned value. If any of the named types does not exist, an error
+// is returned.
+func (p *Package) SelectedTypes(include *regexp.Regexp, exclude *regexp.Regexp, names []string) ([]*types.Named, error) {
+	exported := false
+	if include == nil && exclude == nil {
+		exported = true
+	}
+	return p.types(exported, include, exclude, names)
 }
 
 type _package struct {

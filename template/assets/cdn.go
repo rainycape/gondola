@@ -17,7 +17,7 @@ var cdnMap = CdnMap{
 	regexp.MustCompile("dojo-([\\d\\.]+\\d)"):               "//ajax.googleapis.com/ajax/libs/dojo/$1/dojo/dojo.js",
 	regexp.MustCompile("ext-core-([\\d\\.]+\\d)"):           "//ajax.googleapis.com/ajax/libs/ext-core/$1/ext-core.js",
 	regexp.MustCompile("jquery-([\\d\\.]+\\d)"):             "//ajax.googleapis.com/ajax/libs/jquery/$1/jquery.min.js",
-	regexp.MustCompile("jquery-ui-([\\d\\.]+\\d)"):          "//ajax.googleapis.com/ajax/libs/jquery/$1/jquery-ui.min.js",
+	regexp.MustCompile("jquery-ui-([\\d\\.]+\\d)"):          "//ajax.googleapis.com/ajax/libs/jqueryui/$1/jquery-ui.min.js",
 	regexp.MustCompile("mootools-(:?core-)?([\\d\\.]+\\d)"): "//ajax.googleapis.com/ajax/libs/mootools/$1/mootools-yui-compressed.js",
 	regexp.MustCompile("prototype-([\\d\\.]+\\d)"):          "//ajax.googleapis.com/ajax/libs/prototype/$1/prototype.js",
 	regexp.MustCompile("scriptaculous-([\\d\\.]+\\d)"):      "//ajax.googleapis.com/ajax/libs/scriptaculous/$1/scriptaculous.js",

@@ -465,12 +465,14 @@ func (s *state) execute(tmpl string, dot reflect.Value) (err error) {
 			}
 		case opPRINT:
 			v := s.stack[len(s.stack)-1]
-			val, ok := printableValue(v)
+			val, doPrint, ok := printableValue(v)
 			if !ok {
 				return s.errorf(pc, tmpl, "can't print value of type %s", v.Type())
 			}
-			if _, err := fmt.Fprint(s.w, val); err != nil {
-				return s.formatErr(pc, tmpl, err)
+			if doPrint {
+				if _, err := fmt.Fprint(s.w, val); err != nil {
+					return s.formatErr(pc, tmpl, err)
+				}
 			}
 		case opPUSHDOT:
 			s.dot = append(s.dot, dot)
@@ -1127,12 +1129,16 @@ func isTrue(v reflect.Value) bool {
 	return t
 }
 
-func printableValue(v reflect.Value) (interface{}, bool) {
-	if v.Kind() == reflect.Ptr {
-		v, _ = indirect(v) // fmt.Fprint handles nil.
+func printableValue(v reflect.Value) (interface{}, bool, bool) {
+	if k := v.Kind(); k == reflect.Ptr || k == reflect.Interface {
+		var isNil bool
+		v, isNil = indirect(v)
+		if isNil && v.Type() == emptyType {
+			return nil, false, true
+		}
 	}
 	if !v.IsValid() {
-		return "<no value>", true
+		return "<no value>", true, true
 	}
 
 	if !isPrintable(v.Type()) {
@@ -1141,11 +1147,11 @@ func printableValue(v reflect.Value) (interface{}, bool) {
 		} else {
 			switch v.Kind() {
 			case reflect.Chan, reflect.Func:
-				return nil, false
+				return nil, false, false
 			}
 		}
 	}
-	return v.Interface(), true
+	return v.Interface(), true, true
 }
 
 func isPrintable(typ reflect.Type) bool {

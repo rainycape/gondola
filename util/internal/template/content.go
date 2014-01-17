@@ -84,7 +84,12 @@ func stringify(args ...interface{}) (string, contentType) {
 		}
 	}
 	for i, arg := range args {
-		args[i] = indirectToStringerOrError(arg)
+		val := indirectToStringerOrError(arg)
+		if val != nil {
+			args[i] = val
+		} else {
+			args[i] = ""
+		}
 	}
 	return fmt.Sprint(args...), contentTypePlain
 }

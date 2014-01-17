@@ -381,6 +381,9 @@ func (s *state) execute(tmpl string, dot reflect.Value) (err error) {
 						top = top.Elem()
 					}
 					if top.Kind() != reflect.Struct {
+						if top.Type() == emptyType {
+							break
+						}
 						return s.errorf(pc, tmpl, "can't evaluate field on type %T", top.Interface())
 					}
 					res = top.FieldByName(name)

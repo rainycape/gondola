@@ -73,6 +73,10 @@ func WalkNode(node, parent parse.Node, f func(n, p parse.Node)) {
 		if x.ElseList != nil {
 			WalkNode(x.ElseList, x, f)
 		}
+	case *parse.TemplateNode:
+		if x.Pipe != nil {
+			WalkNode(x.Pipe, x, f)
+		}
 	}
 }
 

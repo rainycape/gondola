@@ -297,7 +297,6 @@ func (s *state) call(fn reflect.Value, name string, args int) error {
 		in[ii], in[len(in)-1-ii] = in[len(in)-1-ii], in[ii]
 	}
 	res := fn.Call(in)
-	//fmt.Println("CALLED", name, res)
 	if len(res) == 2 && !res[1].IsNil() {
 		return fmt.Errorf("error calling %q: %s", name, res[1].Interface())
 	}

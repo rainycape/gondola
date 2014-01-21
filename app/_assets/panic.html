@@ -6,7 +6,7 @@
 {{ define "body" }}
 <div class="header error">
   <h1>Panic</h1>
-  <h3>{{ .Error }}</h3>
+  <h3>{{ .Error | to_html }}</h3>
 </div>
 {{ if .Location }}
   <div class="header code">

@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -176,9 +177,8 @@ func benchmarkTests() []*templateTest {
 	return tests
 }
 
-func BenchmarkTemplate(b *testing.B) {
+func benchmarkTemplate(b *testing.B, tests []*templateTest) {
 	b.ReportAllocs()
-	tests := benchmarkTests()
 	templates := make([]*Template, len(tests))
 	for ii, v := range tests {
 		tmpl := parseText(b, v.tmpl)
@@ -195,6 +195,10 @@ func BenchmarkTemplate(b *testing.B) {
 		}
 		buf.Reset()
 	}
+}
+
+func BenchmarkTemplate(b *testing.B) {
+	benchmarkTemplate(b, benchmarkTests())
 }
 
 func BenchmarkHTMLTemplate(b *testing.B) {
@@ -265,4 +269,14 @@ func BenchmarkHTMLBig(b *testing.B) {
 		tmpl.Execute(&buf, nil)
 		buf.Reset()
 	}
+}
+
+func BenchmarkRange(b *testing.B) {
+	var tests []*templateTest
+	for _, v := range benchmarkTests() {
+		if strings.Contains(v.tmpl, "range") {
+			tests = append(tests, v)
+		}
+	}
+	benchmarkTemplate(b, tests)
 }

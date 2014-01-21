@@ -13,6 +13,14 @@ func ToString(val interface{}) string {
 	if val == nil {
 		return ""
 	}
+	switch x := val.(type) {
+	case string:
+		return x
+	case fmt.Stringer:
+		return x.String()
+	case error:
+		return x.Error()
+	}
 	v := reflect.ValueOf(val)
 	if k := v.Type().Kind(); k == reflect.Ptr || k == reflect.Interface {
 		if v.IsNil() {

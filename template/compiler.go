@@ -464,6 +464,12 @@ func (s *state) execute(tmpl string, dot reflect.Value) (err error) {
 			}
 		case opPRINT:
 			v := s.stack[len(s.stack)-1]
+			if v.Type() == stringType {
+				if _, err := io.WriteString(s.w, v.String()); err != nil {
+					return s.formatErr(pc, tmpl, err)
+				}
+				break
+			}
 			val, doPrint, ok := printableValue(v)
 			if !ok {
 				return s.errorf(pc, tmpl, "can't print value of type %s", v.Type())

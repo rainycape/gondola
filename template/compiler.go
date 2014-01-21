@@ -192,18 +192,6 @@ func newState(p *program, w *bytes.Buffer) *state {
 	}
 }
 
-func (s *state) dup() *state {
-	ns := newState(s.p, s.w)
-	// pass $Vars with the current value to the template
-	for ii := s.varMark() - 1; ii >= 0; ii-- {
-		if s.vars[ii].name == varsKey {
-			ns.vars = append(ns.vars, s.vars[ii])
-			break
-		}
-	}
-	return ns
-}
-
 func (s *state) reset() {
 	s.vars = s.vars[:0]
 	s.stack = s.stack[:0]
@@ -447,14 +435,14 @@ func (s *state) execute(tmpl string, dot reflect.Value) (err error) {
 			s.stack = s.stack[:p]
 		case opTEMPLATE:
 			name := s.p.strings[int(v.val)]
-			dup := s.dup()
+			mark := s.varMark()
 			dupDot := s.stack[len(s.stack)-1]
-			err := dup.execute(name, dupDot)
-			dup.put()
+			err := s.execute(name, dupDot)
 			if err != nil {
 				// execute already returns the formatted error
 				return err
 			}
+			s.vars = s.vars[:mark]
 		case opVAL:
 			s.stack = append(s.stack, s.p.values[v.val])
 		case opJMPT:

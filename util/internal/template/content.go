@@ -91,7 +91,11 @@ func stringify(args ...interface{}) (string, contentType) {
 		case float64:
 			return strconv.FormatFloat(s, 'g', -1, 64), contentTypeHTML
 		}
-		return fmt.Sprint(indirectToStringerOrError(v)), contentTypePlain
+		val := ""
+		if v != nil {
+			val = fmt.Sprint(indirectToStringerOrError(v))
+		}
+		return val, contentTypePlain
 	}
 	for i, arg := range args {
 		val := indirectToStringerOrError(arg)

@@ -1,10 +1,10 @@
 package template
 
 import (
+	"bytes"
 	"fmt"
 	"gnd.la/util/types"
 	"html/template"
-	"io"
 	"reflect"
 	"runtime"
 	"strings"
@@ -170,14 +170,14 @@ var statePool = make(chan *state, runtime.GOMAXPROCS(0))
 
 type state struct {
 	p     *program
-	w     io.Writer
+	w     *bytes.Buffer
 	vars  []variable
 	stack []reflect.Value
 	marks []int
 	dot   []reflect.Value
 }
 
-func newState(p *program, w io.Writer) *state {
+func newState(p *program, w *bytes.Buffer) *state {
 	select {
 	case s := <-statePool:
 		s.reset()
@@ -465,7 +465,7 @@ func (s *state) execute(tmpl string, dot reflect.Value) (err error) {
 		case opPRINT:
 			v := s.stack[len(s.stack)-1]
 			if v.Type() == stringType {
-				if _, err := io.WriteString(s.w, v.String()); err != nil {
+				if _, err := s.w.WriteString(v.String()); err != nil {
 					return s.formatErr(pc, tmpl, err)
 				}
 				break
@@ -1092,7 +1092,7 @@ func (p *program) stitch() {
 	p.stitchTree(p.tmpl.root)
 }
 
-func (p *program) execute(w io.Writer, name string, data interface{}, vars VarMap) error {
+func (p *program) execute(w *bytes.Buffer, name string, data interface{}, vars VarMap) error {
 	s := newState(p, w)
 	s.pushVar("Vars", reflect.ValueOf(vars))
 	err := s.execute(name, reflect.ValueOf(data))

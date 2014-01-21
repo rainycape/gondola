@@ -38,7 +38,6 @@ const (
 	opFUNC
 	opITER
 	opJMP
-	opJMPE
 	opJMPF
 	opJMPT
 	opMARK
@@ -71,17 +70,15 @@ func decodeVal(val valType) (int, int) {
 	return int(val >> 16), int(val & 0xFFFF)
 }
 
-var endIter = reflect.ValueOf(-1)
-
 type iterator interface {
-	Next() (reflect.Value, reflect.Value)
+	Next() (bool, reflect.Value, reflect.Value)
 }
 
 type nilIterator struct {
 }
 
-func (it *nilIterator) Next() (reflect.Value, reflect.Value) {
-	return endIter, reflect.Value{}
+func (it *nilIterator) Next() (bool, reflect.Value, reflect.Value) {
+	return false, zero, zero
 }
 
 type sliceIterator struct {
@@ -90,14 +87,14 @@ type sliceIterator struct {
 	length int
 }
 
-func (it *sliceIterator) Next() (reflect.Value, reflect.Value) {
+func (it *sliceIterator) Next() (bool, reflect.Value, reflect.Value) {
 	if it.pos < it.length {
 		val := it.val.Index(it.pos)
 		pos := reflect.ValueOf(it.pos)
 		it.pos++
-		return pos, val
+		return true, pos, val
 	}
-	return endIter, reflect.Value{}
+	return false, zero, zero
 }
 
 type mapIterator struct {
@@ -106,14 +103,14 @@ type mapIterator struct {
 	pos  int
 }
 
-func (it *mapIterator) Next() (reflect.Value, reflect.Value) {
+func (it *mapIterator) Next() (bool, reflect.Value, reflect.Value) {
 	if it.pos < len(it.keys) {
 		k := it.keys[it.pos]
 		val := it.val.MapIndex(k)
 		it.pos++
-		return k, val
+		return true, k, val
 	}
-	return endIter, reflect.Value{}
+	return false, zero, zero
 }
 
 type chanIterator struct {
@@ -121,14 +118,14 @@ type chanIterator struct {
 	pos int
 }
 
-func (it *chanIterator) Next() (reflect.Value, reflect.Value) {
-	pos := endIter
+func (it *chanIterator) Next() (bool, reflect.Value, reflect.Value) {
 	val, ok := it.val.Recv()
 	if ok {
-		pos = reflect.ValueOf(it.pos)
+		pos := reflect.ValueOf(it.pos)
 		it.pos++
+		return true, pos, val
 	}
-	return pos, val
+	return false, zero, zero
 }
 
 func newIterator(v reflect.Value) (iterator, error) {
@@ -410,21 +407,17 @@ func (s *state) execute(tmpl string, dot reflect.Value) (err error) {
 			if !ok {
 				return s.errorf(pc, tmpl, "NEXT called without iterator")
 			}
-			idx, val := iter.Next()
-			s.stack = append(s.stack, idx, val)
+			next, idx, val := iter.Next()
+			if next {
+				s.stack = append(s.stack, idx, val)
+			} else {
+				pc += int(int32(v.val))
+			}
 		case opJMP:
 			pc += int(int32(v.val))
 		case opJMPF:
 			p := len(s.stack)
 			if p == 0 || !isTrue(s.stack[p-1]) {
-				pc += int(int32(v.val))
-			}
-		case opJMPE:
-			p := len(s.stack) - 2
-			idx := s.stack[p]
-			if idx.Kind() == reflect.Int && idx.Int() == -1 {
-				// pop idx and val
-				s.stack = s.stack[:p]
 				pc += int(int32(v.val))
 			}
 		case opSETVAR:
@@ -578,6 +571,8 @@ func (s *scratch) pushes() int {
 		switch v.op {
 		case opSTRING, opDOT, opVAL, opVAR, opFUNC, opITER:
 			pushes++
+		case opNEXT:
+			pushes += 2
 		case opFIELD:
 			// can't know in advance, since it might
 			// overwrite when there's a lookup or
@@ -792,9 +787,9 @@ func (p *program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		// prepending here, so this executes before setting the vars
 		// and popping
 		list.prepend(opPUSHDOT, 0)
-		// add a jump back to 2 instructions before the
-		// list, which will call NEXT and JMPE again.
-		list.append(opJMP, valType(-len(list.buf)-3))
+		// add a jump back to 1 instruction before the
+		// list, which will call NEXT again.
+		list.append(opJMP, valType(-len(list.buf)-2))
 		// initialize the iter
 		p.inst(opITER, 0)
 		// need to pop the iter after the range is done
@@ -806,30 +801,27 @@ func (p *program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		default:
 			pop++
 		}
-		// call next for the first time
-		p.inst(opNEXT, 0)
 		if elseList == nil {
 			// no elseList. just iterate and jump out of the
 			// loop once we reach the end of the iteration
-			p.inst(opJMPE, valType(len(list.buf)))
+			p.inst(opNEXT, valType(len(list.buf)))
 		} else {
 			// if the iteration stopped in the first step, we
 			// need to jump to elseList, skipping the JMP at its
 			// start (for range loops the JMP is not really needed,
 			// but one extra instruction won't hurt much). We also
-			// need to skip the 3 instructions following this one.
-			p.inst(opJMPE, valType(len(list.buf)+1+3))
-			// Now jump the following two instructions, they're used for
+			// need to skip the 2 instructions following this one.
+			p.inst(opNEXT, valType(len(list.buf)+1+2))
+			// Now jump the following instruction, it's used for
 			// subsequent iterations
-			p.inst(opJMP, 2)
-			// 2nd and the rest of iterations start here
-			p.inst(opNEXT, 0)
+			p.inst(opJMP, 1)
 			// If ended, jump outside list and elseList
 			out := len(list.buf) + 1
 			if elseList != nil {
 				out += len(elseList.buf)
 			}
-			p.inst(opJMPE, valType(out))
+			// 2nd and the rest of iterations start here
+			p.inst(opNEXT, valType(out))
 		}
 		p.s.add(list)
 	default:
@@ -1043,7 +1035,7 @@ func (p *program) stitchTree(name string) {
 			for jj, in := range code[:ii] {
 				op := in.op
 				switch op {
-				case opJMP, opJMPT, opJMPF, opJMPE:
+				case opJMP, opJMPT, opJMPF, opNEXT:
 					val := int(int32(in.val))
 					if jj+val > ii {
 						stitched = append(stitched, inst{op, valType(int32(val + len(sub) - 1))})
@@ -1058,7 +1050,7 @@ func (p *program) stitchTree(name string) {
 			for jj, in := range code[ii+1:] {
 				op := in.op
 				switch op {
-				case opJMP, opJMPT, opJMPF, opJMPE:
+				case opJMP, opJMPT, opJMPF, opNEXT:
 					val := int(int32(in.val))
 					if jj+val < 0 {
 						stitched = append(stitched, inst{op, valType(int32(val - len(sub) + 1))})

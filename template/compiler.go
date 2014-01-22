@@ -302,10 +302,7 @@ func (s *state) recover(pc *int, tmpl *string, err *error) {
 }
 
 func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
-	code, ok := s.p.code[tmpl]
-	if !ok {
-		return fmt.Errorf("template %q does not exist", tmpl)
-	}
+	code := s.p.code[tmpl]
 	s.pushVar("", dot)
 	if ns != "" {
 		if vars, err := s.varValue("Vars"); err == nil {

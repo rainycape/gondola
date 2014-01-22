@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
+	"net/http/pprof"
 	"os"
 	"path"
 	"regexp"
@@ -1211,6 +1212,9 @@ func New() *App {
 	// Used to automatically reload the page on panics when the server
 	// is restarted.
 	if m.debug {
+		m.Handle("^/debug/pprof/cmdline", wrap(pprof.Cmdline))
+		m.Handle("^/debug/pprof/profile", wrap(pprof.Profile))
+		m.Handle("^/debug/pprof", wrap(pprof.Index))
 		m.Handle(devStatusPage, func(ctx *Context) {
 			ctx.WriteJSON(map[string]interface{}{
 				"built":   nil,
@@ -1222,4 +1226,10 @@ func New() *App {
 		m.addAssetsManager(internalAssetsManager(), false)
 	}
 	return m
+}
+
+func wrap(f func(w http.ResponseWriter, r *http.Request)) Handler {
+	return func(ctx *Context) {
+		f(ctx, ctx.R)
+	}
 }

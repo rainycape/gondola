@@ -1227,7 +1227,7 @@ func isPrintable(typ reflect.Type) bool {
 }
 
 func stackable(v reflect.Value) reflect.Value {
-	if v.IsValid() && v.Type() == emptyType {
+	if v.IsValid() && v.Type() == emptyType && !v.IsNil() {
 		v = reflect.ValueOf(v.Interface())
 	}
 	return v

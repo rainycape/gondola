@@ -28,7 +28,7 @@ func executeAsset(t *Template, p *Template, vars VarMap, m *assets.Manager, asse
 	if p != nil && p != t {
 		ns := t.namespaceIn(p)
 		if ns != "" {
-			vars = vars.Unpack(ns)
+			vars = vars.unpack(ns)
 		}
 	}
 	var buf bytes.Buffer

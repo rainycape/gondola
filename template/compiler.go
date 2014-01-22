@@ -307,7 +307,7 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 	if ns != "" {
 		if vars, err := s.varValue("Vars"); err == nil {
 			if !vars.IsNil() {
-				s.pushVar("Vars", reflect.ValueOf(vars.Interface().(VarMap).Unpack(ns)))
+				s.pushVar("Vars", reflect.ValueOf(vars.Interface().(VarMap).unpack(ns)))
 			}
 		}
 	}

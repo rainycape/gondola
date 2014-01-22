@@ -30,7 +30,7 @@ type FuncMap map[string]interface{}
 
 type VarMap map[string]interface{}
 
-func (v VarMap) Unpack(ns string) VarMap {
+func (v VarMap) unpack(ns string) VarMap {
 	var key string
 	var rem string
 	if p := strings.SplitN(ns, ".", 2); len(p) > 1 {
@@ -56,7 +56,7 @@ func (v VarMap) Unpack(ns string) VarMap {
 		ret = VarMap(m)
 	}
 	if ret != nil && rem != "" {
-		return ret.Unpack(rem)
+		return ret.unpack(rem)
 	}
 	return ret
 }

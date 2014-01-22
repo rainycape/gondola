@@ -72,6 +72,7 @@ var (
 		{"{{ range . }}{{ else }}nope{{ end }}", 5, "template.html:1:9: can't range over int"},
 		{"{{ . }}\n{{ range . }}{{ else }}nope{{ end }}", 5, "template.html:2:9: can't range over int"},
 		{"{{ . }}\n{{ range .foo }}{{ else }}nope{{ end }}\n{{ range .bar }}{{ . }}{{ end }} ", map[string]interface{}{"foo": []int{}, "bar": ""}, "template.html:3:9: can't range over string"},
+		{"{{ define \"foo\" }}\n{{ range . }}{{ else }}nope{{ end }}{{ end }}\n{{ template \"foo\" . }}", 5, "template.html:2:9: can't range over int"},
 	}
 )
 

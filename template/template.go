@@ -85,7 +85,7 @@ var (
 	defineRe                 = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
 	topTree                  = compileTree(topBoilerplate)
 	bottomTree               = compileTree(bottomBoilerplate)
-	templatePrepend          = fmt.Sprintf("{{ $%s := .%s }}", varsKey, varsKey)
+	templatePrepend          = fmt.Sprintf("{{ $%s := .%s }}\n", varsKey, varsKey)
 )
 
 type Hook struct {
@@ -103,6 +103,7 @@ type Template struct {
 	Debug         bool
 	loader        loaders.Loader
 	trees         map[string]*parse.Tree
+	texts         map[string]string
 	final         bool
 	funcMap       FuncMap
 	vars          VarMap
@@ -620,6 +621,13 @@ func (t *Template) load(name string, included bool) error {
 		// Remove the first node, since it's there to set
 		// $Vars := .Vars, so the parser does not complain
 		v.Root.Nodes = v.Root.Nodes[1:]
+		// Remove the \n introduced by the prepended text
+		for _, n := range v.Root.Nodes {
+			if tn, ok := n.(*parse.TextNode); ok {
+				tn.Text = tn.Text[1:]
+				break
+			}
+		}
 		if _, contains := t.trees[k]; contains {
 			log.Debugf("Template %s redefined", k)
 			// Redefinition of a template, which is allowed
@@ -638,6 +646,7 @@ func (t *Template) load(name string, included bool) error {
 				}
 			}
 		}
+		t.texts[k] = s
 		err := t.AddParseTree(k, v)
 		if err != nil {
 			return err
@@ -868,6 +877,7 @@ func New(loader loaders.Loader, manager *assets.Manager) *Template {
 		AssetsManager: manager,
 		loader:        loader,
 		trees:         make(map[string]*parse.Tree),
+		texts:         make(map[string]string),
 	}
 	t.init()
 	return t

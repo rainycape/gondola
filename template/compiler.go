@@ -301,13 +301,19 @@ func (s *state) recover(pc *int, tmpl *string, err *error) {
 	}
 }
 
-func (s *state) execute(tmpl string, dot reflect.Value) (err error) {
+func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 	code, ok := s.p.code[tmpl]
 	if !ok {
 		return fmt.Errorf("template %q does not exist", tmpl)
 	}
-	s.dot = []reflect.Value{dot}
 	s.pushVar("", dot)
+	if ns != "" {
+		if vars, err := s.varValue("Vars"); err == nil {
+			if !vars.IsNil() {
+				s.pushVar("Vars", reflect.ValueOf(vars.Interface().(VarMap).Unpack(ns)))
+			}
+		}
+	}
 	var pc int
 	defer s.recover(&pc, &tmpl, &err)
 	for pc = 0; pc < len(code); pc++ {
@@ -427,10 +433,12 @@ func (s *state) execute(tmpl string, dot reflect.Value) (err error) {
 			// SETVAR pops
 			s.stack = s.stack[:p]
 		case opTEMPLATE:
-			name := s.p.strings[int(v.val)]
+			n, t := decodeVal(v.val)
+			name := s.p.strings[t]
+			ns := s.p.strings[n]
 			mark := s.varMark()
 			dupDot := s.stack[len(s.stack)-1]
-			err := s.execute(name, dupDot)
+			err := s.execute(name, ns, dupDot)
 			if err != nil {
 				// execute already returns the formatted error
 				return err
@@ -493,6 +501,7 @@ type context struct {
 }
 
 type scratch struct {
+	name       string
 	buf        []inst
 	cmd        []int
 	pipe       []int
@@ -996,7 +1005,11 @@ func (p *program) walk(n parse.Node) error {
 		pipe.putPop()
 		pop := pipe.takePop()
 		p.s.add(pipe)
-		p.inst(opTEMPLATE, p.addString(x.Name))
+		ns := namespace(x.Name)
+		if pns := namespace(p.s.name); pns != "" {
+			ns = ns[len(pns):]
+		}
+		p.inst(opTEMPLATE, encodeVal(int(p.addString(ns)), p.addString(x.Name)))
 		p.s.addPop(pop)
 	case *parse.TextNode:
 		text := x.Text
@@ -1075,35 +1088,32 @@ func (p *program) stitch() {
 func (p *program) execute(w *bytes.Buffer, name string, data interface{}, vars VarMap) error {
 	s := newState(p, w)
 	s.pushVar("Vars", reflect.ValueOf(vars))
-	err := s.execute(name, reflect.ValueOf(data))
+	err := s.execute(name, "", reflect.ValueOf(data))
 	s.put()
 	return err
+}
+
+func compileTemplate(p *program, tmpl *Template) error {
+	for k, v := range tmpl.trees {
+		p.s = new(scratch)
+		p.s.name = k
+		if err := p.walk(v.Root); err != nil {
+			return err
+		}
+		p.code[k] = p.s.buf
+		p.context[k] = p.s.ctx
+		p.s = nil
+	}
+	return nil
 }
 
 func newProgram(tmpl *Template) (*program, error) {
 	if strings.Contains(tmpl.contentType, "html") {
 		tmpl.addHtmlEscaping()
-		// Add escaping functions
-		tmpl.Funcs(htmlEscapeFuncs)
-		// html/template might introduce new trees. it renames the
-		// template invocations, but we must add the trees ourselves
-		for _, v := range tmpl.tmpl.Templates() {
-			if v.Tree != nil {
-				if tmpl.trees[v.Tree.Name] == nil {
-					tmpl.trees[v.Tree.Name] = v.Tree
-				}
-			}
-		}
 	}
 	p := &program{tmpl: tmpl, code: make(map[string][]inst), context: make(map[string][]*context)}
-	for k, v := range tmpl.trees {
-		p.s = new(scratch)
-		if err := p.walk(v.Root); err != nil {
-			return nil, err
-		}
-		p.code[k] = p.s.buf
-		p.context[k] = p.s.ctx
-		p.s = nil
+	if err := compileTemplate(p, tmpl); err != nil {
+		return nil, err
 	}
 	p.stitch()
 	return p, nil
@@ -1148,4 +1158,11 @@ func stackable(v reflect.Value) reflect.Value {
 		v = reflect.ValueOf(v.Interface())
 	}
 	return v
+}
+
+func namespace(name string) string {
+	if p := strings.Index(name, nsMark); p >= 0 {
+		return name[:p]
+	}
+	return ""
 }

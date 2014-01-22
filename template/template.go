@@ -73,6 +73,8 @@ const (
 	bottomAssetsFuncName  = "_gondola_bottomAssets"
 	topBoilerplate        = "{{ _gondola_topAssets }}"
 	bottomBoilerplate     = "{{ _gondola_bottomAssets }}"
+	nsSep                 = "."
+	nsMark                = "|"
 )
 
 var (
@@ -94,7 +96,7 @@ type Hook struct {
 type Template struct {
 	AssetsManager *assets.Manager
 	Minify        bool
-	Namespace     string
+	namespace     []string
 	tmpl          *itemplate.Template
 	prog          *program
 	name          string
@@ -110,6 +112,7 @@ type Template struct {
 	bottomAssets  []byte
 	contentType   string
 	hooks         []*Hook
+	children      []*Template
 }
 
 func (t *Template) init() {
@@ -154,6 +157,14 @@ func (t *Template) Trees() map[string]*parse.Tree {
 	return t.trees
 }
 
+func (t *Template) Namespace() string {
+	return strings.Join(t.namespace, nsSep)
+}
+
+func (t *Template) AddNamespace(ns string) {
+	t.namespace = append(t.namespace, ns)
+}
+
 func (t *Template) Asset(arg string) (string, error) {
 	if t.AssetsManager != nil {
 		return t.AssetsManager.URL(arg), nil
@@ -173,6 +184,17 @@ func (t *Template) AddAssets(groups []*assets.Group) error {
 	return nil
 }
 
+func (t *Template) InsertTemplate(tmpl *Template, name string) error {
+	if err := t.noCompiled("can't insert template"); err != nil {
+		return err
+	}
+	if err := t.importTrees(tmpl, name); err != nil {
+		return err
+	}
+	t.children = append(t.children, tmpl)
+	return nil
+}
+
 func (t *Template) Hook(hook *Hook) error {
 	if err := t.noCompiled("can't add hook"); err != nil {
 		return err
@@ -182,22 +204,8 @@ func (t *Template) Hook(hook *Hook) error {
 			return err
 		}
 	}
-	ha := hook.Template.Assets()
-	if len(ha) > 0 {
-		if err := t.AddAssets(ha); err != nil {
-			return err
-		}
-	}
-	for k, v := range hook.Template.trees {
-		if _, ok := t.trees[k]; ok {
-			if k != topBoilerplateName && k != bottomBoilerplateName {
-				return fmt.Errorf("duplicate template %q", k)
-			}
-		} else {
-			if err := t.AddParseTree(k, v.Copy()); err != nil {
-				return err
-			}
-		}
+	if err := t.importTrees(hook.Template, ""); err != nil {
+		return err
 	}
 	var key string
 	switch hook.Position {
@@ -214,7 +222,7 @@ func (t *Template) Hook(hook *Hook) error {
 	if key != "" {
 		node := &parse.TemplateNode{
 			NodeType: parse.NodeTemplate,
-			Name:     hook.Template.Root(),
+			Name:     hook.Template.qname(hook.Template.root),
 			Pipe: &parse.PipeNode{
 				NodeType: parse.NodePipe,
 				Cmds: []*parse.CommandNode{
@@ -265,8 +273,39 @@ func (t *Template) noCompiled(msg string) error {
 	return nil
 }
 
-func (t *Template) prepareAssets() error {
-	var groups [][]*assets.Group
+func (t *Template) namespaceIn(parent *Template) string {
+	return strings.Join(t.namespace[len(parent.namespace):], nsSep)
+}
+
+func (t *Template) qname(name string) string {
+	if len(t.namespace) > 0 {
+		name = t.Namespace() + nsMark + name
+	}
+	return name
+}
+
+func (t *Template) importTrees(tmpl *Template, name string) error {
+	for k, v := range tmpl.trees {
+		if _, ok := t.trees[k]; ok {
+			if k != topBoilerplateName && k != bottomBoilerplateName {
+				return fmt.Errorf("duplicate template %q", k)
+			}
+			continue
+		}
+		var treeName string
+		if k == tmpl.root && name != "" {
+			treeName = name
+		} else {
+			treeName = tmpl.qname(k)
+		}
+		if err := t.AddParseTree(treeName, namespacedTree(v, tmpl.namespace)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *Template) preparedAssetsGroups(vars VarMap, parent *Template, groups [][]*assets.Group) ([][]*assets.Group, error) {
 	for _, v := range t.assetGroups {
 		if (t.Debug && v.Options.NoDebug()) || (!t.Debug && v.Options.Debug()) {
 			// Asset enabled only for debug or non-debug
@@ -276,7 +315,7 @@ func (t *Template) prepareAssets() error {
 			continue
 		}
 		if v.Options.Bundle() && v.Options.Cdn() {
-			return fmt.Errorf("asset group %s has incompatible options \"bundle\" and \"cdn\"", v.Names())
+			return nil, fmt.Errorf("asset group %s has incompatible options \"bundle\" and \"cdn\"", v.Names())
 		}
 		// Make a copy of the group, so assets get executed and compiled, every
 		// time the template is loaded. This is specially useful while developing
@@ -285,15 +324,15 @@ func (t *Template) prepareAssets() error {
 		// Check if any assets have to be compiled (LESS, CoffeScript, etc...)
 		for _, a := range v.Assets {
 			if a.IsTemplate() {
-				name, err := executeAsset(t, v.Manager, a)
+				name, err := executeAsset(t, parent, vars, v.Manager, a)
 				if err != nil {
-					return err
+					return nil, err
 				}
 				a.Name = name
 			}
 			name, err := assets.Compile(v.Manager, a.Name, a.Type, v.Options)
 			if err != nil {
-				return fmt.Errorf("error compiling asset %q: %s", a.Name, err)
+				return nil, fmt.Errorf("error compiling asset %q: %s", a.Name, err)
 			}
 			a.Name = name
 		}
@@ -312,6 +351,25 @@ func (t *Template) prepareAssets() error {
 		if !added {
 			groups = append(groups, []*assets.Group{v})
 		}
+	}
+	var err error
+	for _, v := range t.hooks {
+		if groups, err = v.Template.preparedAssetsGroups(vars, parent, groups); err != nil {
+			return nil, err
+		}
+	}
+	for _, v := range t.children {
+		if groups, err = v.preparedAssetsGroups(vars, parent, groups); err != nil {
+			return nil, err
+		}
+	}
+	return groups, nil
+}
+
+func (t *Template) prepareAssets() error {
+	groups, err := t.preparedAssetsGroups(t.vars, t, nil)
+	if err != nil {
+		return err
 	}
 	var top bytes.Buffer
 	var bottom bytes.Buffer
@@ -632,7 +690,7 @@ func (t *Template) renameTemplates(renames map[string]string) {
 	})
 }
 
-func (t *Template) addHtmlEscaping() {
+func (t *Template) addHtmlHooks() {
 	// Unfortunately, there's a bug in text/template executor which
 	// ends up panic'ing if there's an error in a mangled template, so
 	// we must wrap this in a recover.
@@ -647,6 +705,21 @@ func (t *Template) addHtmlEscaping() {
 	// Need to execute it once, for html/template to add
 	// the escaping hooks.
 	t.tmpl.Execute(ioutil.Discard, nil)
+}
+
+func (t *Template) addHtmlEscaping() {
+	t.addHtmlHooks()
+	// Add escaping functions
+	t.Funcs(htmlEscapeFuncs)
+	// html/template might introduce new trees. it renames the
+	// template invocations, but we must add the trees ourselves
+	for _, v := range t.tmpl.Templates() {
+		if v.Tree != nil {
+			if t.trees[v.Tree.Name] == nil {
+				t.trees[v.Tree.Name] = v.Tree
+			}
+		}
+	}
 }
 
 func (t *Template) Funcs(funcs FuncMap) *Template {
@@ -854,6 +927,20 @@ func copyGroup(src *assets.Group) *assets.Group {
 		Assets:  copies,
 		Options: src.Options,
 	}
+}
+
+func namespacedTree(tree *parse.Tree, ns []string) *parse.Tree {
+	tree = tree.Copy()
+	if len(ns) > 0 {
+		prefix := strings.Join(ns, nsSep) + nsMark
+		templateutil.WalkTree(tree, func(n, p parse.Node) {
+			if n.Type() == parse.NodeTemplate {
+				tmpl := n.(*parse.TemplateNode)
+				tmpl.Name = prefix + tmpl.Name
+			}
+		})
+	}
+	return tree
 }
 
 func nop() interface{} { return nil }

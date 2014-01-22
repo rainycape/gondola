@@ -11,20 +11,25 @@ import (
 	"path"
 )
 
-func executeAsset(t *Template, m *assets.Manager, asset *assets.Asset) (string, error) {
+func executeAsset(t *Template, p *Template, vars VarMap, m *assets.Manager, asset *assets.Asset) (string, error) {
 	name := asset.TemplateName()
-	log.Debugf("executing asset template %s", name)
+	log.Debugf("executing asset template %s (from %s)", name, t.name)
 	tmpl := New(m.Loader(), nil)
 	tmpl.Funcs(t.funcMap)
+	if p != nil {
+		tmpl.Funcs(p.funcMap)
+	}
 	if err := tmpl.Parse(name); err != nil {
 		return "", err
 	}
 	if err := tmpl.Compile(); err != nil {
 		return "", err
 	}
-	vars := t.vars
-	if asset.Namespace != "" && asset.Namespace != t.Namespace {
-		vars = vars.Unpack(asset.Namespace)
+	if p != nil && p != t {
+		ns := t.namespaceIn(p)
+		if ns != "" {
+			vars = vars.Unpack(ns)
+		}
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, vars); err != nil {

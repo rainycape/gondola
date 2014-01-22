@@ -65,7 +65,6 @@ type AssetParser func(m *Manager, names []string, options Options) ([]*Asset, er
 
 type Asset struct {
 	Name       string
-	Namespace  string
 	Type       Type
 	Position   Position
 	Condition  *Condition

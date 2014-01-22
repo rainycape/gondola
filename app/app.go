@@ -263,11 +263,10 @@ func (app *App) include(prefix string, child *App, base string, main string) err
 		}
 	}
 	for _, v := range child.hooks {
+		v.Template.AddNamespace(child.name)
 		if err := app.rewriteAssets(v.Template, included); err != nil {
 			return err
 		}
-		root := v.Template.Trees()[v.Template.Root()]
-		app.prepareNamespace(root, child.name)
 		app.hooks = append(app.hooks, v)
 	}
 	app.included = append(app.included, included)
@@ -534,40 +533,16 @@ func (app *App) loadTemplate(name string) (*tmpl, error) {
 		}
 	}
 	if app.parent != nil {
+		t.tmpl.AddNamespace(app.name)
 		if !t.tmpl.IsFinal() {
 			return app.parent.chainTemplate(t, app.childInfo)
 		}
-		t.tmpl.Namespace = app.name
 	}
 	return t, nil
 }
 
-func (app *App) prepareNamespace(tree *parse.Tree, ns string) {
-	// Mangle the Tree to set $Vars = $Vars.Name
-	var nodes []parse.Node
-	nodes = append(nodes, &parse.ActionNode{
-		NodeType: parse.NodeAction,
-		Pipe: &parse.PipeNode{
-			NodeType: parse.NodePipe,
-			Decl:     []*parse.VariableNode{{NodeType: parse.NodeVariable, Ident: []string{"$Vars"}}},
-			Cmds: []*parse.CommandNode{{NodeType: parse.NodeCommand,
-				Args: []parse.Node{
-					&parse.VariableNode{NodeType: parse.NodeVariable, Ident: []string{"$Vars", ns}},
-				},
-			}},
-		},
-	})
-	nodes = append(nodes, tree.Root.Nodes...)
-	tree.Root.Nodes = nodes
-}
-
 func (app *App) rewriteAssets(t *template.Template, included *includedApp) error {
-	for _, group := range t.Assets() {
-		for _, a := range group.Assets {
-			a.Namespace = included.app.name
-		}
-	}
-	if app.debug {
+	if app.templateDebug() {
 		return nil
 	}
 	for _, group := range t.Assets() {
@@ -602,31 +577,17 @@ func (app *App) rewriteAssets(t *template.Template, included *includedApp) error
 }
 
 func (app *App) chainTemplate(t *tmpl, included *includedApp) (*tmpl, error) {
-	base, err := app.loadTemplate(included.base)
+	wrapper, err := app.loadTemplate(included.base)
 	if err != nil {
 		return nil, err
 	}
 	if err := app.rewriteAssets(t.tmpl, included); err != nil {
 		return nil, err
 	}
-	base.tmpl.AddAssets(t.tmpl.Assets())
-	for k, v := range t.tmpl.Trees() {
-		// This will happen with built-in added templates, like
-		// TopAssets, BottomAssets...
-		if _, ok := base.tmpl.Trees()[k]; ok {
-			continue
-		}
-		name := k
-		if name == t.tmpl.Root() {
-			name = included.main
-			app.prepareNamespace(v, included.app.name)
-		}
-		if err := base.tmpl.AddParseTree(name, v); err != nil {
-			return nil, err
-		}
+	if err := wrapper.tmpl.InsertTemplate(t.tmpl, included.main); err != nil {
+		return nil, err
 	}
-	base.tmpl.Namespace = t.tmpl.Namespace
-	return base, nil
+	return wrapper, nil
 }
 
 // Debug returns if the app is in debug mode
@@ -1185,7 +1146,7 @@ func (app *App) closeContext(ctx *Context) {
 
 func (app *App) importAssets(included *includedApp) error {
 	am := included.app.assetsManager
-	if app.debug {
+	if app.templateDebug() {
 		am.SetPrefix(included.prefix + am.Prefix())
 	} else {
 		m := app.assetsManager
@@ -1224,6 +1185,10 @@ func (app *App) importAssets(included *includedApp) error {
 		included.renames = renames
 	}
 	return nil
+}
+
+func (a *App) templateDebug() bool {
+	return a.debug
 }
 
 // New returns a new App initialized with the current default values.

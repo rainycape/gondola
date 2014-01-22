@@ -13,9 +13,9 @@ type tgzLoader struct {
 	err    error
 }
 
-func (t *tgzLoader) Load(name string) (ReadSeekCloser, time.Time, error) {
+func (t *tgzLoader) decode() error {
 	if t.err != nil {
-		return nil, time.Time{}, t.err
+		return t.err
 	}
 	if t.reader != nil {
 		defer t.reader.Close()
@@ -26,20 +26,34 @@ func (t *tgzLoader) Load(name string) (ReadSeekCloser, time.Time, error) {
 				break
 			}
 			if err != nil {
-				return nil, time.Time{}, err
+				return err
 			}
 			w, err := t.Create(hdr.Name, false)
 			if err != nil {
-				return nil, time.Time{}, err
+				return err
 			}
 			if _, err := io.Copy(w, tr); err != nil {
-				return nil, time.Time{}, err
+				return err
 			}
 			if err := w.Close(); err != nil {
-				return nil, time.Time{}, err
+				return err
 			}
 		}
 		t.reader = nil
+	}
+	return nil
+}
+
+func (t *tgzLoader) List() ([]string, error) {
+	if err := t.decode(); err != nil {
+		return nil, err
+	}
+	return t.mapLoader.List()
+}
+
+func (t *tgzLoader) Load(name string) (ReadSeekCloser, time.Time, error) {
+	if err := t.decode(); err != nil {
+		return nil, time.Time{}, err
 	}
 	return t.mapLoader.Load(name)
 }

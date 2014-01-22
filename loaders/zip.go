@@ -11,6 +11,20 @@ type zipLoader struct {
 	err    error
 }
 
+func (z *zipLoader) List() ([]string, error) {
+	if z.err != nil {
+		return nil, z.err
+	}
+	names, err := z.mapLoader.List()
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range z.reader.File {
+		names = append(names, v.Name)
+	}
+	return names, nil
+}
+
 func (z *zipLoader) Load(name string) (ReadSeekCloser, time.Time, error) {
 	if z.err != nil {
 		return nil, time.Time{}, z.err

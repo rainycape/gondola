@@ -343,8 +343,6 @@ func (s *state) recover(pc *int, tmpl *string, err *error) {
 		if !ok {
 			e = fmt.Errorf("%v", r)
 		}
-		// TODO: Check if we can find if we were calling
-		// a function, either from a opFUNC or opFIELD.
 		code := s.p.code[*tmpl]
 		if *pc < len(code) {
 			op := code[*pc]

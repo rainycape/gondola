@@ -13,6 +13,15 @@ func ToString(val interface{}) string {
 	if val == nil {
 		return ""
 	}
+	v := reflect.ValueOf(val)
+	if k := v.Kind(); k == reflect.Ptr || k == reflect.Interface {
+		if v.IsNil() {
+			return ""
+		}
+	}
+	// Can't do this before the IsNil test, because Go has
+	// this weird concept of non-nil interface which points
+	// to a nil pointer, what a great idea!
 	switch x := val.(type) {
 	case string:
 		return x
@@ -20,12 +29,6 @@ func ToString(val interface{}) string {
 		return x.String()
 	case error:
 		return x.Error()
-	}
-	v := reflect.ValueOf(val)
-	if k := v.Type().Kind(); k == reflect.Ptr || k == reflect.Interface {
-		if v.IsNil() {
-			return ""
-		}
 	}
 	return fmt.Sprintf("%v", val)
 }

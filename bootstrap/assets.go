@@ -66,7 +66,7 @@ func bootstrapParser(m *assets.Manager, names []string, options assets.Options) 
 	respondJs.Condition = cond
 	as = append(as, html5Shiv, respondJs)
 	if !options.BoolOpt("nojs") {
-		as = append(as, assets.Script(fmt.Sprintf("bootstrap-%s.js", bsV)))
+		as = append(as, assets.Script(fmt.Sprintf(bootstrapJSFmt, bsV)))
 	}
 	return as, nil
 }

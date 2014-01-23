@@ -28,6 +28,12 @@ func (t *testType) Bar(s string) string {
 	return "bared-" + s
 }
 
+type testInt int
+
+func (t *testInt) Next() int {
+	return int(*t) + 1
+}
+
 var (
 	ftests = []*templateTest{
 		{"{{ $one := 1 }}{{ $two := 2 }}{{ $three := 3 }}{{ $one }}+{{ $two }}+{{ $three }}={{ add $one $two $three }}", nil, "1+2+3=6"},
@@ -73,6 +79,8 @@ var (
 		{"{{ . }}\n{{ range . }}{{ else }}nope{{ end }}", 5, "template.html:2:9: can't range over int"},
 		{"{{ . }}\n{{ range .foo }}{{ else }}nope{{ end }}\n{{ range .bar }}{{ . }}{{ end }} ", map[string]interface{}{"foo": []int{}, "bar": ""}, "template.html:3:9: can't range over string"},
 		{"{{ define \"foo\" }}\n{{ range . }}{{ else }}nope{{ end }}{{ end }}\n{{ template \"foo\" . }}", 5, "template.html:2:9: can't range over int"},
+		{"{{ .Foo }}", testType{}, "template.html:1:3: method \"Foo\" requires pointer receiver (*template.testType)"},
+		{"{{ .Next }}", testInt(0), "template.html:1:3: method \"Next\" requires pointer receiver (*template.testInt)"},
 	}
 )
 

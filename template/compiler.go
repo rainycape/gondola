@@ -258,13 +258,9 @@ func (s *state) formatErr(pc int, tmpl string, err error) error {
 	tr := s.p.tmpl.trees[tmpl]
 	if tr != nil {
 		ctx := s.p.context[tmpl]
-		for ii, v := range ctx {
-			if v.pc > pc {
-				if ii > 0 {
-					node := ctx[ii-1].node
-					return s.formatTreeErr(tmpl, tr, node, err)
-				}
-				break
+		for _, v := range ctx {
+			if v.pc >= pc {
+				return s.formatTreeErr(tmpl, tr, v.node, err)
 			}
 		}
 	}
@@ -294,6 +290,13 @@ func (s *state) formatReflectErr(name string, fn reflect.Value, args int, e erro
 func (s *state) errorf(pc int, tmpl string, format string, args ...interface{}) error {
 	err := fmt.Errorf(format, args...)
 	return s.formatErr(pc, tmpl, err)
+}
+
+func (s *state) requiresPointerErr(val reflect.Value, name string) error {
+	if _, ok := reflect.PtrTo(val.Type()).MethodByName(name); ok {
+		return fmt.Errorf("method %q requires pointer receiver (%s)", name, reflect.PtrTo(val.Type()))
+	}
+	return nil
 }
 
 func (s *state) pushVar(name string, value reflect.Value) {
@@ -445,12 +448,16 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 						if top.Type() == emptyType {
 							break
 						}
+						if err := s.requiresPointerErr(top, name); err != nil {
+							return s.formatErr(pc, tmpl, err)
+						}
 						return s.errorf(pc, tmpl, "can't evaluate field on type %T", top.Interface())
 					}
 					res = top.FieldByName(name)
 					if !res.IsValid() {
-						// TODO: Check if the type has a pointer method which we couldn't
-						// address, to provide a better error message
+						if err := s.requiresPointerErr(top, name); err != nil {
+							return s.formatErr(pc, tmpl, err)
+						}
 						return s.errorf(pc, tmpl, "%q is not a field of struct type %T", name, top.Interface())
 					}
 				}

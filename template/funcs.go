@@ -116,10 +116,6 @@ func nz(x interface{}) bool {
 	return false
 }
 
-func join(x []string, sep string) string {
-	return strings.Join(x, sep)
-}
-
 func _map(args ...interface{}) (map[string]interface{}, error) {
 	var key string
 	m := make(map[string]interface{})
@@ -303,7 +299,7 @@ var templateFuncs = FuncMap{
 	"json":      _json,
 	"jsons":     jsons,
 	"nz":        nz,
-	"join":      join,
+	"join":      strings.Join,
 	"map":       _map,
 	"slice":     _slice,
 	"append":    _append,

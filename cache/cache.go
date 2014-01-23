@@ -26,13 +26,12 @@ const cache = "cache"
 type Cache struct {
 	// The Logger to log debug messages and, more importantly, errors.
 	// New() initialies the log.Logger to log.Std.
-	Logger     *log.Logger
-	prefix     string
-	prefixLen  int
-	driver     driver.Driver
-	codec      *codec.Codec
-	pipe       *pipe.Pipe
-	numQueries int
+	Logger    *log.Logger
+	prefix    string
+	prefixLen int
+	driver    driver.Driver
+	codec     *codec.Codec
+	pipe      *pipe.Pipe
 }
 
 func (c *Cache) backendKey(key string) string {
@@ -112,7 +111,6 @@ func (c *Cache) Get(key string, obj interface{}) error {
 // of the object to be decoded. Users might implement their own Typer
 // or use UniTyper when requesting several objects of the same type.
 func (c *Cache) GetMulti(out map[string]interface{}, typer Typer) error {
-	c.numQueries++
 	keys := make([]string, 0, len(out))
 	for k := range out {
 		keys = append(keys, k)
@@ -179,7 +177,6 @@ func (c *Cache) SetBytes(key string, b []byte, timeout int) error {
 	if debug.On {
 		defer debug.Startf(cache, "SET %s", key).End()
 	}
-	c.numQueries++
 	if c.pipe != nil {
 		var err error
 		b, err = c.pipe.Encode(b)
@@ -213,7 +210,6 @@ func (c *Cache) GetBytes(key string) ([]byte, error) {
 	if debug.On {
 		defer debug.Startf(cache, "GET %s", key).End()
 	}
-	c.numQueries++
 	b, err := c.driver.Get(c.backendKey(key))
 	if err != nil {
 		gerr := &cacheError{
@@ -249,7 +245,6 @@ func (c *Cache) Delete(key string) error {
 	if debug.On {
 		defer debug.Startf(cache, "DELETE %s", key).End()
 	}
-	c.numQueries++
 	err := c.driver.Delete(c.backendKey(key))
 	if err != nil {
 		derr := &cacheError{
@@ -261,12 +256,6 @@ func (c *Cache) Delete(key string) error {
 		return derr
 	}
 	return nil
-}
-
-// NumQueries returns the number of queries made to this
-// cache since it was initialized.
-func (c *Cache) NumQueries() int {
-	return c.numQueries
 }
 
 // Close closes the cache connection. If you're using a cache

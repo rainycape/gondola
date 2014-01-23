@@ -28,11 +28,10 @@ var (
 const orm = "orm"
 
 type Orm struct {
-	conn       driver.Conn
-	driver     driver.Driver
-	logger     *log.Logger
-	tags       string
-	numQueries int
+	conn   driver.Conn
+	driver driver.Driver
+	logger *log.Logger
+	tags   string
 	// these fields are non-nil iff the ORM driver uses database/sql
 	db        *sql.DB
 	sqlDriver *ormsql.Driver
@@ -134,9 +133,6 @@ func (o *Orm) MustInsertInto(t *Table, obj interface{}) Result {
 }
 
 func (o *Orm) insert(m *model, obj interface{}) (Result, error) {
-	if debug.On {
-		defer debug.Startf(orm, "insert").End()
-	}
 	var pkName string
 	var pkVal reflect.Value
 	f := m.fields
@@ -147,7 +143,9 @@ func (o *Orm) insert(m *model, obj interface{}) (Result, error) {
 			return nil, fmt.Errorf("can't set primary key field %q. Please, insert a %v rather than a %v", pkName, reflect.PtrTo(typ), typ)
 		}
 	}
-	o.numQueries++
+	if debug.On {
+		defer debug.Startf(orm, "insert").End()
+	}
 	res, err := o.conn.Insert(m, obj)
 	if err == nil && pkVal.IsValid() && pkVal.Int() == 0 {
 		id, err := res.LastInsertId()
@@ -188,7 +186,6 @@ func (o *Orm) update(m *model, q query.Q, obj interface{}) (Result, error) {
 	if debug.On {
 		defer debug.Startf(orm, "update").End()
 	}
-	o.numQueries++
 	return o.conn.Update(m, q, obj)
 }
 
@@ -209,7 +206,6 @@ func (o *Orm) Upsert(q query.Q, obj interface{}) (Result, error) {
 		if debug.On {
 			defer debug.Startf(orm, "upsert").End()
 		}
-		o.numQueries++
 		return o.conn.Upsert(m, q, obj)
 	}
 	res, err := o.update(m, q, obj)
@@ -386,7 +382,6 @@ func (o *Orm) delete(m *model, q query.Q) (Result, error) {
 	if debug.On {
 		defer debug.Startf(orm, "delete").End()
 	}
-	o.numQueries++
 	return o.conn.Delete(m, q)
 }
 
@@ -432,19 +427,6 @@ func (o *Orm) Close() error {
 		return err
 	}
 	return nil
-}
-
-// NumQueries returns the number of queries since the ORM was
-// initialized. Keep in mind that this number might not be
-// completely accurate, since drivers are free
-// to perform several queries per operation. However, the numbers
-// reported by SQL drivers are currently accurate. If you're sharing
-// an ORM instance accross multiple goroutines, as gnd.la/app.App
-// does in non-debug mode, this number will be just wrong because
-// (for performance reasons) non atomic operations are used to
-// increment the counter.
-func (o *Orm) NumQueries() int {
-	return o.numQueries
 }
 
 // Driver returns the underlying driver.

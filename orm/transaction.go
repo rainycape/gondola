@@ -38,9 +38,6 @@ func (t *Tx) Commit() error {
 		return err
 	}
 	t.done = true
-	if t.numQueries != 0 {
-		t.o.numQueries += t.numQueries
-	}
 	return nil
 }
 
@@ -65,9 +62,6 @@ func (t *Tx) Rollback() error {
 		return err
 	}
 	t.done = true
-	if t.numQueries != 0 {
-		t.o.numQueries += t.numQueries
-	}
 	return nil
 }
 

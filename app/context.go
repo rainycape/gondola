@@ -35,9 +35,6 @@ type Context struct {
 	translations    *table.Table
 	hasTranslations bool
 	background      bool
-	// Used to store data for debugging purposes. Only
-	// used when app.debug is true.
-	debugStorage map[string]interface{}
 	// Left to users, to store data in their custom
 	// context types.
 	Data interface{}
@@ -54,7 +51,6 @@ func (c *Context) reset() {
 	c.user = nil
 	c.translations = nil
 	c.hasTranslations = false
-	c.debugStorage = nil
 	c.Data = nil
 }
 
@@ -352,19 +348,8 @@ func (c *Context) Cookies() *cookies.Cookies {
 // of error, instead of returning it.
 func (c *Context) Cache() *Cache {
 	if c.app.c == nil {
-		if c.app.debug {
-			// Check if we already have a Cache
-			if cache, ok := c.getDebug(debugCacheKey).(*Cache); ok {
-				return cache
-			}
-		}
-		cache, err := c.app.Cache()
-		if err != nil {
+		if _, err := c.app.Cache(); err != nil {
 			panic(err)
-		}
-		if c.app.debug {
-			c.storeDebug(debugCacheKey, cache)
-			return cache
 		}
 	}
 	return c.app.c
@@ -386,19 +371,8 @@ func (c *Context) Blobstore() *blobstore.Store {
 // of error, rather than returning it.
 func (c *Context) Orm() *Orm {
 	if c.app.o == nil {
-		if c.app.debug {
-			// Check if we already have an ORM
-			if o, ok := c.getDebug(debugOrmKey).(*Orm); ok {
-				return o
-			}
-		}
-		o, err := c.app.Orm()
-		if err != nil {
+		if _, err := c.app.Orm(); err != nil {
 			panic(err)
-		}
-		if c.app.debug {
-			c.storeDebug(debugOrmKey, o)
-			return o
 		}
 	}
 	return c.app.o
@@ -460,14 +434,7 @@ func (c *Context) IsXHR() bool {
 // It's automatically called by the App, so you
 // don't need to call it manually
 func (c *Context) Close() {
-	if c.app.debug {
-		if o, ok := c.getDebug(debugOrmKey).(*Orm); ok {
-			o.Close()
-		}
-		if ca, ok := c.getDebug(debugCacheKey).(*Cache); ok {
-			ca.Close()
-		}
-	}
+	// currently a no-op
 }
 
 // BackgroundContext returns a copy of the given Context

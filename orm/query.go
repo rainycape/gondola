@@ -110,7 +110,9 @@ func (q *Query) Exists() (bool, error) {
 	if err := q.ensureTable("Exists"); err != nil {
 		return false, err
 	}
-	q.orm.numQueries++
+	if debug.On {
+		defer debug.Startf(orm, "exists").End()
+	}
 	return q.orm.driver.Exists(q.model, q.q)
 }
 
@@ -179,7 +181,9 @@ func (q *Query) Count() (uint64, error) {
 	if err := q.ensureTable("Count"); err != nil {
 		return 0, err
 	}
-	q.orm.numQueries++
+	if debug.On {
+		defer debug.Startf(orm, "count").End()
+	}
 	return q.orm.driver.Count(q.model, q.q, q.limit, q.offset)
 }
 
@@ -217,7 +221,6 @@ func (q *Query) exec(limit int) driver.Iter {
 	if debug.On {
 		defer debug.Startf(orm, "query").End()
 	}
-	q.orm.numQueries++
 	return q.orm.conn.Query(q.model, q.q, q.sort, limit, q.offset)
 }
 

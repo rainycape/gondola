@@ -11,14 +11,10 @@ import (
 // instance.
 type Orm struct {
 	*orm.Orm
-	debug bool
 }
 
-// Close calls orm.Orm.Close() only when in
-// debug mode. Otherwise is a noop.
+// Close is a no-op. It prevents the App shared
+// orm.Orm from being closed.
 func (o *Orm) Close() error {
-	if o.debug {
-		return o.Orm.Close()
-	}
 	return nil
 }

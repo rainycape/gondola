@@ -771,13 +771,9 @@ func (app *App) MustListenAndServe() {
 
 // Cache returns this app's cache connection, using
 // cache.NewDefault(). Use gnd.la/config or gnd.la/defaults
-// to change the default cache. When the app
-// is in debug mode, a new cache instance is returned
-// every time. Otherwise, the cache instance is shared
-// among all goroutines. Cache access is thread safe, but
-// some methods (like NumQueries()) will be completely
-// inaccurate because they will count all the queries made
-// since the app initialization.
+// to change the default cache. The cache.Cache is initialized
+// only once and shared among all requests and tasks served
+// from this app.
 func (app *App) Cache() (*Cache, error) {
 	if app.c == nil {
 		app.mu.Lock()
@@ -794,12 +790,7 @@ func (app *App) Cache() (*Cache, error) {
 				if err != nil {
 					return nil, err
 				}
-				app.c = &Cache{Cache: c, debug: app.debug}
-			}
-			if app.debug {
-				c := app.c
-				app.c = nil
-				return c, nil
+				app.c = &Cache{Cache: c}
 			}
 		}
 	}
@@ -808,12 +799,8 @@ func (app *App) Cache() (*Cache, error) {
 
 // App returns this app's ORM connection, using the
 // default database parameters. Use gnd.la/config or gnd.la/defaults
-// to change the default ORM. When the app is in debug mode, a new
-// ORM instance is returned every time. Otherwise, the app instance
-// is shared amoung all goroutines. ORM usage is thread safe, but
-// some methods (like NumQueries()) will be completely inaccurate
-// because they wull count all the queries made since the app
-// initialization.
+// to change the default ORM. The orm.Orm is only initialized once and
+// shared among all requests and tasks served from this app.
 func (app *App) Orm() (*Orm, error) {
 	if app.o == nil {
 		app.mu.Lock()
@@ -830,13 +817,10 @@ func (app *App) Orm() (*Orm, error) {
 				if err != nil {
 					return nil, err
 				}
-				app.o = &Orm{Orm: o, debug: app.debug}
+				app.o = &Orm{Orm: o}
 			}
 			if app.debug {
-				o := app.o
-				o.SetLogger(log.Std)
-				app.o = nil
-				return o, nil
+				app.o.SetLogger(log.Std)
 			}
 		}
 	}

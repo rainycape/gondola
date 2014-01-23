@@ -133,6 +133,7 @@ func newIterator(v reflect.Value) (iterator, error) {
 		if v.IsNil() {
 			return &nilIterator{}, nil
 		}
+		v = v.Elem()
 	}
 	switch v.Kind() {
 	case reflect.Slice, reflect.Array:

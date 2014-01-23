@@ -316,6 +316,8 @@ var templateFuncs = FuncMap{
 	"or":        or,
 	"not":       not,
 	"now":       now,
+	"split":     strings.Split,
+	"split_n":   strings.SplitN,
 	"to_lower":  strings.ToLower,
 	"to_title":  strings.ToTitle,
 	"to_upper":  strings.ToUpper,

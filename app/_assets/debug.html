@@ -1,0 +1,7 @@
+<!-- don't use template assets, so we can conditionally omit them -->
+<link rel="stylesheet" type="text/css" href="{{ _gondola_internal_asset "debug.css" }}">
+<script type="text/javascript" src="{{ _gondola_internal_asset "debug.js" }}"></script>
+<script type="text/javascript">
+  var ___gondola_debug_info = '{{ _gondola_debug_info $Vars.Ctx | jsons }}';
+</script>
+<a href="javascript:___gondolaShowDebugInfo()" id="gondola-debug-button">{{ $Vars.Ctx.Elapsed }} +info</a>

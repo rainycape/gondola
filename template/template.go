@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"gnd.la/app/debug"
 	"gnd.la/html"
 	"gnd.la/loaders"
 	"gnd.la/log"
@@ -811,6 +812,9 @@ func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error
 var bufPool = make(chan *bytes.Buffer, runtime.GOMAXPROCS(0))
 
 func (t *Template) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars VarMap) error {
+	if debug.On {
+		defer debug.Startf("template-exec", "%s => %s", t.qname(t.name), name).End()
+	}
 	var buf *bytes.Buffer
 	select {
 	case buf = <-bufPool:

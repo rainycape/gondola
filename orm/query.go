@@ -2,6 +2,7 @@ package orm
 
 import (
 	"fmt"
+	"gnd.la/app/debug"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/query"
 	"reflect"
@@ -213,6 +214,9 @@ func (q *Query) iter(limit int) *Iter {
 }
 
 func (q *Query) exec(limit int) driver.Iter {
+	if debug.On {
+		defer debug.Startf(orm, "query").End()
+	}
 	q.orm.numQueries++
 	return q.orm.conn.Query(q.model, q.q, q.sort, limit, q.offset)
 }

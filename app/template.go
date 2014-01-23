@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"gnd.la/app/debug"
 	"gnd.la/loaders"
 	"gnd.la/template"
 	"gnd.la/template/assets"
@@ -11,7 +12,11 @@ import (
 	"text/template/parse"
 )
 
-var reservedVariables = []string{"Ctx", "Request"}
+var (
+	reservedVariables     = []string{"Ctx", "Request"}
+	internalAssetsManager = assets.NewManager(appAssets, assetsPrefix)
+	debugHook             *template.Hook
+)
 
 type Template interface {
 	Template() *template.Template
@@ -54,12 +59,8 @@ func newAppTemplate(app *App) *tmpl {
 	return newTemplate(app, app.templatesLoader, app.assetsManager)
 }
 
-func internalAssetsManager() *assets.Manager {
-	return assets.NewManager(appAssets, assetsPrefix)
-}
-
 func newInternalTemplate(app *App) *tmpl {
-	return newTemplate(app, appAssets, internalAssetsManager())
+	return newTemplate(app, appAssets, internalAssetsManager)
 }
 
 func (t *tmpl) ParseVars(file string, vars template.VarMap) error {
@@ -165,3 +166,21 @@ func (t *tmpl) prepare() error {
 }
 
 func nop() interface{} { return nil }
+
+func init() {
+	if debug.On {
+		t := newInternalTemplate(&App{})
+		t.tmpl.Funcs(template.FuncMap{
+			"_gondola_debug_info": func(ctx *Context) *debugInfo {
+				return &debugInfo{Elapsed: ctx.Elapsed(), Timings: debug.Timings()}
+			},
+			"_gondola_internal_asset": func(arg string) string {
+				return internalAssetsManager.URL(arg)
+			},
+		})
+		if err := t.Parse("debug.html"); err != nil {
+			panic(err)
+		}
+		debugHook = &template.Hook{Template: t.tmpl, Position: assets.Bottom}
+	}
+}

@@ -1,0 +1,48 @@
+#gondola-debug-button {
+    display: block;
+    font-weight: bold;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #eee;
+    position: fixed;
+    top: 5px;
+    right: 5px;
+    font-size: 12px;
+    padding: 5px;
+    text-align: center;
+    z-index: 100000;
+}
+
+#gondola_debug_info_form {
+    display: none;
+}
+
+#gondola_debug_info_iframe_wrapper {
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100001;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    width: 100%;
+    overflow: auto;
+    overflow-y: scroll;
+    overflow-y: scroll;
+    -webkit-transition: opacity 0.2s ease-in;
+    -ms-transition: opacity 0.2s ease-in;
+    transition: opacity 0.2s ease-in;
+}
+
+#gondola_debug_info_iframe {
+    top: 0;
+    left: 0;
+    width: 800px;
+    max-width: 90%;
+    margin: 20px auto;
+    border-radius: 5px;
+    display: block;
+    -webkit-transition: opacity 0.5s ease-in;
+    -ms-transition: opacity 0.5s ease-in;
+    transition: opacity 0.5s ease-in;
+}

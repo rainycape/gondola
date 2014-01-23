@@ -1,0 +1,71 @@
+{{/*
+  bootstrap|nojs: 3.0.2
+*/}}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>Debug Information</title>
+    <script type="text/javascript">
+      function toggleTable(el) {
+        var table = el.parentNode.parentNode.nextSibling.nextSibling;
+        if (table.className.indexOf('collapsed') >= 0) {
+          table.className = table.className.replace(' collapsed', '');
+          el.innerHTML = '&#9650;';
+        } else {
+          table.className += ' collapsed';
+          el.innerHTML = '&#9660;';
+        }
+      }
+    </script>
+    <style type="text/css">
+      .gondola-info {
+        word-wrap: break-word;
+        max-width: 100%;
+      }
+      #gondola-debug-button {
+        display: none !important;
+      }
+      .collapsed {
+        height: 0;
+        display: block;
+        overflow: hidden;
+      }
+      table {
+        transition: all 0.5s;
+      }
+      a.close {
+        font-size: 32px;
+        margin-right: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <a class="pull-right close" href="javascript:parent.___gondolaHideDebugInfo()">&times;</a>
+    <div class="container">
+      <div class="page-header">
+        <h1>Debug Information <small>rendered in {{ .Elapsed }}</small></h1>
+      </div>
+      {{ range .Timings }}
+        <h2>{{ .Name }} <small>{{ printf "%d events" (len .Events) }} - {{ .Total }} <a href="#" onclick="toggleTable(this); return false;">&#9650;</a></small></h2>
+        <table class="table table-striped">
+          {{ range .Events }}
+            <tr>
+              <td>{{ .Elapsed }}</td>
+              <td class="gondola-info">
+                {{ range .Notes }}
+                  <p class="gondola-info">{{ join (split . ",") ", " }}</p>
+                {{ end }}
+              </td>
+            </tr>
+          {{ end }}
+        </table>
+      {{ end }}
+      <h2>others <small>{{ .Remaining }}</small></h2>
+    </div>
+  </body>
+</html>

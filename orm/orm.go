@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"gnd.la/app/debug"
 	"gnd.la/config"
 	"gnd.la/log"
 	"gnd.la/orm/driver"
@@ -23,6 +24,8 @@ var (
 	}
 	errUntypedNilPointer = errors.New("untyped nil pointer passed to Next(). Please, cast it to the appropriate type e.g. (*MyType)(nil)")
 )
+
+const orm = "orm"
 
 type Orm struct {
 	conn       driver.Conn
@@ -131,6 +134,9 @@ func (o *Orm) MustInsertInto(t *Table, obj interface{}) Result {
 }
 
 func (o *Orm) insert(m *model, obj interface{}) (Result, error) {
+	if debug.On {
+		defer debug.Startf(orm, "insert").End()
+	}
 	var pkName string
 	var pkVal reflect.Value
 	f := m.fields
@@ -179,6 +185,9 @@ func (o *Orm) MustUpdate(q query.Q, obj interface{}) Result {
 }
 
 func (o *Orm) update(m *model, q query.Q, obj interface{}) (Result, error) {
+	if debug.On {
+		defer debug.Startf(orm, "update").End()
+	}
 	o.numQueries++
 	return o.conn.Update(m, q, obj)
 }
@@ -197,6 +206,9 @@ func (o *Orm) Upsert(q query.Q, obj interface{}) (Result, error) {
 		return nil, err
 	}
 	if o.driver.Upserts() {
+		if debug.On {
+			defer debug.Startf(orm, "upsert").End()
+		}
 		o.numQueries++
 		return o.conn.Upsert(m, q, obj)
 	}
@@ -272,6 +284,9 @@ func (o *Orm) MustSaveInto(t *Table, obj interface{}) Result {
 }
 
 func (o *Orm) save(m *model, obj interface{}) (Result, error) {
+	if debug.On {
+		defer debug.Startf(orm, "save").End()
+	}
 	var res Result
 	var err error
 	if m.fields.PrimaryKey >= 0 {
@@ -368,6 +383,9 @@ func (o *Orm) deleteByPk(m *model, obj interface{}) error {
 }
 
 func (o *Orm) delete(m *model, q query.Q) (Result, error) {
+	if debug.On {
+		defer debug.Startf(orm, "delete").End()
+	}
 	o.numQueries++
 	return o.conn.Delete(m, q)
 }

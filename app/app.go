@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"gnd.la/app/cookies"
+	"gnd.la/app/debug"
 	"gnd.la/blobstore"
 	"gnd.la/cache"
 	"gnd.la/defaults"
@@ -484,6 +485,9 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 	tmpl := app.templatesCache[name]
 	app.templatesMutex.RUnlock()
 	if tmpl == nil {
+		if debug.On {
+			defer debug.Startf("template-load", name).End()
+		}
 		t, err := app.loadTemplate(name)
 		if err != nil {
 			return nil, err
@@ -497,6 +501,9 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 			if err := t.tmpl.Hook(v); err != nil {
 				return nil, fmt.Errorf("error hooking %q: %s", v.Template.Root(), err)
 			}
+		}
+		if debug.On {
+			t.tmpl.Hook(debugHook)
 		}
 		if err := t.rewriteTranslationFuncs(); err != nil {
 			return nil, err
@@ -1008,6 +1015,9 @@ func (app *App) errorPage(ctx *Context, elapsed time.Duration, skip int, stackSk
 // ServeHTTP is called from the net/http system. You shouldn't need
 // to call this function
 func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if debug.On {
+		defer debug.End()
+	}
 	ctx := app.newContext(w, r)
 	defer app.closeContext(ctx)
 	defer app.recover(ctx)
@@ -1223,7 +1233,10 @@ func New() *App {
 		})
 		m.Handle(monitorAPIPage, monitorAPIHandler)
 		m.Handle(monitorPage, monitorHandler)
-		m.addAssetsManager(internalAssetsManager(), false)
+		m.addAssetsManager(internalAssetsManager, false)
+	}
+	if debug.On {
+		m.Handle("^/debug/info", debugInfoHandler)
 	}
 	return m
 }

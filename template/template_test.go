@@ -127,6 +127,11 @@ func testCompiler(t *testing.T, tests []*templateTest) {
 		if buf.String() != v.result {
 			t.Errorf("expecting %q executing %q, got %q", v.result, v.tmpl, buf.String())
 		}
+		// grab the state from the pool and check its stack
+		state := <-statePool
+		if len(state.stack) > 0 {
+			t.Errorf("template %q left %d elements on stack: %s", v.tmpl, len(state.stack), state.stack)
+		}
 	}
 }
 

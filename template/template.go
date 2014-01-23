@@ -208,45 +208,15 @@ func (t *Template) Hook(hook *Hook) error {
 	if err := t.importTrees(hook.Template, ""); err != nil {
 		return err
 	}
-	var key string
-	switch hook.Position {
-	case assets.Top:
-		key = topBoilerplateName
-	case assets.Bottom:
-		key = bottomBoilerplateName
-	case assets.None:
-		// must be manually referenced from
-		// another template
-	default:
-		return fmt.Errorf("invalid hook position %d", hook.Position)
-	}
-	if key != "" {
-		node := &parse.TemplateNode{
-			NodeType: parse.NodeTemplate,
-			Name:     hook.Template.qname(hook.Template.root),
-			Pipe: &parse.PipeNode{
-				NodeType: parse.NodePipe,
-				Cmds: []*parse.CommandNode{
-					&parse.CommandNode{
-						NodeType: parse.NodeCommand,
-						Args:     []parse.Node{&parse.DotNode{}},
-					},
-				},
-			},
-		}
-		tree := t.trees[key].Copy()
-		tree.Root.Nodes = append(tree.Root.Nodes, node)
-		t.trees[key] = tree
-		// we must regenerate the html/template structure, so
-		// it sees this new template call and escapes it.
-		t.rebuild()
-	}
 	t.hooks = append(t.hooks, hook)
 	return nil
 }
 
 func (t *Template) Compile() error {
 	if err := t.noCompiled("can't compile"); err != nil {
+		return err
+	}
+	if err := t.prepareHooks(); err != nil {
 		return err
 	}
 	for _, v := range t.referencedTemplates() {
@@ -287,11 +257,11 @@ func (t *Template) qname(name string) string {
 
 func (t *Template) importTrees(tmpl *Template, name string) error {
 	for k, v := range tmpl.trees {
-		if _, ok := t.trees[k]; ok {
-			if k != topBoilerplateName && k != bottomBoilerplateName {
-				return fmt.Errorf("duplicate template %q", k)
-			}
+		if k == topBoilerplateName || k == bottomBoilerplateName {
 			continue
+		}
+		if _, ok := t.trees[k]; ok {
+			return fmt.Errorf("duplicate template %q", k)
 		}
 		var treeName string
 		if k == tmpl.root && name != "" {
@@ -435,6 +405,45 @@ func (t *Template) prepareAssets() error {
 	}
 	t.topAssets = top.Bytes()
 	t.bottomAssets = bottom.Bytes()
+	return nil
+}
+
+func (t *Template) prepareHooks() error {
+	for _, v := range t.hooks {
+		var key string
+		switch v.Position {
+		case assets.Top:
+			key = topBoilerplateName
+		case assets.Bottom:
+			key = bottomBoilerplateName
+		case assets.None:
+			// must be manually referenced from
+			// another template
+		default:
+			return fmt.Errorf("invalid hook position %d", v.Position)
+		}
+		if key != "" {
+			node := &parse.TemplateNode{
+				NodeType: parse.NodeTemplate,
+				Name:     v.Template.qname(v.Template.root),
+				Pipe: &parse.PipeNode{
+					NodeType: parse.NodePipe,
+					Cmds: []*parse.CommandNode{
+						&parse.CommandNode{
+							NodeType: parse.NodeCommand,
+							Args:     []parse.Node{&parse.DotNode{}},
+						},
+					},
+				},
+			}
+			tree := t.trees[key].Copy()
+			tree.Root.Nodes = append(tree.Root.Nodes, node)
+			t.trees[key] = tree
+			// we must regenerate the html/template structure, so
+			// it sees this new template call and escapes it.
+			t.rebuild()
+		}
+	}
 	return nil
 }
 

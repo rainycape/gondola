@@ -17,6 +17,42 @@ func RedirectHandler(destination string, permanent bool) Handler {
 	}
 }
 
+// StaticSitePattern is the pattern used in conjuction with StaticSiteHandler.
+const StaticSitePattern = "^/(.*)$"
+
+// StaticSiteHandler returns a handler which serves the template named
+// by the request path (e.g. /foo will serve foo.html). The disabled
+// argument can be used to always return a 404 for some paths, like
+// templates which are only used as the base or included in another
+// ones. The data argument is passed as is to template.Template.Execute.
+// Usually, this handler should be used with StaticSitePattern.
+func StaticSiteHandler(disabled []string, data interface{}) Handler {
+	skip := make(map[string]struct{}, len(disabled))
+	for _, v := range disabled {
+		skip[v] = struct{}{}
+	}
+	exts := []string{".html", ".txt", ".md"}
+	return func(ctx *Context) {
+		name := ctx.IndexValue(0)
+		if name == "" {
+			name = "index"
+		}
+		if _, s := skip[name]; !s {
+			app := ctx.App()
+			for _, v := range exts {
+				tmpl, err := app.LoadTemplate(name + v)
+				if err == nil {
+					if err := tmpl.Execute(ctx, data); err != nil {
+						panic(err)
+					}
+					return
+				}
+			}
+		}
+		ctx.NotFound("page not found")
+	}
+}
+
 // SignOutHandler can be added directly to an App. It signs out the
 // current user (if any) and redirects back to the previous
 // page unless the request was made via XHR.

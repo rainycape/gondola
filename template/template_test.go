@@ -113,8 +113,8 @@ func parseTestTemplate(tb testing.TB, name string) *Template {
 	return tmpl
 }
 
-func TestFunctions(t *testing.T) {
-	for _, v := range ftests {
+func testCompiler(t *testing.T, tests []*templateTest) {
+	for _, v := range tests {
 		tmpl := parseText(t, v.tmpl)
 		if tmpl == nil {
 			continue
@@ -130,23 +130,12 @@ func TestFunctions(t *testing.T) {
 	}
 }
 
+func TestFunctions(t *testing.T) {
+	testCompiler(t, ftests)
+}
+
 func TestCompiler(t *testing.T) {
-	var tests []*templateTest
-	tests = append(tests, compilerTests...)
-	for _, v := range tests {
-		tmpl := parseText(t, v.tmpl)
-		if tmpl == nil {
-			continue
-		}
-		var buf bytes.Buffer
-		if err := tmpl.Execute(&buf, v.data); err != nil {
-			t.Errorf("error executing %q: %s", v.tmpl, err)
-			continue
-		}
-		if buf.String() != v.result {
-			t.Errorf("expecting %q executing %q, got %q", v.result, v.tmpl, buf.String())
-		}
-	}
+	testCompiler(t, compilerTests)
 }
 
 func TestCompilerErrors(t *testing.T) {

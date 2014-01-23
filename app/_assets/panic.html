@@ -5,7 +5,7 @@
 {{ define "title" }}Panic{{ end }}
 {{ define "body" }}
 <div class="header error">
-  <h1>Panic</h1>
+  <h1>Panic{{ with .Subtitle }} <small>{{ . }}</small>{{ end }}</h1>
   <h3>{{ .Error | to_html }}</h3>
 </div>
 {{ if .Location }}

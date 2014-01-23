@@ -944,12 +944,11 @@ func (app *App) logError(ctx *Context, err interface{}) {
 		}
 		buf.WriteByte(' ')
 		buf.WriteString(ctx.RemoteAddress())
-		buf.WriteString(": ")
 	} else {
-		buf.WriteString("Panic: ")
+		buf.WriteString("Panic")
 	}
-	buf.WriteString(fmt.Sprintf("%v", err))
-	buf.WriteByte('\n')
+	elapsed := ctx.Elapsed()
+	fmt.Fprintf(&buf, " (after %s): %v\n", elapsed, err)
 	stack := runtimeutil.FormatStack(stackSkip)
 	location, code := runtimeutil.FormatCaller(skip, 5, true, true)
 	if location != "" {
@@ -977,13 +976,13 @@ func (app *App) logError(ctx *Context, err interface{}) {
 	}
 	log.Error(buf.String())
 	if app.debug {
-		app.errorPage(ctx, skip, stackSkip, req, err)
+		app.errorPage(ctx, elapsed, skip, stackSkip, req, err)
 	} else {
 		app.handleHTTPError(ctx, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
 
-func (app *App) errorPage(ctx *Context, skip int, stackSkip int, req string, err interface{}) {
+func (app *App) errorPage(ctx *Context, elapsed time.Duration, skip int, stackSkip int, req string, err interface{}) {
 	t := newInternalTemplate(app)
 	if terr := t.Parse("panic.html"); terr != nil {
 		panic(terr)
@@ -996,6 +995,7 @@ func (app *App) errorPage(ctx *Context, skip int, stackSkip int, req string, err
 	ctx.statusCode = -http.StatusInternalServerError
 	data := map[string]interface{}{
 		"Error":    fmt.Sprintf("%v", err),
+		"Subtitle": fmt.Sprintf("(after %s)", elapsed),
 		"Location": location,
 		"Code":     code,
 		"Stack":    stack,

@@ -209,6 +209,11 @@ func (t *Template) Hook(hook *Hook) error {
 	if err := t.importTrees(hook.Template, ""); err != nil {
 		return err
 	}
+	for k, v := range hook.Template.funcMap {
+		if t.funcMap[k] == nil {
+			t.funcMap[k] = v
+		}
+	}
 	t.hooks = append(t.hooks, hook)
 	return nil
 }

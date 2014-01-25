@@ -94,6 +94,18 @@ func End() {
 	contexts.Unlock()
 }
 
+func Profile(f func(), name string) {
+	ev := Start(name)
+	f()
+	ev.End()
+}
+
+func Profilef(f func(), name string, format string, args ...interface{}) {
+	ev := Startf(name, format, args...)
+	f()
+	ev.End()
+}
+
 func Timings() []*Timing {
 	var timings map[string]*Timing
 	contexts.RLock()

@@ -8,6 +8,7 @@ import (
 	"gnd.la/encoding/codec"
 	"gnd.la/log"
 	"net/http"
+	"os"
 )
 
 var (
@@ -15,6 +16,7 @@ var (
 	layerCodec    = codec.Get("gob")
 	errNoCache    = errors.New("nil cache passed to cache layer")
 	errNoMediator = errors.New("nil mediator passed to cache layer")
+	noCacheLayer  = os.Getenv("GONDOLA_NO_CACHE_LAYER") != ""
 )
 
 type cachedResponse struct {
@@ -54,8 +56,16 @@ func (la *Layer) Mediator() Mediator {
 
 // Wrap takes a app.Handler and returns a new app.Handler
 // wrapped by the Layer. Responses will be cached according
-// to what the Layer's Mediator indicates.
+// to what the Layer's Mediator indicates. Note that when
+// the environment variable GONDOLA_NO_CACHE_LAYER is non
+// empty, Wrap returns the same app.Handler that was
+// received (id est, it does nothing). This is done in
+// order to simplify profiling Gondola apps (gondola dev
+// -profile sets this environment variable).
 func (la *Layer) Wrap(handler app.Handler) app.Handler {
+	if noCacheLayer {
+		return handler
+	}
 	return func(ctx *app.Context) {
 		if la.mediator.Skip(ctx) {
 			handler(ctx)

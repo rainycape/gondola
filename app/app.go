@@ -847,6 +847,7 @@ func (app *App) readXHeaders(r *http.Request) {
 }
 
 func (app *App) handleHTTPError(ctx *Context, error string, code int) {
+	ctx.statusCode = -code
 	defer app.recover(ctx)
 	if app.errorHandler == nil || !app.errorHandler(ctx, error, code) {
 		http.Error(ctx, error, code)

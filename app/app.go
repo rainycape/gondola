@@ -11,7 +11,6 @@ import (
 	"gnd.la/app/debug"
 	"gnd.la/blobstore"
 	"gnd.la/cache"
-	"gnd.la/defaults"
 	"gnd.la/loaders"
 	"gnd.la/log"
 	"gnd.la/orm"
@@ -105,17 +104,55 @@ var (
 )
 
 type App struct {
-	ContextProcessors    []ContextProcessor
-	ContextFinalizers    []ContextFinalizer
-	RecoverHandlers      []RecoverHandler
+	ContextProcessors []ContextProcessor
+	ContextFinalizers []ContextFinalizer
+	RecoverHandlers   []RecoverHandler
+
+	// Logger to use when logging requests. By default, it's
+	// gnd.la/log.Std, but you can set it to nil to avoid
+	// logging at all and gain a bit more of performance.
+	Logger *log.Logger
+
+	// The following fields are not recommended to
+	// change from code. Instead, users should specify
+	// their values in the app configuration (see
+	// gnd.la/config for more information). Otherwise,
+	// Gondola's development server will not work.
+	// Note that these parameters must be set in the
+	// parent app BEFORE including any app and must not
+	// be changed after the app is running.
+
+	// Port indicates the port this app will listen on.
+	Port int
+	// Debug indicates if debug mode is enabled. If true,
+	// runtime errors generate detailed an error page with
+	// stack traces and request information.
+	Debug bool
+	// TemplateDebug indicates if this app should handle
+	// templates in debug mode. When it's enabled, assets
+	// are not bundled and templates are recompiled each
+	// time they are loaded.
+	TemplateDebug bool
+	// Secret indicates the secret associated with this app,
+	// which is used for signed cookies. It should be a
+	// random string with at least 32 characters.
+	// You can use gondola random-string to generate one.
+	Secret string
+	// EncriptionKey is the encryption key for this
+	// app, which is used by encrypted cookies. It should
+	// be a random string of 16 or 24 or 32 characters.
+	EncryptionKey string
+
+	// DefaultLanguage indicates the language used for
+	// translating strings when there's no LanguageHandler
+	// or when it returns an empty string.
+	DefaultLanguage string
+
 	handlers             []*handlerInfo
 	trustXHeaders        bool
 	appendSlash          bool
 	errorHandler         ErrorHandler
 	languageHandler      LanguageHandler
-	secret               string
-	encryptionKey        string
-	defaultLanguage      string
 	name                 string
 	defaultCookieOptions *cookies.Options
 	userFunc             UserFunc
@@ -126,10 +163,8 @@ type App struct {
 	templateProcessors   []TemplateProcessor
 	namespace            *namespace
 	hooks                []*template.Hook
-	debug                bool
 	started              time.Time
 	address              string
-	port                 int
 	mu                   sync.Mutex
 	c                    *Cache
 	o                    *Orm
@@ -140,10 +175,6 @@ type App struct {
 	parent    *App
 	childInfo *includedApp
 
-	// Logger to use when logging requests. By default, it's
-	// gnd.la/log.Std, but you can set it to nil to avoid
-	// logging at all and gain a bit more of performance.
-	Logger      *log.Logger
 	contextPool chan *Context
 }
 
@@ -245,10 +276,12 @@ func (app *App) include(prefix string, child *App, base string, main string) err
 			return fmt.Errorf("duplicate app name %q", v.app.name)
 		}
 	}
-	child.SetDebug(app.debug)
 	child.parent = app
-	child.secret = app.secret
-	child.encryptionKey = app.encryptionKey
+	child.Debug = app.Debug
+	child.TemplateDebug = app.TemplateDebug
+	child.Secret = app.Secret
+	child.EncryptionKey = app.EncryptionKey
+	child.DefaultLanguage = app.DefaultLanguage
 	child.languageHandler = app.languageHandler
 	child.userFunc = app.userFunc
 	child.Logger = app.Logger
@@ -316,41 +349,6 @@ func (app *App) SetAppendSlash(b bool) {
 	app.appendSlash = b
 }
 
-// Secret returns the secret for this app. See
-// SetSecret() for further details.
-func (app *App) Secret() string {
-	return app.secret
-}
-
-// SetSecret sets the secret associated with this app,
-// which is used for signed cookies. It should be a
-// random string with at least 32 characters. When the
-// app is initialized, this value is set to the value
-// returned by defaults.Secret() (which can be controlled
-// from the config).
-func (app *App) SetSecret(secret string) {
-	app.secret = secret
-	for _, v := range app.included {
-		v.app.secret = secret
-	}
-}
-
-// EncryptionKey returns the encryption key for this
-// app. See SetEncryptionKey() for details.
-func (app *App) EncryptionKey() string {
-	return app.encryptionKey
-}
-
-// SetEncriptionKey sets the encryption key for this
-// app, which is used by encrypted cookies. It should
-// be a random string of 16, 24 or 32 characters.
-func (app *App) SetEncryptionKey(key string) {
-	app.encryptionKey = key
-	for _, v := range app.included {
-		v.app.encryptionKey = key
-	}
-}
-
 // DefaultCookieOptions returns the default options
 // used for cookies. This is initialized to the value
 // returned by cookies.Defaults(). See gnd.la/app/cookies
@@ -401,7 +399,7 @@ func (app *App) LanguageHandler() LanguageHandler {
 // The LanguageHandler is responsible for determining the language
 // used in translations for a request. If the empty string is returned
 // the strings won't be translated. Finally, when a app does not have
-// a language handler it uses the language specified by gnd.la/defaults.
+// a language handler it uses the language specified by DefaultLanguage().
 func (app *App) SetLanguageHandler(handler LanguageHandler) {
 	app.languageHandler = handler
 	for _, v := range app.included {
@@ -512,7 +510,7 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 			return nil, err
 		}
 		tmpl = t
-		if !app.debug {
+		if !app.TemplateDebug {
 			app.templatesMutex.Lock()
 			app.templatesCache[name] = tmpl
 			app.templatesMutex.Unlock()
@@ -550,7 +548,7 @@ func (app *App) loadTemplate(name string) (*tmpl, error) {
 }
 
 func (app *App) rewriteAssets(t *template.Template, included *includedApp) error {
-	if app.templateDebug() {
+	if app.TemplateDebug {
 		return nil
 	}
 	for _, group := range t.Assets() {
@@ -598,23 +596,6 @@ func (app *App) chainTemplate(t *tmpl, included *includedApp) (*tmpl, error) {
 	return wrapper, nil
 }
 
-// Debug returns if the app is in debug mode
-// (i.e. templates are not cached).
-func (app *App) Debug() bool {
-	return app.debug
-}
-
-// SetDebug sets the debug state for the app.
-// When true, templates executed via Context.Execute or
-// Context.MustExecute() are recompiled every time
-// they are executed. The default is the value
-// returned by defaults.Debug() when the app is
-// constructed. See the documentation on gnd.la/defaults
-// for further information.
-func (app *App) SetDebug(debug bool) {
-	app.debug = debug
-}
-
 // Address returns the address this app is configured to listen
 // on. By default, it's empty, meaning the app will listen on
 // all interfaces.
@@ -625,22 +606,6 @@ func (app *App) Address() string {
 // SetAddress changes the address this app will listen on.
 func (app *App) SetAddress(address string) {
 	app.address = address
-}
-
-// Port returns the port this app is configured to listen on.
-// By default, it's initialized with the value returned by Port()
-// in the defaults package (which can be altered using Gondola's
-// config).
-func (app *App) Port() int {
-	return app.port
-}
-
-// SetPort sets the port on which this app will listen on. It's not
-// recommended to call this function manually. Instead, use gnd.la/config
-// to change the default port before creating the app. Otherwise, Gondola's
-// development server won't work correctly.
-func (app *App) SetPort(port int) {
-	app.port = port
 }
 
 // HandleAssets adds several handlers to the app which handle
@@ -752,12 +717,12 @@ func (app *App) ListenAndServe() error {
 	app.started = time.Now().UTC()
 	if app.Logger != nil && os.Getenv("GONDOLA_DEV_SERVER") == "" {
 		if app.address != "" {
-			app.Logger.Infof("Listening on %s, port %d", app.address, app.port)
+			app.Logger.Infof("Listening on %s, port %d", app.address, app.Port)
 		} else {
-			app.Logger.Infof("Listening on port %d", app.port)
+			app.Logger.Infof("Listening on port %d", app.Port)
 		}
 	}
-	return http.ListenAndServe(app.address+":"+strconv.Itoa(app.port), app)
+	return http.ListenAndServe(app.address+":"+strconv.Itoa(app.Port), app)
 }
 
 // MustListenAndServe works like ListenAndServe, but panics if
@@ -765,15 +730,14 @@ func (app *App) ListenAndServe() error {
 func (app *App) MustListenAndServe() {
 	err := app.ListenAndServe()
 	if err != nil {
-		log.Panicf("error listening on port %d: %s", app.port, err)
+		log.Panicf("error listening on port %d: %s", app.Port, err)
 	}
 }
 
 // Cache returns this app's cache connection, using
-// cache.NewDefault(). Use gnd.la/config or gnd.la/defaults
-// to change the default cache. The cache.Cache is initialized
-// only once and shared among all requests and tasks served
-// from this app.
+// DefaultCache(). Use gnd.la/config to change the default
+// cache. The cache.Cache is initialized only once and shared
+// among all requests and tasks served from this app.
 func (app *App) Cache() (*Cache, error) {
 	if app.c == nil {
 		app.mu.Lock()
@@ -786,7 +750,7 @@ func (app *App) Cache() (*Cache, error) {
 					return nil, err
 				}
 			} else {
-				c, err := cache.New(defaults.Cache())
+				c, err := cache.New(defaultCache)
 				if err != nil {
 					return nil, err
 				}
@@ -798,9 +762,10 @@ func (app *App) Cache() (*Cache, error) {
 }
 
 // App returns this app's ORM connection, using the
-// default database parameters. Use gnd.la/config or gnd.la/defaults
-// to change the default ORM. The orm.Orm is only initialized once and
-// shared among all requests and tasks served from this app.
+// default database parameters, as returned by DefaultDatabase().
+// Use gnd.la/config to change the default ORM. The orm.Orm
+// is initialized only once and shared among all requests and
+// tasks served from this app.
 func (app *App) Orm() (*Orm, error) {
 	if app.o == nil {
 		app.mu.Lock()
@@ -819,7 +784,7 @@ func (app *App) Orm() (*Orm, error) {
 				}
 				app.o = &Orm{Orm: o}
 			}
-			if app.debug {
+			if log.Std.Level() == log.LDebug {
 				app.o.SetLogger(log.Std)
 			}
 		}
@@ -831,17 +796,16 @@ func (app *App) openOrm() (*orm.Orm, error) {
 	if app.parent != nil {
 		return app.parent.openOrm()
 	}
-	url := defaults.Database()
-	if url == nil {
+	if defaultDatabase == nil {
 		return nil, fmt.Errorf("default database is not set")
 	}
-	return orm.New(url)
+	return orm.New(defaultDatabase)
 }
 
 // Blobstore returns a blobstore using the default blobstore
-// parameters. Use gnd.la/config or gnd.la/defaults to change
-// the default blobstore. See gnd.la/blobstore for further
-// information on using the blobstore.
+// parameters, as returned by DefaultBlobstore(). Use
+// gnd.la/config to change the default blobstore. See
+// gnd.la/blobstore for further information on using the blobstore.
 func (app *App) Blobstore() (*blobstore.Store, error) {
 	if app.store == nil {
 		app.mu.Lock()
@@ -851,7 +815,10 @@ func (app *App) Blobstore() (*blobstore.Store, error) {
 			if app.parent != nil {
 				app.store, err = app.parent.Blobstore()
 			} else {
-				app.store, err = blobstore.New(defaults.Blobstore())
+				if defaultBlobstore == nil {
+					return nil, fmt.Errorf("default blobstore is not set")
+				}
+				app.store, err = blobstore.New(defaultBlobstore)
 			}
 			if err != nil {
 				return nil, err
@@ -966,7 +933,7 @@ func (app *App) logError(ctx *Context, err interface{}) {
 		}
 	}
 	log.Error(buf.String())
-	if app.debug {
+	if app.Debug {
 		app.errorPage(ctx, elapsed, skip, stackSkip, req, err)
 	} else {
 		app.handleHTTPError(ctx, "Internal Server Error", http.StatusInternalServerError)
@@ -1141,7 +1108,7 @@ func (app *App) closeContext(ctx *Context) {
 
 func (app *App) importAssets(included *includedApp) error {
 	am := included.app.assetsManager
-	if app.templateDebug() {
+	if app.TemplateDebug {
 		am.SetPrefix(included.prefix + am.Prefix())
 	} else {
 		m := app.assetsManager
@@ -1182,10 +1149,6 @@ func (app *App) importAssets(included *includedApp) error {
 	return nil
 }
 
-func (a *App) templateDebug() bool {
-	return a.debug
-}
-
 // New returns a new App initialized with the current default values.
 // See gnd.la/defaults for further information. Keep in mind that,
 // for performance reasons, the values from gnd.la/defaults are
@@ -1193,19 +1156,20 @@ func (a *App) templateDebug() bool {
 // gnd.la/defaults after app creation won't have any effect on it.
 func New() *App {
 	m := &App{
-		debug:           defaults.Debug(),
-		port:            defaults.Port(),
-		secret:          defaults.Secret(),
-		encryptionKey:   defaults.EncryptionKey(),
-		defaultLanguage: defaults.Language(),
+		Logger:          log.Std,
+		Port:            defaultPort,
+		Debug:           defaultDebug,
+		TemplateDebug:   defaultTemplateDebug,
+		Secret:          defaultSecret,
+		EncryptionKey:   defaultEncryptionKey,
+		DefaultLanguage: defaultLanguage,
 		appendSlash:     true,
 		templatesCache:  make(map[string]Template),
-		Logger:          log.Std,
 		contextPool:     make(chan *Context, poolSize),
 	}
 	// Used to automatically reload the page on panics when the server
 	// is restarted.
-	if m.debug {
+	if m.Debug {
 		m.Handle("^/debug/pprof/cmdline", wrap(pprof.Cmdline))
 		m.Handle("^/debug/pprof/profile", wrap(pprof.Profile))
 		m.Handle("^/debug/pprof", wrap(pprof.Index))

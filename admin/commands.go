@@ -34,7 +34,7 @@ func catFile(ctx *app.Context) {
 }
 
 func makeAppAssets(a *app.App) {
-	a.SetDebug(false)
+	a.TemplateDebug = false
 	loader := a.TemplatesLoader()
 	if names, err := loader.List(); err == nil {
 		for _, name := range names {

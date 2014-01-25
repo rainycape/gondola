@@ -44,7 +44,7 @@ func newTemplate(app *App, loader loaders.Loader, manager *assets.Manager) *tmpl
 	t := &tmpl{}
 	t.app = app
 	t.tmpl = template.New(loader, manager)
-	t.tmpl.Debug = app.templateDebug()
+	t.tmpl.Debug = app.TemplateDebug
 	t.tmpl.Funcs(template.FuncMap{
 		"reverse": t.reverse,
 		"t":       nop,

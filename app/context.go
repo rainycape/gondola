@@ -338,8 +338,8 @@ func (c *Context) URL() *url.URL {
 // on gnd.la/cookies for more information.
 func (c *Context) Cookies() *cookies.Cookies {
 	if c.cookies == nil {
-		c.cookies = cookies.New(c.R, c, c.app.Secret(),
-			c.app.EncryptionKey(), c.app.DefaultCookieOptions())
+		c.cookies = cookies.New(c.R, c, c.app.Secret,
+			c.app.EncryptionKey, c.app.DefaultCookieOptions())
 	}
 	return c.cookies
 }

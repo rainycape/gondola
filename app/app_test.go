@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"gnd.la/defaults"
 	"net/http"
 	"testing"
 )
@@ -88,7 +87,7 @@ func testApp(nolog bool) (*App, string) {
 	app.Handle("^/foobar5/$", f)
 	app.Handle("^/article/(\\d)$", f)
 	app.Handle("^/$", f)
-	url := fmt.Sprintf("http://localhost:%d/", defaults.Port())
+	url := fmt.Sprintf("http://localhost:%d/", DefaultPort())
 	return app, url
 }
 

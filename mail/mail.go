@@ -17,6 +17,7 @@ import (
 var (
 	defaultServer = "localhost:25"
 	defaultFrom   = ""
+	admin         = ""
 )
 
 type Headers map[string]string
@@ -148,7 +149,8 @@ func SetDefaultServer(s string) {
 }
 
 // DefaultFrom returns the default From address used
-// in outgoing emails.
+// in outgoing emails. Use gnd.la/config or SetDefaultFrom
+// to change it.
 func DefaultFrom() string {
 	return defaultFrom
 }
@@ -157,6 +159,18 @@ func DefaultFrom() string {
 // in outgoing emails.
 func SetDefaultFrom(f string) {
 	defaultFrom = f
+}
+
+// AdminEmail returns the administrator email
+func AdminEmail() string {
+	return admin
+}
+
+// SetAdminEmail sets the administrator's email. When
+// email logging is enabled, errors will be sent to this
+// address. You can also change this value using gnd.la/config.
+func SetAdminEmail(email string) {
+	admin = email
 }
 
 func parseServer(server string) (bool, string, string, string) {

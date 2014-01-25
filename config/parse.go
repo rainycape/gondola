@@ -384,9 +384,10 @@ func mapToString(v reflect.Value) string {
 }
 
 // Parse parses the application configuration into the given config struct. If
-// the configuration is parsed successfully, the signal signal.CONFIGURED is
-// emitted with the given config as its object (which sets the parameters
-// in gnd.la/defaults). Check the documentation on the gnd.la/signal package
+// the configuration is parsed successfully, the signal SET is
+// emitted with the given config as its object (which sets the default parameters
+// in gnd.la/app and gnd.la/mail, among other packages.
+// Check the documentation on the gnd.la/signal package
 // to learn more about Gondola's signals.
 //
 // Supported types include bool, string, u?int(|8|6|32|62) and float(32|64). If
@@ -445,7 +446,7 @@ func Parse(config interface{}) error {
 	if err := copyFlagValues(fields, flagValues); err != nil {
 		return err
 	}
-	signal.Emit(signal.CONFIGURED, config)
+	Set(config)
 	return nil
 }
 
@@ -453,6 +454,20 @@ func Parse(config interface{}) error {
 func MustParse(config interface{}) {
 	err := Parse(config)
 	if err != nil {
-		log.Panicf("error parsing config: %s", err)
+		panic(fmt.Errorf("error parsing config: %s", err))
 	}
+}
+
+// Set sets the given value as the main config. It will emit the
+// SET signal, so listeners will be aware of the
+// configure. You only need to call this function if, for some
+// reason, you're not using Parse().
+func Set(config interface{}) {
+	debug := BoolValue(config, "LogDebug", false)
+	if debug {
+		log.SetLevel(log.LDebug)
+	}
+	debug = debug && BoolValue(config, "AppDebug", false)
+	setMailConfig(config, debug)
+	signal.Emit(SET, config)
 }

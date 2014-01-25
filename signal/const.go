@@ -1,9 +1,6 @@
 package signal
 
 const (
-	// CONFIGURED is emitted after the configuration has been parsed.
-	// The object is the configuration itself.
-	CONFIGURED = "CONFIGURED"
 	// APP_WILL_LISTEN is emitted just before a *gnd.la/app.App will
 	// start listening. The object is the App.
 	APP_WILL_LISTEN = "APP_WILL_LISTEN"

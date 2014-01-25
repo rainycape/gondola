@@ -81,13 +81,9 @@ func (b *BuildError) Code() template.HTML {
 	return s
 }
 
-func NewProject(dir string, config string, tags string, verbose bool, race bool) *Project {
+func NewProject(dir string, config string) *Project {
 	p := &Project{
 		dir:     dir,
-		config:  config,
-		tags:    tags,
-		race:    race,
-		verbose: verbose,
 		appPort: randomFreePort(),
 	}
 	a := app.New()
@@ -95,7 +91,7 @@ func NewProject(dir string, config string, tags string, verbose bool, race bool)
 	a.SetTemplatesLoader(devAssets)
 	a.Handle("/_gondola_dev_server_status", p.StatusHandler)
 	a.Handle("/", p.Handler)
-	a.SetPort(p.appPort)
+	a.Port = p.appPort
 	go func() {
 		a.MustListenAndServe()
 	}()
@@ -109,6 +105,8 @@ type Project struct {
 	configFilename string
 	tags           string
 	race           bool
+	debug          bool
+	noCache        bool
 	verbose        bool
 	port           int
 	appPort        int
@@ -288,7 +286,14 @@ func (p *Project) ProjectCmd() *exec.Cmd {
 	if runtime.GOOS != "windows" {
 		name = "./" + name
 	}
-	cmd := exec.Command(name, "-debug", "-config", p.Conf(), fmt.Sprintf("-port=%d", p.port))
+	args := []string{"-config", p.Conf(), fmt.Sprintf("-port=%d", p.port)}
+	if p.debug {
+		args = append(args, "-app-debug", "-template-debug", "-log-debug")
+	}
+	if p.noCache {
+		args = append(args, "-cache=dummy://")
+	}
+	cmd := exec.Command(name, args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -525,33 +530,31 @@ func (p *Project) ProxyConnection(conn net.Conn, port int) {
 func Dev(ctx *app.Context) {
 	var dir string
 	var configName string
-	var tags string
-	var verbose bool
-	var race bool
 	ctx.ParseParamValue("dir", &dir)
 	ctx.ParseParamValue("config", &configName)
-	ctx.ParseParamValue("tags", &tags)
-	ctx.ParseParamValue("v", &verbose)
-	ctx.ParseParamValue("race", &race)
 	path, err := filepath.Abs(dir)
 	if err != nil {
 		log.Panic(err)
 	}
-	p := NewProject(path, configName, tags, verbose, race)
+	p := NewProject(path, configName)
 	if c := p.Conf(); c == "" {
 		log.Panicf("can't find configuration for %s. Please, create a config file in the directory %s (its extension must be .conf)", p.Name(), p.ConfDir())
 	} else {
 		log.Debugf("Using config file %s", c)
 	}
-	var port int
-	ctx.ParseParamValue("port", &port)
-	if port == 0 {
+	ctx.ParseParamValue("port", &p.port)
+	ctx.ParseParamValue("tags", &p.tags)
+	ctx.ParseParamValue("race", &p.race)
+	ctx.ParseParamValue("debug", &p.debug)
+	ctx.ParseParamValue("no-cache", &p.noCache)
+	ctx.ParseParamValue("v", &p.verbose)
+	if p.port == 0 {
 		var conf config.Config
 		if err := config.ParseFile(p.Conf(), &conf); err == nil {
-			port = conf.Port
+			p.port = conf.Port
 		}
-		if port == 0 {
-			port = 8888
+		if p.port == 0 {
+			p.port = 8888
 		}
 	}
 	go p.Compile()
@@ -559,8 +562,8 @@ func Dev(ctx *app.Context) {
 	if runtime.GOOS == "windows" {
 		eof = "Z"
 	}
-	log.Debugf("Starting Gondola development server on port %d (press Control+%s to exit)", port, eof)
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	log.Debugf("Starting Gondola development server on port %d (press Control+%s to exit)", p.port, eof)
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", p.port))
 	if err != nil {
 		log.Panic(err)
 	}
@@ -581,6 +584,8 @@ func init() {
 			admin.StringFlag("dir", ".", "Directory of the project"),
 			admin.StringFlag("config", "", "Configuration name to use. If none is provided, development.conf is used."),
 			admin.StringFlag("tags", "", "Go build tags to pass to the compiler"),
+			admin.BoolFlag("debug", true, "Enable AppDebug, TemplateDebug and LogDebug - see gnd.la/config for details"),
+			admin.BoolFlag("no-cache", false, "Disables the cache when running the project"),
 			admin.IntFlag("port", 0, "Port to listen on. If zero, the project configuration is parsed to look for the port. If none is found, 8888 is used."),
 			admin.BoolFlag("race", false, "Enable -race when building. If the platform does not support -race, this option is ignored."),
 			admin.BoolFlag("v", false, "Enable verbose output"),

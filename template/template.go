@@ -818,7 +818,7 @@ var bufPool = make(chan *bytes.Buffer, runtime.GOMAXPROCS(0))
 
 func (t *Template) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars VarMap) error {
 	if profile.On {
-		defer profile.Startf("template-exec", "%s => %s", t.qname(t.name), name).End()
+		profile.Startf("template-exec", "%s => %s", t.qname(t.name), name).AutoEnd()
 	}
 	var buf *bytes.Buffer
 	select {

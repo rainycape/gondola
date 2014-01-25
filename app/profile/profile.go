@@ -15,6 +15,7 @@ type Ev struct {
 	name    string
 	started time.Time
 	ended   time.Time
+	autoend bool
 	notes   []string
 }
 
@@ -22,8 +23,12 @@ func (e *Ev) Note(format string, args ...interface{}) {
 	e.notes = append(e.notes, fmt.Sprintf(format, args...))
 }
 
-func (c *Ev) End() {
-	c.ended = time.Now()
+func (e *Ev) End() {
+	e.ended = time.Now()
+}
+
+func (e *Ev) AutoEnd() {
+	e.autoend = true
 }
 
 type context struct {
@@ -115,11 +120,7 @@ func Timings() []*Timing {
 		ctx.Lock()
 		for _, v := range ctx.events {
 			if v.ended.IsZero() {
-				if v.name == "template-exec" {
-					// This is a bit of a hack, but lets us write this
-					// information in the template itself. Keep in mind
-					// that the profile hook is always the last one, so
-					// the information will be mostly accurate.
+				if v.autoend {
 					v.End()
 				} else {
 					if len(v.notes) > 0 {

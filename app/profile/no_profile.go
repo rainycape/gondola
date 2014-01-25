@@ -10,6 +10,7 @@ type Ev struct{}
 
 func (e *Ev) Note(format string, args ...interface{}) {}
 func (e *Ev) End()                                    {}
+func (e *Ev) AutoEnd()                                {}
 
 func Start(name string) *Ev                                              { return ev }
 func Startf(name string, format string, args ...interface{}) *Ev         { return ev }

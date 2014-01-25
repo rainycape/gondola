@@ -10,9 +10,9 @@ const (
 )
 
 type Event struct {
-	Started time.Time
-	Ended   time.Time
-	Notes   []string
+	Started time.Time `json:"s"`
+	Ended   time.Time `json:"e"`
+	Notes   []string  `json:"n"`
 }
 
 func (e *Event) Elapsed() time.Duration {
@@ -20,8 +20,8 @@ func (e *Event) Elapsed() time.Duration {
 }
 
 type Timing struct {
-	Name   string
-	Events []*Event
+	Name   string   `json:"n"`
+	Events []*Event `json:"e"`
 }
 
 func (t *Timing) Count() int {

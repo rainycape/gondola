@@ -4,6 +4,11 @@ import (
 	"time"
 )
 
+const (
+	HeaderName = "X-Gondola-Profile"
+	Salt       = "gnd.la/app/profile.salt"
+)
+
 type Event struct {
 	Started time.Time
 	Ended   time.Time

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"gnd.la/app/debug"
+	"gnd.la/app/profile"
 	"gnd.la/config"
 	"gnd.la/log"
 	"gnd.la/orm/driver"
@@ -143,8 +143,8 @@ func (o *Orm) insert(m *model, obj interface{}) (Result, error) {
 			return nil, fmt.Errorf("can't set primary key field %q. Please, insert a %v rather than a %v", pkName, reflect.PtrTo(typ), typ)
 		}
 	}
-	if debug.On {
-		defer debug.Startf(orm, "insert").End()
+	if profile.On {
+		defer profile.Startf(orm, "insert").End()
 	}
 	res, err := o.conn.Insert(m, obj)
 	if err == nil && pkVal.IsValid() && pkVal.Int() == 0 {
@@ -183,8 +183,8 @@ func (o *Orm) MustUpdate(q query.Q, obj interface{}) Result {
 }
 
 func (o *Orm) update(m *model, q query.Q, obj interface{}) (Result, error) {
-	if debug.On {
-		defer debug.Startf(orm, "update").End()
+	if profile.On {
+		defer profile.Startf(orm, "update").End()
 	}
 	return o.conn.Update(m, q, obj)
 }
@@ -203,8 +203,8 @@ func (o *Orm) Upsert(q query.Q, obj interface{}) (Result, error) {
 		return nil, err
 	}
 	if o.driver.Upserts() {
-		if debug.On {
-			defer debug.Startf(orm, "upsert").End()
+		if profile.On {
+			defer profile.Startf(orm, "upsert").End()
 		}
 		return o.conn.Upsert(m, q, obj)
 	}
@@ -280,8 +280,8 @@ func (o *Orm) MustSaveInto(t *Table, obj interface{}) Result {
 }
 
 func (o *Orm) save(m *model, obj interface{}) (Result, error) {
-	if debug.On {
-		defer debug.Startf(orm, "save").End()
+	if profile.On {
+		defer profile.Startf(orm, "save").End()
 	}
 	var res Result
 	var err error
@@ -379,8 +379,8 @@ func (o *Orm) deleteByPk(m *model, obj interface{}) error {
 }
 
 func (o *Orm) delete(m *model, q query.Q) (Result, error) {
-	if debug.On {
-		defer debug.Startf(orm, "delete").End()
+	if profile.On {
+		defer profile.Startf(orm, "delete").End()
 	}
 	return o.conn.Delete(m, q)
 }

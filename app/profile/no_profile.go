@@ -1,6 +1,6 @@
-// +build !debug
+// +build !profile
 
-package debug
+package profile
 
 const On = false
 

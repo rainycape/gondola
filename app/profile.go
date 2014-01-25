@@ -2,18 +2,18 @@ package app
 
 import (
 	"encoding/json"
-	"gnd.la/app/debug"
+	"gnd.la/app/profile"
 	"time"
 )
 
-type debugInfo struct {
+type profileInfo struct {
 	Elapsed   time.Duration
-	Timings   []*debug.Timing
+	Timings   []*profile.Timing
 	Remaining time.Duration
 }
 
-func debugInfoHandler(ctx *Context) {
-	var info *debugInfo
+func profileInfoHandler(ctx *Context) {
+	var info *profileInfo
 	data := ctx.RequireFormValue("data")
 	if err := json.Unmarshal([]byte(data), &info); err != nil {
 		panic(err)
@@ -23,7 +23,7 @@ func debugInfoHandler(ctx *Context) {
 		info.Remaining -= v.Total()
 	}
 	t := newInternalTemplate(ctx.app)
-	if err := t.Parse("debug_info.html"); err != nil {
+	if err := t.Parse("profile_info.html"); err != nil {
 		panic(err)
 	}
 	if err := t.tmpl.Compile(); err != nil {

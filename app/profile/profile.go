@@ -1,6 +1,6 @@
-// +build debug
+// +build profile
 
-package debug
+package profile
 
 import (
 	"fmt"
@@ -106,7 +106,7 @@ func Timings() []*Timing {
 				if v.name == "template-exec" {
 					// This is a bit of a hack, but lets us write this
 					// information in the template itself. Keep in mind
-					// that the debug hook is always the last one, so
+					// that the profile hook is always the last one, so
 					// the information will be mostly accurate.
 					v.End()
 				} else {

@@ -2,7 +2,7 @@ package app
 
 import (
 	"fmt"
-	"gnd.la/app/debug"
+	"gnd.la/app/profile"
 	"gnd.la/loaders"
 	"gnd.la/template"
 	"gnd.la/template/assets"
@@ -15,7 +15,7 @@ import (
 var (
 	reservedVariables     = []string{"Ctx", "Request"}
 	internalAssetsManager = assets.NewManager(appAssets, assetsPrefix)
-	debugHook             *template.Hook
+	profileHook           *template.Hook
 )
 
 type Template interface {
@@ -168,19 +168,19 @@ func (t *tmpl) prepare() error {
 func nop() interface{} { return nil }
 
 func init() {
-	if debug.On {
+	if profile.On {
 		t := newInternalTemplate(&App{})
 		t.tmpl.Funcs(template.FuncMap{
-			"_gondola_debug_info": func(ctx *Context) *debugInfo {
-				return &debugInfo{Elapsed: ctx.Elapsed(), Timings: debug.Timings()}
+			"_gondola_profile_info": func(ctx *Context) *profileInfo {
+				return &profileInfo{Elapsed: ctx.Elapsed(), Timings: profile.Timings()}
 			},
 			"_gondola_internal_asset": func(arg string) string {
 				return internalAssetsManager.URL(arg)
 			},
 		})
-		if err := t.Parse("debug.html"); err != nil {
+		if err := t.Parse("profile.html"); err != nil {
 			panic(err)
 		}
-		debugHook = &template.Hook{Template: t.tmpl, Position: assets.Bottom}
+		profileHook = &template.Hook{Template: t.tmpl, Position: assets.Bottom}
 	}
 }

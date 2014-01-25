@@ -1,4 +1,4 @@
-#gondola-debug-button {
+#gondola-profile-button {
     display: block;
     font-weight: bold;
     border-radius: 2px;
@@ -13,11 +13,11 @@
     z-index: 100000;
 }
 
-#gondola_debug_info_form {
+#gondola_profile_info_form {
     display: none;
 }
 
-#gondola_debug_info_iframe_wrapper {
+#gondola_profile_info_iframe_wrapper {
     background: rgba(0, 0, 0, 0.5);
     z-index: 100001;
     position: fixed;
@@ -34,7 +34,7 @@
     transition: opacity 0.2s ease-in;
 }
 
-#gondola_debug_info_iframe {
+#gondola_profile_info_iframe {
     top: 0;
     left: 0;
     width: 800px;

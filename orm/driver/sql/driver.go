@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
-	"gnd.la/app/debug"
+	"gnd.la/app/profile"
 	"gnd.la/config"
 	"gnd.la/encoding/codec"
 	"gnd.la/encoding/pipe"
@@ -271,9 +271,9 @@ func (d *Driver) SetLogger(logger *log.Logger) {
 }
 
 func (d *Driver) debugq(sql string, args []interface{}) {
-	if debug.On {
-		if debug.HasEvent() {
-			debug.Note("SQL: %s, args %v", sql, args)
+	if profile.On {
+		if profile.HasEvent() {
+			profile.Note("SQL: %s, args %v", sql, args)
 		}
 	}
 	if d.logger != nil {

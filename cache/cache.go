@@ -3,7 +3,7 @@ package cache
 import (
 	"errors"
 	"fmt"
-	"gnd.la/app/debug"
+	"gnd.la/app/profile"
 	"gnd.la/cache/driver"
 	"gnd.la/config"
 	"gnd.la/encoding/codec"
@@ -115,8 +115,8 @@ func (c *Cache) GetMulti(out map[string]interface{}, typer Typer) error {
 	for k := range out {
 		keys = append(keys, k)
 	}
-	if debug.On {
-		defer debug.Startf(cache, "GET MULTI %s", keys).End()
+	if profile.On {
+		defer profile.Startf(cache, "GET MULTI %s", keys).End()
 	}
 	qkeys := keys
 	if c.prefixLen > 0 {
@@ -174,8 +174,8 @@ func (c *Cache) GetMulti(out map[string]interface{}, typer Typer) error {
 // the given key. See the documentation for Set for an
 // explanation of the timeout parameter
 func (c *Cache) SetBytes(key string, b []byte, timeout int) error {
-	if debug.On {
-		defer debug.Startf(cache, "SET %s", key).End()
+	if profile.On {
+		defer profile.Startf(cache, "SET %s", key).End()
 	}
 	if c.pipe != nil {
 		var err error
@@ -207,8 +207,8 @@ func (c *Cache) SetBytes(key string, b []byte, timeout int) error {
 
 // GetBytes returns the byte array assocciated with the given key
 func (c *Cache) GetBytes(key string) ([]byte, error) {
-	if debug.On {
-		defer debug.Startf(cache, "GET %s", key).End()
+	if profile.On {
+		defer profile.Startf(cache, "GET %s", key).End()
 	}
 	b, err := c.driver.Get(c.backendKey(key))
 	if err != nil {
@@ -242,8 +242,8 @@ func (c *Cache) GetBytes(key string) ([]byte, error) {
 // if the item was found but couldn't be deleted. Deleting a non-existant
 // item is always successful.
 func (c *Cache) Delete(key string) error {
-	if debug.On {
-		defer debug.Startf(cache, "DELETE %s", key).End()
+	if profile.On {
+		defer profile.Startf(cache, "DELETE %s", key).End()
 	}
 	err := c.driver.Delete(c.backendKey(key))
 	if err != nil {

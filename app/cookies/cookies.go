@@ -10,19 +10,11 @@
 package cookies
 
 import (
-	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/hmac"
-	"crypto/sha1"
-	"crypto/subtle"
-	"encoding/gob"
 	"errors"
-	"fmt"
 	"gnd.la/encoding/base64"
-	"gnd.la/util"
+	"gnd.la/encoding/codec"
+	"gnd.la/util/cryptoutil"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -32,27 +24,23 @@ const (
 )
 
 var (
-	// Tried to set a signed or encrypted cookie without specifying a secret.
-	ErrNoSecret = errors.New("no secret specified")
-	// Tried to set an encrypted cookie without specifying a key.
-	ErrNoEncryptionKey = errors.New("no encryption key specified")
-	// Could not decrypt encrypted cookie (it was probably tampered with).
-	ErrCouldNotDecrypt = errors.New("could not decrypt value")
-	// Cookie is correct, but the signature does not match (definitely tampered).
-	ErrTampered = errors.New("the cookie value has been altered by the client")
 	// Cookie is too big. See MaxSize.
 	ErrCookieTooBig = errors.New("cookie is too big (maximum size is 4096 bytes)")
-)
+	// Tried to use signed or encrypted cookies without a Signer.
+	ErrNoSigner = errors.New("no signer specified")
+	// Tried to use encrypted cookies without an Encrypter.
+	ErrNoEncrypter = errors.New("no encrypter specified")
 
-var (
 	// Maximum representable UNIX time with a signed 32 bit integer. This
 	// means that cookies won't be really permanent, but they will expire
 	// on January 19th 2038. I don't know about you, but I hope to be around
 	// by that time, so hopefully I'll find a solution for this issue in the
 	// next few years. See http://en.wikipedia.org/wiki/Year_2038_problem for
 	// more information.
-	Permanent     = time.Unix(2147483647, 0).UTC()
-	deleteExpires = time.Unix(0, 0).UTC()
+	Permanent      = time.Unix(2147483647, 0).UTC()
+	deleteExpires  = time.Unix(0, 0).UTC()
+	defaultCodec   = codec.Get("gob")
+	cookieDefaults = &Options{Path: "/", Expires: Permanent}
 )
 
 // Options specify the default cookie Options used when setting
@@ -73,11 +61,12 @@ type Options struct {
 // and retrieving cookies. Use New() or gnd.la/app.Context.Cookies
 // to create a Cookies instance.
 type Cookies struct {
-	r             *http.Request
-	w             http.ResponseWriter
-	secret        string
-	encryptionKey string
-	defaults      *Options
+	r         *http.Request
+	w         http.ResponseWriter
+	c         *codec.Codec
+	signer    *cryptoutil.Signer
+	encrypter *cryptoutil.Encrypter
+	defaults  *Options
 }
 
 type transformer func([]byte) ([]byte, error)
@@ -96,11 +85,14 @@ type transformer func([]byte) ([]byte, error)
 // The default parameter specifies the default Options for the funcions
 // which only take a name and a value. If you pass nil, Defaults will
 // be used.
-func New(r *http.Request, w http.ResponseWriter, secret string, encryptionKey string, defaults *Options) *Cookies {
-	if defaults == nil {
-		defaults = Defaults()
+func New(r *http.Request, w http.ResponseWriter, c *codec.Codec, signer *cryptoutil.Signer, encrypter *cryptoutil.Encrypter, defaults *Options) *Cookies {
+	if c == nil {
+		c = defaultCodec
 	}
-	return &Cookies{r, w, secret, encryptionKey, defaults}
+	if defaults == nil {
+		defaults = cookieDefaults
+	}
+	return &Cookies{r, w, c, signer, encrypter, defaults}
 }
 
 // Defaults returns the default coookie options, which are:
@@ -108,29 +100,31 @@ func New(r *http.Request, w http.ResponseWriter, secret string, encryptionKey st
 //  Path: "/"
 //  Expires: Permanent (cookie never expires)
 //
-// To change the defaults, see gnd.la/app.App.SetDefaultCookieOptions()
+// To change the defaults, use SetDefaults.
 func Defaults() *Options {
-	return &Options{
-		Path:    "/",
-		Expires: Permanent,
+	return cookieDefaults
+}
+
+// SetDefaults changes the default cookie options.
+func SetDefaults(defaults *Options) {
+	if defaults == nil {
+		defaults = &Options{}
 	}
+	cookieDefaults = defaults
 }
 
 func (c *Cookies) encode(value interface{}, t transformer) (string, error) {
-	var buf bytes.Buffer
-	encoder := gob.NewEncoder(&buf)
-	err := encoder.Encode(value)
+	data, err := c.c.Encode(value)
 	if err != nil {
 		return "", err
 	}
-	encoded := buf.Bytes()
 	if t != nil {
-		encoded, err = t(encoded)
+		data, err = t(data)
 		if err != nil {
 			return "", err
 		}
 	}
-	return base64.Encode(encoded), nil
+	return base64.Encode(data), nil
 }
 
 func (c *Cookies) decode(data string, arg interface{}, t transformer) error {
@@ -144,9 +138,7 @@ func (c *Cookies) decode(data string, arg interface{}, t transformer) error {
 			return err
 		}
 	}
-	buf := bytes.NewBuffer(b)
-	decoder := gob.NewDecoder(buf)
-	return decoder.Decode(arg)
+	return c.c.Decode(b, arg)
 }
 
 func (c *Cookies) set(name, value string, o *Options) error {
@@ -173,86 +165,28 @@ func (c *Cookies) set(name, value string, o *Options) error {
 	return nil
 }
 
-// sign signs the given value using HMAC-SHA1
-func (c *Cookies) sign(value string) (string, error) {
-	if c.secret == "" {
-		return "", ErrNoSecret
+// setSigned sets a signed cookie from its data
+func (c *Cookies) setSigned(name string, data []byte, o *Options) error {
+	if c.signer == nil {
+		return ErrNoSigner
 	}
-	hm := hmac.New(sha1.New, []byte(c.secret))
-	hm.Write([]byte(value))
-	// Encoding the signature in base64 rather than
-	// hex saves ~25% (hex has a 2x overhead while
-	// base64 has a 4/3x)
-	return base64.Encode(hm.Sum(nil)), nil
-}
-
-// checkSignature splits the given value into the encoded
-// and signature parts and verifies, in constant time, that
-// the signature is correct.
-func (c *Cookies) checkSignature(value string) (string, error) {
-	parts := strings.Split(value, ":")
-	if len(parts) != 3 || parts[1] != "sha1" {
-		return "", ErrTampered
-	}
-	encoded, signature := parts[0], parts[2]
-	s, err := c.sign(encoded)
-	if err != nil {
-		return "", err
-	}
-	if len(s) != len(signature) || subtle.ConstantTimeCompare([]byte(s), []byte(signature)) != 1 {
-		return "", ErrTampered
-	}
-	return encoded, nil
-}
-
-// setSigned sets a signed cookie, which should have been previously
-// encoded
-func (c *Cookies) setSigned(name string, value string, o *Options) error {
-	signature, err := c.sign(value)
+	signed, err := c.signer.Sign(data)
 	if err != nil {
 		return err
 	}
-	// Only support sha1 for now, but store that in the cookie
-	// to allow us to change the hashing algorithm in the future
-	// if required (or even let the user choose it)
-	return c.set(name, fmt.Sprintf("%s:sha1:%s", value, signature), o)
+	return c.set(name, signed, o)
 }
 
-func (c *Cookies) cipher() (cipher.Block, error) {
-	if c.encryptionKey == "" {
-		return nil, ErrNoEncryptionKey
+// getSigned returns the signed cookie data if the signature is valid.
+func (c *Cookies) getSigned(name string) ([]byte, error) {
+	if c.signer == nil {
+		return nil, ErrNoSigner
 	}
-	return aes.NewCipher([]byte(c.encryptionKey))
-}
-
-func (c *Cookies) encrypter() (transformer, error) {
-	ci, err := c.cipher()
+	cookie, err := c.GetCookie(name)
 	if err != nil {
 		return nil, err
 	}
-	iv := []byte(util.RandomString(ci.BlockSize()))
-	stream := cipher.NewCTR(ci, iv)
-	return func(src []byte) ([]byte, error) {
-		stream.XORKeyStream(src, src)
-		return append(iv, src...), nil
-	}, nil
-}
-
-func (c *Cookies) decrypter() (transformer, error) {
-	ci, err := c.cipher()
-	if err != nil {
-		return nil, err
-	}
-	return func(src []byte) ([]byte, error) {
-		bs := ci.BlockSize()
-		if len(src) <= bs {
-			return nil, ErrCouldNotDecrypt
-		}
-		iv, value := src[:bs], src[bs:]
-		stream := cipher.NewCTR(ci, iv)
-		stream.XORKeyStream(value, value)
-		return value, nil
-	}, nil
+	return c.signer.Unsign(cookie.Value)
 }
 
 // Has returns true if a cookie with the given name exists.
@@ -275,23 +209,28 @@ func (c *Cookies) SetCookie(cookie *http.Cookie) {
 }
 
 // Get uses the cookie value with the given name to
-// populate the argument. If the types don't match
+// populate the out argument. If the types don't match
 // (e.g. the cookie was set to a string and you try
 // to get an int), an error will be returned.
-func (c *Cookies) Get(name string, arg interface{}) error {
+func (c *Cookies) Get(name string, out interface{}) error {
 	cookie, err := c.GetCookie(name)
 	if err != nil {
 		return err
 	}
-	return c.decode(cookie.Value, arg, nil)
+	data, err := base64.Decode(cookie.Value)
+	if err != nil {
+		return err
+	}
+	return c.c.Decode(data, out)
 }
 
 // Set sets the cookie with the given name and encodes
-// the given value using gob. If the cookie size is
-// bigger than 4096 bytes, it returns ErrCookieTooBig.
+// the given value using the codec provided in New. If
+// the cookie size if bigger than 4096 bytes, it returns
+// ErrCookieTooBig.
 //
 // The options used for the cookie are the default ones provided
-// in New(), which will usually come from gnd.la/app.App.DefaultCookieOptions.
+// in New(), which will usually come from gnd.la/app.App.CookieOptions.
 // If you need to specify different options, use SetOpts().
 func (c *Cookies) Set(name string, value interface{}) error {
 	return c.SetOpts(name, value, nil)
@@ -299,40 +238,37 @@ func (c *Cookies) Set(name string, value interface{}) error {
 
 // SetOpts works like Set(), but accepts an Options parameter.
 func (c *Cookies) SetOpts(name string, value interface{}, o *Options) error {
-	encoded, err := c.encode(value, nil)
+	data, err := c.c.Encode(value)
 	if err != nil {
 		return err
 	}
-	return c.set(name, encoded, o)
+	return c.set(name, base64.Encode(data), o)
 }
 
 // GetSecure works like Get, but for cookies set with SetSecure().
 // See SetSecure() for the guarantees made about the
 // cookie value.
-func (c *Cookies) GetSecure(name string, arg interface{}) error {
-	cookie, err := c.GetCookie(name)
+func (c *Cookies) GetSecure(name string, out interface{}) error {
+	data, err := c.getSigned(name)
 	if err != nil {
 		return err
 	}
-	value, err := c.checkSignature(cookie.Value)
-	if err != nil {
-		return err
-	}
-	return c.decode(value, arg, nil)
+	return c.c.Decode(data, out)
 }
 
-// SetSecure sets a tamper-proof cookie, using the App
-// secret to sign its value with HMAC-SHA1. The user may
-// find the value of the cookie, but he will not be able
+// SetSecure sets a tamper-proof cookie, using the a
+// *cryptoutil.Signer to sign its value. By default, it uses
+// HMAC-SHA1. The user will be able to see
+// the value of the cookie, but he will not be able
 // to manipulate it. If you also require the value to be
 // protected from being revealed to the user, use
 // SetEncrypted().
 //
-// If you haven't set a secret (usually via gnd.la/app.App.SetSecret
-// or using gnd.la/config), this function will return ErrNoSecret.
+// If you haven't set a Signer (usually set automatically for you, derived from
+// the gnd.la/app.App.Secret field), this function will return an error.
 //
 // The options used for the cookie are the default ones provided
-// in New(), which will usually come from gnd.la/app.App.DefaultCookieOptions.
+// in New(), which will usually come from gnd.la/app.App.CookieOptions.
 // If you need to specify different options, use SetSecureOpts().
 func (c *Cookies) SetSecure(name string, value interface{}) error {
 	return c.SetSecureOpts(name, value, nil)
@@ -340,43 +276,41 @@ func (c *Cookies) SetSecure(name string, value interface{}) error {
 
 // SetSecureOpts works like SetSecure(), but accepts an Options parameter.
 func (c *Cookies) SetSecureOpts(name string, value interface{}, o *Options) error {
-	encoded, err := c.encode(value, nil)
+	data, err := c.c.Encode(value)
 	if err != nil {
 		return err
 	}
-	return c.setSigned(name, encoded, o)
+	return c.setSigned(name, data, o)
 }
 
 // GetEncrypted works like Get, but for cookies set with SetEncrypted().
 // See SetEncrypted() for the guarantees made about the cookie value.
-func (c *Cookies) GetEncrypted(name string, arg interface{}) error {
-	cookie, err := c.GetCookie(name)
+func (c *Cookies) GetEncrypted(name string, out interface{}) error {
+	if c.encrypter == nil {
+		return ErrNoEncrypter
+	}
+	data, err := c.getSigned(name)
 	if err != nil {
 		return err
 	}
-	value, err := c.checkSignature(cookie.Value)
+	decrypted, err := c.encrypter.Decrypt(data)
 	if err != nil {
 		return err
 	}
-	decrypter, err := c.decrypter()
-	if err != nil {
-		return err
-	}
-	return c.decode(value, arg, decrypter)
+	return c.c.Decode(decrypted, out)
 }
 
 // SetEncrypted sets a tamper-proof and encrypted cookie. The value is first
-// encrypted using AES and the signed using HMAC-SHA1. The user will not
+// encrypted using *cryptoutil.Encrypter and the signed using *cryptoutil.Signer.
+// By default, these use AES and HMAC-SHA1 respectivelly. The user will not
 // be able to tamper with the cookie value nor reveal its contents.
 //
-// If you haven't set a secret (usually via gnd.la/app.App.SetSecret()
-// or using gnd.la/config), this function will return ErrNoSecret.
-//
-// If you haven't set an encryption key (usually via gnd.la/app.App.SetEncryptionKey()
-// or gnd.la/config) this function will return ErrNoEncryptionKey.
+// If you haven't set a Signer (usually set automatically for you, derived from
+// the gnd.la/app.App.Secret field) and an Encrypter (usually set automatically too,
+// from gnd.la/app.App.EncryptionKey), this function will return an error.
 //
 // The options used for the cookie are the default ones provided
-// in New(), which will usually come from gnd.la/app.App.DefaultCookieOptions.
+// in New(), which will usually come from gnd.la/app.App.CookieOptions.
 // If you need to specify different options, use SetEncryptedOpts().
 func (c *Cookies) SetEncrypted(name string, value interface{}) error {
 	return c.SetEncryptedOpts(name, value, nil)
@@ -384,15 +318,18 @@ func (c *Cookies) SetEncrypted(name string, value interface{}) error {
 
 // SetEncryptedOpts works like SetEncrypted(), but accepts and Options parameter.
 func (c *Cookies) SetEncryptedOpts(name string, value interface{}, o *Options) error {
-	encrypter, err := c.encrypter()
+	if c.encrypter == nil {
+		return ErrNoEncrypter
+	}
+	data, err := c.c.Encode(value)
 	if err != nil {
 		return err
 	}
-	encoded, err := c.encode(value, encrypter)
+	encrypted, err := c.encrypter.Encrypt(data)
 	if err != nil {
 		return err
 	}
-	return c.setSigned(name, encoded, o)
+	return c.setSigned(name, encrypted, o)
 }
 
 // Delete deletes with cookie with the given name.

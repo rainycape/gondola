@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"gnd.la/app/cookies"
+	"gnd.la/app/profile"
 	"gnd.la/app/serialize"
 	"gnd.la/blobstore"
 	"gnd.la/form/input"
@@ -338,8 +339,8 @@ func (c *Context) URL() *url.URL {
 // on gnd.la/cookies for more information.
 func (c *Context) Cookies() *cookies.Cookies {
 	if c.cookies == nil {
-		c.cookies = cookies.New(c.R, c, c.app.Secret,
-			c.app.EncryptionKey, c.app.DefaultCookieOptions())
+		c.cookies = cookies.New(c.R, c, c.app.CookieCodec, c.app.CookieSigner,
+			c.app.CookieEncrypter, c.app.CookieOptions)
 	}
 	return c.cookies
 }

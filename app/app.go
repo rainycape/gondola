@@ -11,6 +11,7 @@ import (
 	"gnd.la/app/profile"
 	"gnd.la/blobstore"
 	"gnd.la/cache"
+	"gnd.la/encoding/codec"
 	"gnd.la/loaders"
 	"gnd.la/log"
 	"gnd.la/orm"
@@ -18,6 +19,7 @@ import (
 	"gnd.la/template"
 	"gnd.la/template/assets"
 	"gnd.la/util"
+	"gnd.la/util/cryptoutil"
 	"gnd.la/util/hashutil"
 	"gnd.la/util/internal/runtimeutil"
 	"gnd.la/util/internal/templateutil"
@@ -103,6 +105,32 @@ var (
 	assetsPrefix   = "/_gondola_assets"
 )
 
+// App is the central piece of a Gondola application. It routes
+// requests, invokes the requires handlers, manages connections to
+// the cache and the database, caches templates and stores most of
+// the configurable parameters of a Gondola application. Use New()
+// to initialize an App, since there are some private fields which
+// require initialization.
+//
+// The following fields are not recommended to
+// change from code. Instead, users should specify
+// their values in the app configuration (see
+// gnd.la/config for more information). Otherwise,
+// Gondola's development server will not work.
+// Note that these parameters must be set in the
+// parent app BEFORE including any app and must not
+// be changed after the app starts listening.
+//
+//  Port, Debug, TemplateDebug, Secret, EncrytionKey and DefaultLanguage
+//
+// Cookie configuration fields should be set
+// from your code, since there are no configuration
+// options for them. Note that the defaults will work
+// fine in most cases, but applications with special
+// security or performance requirements might need to
+// alter them. As with other configuration parameters, these
+// can only be changed before the app adding any included apps
+// and must not be changed once the app starts listening.
 type App struct {
 	ContextProcessors []ContextProcessor
 	ContextFinalizers []ContextFinalizer
@@ -112,15 +140,6 @@ type App struct {
 	// gnd.la/log.Std, but you can set it to nil to avoid
 	// logging at all and gain a bit more of performance.
 	Logger *log.Logger
-
-	// The following fields are not recommended to
-	// change from code. Instead, users should specify
-	// their values in the app configuration (see
-	// gnd.la/config for more information). Otherwise,
-	// Gondola's development server will not work.
-	// Note that these parameters must be set in the
-	// parent app BEFORE including any app and must not
-	// be changed after the app is running.
 
 	// Port indicates the port this app will listen on.
 	Port int
@@ -148,27 +167,42 @@ type App struct {
 	// or when it returns an empty string.
 	DefaultLanguage string
 
-	handlers             []*handlerInfo
-	trustXHeaders        bool
-	appendSlash          bool
-	errorHandler         ErrorHandler
-	languageHandler      LanguageHandler
-	name                 string
-	defaultCookieOptions *cookies.Options
-	userFunc             UserFunc
-	assetsManager        *assets.Manager
-	templatesLoader      loaders.Loader
-	templatesMutex       sync.RWMutex
-	templatesCache       map[string]Template
-	templateProcessors   []TemplateProcessor
-	namespace            *namespace
-	hooks                []*template.Hook
-	started              time.Time
-	address              string
-	mu                   sync.Mutex
-	c                    *Cache
-	o                    *Orm
-	store                *blobstore.Store
+	// CookieOptions indicates the default options used
+	// used for cookies. If nil, the default values as returned
+	// by cookies.Defaults() are used.
+	CookieOptions *cookies.Options
+	// CookieCodec indicates the codec used for encoding and
+	// decoding cookies. If nil, gob is used.
+	CookieCodec *codec.Codec
+	// CookieSigner indicates the Signer used to sign secure
+	// and encrypted cookies. If nil, HMAC-SHA1 is used, using
+	// the App Secret as the key.
+	CookieSigner *cryptoutil.Signer
+	// CookieEncrypter indicates the Encrypte used to encrypt
+	// and decrypt encrypted cookies. If nil, AES is used, using
+	// the App EncryptionKey as the key.
+	CookieEncrypter *cryptoutil.Encrypter
+
+	handlers           []*handlerInfo
+	trustXHeaders      bool
+	appendSlash        bool
+	errorHandler       ErrorHandler
+	languageHandler    LanguageHandler
+	name               string
+	userFunc           UserFunc
+	assetsManager      *assets.Manager
+	templatesLoader    loaders.Loader
+	templatesMutex     sync.RWMutex
+	templatesCache     map[string]Template
+	templateProcessors []TemplateProcessor
+	namespace          *namespace
+	hooks              []*template.Hook
+	started            time.Time
+	address            string
+	mu                 sync.Mutex
+	c                  *Cache
+	o                  *Orm
+	store              *blobstore.Store
 
 	// Used for included apps
 	included  []*includedApp
@@ -277,14 +311,6 @@ func (app *App) include(prefix string, child *App, base string, main string) err
 		}
 	}
 	child.parent = app
-	child.Debug = app.Debug
-	child.TemplateDebug = app.TemplateDebug
-	child.Secret = app.Secret
-	child.EncryptionKey = app.EncryptionKey
-	child.DefaultLanguage = app.DefaultLanguage
-	child.languageHandler = app.languageHandler
-	child.userFunc = app.userFunc
-	child.Logger = app.Logger
 	included := &includedApp{
 		prefix: prefix,
 		app:    child,
@@ -347,21 +373,6 @@ func (app *App) AppendsSlash() bool {
 // rather than returning a 404. The default is true.
 func (app *App) SetAppendSlash(b bool) {
 	app.appendSlash = b
-}
-
-// DefaultCookieOptions returns the default options
-// used for cookies. This is initialized to the value
-// returned by cookies.Defaults(). See gnd.la/app/cookies
-// documentation for more details.
-func (app *App) DefaultCookieOptions() *cookies.Options {
-	return app.defaultCookieOptions
-}
-
-// SetDefaultCookieOptions sets the default cookie options
-// for this app. See gnd.la/cookies documentation for more
-// details.
-func (app *App) SetDefaultCookieOptions(o *cookies.Options) {
-	app.defaultCookieOptions = o
 }
 
 func (app *App) Name() string {
@@ -709,10 +720,11 @@ func (app *App) reverseHandler(name string, args []interface{}) (bool, string, e
 }
 
 // ListenAndServe starts listening on the configured address and
-// port (see Address() and Port()).
-// This function is a shortcut for
-// http.ListenAndServe(app.Address()+":"+strconv.Itoa(app.Port()), app)
+// port (see Address() and Port).
 func (app *App) ListenAndServe() error {
+	if err := app.prepare(); err != nil {
+		return err
+	}
 	signal.Emit(signal.APP_WILL_LISTEN, app)
 	app.started = time.Now().UTC()
 	if app.Logger != nil && os.Getenv("GONDOLA_DEV_SERVER") == "" {
@@ -1146,6 +1158,42 @@ func (app *App) importAssets(included *includedApp) error {
 			}
 		}
 		included.renames = renames
+	}
+	return nil
+}
+
+func (app *App) prepare() error {
+	if app.Port <= 0 {
+		return fmt.Errorf("port %d is invalid, must be > 0", app.Port)
+	}
+	if len(app.Secret) < 32 {
+		return fmt.Errorf("secret %q is too short, must be at least 32 characters - use gondola random-string to generate one", app.Secret)
+	}
+	if app.CookieSigner == nil {
+		app.CookieSigner = &cryptoutil.Signer{
+			Salt: []byte("gnd.la/app/cookies.salt"),
+			Key:  []byte(app.Secret),
+		}
+	}
+	if app.CookieEncrypter == nil && app.EncryptionKey != "" {
+		app.CookieEncrypter = &cryptoutil.Encrypter{
+			Key: []byte(app.EncryptionKey),
+		}
+	}
+	for _, v := range app.included {
+		child := v.app
+		child.Debug = app.Debug
+		child.TemplateDebug = app.TemplateDebug
+		child.Secret = app.Secret
+		child.EncryptionKey = app.EncryptionKey
+		child.DefaultLanguage = app.DefaultLanguage
+		child.CookieOptions = app.CookieOptions
+		child.CookieCodec = app.CookieCodec
+		child.CookieSigner = app.CookieSigner
+		child.CookieEncrypter = app.CookieEncrypter
+		child.languageHandler = app.languageHandler
+		child.userFunc = app.userFunc
+		child.Logger = app.Logger
 	}
 	return nil
 }

@@ -51,3 +51,12 @@ func randomString(length int, chars string) string {
 	}
 	panic("unreachable")
 }
+
+// RandomBytes returns a slice of n random bytes.
+func RandomBytes(n int) []byte {
+	b := make([]byte, n)
+	if _, err := io.ReadFull(rand.Reader, b); err != nil {
+		panic(fmt.Errorf("error reading from random source: %s", err))
+	}
+	return b
+}

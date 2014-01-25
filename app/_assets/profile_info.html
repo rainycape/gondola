@@ -48,7 +48,7 @@
     <a class="pull-right close" href="javascript:parent.___gondolaHideProfileInfo()">&times;</a>
     <div class="container">
       <div class="page-header">
-        <h1>Profiling Information <small>rendered in {{ .Elapsed }}</small></h1>
+        <h1>Profiling Information <small>total {{ .Elapsed }}</small></h1>
       </div>
       {{ range .Timings }}
         <h2>{{ .Name }} <small>{{ printf "%d events" (len .Events) }} - {{ .Total }} <a href="#" onclick="toggleTable(this); return false;">&#9650;</a></small></h2>

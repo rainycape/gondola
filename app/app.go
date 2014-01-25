@@ -47,6 +47,8 @@ var (
 	IPXHeaders = []string{"X-Real-IP", "X-Forwarded-For"}
 	// SchemeXHeaders are the scheme equivalent of IPXHeaders.
 	SchemeXHeaders = []string{"X-Scheme", "X-Forwarded-Proto"}
+
+	inDevServer bool
 )
 
 type RecoverHandler func(*Context, interface{}) interface{}
@@ -512,7 +514,9 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 			}
 		}
 		if profile.On {
-			t.tmpl.Hook(profileHook)
+			if profileHook != nil {
+				t.tmpl.Hook(profileHook)
+			}
 		}
 		if err := t.rewriteTranslationFuncs(); err != nil {
 			return nil, err

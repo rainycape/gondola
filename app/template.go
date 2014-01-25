@@ -9,6 +9,7 @@ import (
 	"gnd.la/util/internal/templateutil"
 	"io"
 	"net/http"
+	"os"
 	"text/template/parse"
 )
 
@@ -169,18 +170,19 @@ func nop() interface{} { return nil }
 
 func init() {
 	if profile.On {
-		t := newInternalTemplate(&App{})
-		t.tmpl.Funcs(template.FuncMap{
-			"_gondola_profile_info": func(ctx *Context) *profileInfo {
-				return &profileInfo{Elapsed: ctx.Elapsed(), Timings: profile.Timings()}
-			},
-			"_gondola_internal_asset": func(arg string) string {
-				return internalAssetsManager.URL(arg)
-			},
-		})
-		if err := t.Parse("profile.html"); err != nil {
-			panic(err)
+		inDevServer = os.Getenv("GONDOLA_DEV_SERVER") != ""
+		if inDevServer {
+			t := newInternalTemplate(&App{})
+			t.tmpl.Funcs(template.FuncMap{
+				"_gondola_profile_info": getProfileInfo,
+				"_gondola_internal_asset": func(arg string) string {
+					return internalAssetsManager.URL(arg)
+				},
+			})
+			if err := t.Parse("profile.html"); err != nil {
+				panic(err)
+			}
+			profileHook = &template.Hook{Template: t.tmpl, Position: assets.Bottom}
 		}
-		profileHook = &template.Hook{Template: t.tmpl, Position: assets.Bottom}
 	}
 }

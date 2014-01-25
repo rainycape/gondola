@@ -482,6 +482,15 @@ func (c *Context) WriteHeader(code int) {
 		code = -c.statusCode
 	}
 	c.statusCode = code
+	if profile.On {
+		// do this before checking, to avoid
+		// counting the time for checking the
+		// header in the profiling data
+		header := profileHeader(c)
+		if shouldProfile(c) {
+			c.Header().Set(profile.HeaderName, header)
+		}
+	}
 	c.ResponseWriter.WriteHeader(code)
 }
 
@@ -490,11 +499,9 @@ func (c *Context) WriteString(s string) (int, error) {
 }
 
 func (c *Context) Write(data []byte) (int, error) {
-	if c.statusCode == 0 {
-		c.statusCode = http.StatusOK
-	} else if c.statusCode < 0 {
-		// code will be overriden
-		c.WriteHeader(0)
+	if c.statusCode <= 0 {
+		// code will be overriden if < 0
+		c.WriteHeader(http.StatusOK)
 	}
 	return c.ResponseWriter.Write(data)
 }

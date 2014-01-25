@@ -105,8 +105,9 @@ type Project struct {
 	configFilename string
 	tags           string
 	race           bool
-	debug          bool
+	noDebug        bool
 	noCache        bool
+	profile        bool
 	verbose        bool
 	port           int
 	appPort        int
@@ -171,6 +172,21 @@ func (p *Project) configFile() string {
 		}
 	}
 	return ""
+}
+
+func (p *Project) buildTags() []string {
+	tags := p.tags
+	if p.profile {
+		if tags == "" {
+			tags = "profile"
+		} else {
+			tags += " profile"
+		}
+	}
+	if tags != "" {
+		return []string{"-tags", tags}
+	}
+	return nil
 }
 
 func (p *Project) importPackage(imported map[string]bool, pkgs *[]*build.Package, path string) error {
@@ -287,8 +303,14 @@ func (p *Project) ProjectCmd() *exec.Cmd {
 		name = "./" + name
 	}
 	args := []string{"-config", p.Conf(), fmt.Sprintf("-port=%d", p.port)}
-	if p.debug {
-		args = append(args, "-app-debug", "-template-debug", "-log-debug")
+	if p.noDebug {
+		args = append(args, "-app-debug=false", "-template-debug=false", "-log-debug=false")
+	} else {
+		if p.profile {
+			args = append(args, "-app-debug=false", "-template-debug=false", "-log-debug")
+		} else {
+			args = append(args, "-app-debug", "-template-debug", "-log-debug")
+		}
 	}
 	if p.noCache {
 		args = append(args, "-cache=dummy://")
@@ -300,6 +322,9 @@ func (p *Project) ProjectCmd() *exec.Cmd {
 	cmd.Dir = p.dir
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	cmd.Env = append(cmd.Env, "GONDOLA_DEV_SERVER=1")
+	if p.profile {
+		cmd.Env = append(cmd.Env, "GONDOLA_NO_CACHE_LAYER=1")
+	}
 	return cmd
 }
 
@@ -349,9 +374,7 @@ func (p *Project) CompilerCmd() *exec.Cmd {
 	if p.race && supportsRace() {
 		args = append(args, "-race")
 	}
-	if p.tags != "" {
-		args = append(args, []string{"-tags", p.tags}...)
-	}
+	args = append(args, p.buildTags()...)
 	lib := filepath.Join(p.dir, "lib")
 	if st, err := os.Stat(lib); err == nil && st.IsDir() {
 		// If there's a lib directory, add it to rpath
@@ -442,6 +465,7 @@ func (p *Project) Compile() {
 	// Build dependencies, to speed up future builds
 	go func() {
 		args := []string{"test", "-i"}
+		args = append(args, p.buildTags()...)
 		if p.race && supportsRace() {
 			args = append(args, "-race")
 		}
@@ -545,8 +569,9 @@ func Dev(ctx *app.Context) {
 	ctx.ParseParamValue("port", &p.port)
 	ctx.ParseParamValue("tags", &p.tags)
 	ctx.ParseParamValue("race", &p.race)
-	ctx.ParseParamValue("debug", &p.debug)
+	ctx.ParseParamValue("no-debug", &p.noDebug)
 	ctx.ParseParamValue("no-cache", &p.noCache)
+	ctx.ParseParamValue("profile", &p.profile)
 	ctx.ParseParamValue("v", &p.verbose)
 	if p.port == 0 {
 		var conf config.Config
@@ -557,6 +582,7 @@ func Dev(ctx *app.Context) {
 			p.port = 8888
 		}
 	}
+	clean(dir)
 	go p.Compile()
 	eof := "C"
 	if runtime.GOOS == "windows" {
@@ -584,8 +610,9 @@ func init() {
 			admin.StringFlag("dir", ".", "Directory of the project"),
 			admin.StringFlag("config", "", "Configuration name to use. If none is provided, development.conf is used."),
 			admin.StringFlag("tags", "", "Go build tags to pass to the compiler"),
-			admin.BoolFlag("debug", true, "Enable AppDebug, TemplateDebug and LogDebug - see gnd.la/config for details"),
+			admin.BoolFlag("no-debug", false, "Disable AppDebug, TemplateDebug and LogDebug - see gnd.la/config for details"),
 			admin.BoolFlag("no-cache", false, "Disables the cache when running the project"),
+			admin.BoolFlag("profile", false, "Compiles and runs the project with profiling enabled"),
 			admin.IntFlag("port", 0, "Port to listen on. If zero, the project configuration is parsed to look for the port. If none is found, 8888 is used."),
 			admin.BoolFlag("race", false, "Enable -race when building. If the platform does not support -race, this option is ignored."),
 			admin.BoolFlag("v", false, "Enable verbose output"),

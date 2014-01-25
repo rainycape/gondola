@@ -11,7 +11,9 @@ var (
 	ErrEmptyName = errors.New("signal name can't be empty")
 )
 
-type Token *reflect.Value
+type Token struct {
+	val *reflect.Value
+}
 
 // Register adds a new listener for the given signal name. The
 // second argument must be a function which accepts either:
@@ -22,7 +24,7 @@ type Token *reflect.Value
 // returned value is the token, which is required to unregister this
 // listener. If you don't need to unregister it, you can safely ignore
 // the first returned value.
-func Register(name string, f interface{}) (Token, error) {
+func Register(name string, f interface{}) (*Token, error) {
 	if name == "" {
 		return nil, ErrEmptyName
 	}
@@ -31,11 +33,11 @@ func Register(name string, f interface{}) (Token, error) {
 	}
 	val := reflect.ValueOf(f)
 	signals[name] = append(signals[name], &val)
-	return Token(&val), nil
+	return &Token{&val}, nil
 }
 
 // MustRegister works like Register, but panics if there's an error.
-func MustRegister(name string, f interface{}) Token {
+func MustRegister(name string, f interface{}) *Token {
 	t, err := Register(name, f)
 	if err != nil {
 		panic(err)
@@ -48,7 +50,7 @@ func MustRegister(name string, f interface{}) Token {
 // be removed for all the signal. The second argument is the token returned by
 // Register(). If it's empty, all the listeners for the given signals will be
 // removed.
-func Unregister(name string, t Token) {
+func Unregister(name string, t *Token) {
 	if name == "" {
 		for k := range signals {
 			removeToken(signals, k, t)
@@ -69,14 +71,14 @@ func Emit(name string, object interface{}) {
 	}
 }
 
-func removeToken(s map[string][]*reflect.Value, name string, t Token) {
+func removeToken(s map[string][]*reflect.Value, name string, t *Token) {
 	rec := s[name]
 	if rec != nil {
 		if t == nil {
 			delete(s, name)
 			return
 		}
-		r := (*reflect.Value)(t)
+		r := t.val
 		for {
 			idx := -1
 			for ii, v := range rec {

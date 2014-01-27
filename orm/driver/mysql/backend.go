@@ -7,7 +7,6 @@ import (
 	"gnd.la/encoding/codec"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/driver/sql"
-	"gnd.la/orm/driver/sqlite"
 	"gnd.la/util/structs"
 	"reflect"
 	"time"
@@ -24,7 +23,7 @@ var (
 )
 
 type Backend struct {
-	sqlite.Backend
+	sql.SqlBackend
 }
 
 func (b *Backend) Name() string {
@@ -122,19 +121,7 @@ func (b *Backend) ScanInt(val int64, goVal *reflect.Value, t *structs.Tag) error
 	return nil
 }
 
-func (b *Backend) ScanFloat(val float64, goVal *reflect.Value, t *structs.Tag) error {
-	return nil
-}
-
-func (b *Backend) ScanBool(val bool, goVal *reflect.Value, t *structs.Tag) error {
-	return nil
-}
-
 func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, t *structs.Tag) error {
-	return nil
-}
-
-func (b *Backend) ScanString(val string, goVal *reflect.Value, t *structs.Tag) error {
 	return nil
 }
 

@@ -1,10 +1,12 @@
 package sql
 
 import (
+	"bytes"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/index"
 	"gnd.la/util/structs"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -44,4 +46,86 @@ type Backend interface {
 	ScanTime(val *time.Time, goVal *reflect.Value, t *structs.Tag) error
 	// Transform a value from Go to the database
 	TransformOutValue(reflect.Value) (interface{}, error)
+}
+
+const placeholders = "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?"
+
+type SqlBackend struct {
+}
+
+func (b *SqlBackend) Placeholder(n int) string {
+	return "?"
+}
+
+func (b *SqlBackend) Placeholders(n int) string {
+	p := placeholders
+	if n > 32 {
+		p = strings.Repeat("?,", n)
+	}
+	return p[:2*n-1]
+}
+
+func (b *SqlBackend) Insert(db DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
+	return db.Exec(query, args...)
+}
+
+func (b *SqlBackend) Index(db DB, m driver.Model, idx *index.Index, name string) error {
+	var buf bytes.Buffer
+	buf.WriteString("CREATE ")
+	if idx.Unique {
+		buf.WriteString("UNIQUE ")
+	}
+	buf.WriteString("INDEX IF NOT EXISTS ")
+	buf.WriteString(name)
+	buf.WriteString(" ON \"")
+	buf.WriteString(m.Table())
+	buf.WriteString("\" (")
+	fields := m.Fields()
+	for _, v := range idx.Fields {
+		name, _, err := fields.Map(v)
+		if err != nil {
+			return err
+		}
+		buf.WriteString(name)
+		if DescField(idx, v) {
+			buf.WriteString(" DESC")
+		}
+		buf.WriteByte(',')
+	}
+	buf.Truncate(buf.Len() - 1)
+	buf.WriteString(")")
+	_, err := db.Exec(buf.String())
+	return err
+}
+
+func (b *SqlBackend) Transforms() []reflect.Type {
+	return nil
+}
+
+func (b *SqlBackend) ScanInt(val int64, goVal *reflect.Value, t *structs.Tag) error {
+	return nil
+}
+
+func (b *SqlBackend) ScanFloat(val float64, goVal *reflect.Value, t *structs.Tag) error {
+	return nil
+}
+
+func (b *SqlBackend) ScanBool(val bool, goVal *reflect.Value, t *structs.Tag) error {
+	return nil
+}
+
+func (b *SqlBackend) ScanByteSlice(val []byte, goVal *reflect.Value, t *structs.Tag) error {
+	return nil
+}
+
+func (b *SqlBackend) ScanString(val string, goVal *reflect.Value, t *structs.Tag) error {
+	return nil
+}
+
+func (b *SqlBackend) ScanTime(val *time.Time, goVal *reflect.Value, t *structs.Tag) error {
+	return nil
+}
+
+func (b *SqlBackend) TransformOutValue(val reflect.Value) (interface{}, error) {
+	return val.Interface(), nil
 }

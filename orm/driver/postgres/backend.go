@@ -26,6 +26,7 @@ var (
 )
 
 type Backend struct {
+	sql.SqlBackend
 }
 
 func (b *Backend) Name() string {
@@ -188,26 +189,6 @@ func (b *Backend) FieldOptions(typ reflect.Type, t *structs.Tag) ([]string, erro
 
 func (b *Backend) Transforms() []reflect.Type {
 	return transformedTypes
-}
-
-func (b *Backend) ScanInt(val int64, goVal *reflect.Value, t *structs.Tag) error {
-	return nil
-}
-
-func (b *Backend) ScanFloat(val float64, goVal *reflect.Value, t *structs.Tag) error {
-	return nil
-}
-
-func (b *Backend) ScanBool(val bool, goVal *reflect.Value, t *structs.Tag) error {
-	return nil
-}
-
-func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, t *structs.Tag) error {
-	return nil
-}
-
-func (b *Backend) ScanString(val string, goVal *reflect.Value, t *structs.Tag) error {
-	return nil
 }
 
 func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, t *structs.Tag) error {

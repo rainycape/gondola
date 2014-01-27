@@ -1,21 +1,16 @@
 package sqlite
 
 import (
-	"bytes"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"gnd.la/config"
 	"gnd.la/encoding/codec"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/driver/sql"
-	"gnd.la/orm/index"
 	"gnd.la/util/structs"
 	"reflect"
-	"strings"
 	"time"
 )
-
-const placeholders = "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?"
 
 var (
 	sqliteBackend    = &Backend{}
@@ -26,6 +21,7 @@ var (
 )
 
 type Backend struct {
+	sql.SqlBackend
 }
 
 func (b *Backend) Name() string {
@@ -34,51 +30,6 @@ func (b *Backend) Name() string {
 
 func (b *Backend) Tag() string {
 	return "sqlite"
-}
-
-func (b *Backend) Placeholder(n int) string {
-	return "?"
-}
-
-func (b *Backend) Placeholders(n int) string {
-	p := placeholders
-	if n > 32 {
-		p = strings.Repeat("?,", n)
-	}
-	return p[:2*n-1]
-}
-
-func (b *Backend) Insert(db sql.DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
-	return db.Exec(query, args...)
-}
-
-func (b *Backend) Index(db sql.DB, m driver.Model, idx *index.Index, name string) error {
-	var buf bytes.Buffer
-	buf.WriteString("CREATE ")
-	if idx.Unique {
-		buf.WriteString("UNIQUE ")
-	}
-	buf.WriteString("INDEX IF NOT EXISTS ")
-	buf.WriteString(name)
-	buf.WriteString(" ON \"")
-	buf.WriteString(m.Table())
-	buf.WriteString("\" (")
-	fields := m.Fields()
-	for _, v := range idx.Fields {
-		name, _, err := fields.Map(v)
-		if err != nil {
-			return err
-		}
-		buf.WriteString(name)
-		if sql.DescField(idx, v) {
-			buf.WriteString(" DESC")
-		}
-		buf.WriteByte(',')
-	}
-	buf.Truncate(buf.Len() - 1)
-	buf.WriteString(")")
-	_, err := db.Exec(buf.String())
-	return err
 }
 
 func (b *Backend) FieldType(typ reflect.Type, t *structs.Tag) (string, error) {
@@ -144,26 +95,6 @@ func (b *Backend) ScanInt(val int64, goVal *reflect.Value, t *structs.Tag) error
 	case reflect.Bool:
 		goVal.SetBool(val != 0)
 	}
-	return nil
-}
-
-func (b *Backend) ScanFloat(val float64, goVal *reflect.Value, t *structs.Tag) error {
-	return nil
-}
-
-func (b *Backend) ScanBool(val bool, goVal *reflect.Value, t *structs.Tag) error {
-	return nil
-}
-
-func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, t *structs.Tag) error {
-	return nil
-}
-
-func (b *Backend) ScanString(val string, goVal *reflect.Value, t *structs.Tag) error {
-	return nil
-}
-
-func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, t *structs.Tag) error {
 	return nil
 }
 

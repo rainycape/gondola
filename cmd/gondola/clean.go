@@ -72,7 +72,7 @@ func clean(dir string) error {
 			toClean = append(toClean, k)
 		}
 	}
-	args := []string{"clean", "-i", dir}
+	args := []string{"clean", "-i", dir, profilePkg}
 	args = append(args, toClean...)
 	cmd := exec.Command("go", args...)
 	log.Debugln("Running", cmdString(cmd))

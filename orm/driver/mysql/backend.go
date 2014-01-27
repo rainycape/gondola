@@ -8,7 +8,9 @@ import (
 	"gnd.la/orm/driver"
 	"gnd.la/orm/driver/sql"
 	"gnd.la/util/structs"
+	"gnd.la/util/types"
 	"reflect"
+	"strconv"
 	"time"
 )
 
@@ -122,6 +124,27 @@ func (b *Backend) ScanInt(val int64, goVal *reflect.Value, t *structs.Tag) error
 }
 
 func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, t *structs.Tag) error {
+	// mysql returns u?int types as []byte under
+	// some circumstances (not sure exactly when, but other
+	// times they're returned as an int64).
+	s := string(val)
+	typ := goVal.Type()
+	switch {
+	case types.IsInt(typ):
+		v, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return err
+		}
+		goVal.SetInt(v)
+	case types.IsUint(typ):
+		v, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return err
+		}
+		goVal.SetInt(v)
+	default:
+		return fmt.Errorf("unexpected type in ScanByteSlice()")
+	}
 	return nil
 }
 

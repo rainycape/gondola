@@ -9,6 +9,9 @@ func monitorHandler(ctx *Context) {
 	if err := t.Parse("monitor.html"); err != nil {
 		panic(err)
 	}
+	if err := t.tmpl.Compile(); err != nil {
+		panic(err)
+	}
 	t.tmpl.MustExecute(ctx, nil)
 }
 

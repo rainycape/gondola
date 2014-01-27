@@ -3,6 +3,7 @@
 package templateutil
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"strings"
@@ -110,6 +111,7 @@ func ReplaceNode(n parse.Node, p parse.Node, nn parse.Node) error {
 // Parse parses the given text as a set of template trees, adding placeholders
 // for undefined functions and variables.
 func Parse(name string, text string) (map[string]*parse.Tree, error) {
+	text = ReplaceVariableShorthands(text, '@', "")
 	funcs := make(map[string]interface{})
 	var treeSet map[string]*parse.Tree
 	var err error
@@ -130,4 +132,31 @@ func Parse(name string, text string) (map[string]*parse.Tree, error) {
 		break
 	}
 	return treeSet, nil
+}
+
+func ReplaceVariableShorthands(text string, chr byte, name string) string {
+	repl := fmt.Sprintf("$%s.", name)
+	var buf bytes.Buffer
+	buf.Grow(len(text))
+	cmd := false
+	quoted := false
+	for ii := range text {
+		v := text[ii]
+		if v == chr && cmd && !quoted {
+			buf.WriteString(repl)
+			continue
+		}
+		if cmd && v == '}' {
+			cmd = ii < len(text)-1 && text[ii+1] != '}'
+		} else if !cmd && v == '{' {
+			cmd = ii < len(text)-1 && text[ii+1] == '{'
+		}
+		if cmd {
+			if v == '"' && (ii == 0 || text[ii-1] != '\\') {
+				quoted = !quoted
+			}
+		}
+		buf.WriteByte(v)
+	}
+	return buf.String()
 }

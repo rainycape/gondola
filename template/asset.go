@@ -32,7 +32,7 @@ func executeAsset(t *Template, p *Template, vars VarMap, m *assets.Manager, asse
 		}
 	}
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, vars); err != nil {
+	if err := tmpl.ExecuteVars(&buf, nil, vars); err != nil {
 		return "", err
 	}
 	ext := path.Ext(name)

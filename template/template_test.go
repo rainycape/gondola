@@ -74,6 +74,14 @@ var (
 		{"{{ define \"a\" }}a{{ . }}{{ . }}{{ end }}{{ if . }}{{ template \"a\" . }}{{ end }}", 0, ""},
 		{"{{ define \"a\" }}a{{ . }}{{ . }}{{ end }}{{ if . }}{{ template \"a\" . }}{{ end }}", 1, "a11"},
 	}
+	varTests = []*templateTest{
+		{"{{ $Vars.Foo }}", nil, "foo"},
+		{"{{ @Foo }}", nil, "foo"},
+		{"{{ $Vars.Foo }}{{ concat \"@bar\" }}@baz", nil, "foo@bar@baz"},
+		{"{{ @Foo }}{{ concat \"@bar\" }}@baz", nil, "foo@bar@baz"},
+		{"{{ $Vars.Foo }}{{ concat \"@bar\" @Foo }}@baz", nil, "foo@barfoo@baz"},
+		{"{{ @Foo }}{{ concat \"@bar\" @Foo }}@baz", nil, "foo@barfoo@baz"},
+	}
 	compilerErrorTests = []*templateTest{
 		{"{{ range . }}{{ else }}nope{{ end }}", 5, "template.html:1:9: can't range over int"},
 		{"{{ . }}\n{{ range . }}{{ else }}nope{{ end }}", 5, "template.html:2:9: can't range over int"},
@@ -113,14 +121,14 @@ func parseTestTemplate(tb testing.TB, name string) *Template {
 	return tmpl
 }
 
-func testCompiler(t *testing.T, tests []*templateTest) {
+func testCompiler(t *testing.T, tests []*templateTest, vars VarMap) {
 	for _, v := range tests {
 		tmpl := parseText(t, v.tmpl)
 		if tmpl == nil {
 			continue
 		}
 		var buf bytes.Buffer
-		if err := tmpl.Execute(&buf, v.data); err != nil {
+		if err := tmpl.ExecuteVars(&buf, v.data, vars); err != nil {
 			t.Errorf("error executing %q: %s", v.tmpl, err)
 			continue
 		}
@@ -136,11 +144,15 @@ func testCompiler(t *testing.T, tests []*templateTest) {
 }
 
 func TestFunctions(t *testing.T) {
-	testCompiler(t, ftests)
+	testCompiler(t, ftests, nil)
 }
 
 func TestCompiler(t *testing.T) {
-	testCompiler(t, compilerTests)
+	testCompiler(t, compilerTests, nil)
+}
+
+func TestVariables(t *testing.T) {
+	testCompiler(t, varTests, VarMap{"Foo": "foo"})
 }
 
 func TestCompilerErrors(t *testing.T) {

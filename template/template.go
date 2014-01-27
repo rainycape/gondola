@@ -472,8 +472,8 @@ func (t *Template) parseCommentVariables(values []string) ([]string, error) {
 			if len(varname) == 0 {
 				return nil, fmt.Errorf("empty variable name")
 			}
-			if varname[0] != '$' {
-				return nil, fmt.Errorf("invalid variable name %q, must start with $", varname)
+			if varname[0] != '@' {
+				return nil, fmt.Errorf("invalid variable name %q, must start with @", varname)
 			}
 			varname = varname[1:]
 			if len(varname) == 0 {
@@ -627,6 +627,8 @@ func (t *Template) load(name string, included bool) error {
 	// previously defined
 	// Prepend to the template and to any define nodes found
 	s = templatePrepend + defineRe.ReplaceAllString(s, "$0"+strings.Replace(templatePrepend, "$", "$$", -1))
+	// Replace @variable shorthands
+	s = templateutil.ReplaceVariableShorthands(s, '@', varsKey)
 	treeMap, err := parse.Parse(name, s, leftDelim, rightDelim, templateFuncs, t.funcMap)
 	if err != nil {
 		return err

@@ -126,7 +126,7 @@ func (o *Orm) MustRegister(t interface{}, opt *Options) *Table {
 // the access to some shared resources from several ORM instances
 // is not thread safe).
 func (o *Orm) Initialize() error {
-	signal.Emit(signal.ORM_WILL_INITIALIZE, o)
+	signal.Emit(WILL_INITIALIZE, o)
 	nr := _nameRegistry[o.tags]
 	// Resolve references
 	names := make(map[string]*model)

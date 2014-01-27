@@ -15,6 +15,12 @@ import (
 	"time"
 )
 
+const (
+	// WILL_SCHEDULE is emitted just before scheduling a task.
+	// The object is a *gnd.la/tasks.Task
+	WILL_SCHEDULE = "gnd.la/tasks.will-schedule"
+)
+
 var running struct {
 	sync.Mutex
 	tasks map[*Task]int
@@ -192,7 +198,7 @@ func Register(m *app.App, task app.Handler, opts *Options) *Task {
 func Schedule(m *app.App, task app.Handler, opts *Options, interval time.Duration, now bool) *Task {
 	t := Register(m, task, opts)
 	t.Interval = interval
-	signal.Emit(signal.TASKS_WILL_SCHEDULE_TASK, t)
+	signal.Emit(WILL_SCHEDULE, t)
 	go t.Resume(now)
 	return t
 }

@@ -25,7 +25,12 @@ var (
 	errUntypedNilPointer = errors.New("untyped nil pointer passed to Next(). Please, cast it to the appropriate type e.g. (*MyType)(nil)")
 )
 
-const orm = "orm"
+const (
+	// WILL_INITIALIZE is emitted just before a gnd.la/orm.Orm is
+	// initialized. The object is a *gnd.la/orm.Orm.
+	WILL_INITIALIZE = "gnd.la/orm.will-initialize"
+	orm             = "orm"
+)
 
 type Orm struct {
 	conn   driver.Conn

@@ -37,6 +37,12 @@ import (
 	"time"
 )
 
+const (
+	// WILL_LISTEN is emitted just before a *gnd.la/app.App will
+	// start listening. The object is the App.
+	WILL_LISTEN = "gnd.la/app.will-listen"
+)
+
 var (
 	// IPXHeaders are the default headers which are used to
 	// read the client's IP, in decreasing priority order.
@@ -729,7 +735,7 @@ func (app *App) ListenAndServe() error {
 	if err := app.prepare(); err != nil {
 		return err
 	}
-	signal.Emit(signal.APP_WILL_LISTEN, app)
+	signal.Emit(WILL_LISTEN, app)
 	app.started = time.Now().UTC()
 	if app.Logger != nil && os.Getenv("GONDOLA_DEV_SERVER") == "" {
 		if app.address != "" {

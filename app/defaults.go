@@ -49,7 +49,7 @@ func DefaultEncryptionKey() string { return defaultEncryptionKey }
 
 func init() {
 	signal.MustRegister(config.SET, func(_ string, conf interface{}) {
-		defaultDebug = config.BoolValue(conf, "Debug", false)
+		defaultDebug = config.BoolValue(conf, "AppDebug", false)
 		defaultTemplateDebug = config.BoolValue(conf, "TemplateDebug", false)
 		defaultLanguage = config.StringValue(conf, "Language", "")
 		defaultPort = config.IntValue(conf, "Port", 8888)

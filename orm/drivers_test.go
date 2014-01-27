@@ -54,11 +54,18 @@ func TestPostgres(t *testing.T) {
 }
 
 func TestMysql(t *testing.T) {
-	o := newOrm(t, "mysql://gotest:gotest@/gotest", true)
+	o := newOrm(t, "mysql://gotest:gotest@/test", true)
 	db := o.SqlDB()
-	db.Exec("DROP DATABASE IF EXISTS gotest")
-	db.Exec("CREATE DATABASE gotest")
-	db.Exec("USE gotest")
+	if _, err := db.Exec("DROP DATABASE IF EXISTS gotest"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("CREATE DATABASE gotest"); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.Close(); err != nil {
+		t.Fatal(err)
+	}
+	o = newOrm(t, "mysql://gotest:gotest@/gotest", true)
 	testOrm(t, o)
 	o.Close()
 }

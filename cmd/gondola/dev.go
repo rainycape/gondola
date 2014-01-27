@@ -93,6 +93,7 @@ func NewProject(dir string, config string) *Project {
 	a.Handle("/", p.Handler)
 	a.Port = p.appPort
 	go func() {
+		os.Setenv("GONDOLA_IS_DEV_SERVER", "1")
 		a.MustListenAndServe()
 	}()
 	return p

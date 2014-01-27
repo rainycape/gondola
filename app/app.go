@@ -1171,7 +1171,11 @@ func (app *App) prepare() error {
 		return fmt.Errorf("port %d is invalid, must be > 0", app.Port)
 	}
 	if len(app.Secret) < 32 {
-		return fmt.Errorf("secret %q is too short, must be at least 32 characters - use gondola random-string to generate one", app.Secret)
+		if os.Getenv("GONDOLA_IS_DEV_SERVER") != "" {
+			os.Setenv("GONDOLA_IS_DEV_SERVER", "")
+		} else {
+			return fmt.Errorf("secret %q is too short, must be at least 32 characters - use gondola random-string to generate one", app.Secret)
+		}
 	}
 	if app.CookieSigner == nil {
 		app.CookieSigner = &cryptoutil.Signer{

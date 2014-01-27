@@ -398,6 +398,9 @@ func (o *Orm) Begin() (*Tx, error) {
 	if err != nil {
 		return nil, err
 	}
+	if o.logger != nil {
+		o.logger.Debugf("Beginning transaction")
+	}
 	return &Tx{
 		Orm: &Orm{
 			conn:   tx,

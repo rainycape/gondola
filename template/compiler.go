@@ -797,8 +797,21 @@ func (p *program) addSTRING(s string) {
 	p.inst(opSTRING, p.addString(s))
 }
 
-func (p *program) addFIELD(name string) {
-	p.inst(opFIELD, encodeVal(p.s.argc(), p.addString(name)))
+func (p *program) addFIELD(argc int, name string) {
+	if argc < 0 {
+		argc = p.s.argc()
+	}
+	p.inst(opFIELD, encodeVal(argc, p.addString(name)))
+}
+
+func (p *program) addFIELDs(names []string) {
+	argc := 0
+	for ii, v := range names {
+		if ii == len(names)-1 {
+			argc = -1
+		}
+		p.addFIELD(argc, v)
+	}
 }
 
 func (p *program) prevFuncReturnType() reflect.Type {
@@ -947,9 +960,7 @@ func (p *program) walk(n parse.Node) error {
 		p.inst(opVAL, p.addValue(x.True))
 	case *parse.ChainNode:
 		p.walk(x.Node)
-		for _, v := range x.Field {
-			p.addFIELD(v)
-		}
+		p.addFIELDs(x.Field)
 	case *parse.CommandNode:
 		// Command nodes are pushed on reverse order, so they are
 		// evaluated from right to left. If we encounter a function
@@ -969,9 +980,7 @@ func (p *program) walk(n parse.Node) error {
 		p.inst(opDOT, 0)
 	case *parse.FieldNode:
 		p.inst(opDOT, 0)
-		for _, v := range x.Ident {
-			p.addFIELD(v)
-		}
+		p.addFIELDs(x.Ident)
 	case *parse.IdentifierNode:
 		if len(p.s.cmd) == 0 {
 			return fmt.Errorf("identifier %q outside of command?", x.Ident)
@@ -1106,9 +1115,7 @@ func (p *program) walk(n parse.Node) error {
 	case *parse.VariableNode:
 		// Remove $ sign
 		p.inst(opVAR, p.addString(x.Ident[0][1:]))
-		for _, v := range x.Ident[1:] {
-			p.addFIELD(v)
-		}
+		p.addFIELDs(x.Ident[1:])
 	case *parse.WithNode:
 		if err := p.walkBranch(parse.NodeWith, &x.BranchNode); err != nil {
 			return err

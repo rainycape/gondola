@@ -249,7 +249,7 @@ func or(args ...interface{}) interface{} {
 			return v
 		}
 	}
-	return nil
+	return args[len(args)-1]
 }
 
 func not(arg interface{}) bool {

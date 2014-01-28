@@ -258,6 +258,8 @@ func BenchmarkBig(b *testing.B) {
 		return
 	}
 	var buf bytes.Buffer
+	tmpl.Execute(&buf, nil)
+	buf.Reset()
 	b.ResetTimer()
 	for ii := 0; ii < b.N; ii++ {
 		tmpl.Execute(&buf, nil)
@@ -284,10 +286,11 @@ func BenchmarkHTMLBig(b *testing.B) {
 	if _, err := t2.Parse(readFile("2.html")); err != nil {
 		b.Fatal(err)
 	}
-	if err := tmpl.Execute(ioutil.Discard, nil); err != nil {
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, nil); err != nil {
 		b.Fatal(err)
 	}
-	var buf bytes.Buffer
+	buf.Reset()
 	b.ResetTimer()
 	for ii := 0; ii < b.N; ii++ {
 		tmpl.Execute(&buf, nil)

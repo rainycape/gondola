@@ -269,26 +269,6 @@ func (s *state) formatErr(pc int, tmpl string, err error) error {
 	return err
 }
 
-func (s *state) formatReflectErr(name string, fn reflect.Value, args int, e error) error {
-	msg := e.Error()
-	typ := fn.Type()
-	if strings.Contains(msg, "too many") || strings.Contains(msg, "too few") {
-		return fmt.Errorf("function requires %d arguments, %d given", typ.NumIn(), args)
-	}
-	if strings.Contains(msg, "using") && strings.Contains(msg, "as type") {
-		for ii := 0; ii < typ.NumIn(); ii++ {
-			in := typ.In(ii)
-			offset := -(args - 1) + ii
-			arg := s.stack[len(s.stack)-1-offset]
-			atyp := arg.Type()
-			if !atyp.AssignableTo(in) {
-				return fmt.Errorf("argument %d must be %s, can't assign from %s", ii+1, in, atyp)
-			}
-		}
-	}
-	return e
-}
-
 func (s *state) errorf(pc int, tmpl string, format string, args ...interface{}) error {
 	err := fmt.Errorf(format, args...)
 	return s.formatErr(pc, tmpl, err)
@@ -337,12 +317,50 @@ func (s *state) varValue(name string) (reflect.Value, error) {
 }
 
 // call fn, remove its args from the stack and push the result
-func (s *state) call(fn reflect.Value, name string, args int, skip int) error {
-	pos := len(s.stack) - args - skip
+func (s *state) call(fn reflect.Value, name string, args int) error {
+	pos := len(s.stack) - args
 	in := s.stack[pos : pos+args]
+	ftyp := fn.Type()
+	numIn := ftyp.NumIn()
+	last := numIn
+	if ftyp.IsVariadic() {
+		last--
+		if args < last {
+			return fmt.Errorf("function %q requires at least %d arguments, %d given", last, args)
+		}
+	} else {
+		if args != numIn {
+			return fmt.Errorf("function %q requires exactly %d arguments, %d given", numIn, args)
+		}
+	}
 	// arguments are in reverse order
 	for ii := 0; ii < len(in)/2; ii++ {
 		in[ii], in[len(in)-1-ii] = in[len(in)-1-ii], in[ii]
+	}
+	for ii, v := range in {
+		var ityp reflect.Type
+		if ii < last {
+			ityp = ftyp.In(ii)
+		} else {
+			ityp = ftyp.In(last).Elem()
+		}
+		if !v.IsValid() {
+			in[ii] = reflect.Zero(ityp)
+			continue
+		}
+		vtyp := v.Type()
+		if !vtyp.AssignableTo(ityp) {
+			k := vtyp.Kind()
+			if (k == reflect.Ptr || k == reflect.Interface) && !v.IsNil() && vtyp.Elem().AssignableTo(ityp) {
+				in[ii] = v.Elem()
+				continue
+			}
+			if reflect.PtrTo(vtyp).AssignableTo(ityp) && v.CanAddr() {
+				in[ii] = v.Addr()
+				continue
+			}
+			return fmt.Errorf("can't call %q with %s as argument %d, need %s", name, vtyp, ii+1, ityp)
+		}
 	}
 	res := fn.Call(in)
 	if len(res) == 2 && !res[1].IsNil() {
@@ -357,35 +375,6 @@ func (s *state) recover(pc *int, tmpl *string, err *error) {
 		e, ok := r.(error)
 		if !ok {
 			e = fmt.Errorf("%v", r)
-		}
-		code := s.p.code[*tmpl]
-		if *pc < len(code) {
-			op := code[*pc]
-			if op.op == opFUNC || op.op == opFIELD {
-				args, i := decodeVal(op.val)
-				var name string
-				var fn reflect.Value
-				var ptr reflect.Value
-				if op.op == opFUNC {
-					name = s.p.funcs[i].name
-					fn = s.p.funcs[i].val
-				} else {
-					name = s.p.strings[i]
-					ptr = s.stack[len(s.stack)-1]
-					if ptr.Kind() != reflect.Interface && ptr.Kind() != reflect.Ptr && ptr.CanAddr() {
-						ptr = ptr.Addr()
-					}
-					fn = ptr.MethodByName(name)
-				}
-				if strings.HasPrefix(e.Error(), "reflect:") && fn.IsValid() {
-					e = s.formatReflectErr(name, fn, args, e)
-				}
-				if op.op == opFUNC {
-					e = fmt.Errorf("error calling %q: %s", name, e)
-				} else {
-					e = fmt.Errorf("error calling %q on %s: %s", name, ptr.Type(), e)
-				}
-			}
 		}
 		*err = s.formatErr(*pc, *tmpl, e)
 	}
@@ -446,8 +435,9 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 						// when calling a function from a field, there will be
 						// and extra argument at the top of the stack, either
 						// the dot or the result of the last field lookup, so
-						// we have to skip it with the skip argument.
-						if err := s.call(fn, name, args, 1); err != nil {
+						// we have to remove it.
+						s.stack = s.stack[:p]
+						if err := s.call(fn, name, args); err != nil {
 							return err
 						}
 						// s.call already puts the result in the stack
@@ -485,7 +475,7 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 			args, i := decodeVal(v.val)
 			// function existence is checked at compile time
 			fn := s.p.funcs[i]
-			if err := s.call(fn.val, fn.name, args, 0); err != nil {
+			if err := s.call(fn.val, fn.name, args); err != nil {
 				return s.formatErr(pc, tmpl, err)
 			}
 		case opVAR:

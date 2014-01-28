@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"gnd.la/admin"
 	"gnd.la/app"
-	"gnd.la/config"
 	"gnd.la/log"
 	"gnd.la/util/internal/runtimeutil"
 	"go/build"
@@ -574,15 +573,6 @@ func Dev(ctx *app.Context) {
 	ctx.ParseParamValue("no-cache", &p.noCache)
 	ctx.ParseParamValue("profile", &p.profile)
 	ctx.ParseParamValue("v", &p.verbose)
-	if p.port == 0 {
-		var conf config.Config
-		if err := config.ParseFile(p.Conf(), &conf); err == nil {
-			p.port = conf.Port
-		}
-		if p.port == 0 {
-			p.port = 8888
-		}
-	}
 	clean(dir)
 	go p.Compile()
 	eof := "C"
@@ -614,7 +604,7 @@ func init() {
 			admin.BoolFlag("no-debug", false, "Disable AppDebug, TemplateDebug and LogDebug - see gnd.la/config for details"),
 			admin.BoolFlag("no-cache", false, "Disables the cache when running the project"),
 			admin.BoolFlag("profile", false, "Compiles and runs the project with profiling enabled"),
-			admin.IntFlag("port", 0, "Port to listen on. If zero, the project configuration is parsed to look for the port. If none is found, 8888 is used."),
+			admin.IntFlag("port", 8888, "Port to listen on"),
 			admin.BoolFlag("race", false, "Enable -race when building. If the platform does not support -race, this option is ignored."),
 			admin.BoolFlag("v", false, "Enable verbose output"),
 		),

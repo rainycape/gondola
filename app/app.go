@@ -732,8 +732,11 @@ func (app *App) reverseHandler(name string, args []interface{}) (bool, string, e
 // ListenAndServe starts listening on the configured address and
 // port (see Address() and Port).
 func (app *App) ListenAndServe() error {
-	if err := app.prepare(); err != nil {
+	if err := app.Prepare(); err != nil {
 		return err
+	}
+	if app.Port <= 0 {
+		return fmt.Errorf("port %d is invalid, must be > 0", app.Port)
 	}
 	signal.Emit(WILL_LISTEN, app)
 	app.started = time.Now().UTC()
@@ -1172,10 +1175,11 @@ func (app *App) importAssets(included *includedApp) error {
 	return nil
 }
 
-func (app *App) prepare() error {
-	if app.Port <= 0 {
-		return fmt.Errorf("port %d is invalid, must be > 0", app.Port)
-	}
+// Prepare is automatically called for you. This function is
+// only exposed because the gnd.la/app/tester package needs
+// to call it to set the App up without making it listen on
+// a port.
+func (app *App) Prepare() error {
 	if len(app.Secret) < 32 {
 		if os.Getenv("GONDOLA_IS_DEV_SERVER") != "" {
 			os.Setenv("GONDOLA_IS_DEV_SERVER", "")

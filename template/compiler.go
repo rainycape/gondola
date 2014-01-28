@@ -945,6 +945,11 @@ func (p *program) walk(n parse.Node) error {
 		p.s.add(pipe)
 	case *parse.BoolNode:
 		p.inst(opVAL, p.addValue(x.True))
+	case *parse.ChainNode:
+		p.walk(x.Node)
+		for _, v := range x.Field {
+			p.addFIELD(v)
+		}
 	case *parse.CommandNode:
 		// Command nodes are pushed on reverse order, so they are
 		// evaluated from right to left. If we encounter a function

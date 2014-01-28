@@ -428,9 +428,6 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 				if top.Kind() == reflect.Map && (top.Type().Key().Kind() == reflect.String || stringType.AssignableTo(top.Type().Key())) {
 					k := s.p.rstrings[i]
 					res = stackable(top.MapIndex(k))
-					if !res.IsValid() {
-						res = reflect.Zero(top.Type().Elem())
-					}
 				} else {
 					name := s.p.strings[i]
 					// get pointer methods and try to call a method by that name

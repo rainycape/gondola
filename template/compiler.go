@@ -532,7 +532,7 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 			}
 		case opPRINT:
 			v := s.stack[len(s.stack)-1]
-			if v.Type() == stringType {
+			if v.IsValid() && v.Type() == stringType {
 				if _, err := s.w.WriteString(v.String()); err != nil {
 					return s.formatErr(pc, tmpl, err)
 				}

@@ -1229,7 +1229,7 @@ func printableValue(v reflect.Value) (interface{}, bool, bool) {
 		}
 	}
 	if !v.IsValid() {
-		return "<no value>", true, true
+		return nil, false, true
 	}
 
 	if !isPrintable(v.Type()) {

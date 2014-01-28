@@ -1100,7 +1100,9 @@ func (p *program) walk(n parse.Node) error {
 		if len(p.s.buf) == 0 && len(x.Text) > 1 && strings.Contains(p.tmpl.contentType, "html") && x.Text[0] == '\n' && x.Text[1] == '<' {
 			text = text[1:]
 		}
-		p.addWB(text)
+		if len(text) > 0 {
+			p.addWB(text)
+		}
 	case *parse.VariableNode:
 		// Remove $ sign
 		p.inst(opVAR, p.addString(x.Ident[0][1:]))

@@ -199,12 +199,13 @@ type variable struct {
 var statePool = make(chan *state, runtime.GOMAXPROCS(0))
 
 type state struct {
-	p     *program
-	w     *bytes.Buffer
-	vars  []variable
-	stack []reflect.Value
-	marks []int
-	dot   []reflect.Value
+	p       *program
+	w       *bytes.Buffer
+	vars    []variable
+	stack   []reflect.Value
+	marks   []int
+	dot     []reflect.Value
+	scratch []interface{} // used for calling variadic functions with ...interface{}
 }
 
 func newState(p *program, w *bytes.Buffer) *state {
@@ -354,7 +355,8 @@ func (s *state) call(fn reflect.Value, name string, args int) error {
 	ftyp := fn.Type()
 	numIn := ftyp.NumIn()
 	last := numIn
-	if ftyp.IsVariadic() {
+	isVariadic := ftyp.IsVariadic()
+	if isVariadic {
 		last--
 		if args < last {
 			return fmt.Errorf("function %q requires at least %d arguments, %d given", last, args)
@@ -368,12 +370,14 @@ func (s *state) call(fn reflect.Value, name string, args int) error {
 	for ii := 0; ii < len(in)/2; ii++ {
 		in[ii], in[len(in)-1-ii] = in[len(in)-1-ii], in[ii]
 	}
+	var lastType reflect.Type
 	for ii, v := range in {
 		var ityp reflect.Type
 		if ii < last {
 			ityp = ftyp.In(ii)
 		} else {
 			ityp = ftyp.In(last).Elem()
+			lastType = ityp
 		}
 		if !v.IsValid() {
 			in[ii] = reflect.Zero(ityp)
@@ -393,7 +397,24 @@ func (s *state) call(fn reflect.Value, name string, args int) error {
 			return fmt.Errorf("can't call %q with %s as argument %d, need %s", name, vtyp, ii+1, ityp)
 		}
 	}
-	res := fn.Call(in)
+	var res []reflect.Value
+	if isVariadic && lastType == emptyType {
+		// empty the scratch here, so it's only pointless
+		// the first time. the alternative would be emptying it
+		// after the call and in reset(), because CallSlice can end
+		// up calling a function which panics. that would cause
+		// a lot of unrequired emptys because templates don't
+		// necessarily use the scratch.
+		s.scratch = s.scratch[:0]
+		for _, v := range in[last:] {
+			s.scratch = append(s.scratch, v.Interface())
+		}
+		in[last] = reflect.ValueOf(s.scratch)
+		in = in[:last+1]
+		res = fn.CallSlice(in)
+	} else {
+		res = fn.Call(in)
+	}
 	if len(res) == 2 && !res[1].IsNil() {
 		return fmt.Errorf("%q returned an error: %s", name, res[1].Interface())
 	}

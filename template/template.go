@@ -29,6 +29,34 @@ import (
 
 type FuncMap map[string]interface{}
 
+func (f FuncMap) asTemplateFuncs() map[string]interface{} {
+	fns := make(map[string]interface{})
+	for k, v := range f {
+		if k != "" && k[0] == '#' {
+			k = k[1:]
+		}
+		fns[k] = v
+	}
+	return fns
+}
+
+func (f FuncMap) add(name string, value interface{}) {
+	if name != "" {
+		if name[0] == '#' {
+			// delete non-pure if exists
+			delete(f, name[1:])
+		} else {
+			// delete pure if exists
+			delete(f, "#"+name)
+		}
+		f[name] = value
+	}
+}
+
+func (f FuncMap) has(name string) bool {
+	return f[name] != nil || (name != "" && ((name[0] == '#' && f[name[1:]] != nil) || (name[0] != '#' && f["#"+name] != nil)))
+}
+
 type VarMap map[string]interface{}
 
 func (v VarMap) unpack(ns string) VarMap {
@@ -125,7 +153,7 @@ func (t *Template) init() {
 	funcs := FuncMap{
 		topAssetsFuncName:    nop,
 		bottomAssetsFuncName: nop,
-		AssetFuncName:        t.Asset,
+		"#" + AssetFuncName:  t.Asset,
 	}
 	t.Funcs(funcs).Funcs(templateFuncs)
 }
@@ -210,8 +238,11 @@ func (t *Template) Hook(hook *Hook) error {
 		return err
 	}
 	for k, v := range hook.Template.funcMap {
-		if t.funcMap[k] == nil {
-			t.funcMap[k] = v
+		if t.funcMap == nil {
+			t.funcMap = make(FuncMap)
+		}
+		if !t.funcMap.has(k) {
+			t.funcMap.add(k, v)
 		}
 	}
 	t.hooks = append(t.hooks, hook)
@@ -629,7 +660,11 @@ func (t *Template) load(name string, included bool) error {
 	s = templatePrepend + defineRe.ReplaceAllString(s, "$0"+strings.Replace(templatePrepend, "$", "$$", -1))
 	// Replace @variable shorthands
 	s = templateutil.ReplaceVariableShorthands(s, '@', varsKey)
-	treeMap, err := parse.Parse(name, s, leftDelim, rightDelim, templateFuncs, t.funcMap)
+	var fns map[string]interface{}
+	if t.funcMap != nil {
+		fns = t.funcMap.asTemplateFuncs()
+	}
+	treeMap, err := parse.Parse(name, s, leftDelim, rightDelim, templateFuncs.asTemplateFuncs(), fns)
 	if err != nil {
 		return err
 	}
@@ -753,9 +788,9 @@ func (t *Template) Funcs(funcs FuncMap) *Template {
 		t.funcMap = make(FuncMap)
 	}
 	for k, v := range funcs {
-		t.funcMap[k] = v
+		t.funcMap.add(k, v)
 	}
-	t.tmpl.Funcs(itemplate.FuncMap(funcs))
+	t.tmpl.Funcs(funcs.asTemplateFuncs())
 	return t
 }
 

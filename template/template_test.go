@@ -97,6 +97,7 @@ func parseNamedText(tb testing.TB, name string, text string, funcs map[string]in
 	loader := loaders.MapLoader(map[string][]byte{name: []byte(text)})
 	tmpl := New(loader, nil)
 	tmpl.Funcs(funcs)
+	tmpl.Funcs(FuncMap{"#t": func(s string) string { return s }})
 	tmpl.contentType = contentType
 	err := tmpl.Parse(name)
 	if err != nil {
@@ -117,7 +118,7 @@ func parseText(tb testing.TB, text string) *Template {
 func parseTestTemplate(tb testing.TB, name string) *Template {
 	loader := loaders.FSLoader("_testdata")
 	tmpl := New(loader, assets.NewManager(loader, ""))
-	tmpl.Funcs(FuncMap{"t": func(s string) string { return s }})
+	tmpl.Funcs(FuncMap{"#t": func(s string) string { return s }})
 	if err := tmpl.Parse(name); err != nil {
 		tb.Errorf("error parsing %q: %s", name, err)
 		return nil
@@ -230,7 +231,7 @@ func BenchmarkHTMLTemplate(b *testing.B) {
 	templates := make([]*template.Template, len(tests))
 	for ii, v := range tests {
 		tmpl := template.New("template.html")
-		tmpl.Funcs(template.FuncMap(templateFuncs))
+		tmpl.Funcs(template.FuncMap(templateFuncs.asTemplateFuncs()))
 		_, err := tmpl.Parse(v.tmpl)
 		if err != nil {
 			b.Fatalf("can't parse %q: %s", v.tmpl, err)
@@ -268,7 +269,7 @@ func BenchmarkHTMLBig(b *testing.B) {
 	b.ReportAllocs()
 	tmpl := template.New("")
 	tmpl.Funcs(template.FuncMap{"t": func(s string) string { return s }})
-	tmpl.Funcs(template.FuncMap(templateFuncs))
+	tmpl.Funcs(template.FuncMap(templateFuncs.asTemplateFuncs()))
 	readFile := func(name string) string {
 		data, err := ioutil.ReadFile(filepath.Join("_testdata", name))
 		if err != nil {

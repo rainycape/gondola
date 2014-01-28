@@ -3,6 +3,7 @@ package template
 import (
 	"bytes"
 	"fmt"
+	"gnd.la/util"
 	"gnd.la/util/types"
 	"html/template"
 	"reflect"
@@ -748,6 +749,11 @@ func (s *scratch) argc() int {
 	return argc
 }
 
+func (s *scratch) clear() {
+	s.buf = nil
+	s.ctx = nil
+}
+
 type program struct {
 	tmpl     *Template
 	funcs    []*fn
@@ -973,6 +979,22 @@ func (p *program) walk(n parse.Node) error {
 		}
 		pipe := p.s.snap()
 		p.s.restore(s)
+		if len(pipe.buf) == 2 && pipe.buf[0].op == opVAL && pipe.buf[1].op == opPRINT {
+			// this pipe only generates a value and then
+			// prints it. we can generate the value now
+			// and translate it to an opWB
+			v := p.values[pipe.buf[0].val]
+			val, doPrint, ok := printableValue(v)
+			if ok {
+				// otherwise let it generate a runtime error
+				if doPrint {
+					var buf bytes.Buffer
+					fmt.Fprint(&buf, val)
+					p.addWB(buf.Bytes())
+				}
+				break
+			}
+		}
 		if err := pipe.putPop(); err != nil {
 			return err
 		}
@@ -1059,7 +1081,11 @@ func (p *program) walk(n parse.Node) error {
 			// Function optimized away
 			break
 		}
-		fn := p.tmpl.funcMap[name]
+		// check for the stable function first
+		fn := p.tmpl.funcMap["#"+name]
+		if fn == nil {
+			fn = p.tmpl.funcMap[name]
+		}
 		if fn == nil {
 			return fmt.Errorf("undefined function %q", name)
 		}
@@ -1093,6 +1119,7 @@ func (p *program) walk(n parse.Node) error {
 		val := p.addValue(nil)
 		p.inst(opVAL, val)
 	case *parse.PipeNode:
+		s := p.s.snap()
 		for ii, v := range x.Cmds {
 			p.s.pipe = append(p.s.pipe, ii)
 			if err := p.walk(v); err != nil {
@@ -1100,6 +1127,18 @@ func (p *program) walk(n parse.Node) error {
 			}
 			p.s.pipe = p.s.pipe[:len(p.s.pipe)-1]
 		}
+		pipe := p.s.snap()
+		p.s.restore(s)
+		if len(pipe.buf) > 1 && p.scratchIsPure(pipe) {
+			state, err := p.executeScratch(pipe)
+			if err == nil {
+				pipe.clear()
+				for _, v := range state.stack {
+					pipe.prepend(opVAL, p.addValue(v.Interface()))
+				}
+			}
+		}
+		p.s.add(pipe)
 		if !p.s.branchPipe {
 			for _, variable := range x.Decl {
 				// Remove $
@@ -1149,6 +1188,51 @@ func (p *program) walk(n parse.Node) error {
 	}
 	p.s.ctx = append(p.s.ctx, &context{pc: len(p.s.buf), node: n})
 	return nil
+}
+
+func (p *program) fnIsPure(idx int) bool {
+	fn := p.funcs[idx]
+	if fn == nil {
+		return false
+	}
+	return htmlEscapeFuncs[fn.name] != nil || p.tmpl.funcMap["#"+fn.name] != nil
+}
+
+// scratchIsPure returns if the scratch does not
+// depend on the dot nor variables and only calls pure
+// functions. In that case, it can be executed at compile time.
+func (p *program) scratchIsPure(s *scratch) bool {
+	for _, v := range s.buf {
+		switch v.op {
+		case opSTRING, opVAL:
+		case opFUNC:
+			_, i := decodeVal(v.val)
+			if !p.fnIsPure(i) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func (p *program) executeScratch(s *scratch) (*state, error) {
+	name := util.RandomString(16)
+	p.code[name] = s.buf
+	// We don't really need a buffer here, but let's
+	// pass one just in case. If a bug were found when
+	// executing a scratch, wasting a few bytes is better
+	// than crashing
+	var buf bytes.Buffer
+	st := newState(p, &buf)
+	err := st.execute(name, "", reflect.Value{})
+	st.put()
+	delete(p.code, name)
+	if err != nil {
+		return nil, err
+	}
+	return st, nil
 }
 
 func (p *program) stitchTree(name string) {

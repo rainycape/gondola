@@ -138,7 +138,12 @@ func _map(args ...interface{}) (map[string]interface{}, error) {
 // this returns *[]interface{} so append works on
 // slices declared in templates
 func _slice(args ...interface{}) *[]interface{} {
-	return &args
+	// We need to copy the slice, since state.call
+	// reuses a []interface{} to make all the calls
+	// to variadic functions.
+	ret := make([]interface{}, len(args))
+	copy(ret, args)
+	return &ret
 }
 
 func _append(items interface{}, args ...interface{}) (string, error) {

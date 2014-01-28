@@ -432,10 +432,17 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 					name := s.p.strings[i]
 					// get pointer methods and try to call a method by that name
 					ptr := top
-					if ptr.Kind() != reflect.Interface && ptr.Kind() != reflect.Ptr && ptr.CanAddr() {
+					kind := ptr.Kind()
+					if kind != reflect.Interface && kind != reflect.Ptr && ptr.CanAddr() {
 						ptr = ptr.Addr()
+						kind = reflect.Ptr
 					}
-					if fn := ptr.MethodByName(name); fn.IsValid() {
+					fn := ptr.MethodByName(name)
+					if !fn.IsValid() && kind == reflect.Ptr && ptr.Type().Elem().Kind() == reflect.Interface {
+						ptr = ptr.Elem()
+						fn = ptr.MethodByName(name)
+					}
+					if fn.IsValid() {
 						// when calling a function from a field, there will be
 						// and extra argument at the top of the stack, either
 						// the dot or the result of the last field lookup, so

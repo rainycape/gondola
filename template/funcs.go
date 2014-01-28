@@ -232,14 +232,14 @@ func concat(args ...interface{}) string {
 	return strings.Join(s, "")
 }
 
-func and(args ...interface{}) bool {
+func and(args ...interface{}) interface{} {
 	for _, v := range args {
 		t, _ := types.IsTrue(v)
 		if !t {
-			return false
+			return v
 		}
 	}
-	return true
+	return args[len(args)-1]
 }
 
 func or(args ...interface{}) interface{} {

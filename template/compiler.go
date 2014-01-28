@@ -1068,6 +1068,9 @@ func (p *program) walk(n parse.Node) error {
 			return fmt.Errorf("invalid number node %v", x)
 		}
 		p.inst(opVAL, val)
+	case *parse.NilNode:
+		val := p.addValue(nil)
+		p.inst(opVAL, val)
 	case *parse.PipeNode:
 		for ii, v := range x.Cmds {
 			p.s.pipe = append(p.s.pipe, ii)

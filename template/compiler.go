@@ -1241,7 +1241,8 @@ func (p *program) stitchTree(name string) {
 	code := p.code[name]
 	for ii, v := range code {
 		if code[ii].op == opTEMPLATE {
-			tmpl := p.strings[int(v.val)]
+			t, _ := decodeVal(v.val)
+			tmpl := p.strings[t]
 			sub := p.code[tmpl]
 			// look for jumps before this opTEMPLATE
 			// which need to be adjusted

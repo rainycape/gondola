@@ -243,7 +243,7 @@ func (s *state) countDefines(name string, tr *parse.Tree, node parse.Node) int {
 		search = append(search, v.Template)
 	}
 	var ns string
-	if ns = namespace(ns); ns != "" {
+	if ns = namespace(name); ns != "" {
 		name = name[len(ns)+len(nsMark):]
 	}
 	var text string

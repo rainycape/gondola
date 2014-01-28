@@ -64,6 +64,8 @@ func bootstrapParser(m *assets.Manager, names []string, options assets.Options) 
 	cond := &assets.Condition{Comparison: assets.ComparisonLessThan, Version: 9}
 	html5Shiv.Condition = cond
 	respondJs.Condition = cond
+	html5Shiv.Position = assets.Top
+	respondJs.Position = assets.Top
 	as = append(as, html5Shiv, respondJs)
 	if !options.BoolOpt("nojs") {
 		as = append(as, assets.Script(fmt.Sprintf(bootstrapJSFmt, bsV)))

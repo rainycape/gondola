@@ -83,6 +83,7 @@ var (
 		{"{{ @Foo }}{{ concat \"@bar\" @Foo }}@baz", nil, "foo@barfoo@baz"},
 	}
 	compilerErrorTests = []*templateTest{
+		//{"{{ #invalid }}", nil, "template.html:1:9: can't range over int"},
 		{"{{ range . }}{{ else }}nope{{ end }}", 5, "template.html:1:9: can't range over int"},
 		{"{{ . }}\n{{ range . }}{{ else }}nope{{ end }}", 5, "template.html:2:9: can't range over int"},
 		{"{{ . }}\n{{ range .foo }}{{ else }}nope{{ end }}\n{{ range .bar }}{{ . }}{{ end }} ", map[string]interface{}{"foo": []int{}, "bar": ""}, "template.html:3:9: can't range over string"},
@@ -92,9 +93,12 @@ var (
 	}
 )
 
-func parseText(tb testing.TB, text string) *Template {
-	loader := loaders.MapLoader(map[string][]byte{"template.html": []byte(text)})
-	tmpl, err := Parse(loader, nil, "template.html")
+func parseNamedText(tb testing.TB, name string, text string, funcs map[string]interface{}, contentType string) *Template {
+	loader := loaders.MapLoader(map[string][]byte{name: []byte(text)})
+	tmpl := New(loader, nil)
+	tmpl.Funcs(funcs)
+	tmpl.contentType = contentType
+	err := tmpl.Parse(name)
 	if err != nil {
 		tb.Errorf("error parsing %q: %s", text, err)
 		return nil
@@ -104,6 +108,10 @@ func parseText(tb testing.TB, text string) *Template {
 		return nil
 	}
 	return tmpl
+}
+
+func parseText(tb testing.TB, text string) *Template {
+	return parseNamedText(tb, "template.html", text, nil, "")
 }
 
 func parseTestTemplate(tb testing.TB, name string) *Template {

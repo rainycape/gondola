@@ -50,6 +50,7 @@ const (
 	opSETVAR
 	opSTRING
 	opTEMPLATE
+	opUNSETVAR
 	opVAL
 	opVAR
 	opWB
@@ -304,6 +305,16 @@ func (s *state) pushVar(name string, value reflect.Value) {
 	s.vars = append(s.vars, variable{name, value})
 }
 
+func (s *state) unsetVar(name string) error {
+	for i := s.varMark() - 1; i >= 0; i-- {
+		if s.vars[i].name == name {
+			s.vars = append(s.vars[:i], s.vars[i+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("undefined variable: %q", name)
+}
+
 func (s *state) varMark() int {
 	return len(s.vars)
 }
@@ -511,6 +522,11 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 			s.pushVar(name, s.stack[p])
 			// SETVAR pops
 			s.stack = s.stack[:p]
+		case opUNSETVAR:
+			name := s.p.strings[int(v.val)]
+			if err := s.unsetVar(name); err != nil {
+				return err
+			}
 		case opTEMPLATE:
 			n, t := decodeVal(v.val)
 			name := s.p.strings[t]
@@ -853,6 +869,16 @@ func (p *program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 	}
 	pop := pipe.takePop()
 	p.s.add(pipe)
+	if nt != parse.NodeRange {
+		if len(b.Pipe.Decl) > 0 {
+			if elseList != nil {
+				elseList.addPop(pop)
+			}
+			pop = -1
+			val := p.addString(b.Pipe.Decl[0].Ident[0][1:])
+			list.prepend(opSETVAR, val).append(opUNSETVAR, val)
+		}
+	}
 	skip := len(list.buf)
 	if elseList != nil {
 		// Skip the JMP at the start of the elseList

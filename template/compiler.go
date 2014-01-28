@@ -64,6 +64,36 @@ type inst struct {
 	val valType
 }
 
+type instructions []inst
+
+func (i instructions) replace(idx int, count int, repl []inst) []inst {
+	// look for jumps before the block which need to be adjusted
+	for ii, v := range i[:idx] {
+		switch v.op {
+		case opJMP, opJMPT, opJMPF, opNEXT:
+			val := int(int32(v.val))
+			if ii+val > idx {
+				i[ii] = inst{v.op, valType(int32(val + len(repl) - count))}
+			}
+		}
+	}
+	// look for jumps after the block which need to be adjusted
+	for ii, v := range i[idx+count:] {
+		switch v.op {
+		case opJMP, opJMPT, opJMPF, opNEXT:
+			val := int(int32(v.val))
+			if ii+val < 0 {
+				i[ii] = inst{v.op, valType(int32(val - len(repl) + count))}
+			}
+		}
+	}
+	var ret []inst
+	ret = append(ret, i[:idx]...)
+	ret = append(ret, repl...)
+	ret = append(ret, i[idx+count:]...)
+	return ret
+}
+
 func encodeVal(high int, low valType) valType {
 	return valType(high<<16) | low
 }
@@ -1237,53 +1267,28 @@ func (p *program) executeScratch(s *scratch) (*state, error) {
 
 func (p *program) stitchTree(name string) {
 	// TODO: Save the name of the original template somewhere
-	// so we can recover it for error messages.
+	// so we can recover it for error messages. Since we fix
+	// that problem we're only stitching trees which are just
+	// a WB. In most cases, this will inline the top and bottom
+	// hooks, giving already a nice performance boost.
 	code := p.code[name]
-	for ii, v := range code {
-		if code[ii].op == opTEMPLATE {
-			t, _ := decodeVal(v.val)
+	for ii := 0; ii < len(code); ii++ {
+		v := code[ii]
+		if v.op == opTEMPLATE {
+			_, t := decodeVal(v.val)
 			tmpl := p.strings[t]
-			sub := p.code[tmpl]
-			// look for jumps before this opTEMPLATE
-			// which need to be adjusted
-			var stitched []inst
-			for jj, in := range code[:ii] {
-				op := in.op
-				switch op {
-				case opJMP, opJMPT, opJMPF, opNEXT:
-					val := int(int32(in.val))
-					if jj+val > ii {
-						stitched = append(stitched, inst{op, valType(int32(val + len(sub) - 1))})
-						continue
-					}
-				}
-				stitched = append(stitched, in)
+			repl := p.code[tmpl]
+			if len(repl) == 1 && repl[0].op == opWB {
+				// replace the tree
+				code = instructions(code).replace(ii, 1, repl)
+				ii--
 			}
-			stitched = append(stitched, sub...)
-			// look for jumps after this opTEMPLATE
-			// which need to be adjusted
-			for jj, in := range code[ii+1:] {
-				op := in.op
-				switch op {
-				case opJMP, opJMPT, opJMPF, opNEXT:
-					val := int(int32(in.val))
-					if jj+val < 0 {
-						stitched = append(stitched, inst{op, valType(int32(val - len(sub) + 1))})
-						continue
-					}
-				}
-				stitched = append(stitched, in)
-			}
-			// replace the tree
-			p.code[name] = stitched
-			// don't let the stichin' stop!
-			p.stitchTree(name)
 		}
 	}
+	p.code[name] = code
 }
 
 func (p *program) stitch() {
-	return // see todo in stitchTree
 	p.stitchTree(p.tmpl.root)
 }
 

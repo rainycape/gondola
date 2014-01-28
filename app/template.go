@@ -47,11 +47,11 @@ func newTemplate(app *App, loader loaders.Loader, manager *assets.Manager) *tmpl
 	t.tmpl = template.New(loader, manager)
 	t.tmpl.Debug = app.TemplateDebug
 	t.tmpl.Funcs(template.FuncMap{
-		"reverse": t.reverse,
-		"t":       nop,
-		"tn":      nop,
-		"tc":      nop,
-		"tnc":     nop,
+		"#reverse": t.reverse,
+		"t":        nop,
+		"tn":       nop,
+		"tc":       nop,
+		"tnc":      nop,
 	})
 	return t
 }

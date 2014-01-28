@@ -335,7 +335,7 @@ func (s *state) call(fn reflect.Value, name string, args int, skip int) error {
 	}
 	res := fn.Call(in)
 	if len(res) == 2 && !res[1].IsNil() {
-		return fmt.Errorf("error calling %q: %s", name, res[1].Interface())
+		return fmt.Errorf("%q returned an error: %s", name, res[1].Interface())
 	}
 	s.stack = append(s.stack[:pos], stackable(res[0]))
 	return nil

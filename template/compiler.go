@@ -454,16 +454,17 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 						break
 					}
 					// try to get a field by that name
-					for top.Kind() == reflect.Ptr {
+					for top.Kind() == reflect.Ptr || top.Kind() == reflect.Interface {
 						if top.IsNil() {
-							return s.errorf(pc, tmpl, "nil pointer evaluationg field %q on type %T", name, top.Interface())
+							// nil pointer or interface, put a nil on the stack.
+							// this is different from Go templates, which return an
+							// error when evaluating nil
+							s.stack[p] = res
+							break
 						}
 						top = top.Elem()
 					}
 					if top.Kind() != reflect.Struct {
-						if top.Type() == emptyType {
-							break
-						}
 						if err := s.requiresPointerErr(top, name); err != nil {
 							return s.formatErr(pc, tmpl, err)
 						}

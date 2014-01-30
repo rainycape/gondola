@@ -1,13 +1,9 @@
 package util
 
 import (
+	"gnd.la/util/internal"
 	"os"
 	"path/filepath"
-	"strings"
-)
-
-var (
-	inTest bool
 )
 
 // RelativePath returns the given path
@@ -27,18 +23,14 @@ func RelativePath(name string) string {
 	var full string
 	rel := filepath.FromSlash(name)
 	wd, _ := os.Getwd()
-	if inTest {
+	if internal.InTest() {
 		full = filepath.Join(wd, rel)
 	} else {
-		if filepath.IsAbs(os.Args[0]) && !inTest {
+		if filepath.IsAbs(os.Args[0]) {
 			full = filepath.Join(filepath.Dir(os.Args[0]), rel)
 		} else {
 			full = filepath.Join(wd, filepath.Dir(os.Args[0]), rel)
 		}
 	}
 	return filepath.Clean(full)
-}
-
-func init() {
-	inTest = strings.Contains(os.Args[0], string(filepath.Separator)+"_test"+string(filepath.Separator))
 }

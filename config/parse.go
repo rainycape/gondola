@@ -160,7 +160,7 @@ func ParseFile(filename string, config interface{}) error {
 	return parseFile(filename, fields)
 }
 
-// ParseReader parses the config rom the given io.Reader into
+// ParseReader parses the config from the given io.Reader into
 // the given config struct. No signal is emitted. Look at the documentation
 // of Parse() for information on the supported types as well as
 // the name mangling performed in the struct fields to convert

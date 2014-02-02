@@ -75,14 +75,15 @@ func (v VarMap) unpack(ns string) VarMap {
 		ret = x
 	case map[string]interface{}:
 		ret = VarMap(x)
-	}
-	rv := reflect.ValueOf(val)
-	if rv.IsValid() && rv.Kind() == reflect.Map && rv.Type().Key().Kind() == reflect.String {
-		m := make(map[string]interface{}, rv.Len())
-		for _, k := range rv.MapKeys() {
-			m[k.String()] = rv.MapIndex(k).Interface()
+	default:
+		rv := reflect.ValueOf(val)
+		if rv.IsValid() && rv.Kind() == reflect.Map && rv.Type().Key().Kind() == reflect.String {
+			m := make(map[string]interface{}, rv.Len())
+			for _, k := range rv.MapKeys() {
+				m[k.String()] = rv.MapIndex(k).Interface()
+			}
+			ret = VarMap(m)
 		}
-		ret = VarMap(m)
 	}
 	if ret != nil && rem != "" {
 		return ret.unpack(rem)

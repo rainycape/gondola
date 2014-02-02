@@ -206,7 +206,8 @@ type state struct {
 	stack   []reflect.Value
 	marks   []int
 	dot     []reflect.Value
-	scratch []interface{} // used for calling variadic functions with ...interface{}
+	scratch []interface{}   // used for calling variadic functions with ...interface{}
+	res     []reflect.Value // used for storing return values in fast paths
 }
 
 func newState(p *program, w *bytes.Buffer) *state {
@@ -350,7 +351,7 @@ func (s *state) varValue(name string) (reflect.Value, error) {
 }
 
 // call fn, remove its args from the stack and push the result
-func (s *state) call(fn reflect.Value, name string, args int) error {
+func (s *state) call(fn reflect.Value, name string, args int, fp fastPath) error {
 	pos := len(s.stack) - args
 	in := s.stack[pos : pos+args]
 	ftyp := fn.Type()
@@ -410,9 +411,17 @@ func (s *state) call(fn reflect.Value, name string, args int) error {
 		for _, v := range in[last:] {
 			s.scratch = append(s.scratch, v.Interface())
 		}
-		in[last] = reflect.ValueOf(s.scratch)
-		in = in[:last+1]
-		res = fn.CallSlice(in)
+		if fp != nil {
+			s.res = s.res[:0]
+			if err := fp(in, s.scratch, &s.res); err != nil {
+				return fmt.Errorf("%q returned an error: %s", err)
+			}
+			res = s.res
+		} else {
+			in[last] = reflect.ValueOf(s.scratch)
+			in = in[:last+1]
+			res = fn.CallSlice(in)
+		}
 	} else {
 		res = fn.Call(in)
 	}
@@ -490,7 +499,7 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 						// the dot or the result of the last field lookup, so
 						// we have to remove it.
 						s.stack = s.stack[:p]
-						if err := s.call(fn, name, args); err != nil {
+						if err := s.call(fn, name, args, nil); err != nil {
 							return err
 						}
 						// s.call already puts the result in the stack
@@ -528,7 +537,7 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 			args, i := decodeVal(v.val)
 			// function existence is checked at compile time
 			fn := s.p.funcs[i]
-			if err := s.call(fn.val, fn.name, args); err != nil {
+			if err := s.call(fn.val, fn.name, args, fn.fp); err != nil {
 				return s.formatErr(pc, tmpl, err)
 			}
 		case opVAR:
@@ -636,6 +645,20 @@ type fn struct {
 	val      reflect.Value
 	variadic bool
 	numIn    int
+	fp       fastPath
+}
+
+func newFn(v reflect.Value, name string) *fn {
+	typ := v.Type()
+	variadic := typ.IsVariadic()
+	numIn := typ.NumIn()
+	return &fn{
+		name:     name,
+		val:      v,
+		variadic: variadic,
+		numIn:    numIn,
+		fp:       newFastPath(v),
+	}
 }
 
 type context struct {
@@ -842,12 +865,7 @@ func (p *program) addFunc(f interface{}, name string) valType {
 	}
 	// TODO: Check it's really a reflect.Func
 	val := reflect.ValueOf(f)
-	p.funcs = append(p.funcs, &fn{
-		name:     name,
-		val:      val,
-		variadic: val.Type().IsVariadic(),
-		numIn:    val.Type().NumIn(),
-	})
+	p.funcs = append(p.funcs, newFn(val, name))
 	return valType(len(p.funcs) - 1)
 }
 

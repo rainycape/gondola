@@ -200,14 +200,15 @@ type variable struct {
 var statePool = make(chan *state, runtime.GOMAXPROCS(0))
 
 type state struct {
-	p       *program
-	w       *bytes.Buffer
-	vars    []variable
-	stack   []reflect.Value
-	marks   []int
-	dot     []reflect.Value
-	scratch []interface{}   // used for calling variadic functions with ...interface{}
-	res     []reflect.Value // used for storing return values in fast paths
+	p         *program
+	w         *bytes.Buffer
+	vars      []variable
+	stack     []reflect.Value
+	marks     []int
+	dot       []reflect.Value
+	iterators []iterator
+	scratch   []interface{}   // used for calling variadic functions with ...interface{}
+	res       []reflect.Value // used for storing return values in fast paths
 }
 
 func newState(p *program, w *bytes.Buffer) *state {
@@ -230,6 +231,7 @@ func (s *state) reset() {
 	s.stack = s.stack[:0]
 	s.marks = s.marks[:0]
 	s.dot = s.dot[:0]
+	s.iterators = s.iterators[:0]
 }
 
 func (s *state) put() {
@@ -554,16 +556,17 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 			if err != nil {
 				return s.formatErr(pc, tmpl, err)
 			}
-			s.stack = append(s.stack, reflect.ValueOf(iter))
+			s.iterators = append(s.iterators, iter)
 		case opNEXT:
-			iter, ok := s.stack[len(s.stack)-1].Interface().(iterator)
-			if !ok {
-				return s.errorf(pc, tmpl, "NEXT called without iterator")
-			}
+			p := len(s.iterators) - 1
+			// let it crash if there are no iterators, it would
+			// be a compiler error
+			iter := s.iterators[p]
 			next, idx, val := iter.Next()
 			if next {
 				s.stack = append(s.stack, idx, val)
 			} else {
+				s.iterators = s.iterators[:p]
 				pc += int(int32(v.val))
 			}
 		case opJMP:
@@ -744,7 +747,7 @@ func (s *scratch) pushes() int {
 	pushes := 0
 	for _, v := range s.buf {
 		switch v.op {
-		case opSTRING, opDOT, opVAL, opVAR, opFUNC, opITER:
+		case opSTRING, opDOT, opVAL, opVAR, opFUNC:
 			pushes++
 		case opNEXT:
 			pushes += 2
@@ -990,15 +993,6 @@ func (p *program) walkBranch(nt parse.NodeType, b *parse.BranchNode) error {
 		list.append(opJMP, valType(-len(list.buf)-2))
 		// initialize the iter
 		p.inst(opITER, 0)
-		// need to pop the iter after the range is done
-		switch pop {
-		case -1:
-			pop = 1
-		case 0:
-			break
-		default:
-			pop++
-		}
 		if elseList == nil {
 			// no elseList. just iterate and jump out of the
 			// loop once we reach the end of the iteration

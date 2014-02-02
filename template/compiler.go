@@ -78,12 +78,13 @@ func (i instructions) replace(idx int, count int, repl []inst) []inst {
 		}
 	}
 	// look for jumps after the block which need to be adjusted
-	for ii, v := range i[idx+count:] {
+	start := idx + count
+	for ii, v := range i[start:] {
 		switch v.op {
 		case opJMP, opJMPT, opJMPF, opNEXT:
 			val := int(int32(v.val))
 			if ii+val < 0 {
-				i[ii] = inst{v.op, valType(int32(val - len(repl) + count))}
+				i[ii+start] = inst{v.op, valType(int32(val - len(repl) + count))}
 			}
 		}
 	}

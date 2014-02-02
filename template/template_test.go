@@ -221,13 +221,8 @@ func benchmarkTemplate(b *testing.B, tests []*templateTest) {
 	}
 }
 
-func BenchmarkTemplate(b *testing.B) {
-	benchmarkTemplate(b, benchmarkTests())
-}
-
-func BenchmarkHTMLTemplate(b *testing.B) {
+func benchmarkHTMLTemplate(b *testing.B, tests []*templateTest) {
 	b.ReportAllocs()
-	tests := benchmarkTests()
 	templates := make([]*template.Template, len(tests))
 	for ii, v := range tests {
 		tmpl := template.New("template.html")
@@ -250,6 +245,14 @@ func BenchmarkHTMLTemplate(b *testing.B) {
 	}
 }
 
+func BenchmarkTemplate(b *testing.B) {
+	benchmarkTemplate(b, benchmarkTests())
+}
+
+func BenchmarkTemplateGo(b *testing.B) {
+	benchmarkHTMLTemplate(b, benchmarkTests())
+}
+
 func BenchmarkBig(b *testing.B) {
 	b.ReportAllocs()
 	const name = "1.html"
@@ -267,7 +270,7 @@ func BenchmarkBig(b *testing.B) {
 	}
 }
 
-func BenchmarkHTMLBig(b *testing.B) {
+func BenchmarkBigGo(b *testing.B) {
 	b.ReportAllocs()
 	tmpl := template.New("")
 	tmpl.Funcs(template.FuncMap{"t": func(s string) string { return s }})
@@ -298,12 +301,20 @@ func BenchmarkHTMLBig(b *testing.B) {
 	}
 }
 
-func BenchmarkRange(b *testing.B) {
+func rangeTests() []*templateTest {
 	var tests []*templateTest
 	for _, v := range benchmarkTests() {
 		if strings.Contains(v.tmpl, "range") {
 			tests = append(tests, v)
 		}
 	}
-	benchmarkTemplate(b, tests)
+	return tests
+}
+
+func BenchmarkRange(b *testing.B) {
+	benchmarkTemplate(b, rangeTests())
+}
+
+func BenchmarkRangeGo(b *testing.B) {
+	benchmarkHTMLTemplate(b, rangeTests())
 }

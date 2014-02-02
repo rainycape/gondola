@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"gnd.la/admin"
 	"gnd.la/app"
+	"gnd.la/config"
 	"gnd.la/log"
 	"gnd.la/util/internal/runtimeutil"
 	"go/build"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"os"
@@ -82,8 +82,9 @@ func (b *BuildError) Code() template.HTML {
 
 func NewProject(dir string, config string) *Project {
 	p := &Project{
-		dir:     dir,
-		appPort: randomFreePort(),
+		dir:        dir,
+		configPath: config,
+		appPort:    randomFreePort(),
 	}
 	a := app.New()
 	a.Logger = nil
@@ -100,78 +101,27 @@ func NewProject(dir string, config string) *Project {
 
 type Project struct {
 	sync.Mutex
-	dir            string
-	config         string
-	configFilename string
-	tags           string
-	race           bool
-	noDebug        bool
-	noCache        bool
-	profile        bool
-	verbose        bool
-	port           int
-	appPort        int
-	building       bool
-	errors         []*BuildError
-	cmd            *exec.Cmd
-	watcher        *fsnotify.Watcher
-	proxied        map[net.Conn]struct{}
-	built          time.Time
-	started        time.Time
+	dir        string
+	configPath string
+	tags       string
+	race       bool
+	noDebug    bool
+	noCache    bool
+	profile    bool
+	verbose    bool
+	port       int
+	appPort    int
+	building   bool
+	errors     []*BuildError
+	cmd        *exec.Cmd
+	watcher    *fsnotify.Watcher
+	proxied    map[net.Conn]struct{}
+	built      time.Time
+	started    time.Time
 }
 
 func (p *Project) Name() string {
 	return filepath.Base(p.dir)
-}
-
-func (p *Project) ConfDir() string {
-	return filepath.Join(p.dir, "conf")
-}
-
-func (p *Project) Conf() string {
-	if p.configFilename == "" {
-		p.configFilename = p.configFile()
-	}
-	return p.configFilename
-}
-
-func (p *Project) configFile() string {
-	dir := p.ConfDir()
-	// If a config name was provided, try to use it
-	if p.config != "" {
-		var filename string
-		if filepath.IsAbs(p.config) {
-			filename = p.config
-		} else {
-			filename = filepath.Join(dir, p.config)
-		}
-		if _, err := os.Stat(filename); err == nil {
-			return filename
-		} else {
-			// Try it as a relative path
-			if _, err := os.Stat(p.config); err == nil {
-				return p.config
-			}
-			log.Warningf("could not find config file %q (error was %s), ignoring", p.config, err)
-		}
-	}
-	// Otherwise, try development.conf
-	filename := filepath.Join(dir, "development.conf")
-	if _, err := os.Stat(filename); err == nil {
-		return filename
-	}
-	// Grab the first .conf file in the directory
-	if files, err := ioutil.ReadDir(dir); err == nil {
-		for _, v := range files {
-			if strings.ToLower(filepath.Ext(v.Name())) == ".conf" {
-				filename := filepath.Join(dir, v.Name())
-				if _, err := os.Stat(filename); err == nil {
-					return filename
-				}
-			}
-		}
-	}
-	return ""
 }
 
 func (p *Project) buildTags() []string {
@@ -238,7 +188,7 @@ func (p *Project) StartMonitoring() error {
 			return err
 		}
 	}
-	watcher.Watch(p.Conf())
+	watcher.Watch(p.configPath)
 	p.watcher = watcher
 	go func() {
 		var t *time.Timer
@@ -254,7 +204,7 @@ func (p *Project) StartMonitoring() error {
 				if ext != ".go" && ext != ".h" && ext != ".c" && ext != ".s" && ext != ".cpp" && ext != ".cxx" {
 					if ext == ".conf" {
 						if ev.IsModify() {
-							log.Debugf("Config file %s changed, restarting...", p.Conf())
+							log.Debugf("Config file %s changed, restarting...", p.configPath)
 							if err := p.Stop(); err != nil {
 								log.Errorf("Error stopping %s: %s", p.Name(), err)
 								break
@@ -302,7 +252,7 @@ func (p *Project) ProjectCmd() *exec.Cmd {
 	if runtime.GOOS != "windows" {
 		name = "./" + name
 	}
-	args := []string{"-config", p.Conf(), fmt.Sprintf("-port=%d", p.port)}
+	args := []string{"-config", p.configPath, fmt.Sprintf("-port=%d", p.port)}
 	if p.noDebug {
 		args = append(args, "-app-debug=false", "-template-debug=false", "-log-debug=false")
 	} else {
@@ -551,6 +501,16 @@ func (p *Project) ProxyConnection(conn net.Conn, port int) {
 	sock.Close()
 }
 
+func findConfig(dir string, name string) string {
+	configPath := filepath.Join(dir, name)
+	for _, v := range []string{configPath, name} {
+		if _, err := os.Stat(v); err == nil {
+			return v
+		}
+	}
+	return ""
+}
+
 func Dev(ctx *app.Context) {
 	var dir string
 	var configName string
@@ -560,12 +520,12 @@ func Dev(ctx *app.Context) {
 	if err != nil {
 		log.Panic(err)
 	}
-	p := NewProject(path, configName)
-	if c := p.Conf(); c == "" {
-		log.Panicf("can't find configuration for %s. Please, create a config file in the directory %s (its extension must be .conf)", p.Name(), p.ConfDir())
-	} else {
-		log.Debugf("Using config file %s", c)
+	configPath := findConfig(dir, configName)
+	if configPath == "" {
+		log.Panicf("can't find configuration file %s in %s", configName, dir)
 	}
+	log.Debugf("Using config file %s", configPath)
+	p := NewProject(path, configPath)
 	ctx.ParseParamValue("port", &p.port)
 	ctx.ParseParamValue("tags", &p.tags)
 	ctx.ParseParamValue("race", &p.race)
@@ -599,7 +559,7 @@ func init() {
 		Help: "Starts the development server",
 		Flags: admin.Flags(
 			admin.StringFlag("dir", ".", "Directory of the project"),
-			admin.StringFlag("config", "", "Configuration name to use. If none is provided, development.conf is used."),
+			admin.StringFlag("config", config.DefaultName, "Configuration name to use"),
 			admin.StringFlag("tags", "", "Go build tags to pass to the compiler"),
 			admin.BoolFlag("no-debug", false, "Disable AppDebug, TemplateDebug and LogDebug - see gnd.la/config for details"),
 			admin.BoolFlag("no-cache", false, "Disables the cache when running the project"),

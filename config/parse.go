@@ -17,8 +17,10 @@ import (
 	"strings"
 )
 
+const DefaultName = "app.conf"
+
 var (
-	defaultFilename = util.RelativePath("conf/current.conf")
+	defaultFilename = util.RelativePath(DefaultName)
 	configName      *string
 )
 
@@ -47,17 +49,17 @@ func SetDefaultFilename(name string) {
 // DefaultFilename returns the default config filename used by Parse().
 // It might changed by calling SetDefaultFilename() or overriden using
 // the -config command line flag (the latter, of present, takes precendence).
-// The initial value is the path conf/current.conf relative to the application
+// The initial value is app.conf in the same directory as the application
 // binary.
 func DefaultFilename() string {
 	return defaultFilename
 }
 
-// Filename returns the current filename used by Parse(). If the -config command
+// Filename returns the filename used by Parse(). If the -config command
 // line flag was provided, it returns its value. Otherwise, it returns
 // DefaultFilename().
 func Filename() string {
-	if configName == nil {
+	if configName == nil || *configName == "" {
 		return defaultFilename
 	}
 	return *configName

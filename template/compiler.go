@@ -1288,7 +1288,7 @@ func (p *program) executeScratch(s *scratch) (*state, error) {
 
 func (p *program) stitchTree(name string) {
 	// TODO: Save the name of the original template somewhere
-	// so we can recover it for error messages. Since we fix
+	// so we can recover it for error messages. Until we fix
 	// that problem we're only stitching trees which are just
 	// a WB. In most cases, this will inline the top and bottom
 	// hooks, giving already a nice performance boost.

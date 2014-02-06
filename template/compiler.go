@@ -209,6 +209,7 @@ type state struct {
 	iterators []iterator
 	scratch   []interface{}   // used for calling variadic functions with ...interface{}
 	res       []reflect.Value // used for storing return values in fast paths
+	resPtr    *reflect.Value
 }
 
 func newState(p *program, w *bytes.Buffer) *state {
@@ -219,9 +220,13 @@ func newState(p *program, w *bytes.Buffer) *state {
 		s.w = w
 		return s
 	default:
+		res := make([]reflect.Value, 1)
+		resPtr := &res[0]
 		return &state{
-			p: p,
-			w: w,
+			p:      p,
+			w:      w,
+			res:    res,
+			resPtr: resPtr,
 		}
 	}
 }
@@ -414,8 +419,7 @@ func (s *state) call(fn reflect.Value, name string, args int, fp fastPath) error
 			s.scratch = append(s.scratch, v.Interface())
 		}
 		if fp != nil {
-			s.res = s.res[:0]
-			if err := fp(in, s.scratch, &s.res); err != nil {
+			if err := fp(in, s.scratch, s.resPtr); err != nil {
 				return fmt.Errorf("%q returned an error: %s", err)
 			}
 			res = s.res

@@ -10,7 +10,6 @@ import (
 	"gnd.la/util/textutil"
 	"gnd.la/util/types"
 	"io"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"strconv"
@@ -185,22 +184,9 @@ func parseFile(filename string, fields fieldMap) error {
 }
 
 func parseReader(r io.Reader, fields fieldMap) error {
-	b, err := ioutil.ReadAll(r)
+	values, err := textutil.ParseIni(r)
 	if err != nil {
 		return err
-	}
-	/* Copy strings to a map */
-	values := make(map[string]string)
-	for _, line := range strings.Split(string(b), "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" {
-			parts := strings.SplitN(trimmed, "=", 2)
-			if len(parts) == 2 {
-				key := strings.TrimSpace(parts[0])
-				value := strings.TrimSpace(parts[1])
-				values[key] = value
-			}
-		}
 	}
 	/* Now iterate over the fields and copy from the map */
 	for k, v := range fields {

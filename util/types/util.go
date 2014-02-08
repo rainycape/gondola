@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 )
 
 // ToString transforms the given value into
@@ -34,7 +35,7 @@ func ToString(val interface{}) string {
 }
 
 // ToInt tries to convert its argument to an integer. It will convert
-// bool, uint and its varities, floats and even strings if it can parse
+// bool, int, uint and its variants, floats and even strings if it can parse
 // them.
 func ToInt(val interface{}) (int, error) {
 	iv := reflect.ValueOf(val)
@@ -44,6 +45,8 @@ func ToInt(val interface{}) (int, error) {
 	v := reflect.Indirect(iv)
 	switch v.Kind() {
 	case reflect.String:
+		val, err := strconv.ParseInt(v.String(), 0, 64)
+		return int(val), err
 	case reflect.Bool:
 		if v.Bool() {
 			return 1, nil

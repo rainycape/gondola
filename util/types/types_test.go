@@ -177,6 +177,25 @@ func TestTo(t *testing.T) {
 			t.Errorf("unexpected out type %T", v.out)
 		}
 	}
+	if _, err := ToInt(nil); err == nil {
+		t.Errorf("expecting error in ToInt()")
+	}
+	if _, err := ToUint(nil); err == nil {
+		t.Errorf("expecting error in ToUint()")
+	}
+	if _, err := ToFloat(nil); err == nil {
+		t.Errorf("expecting error in ToFloat()")
+	}
+	s := typesTest{}
+	if _, err := ToInt(s); err == nil {
+		t.Errorf("expecting error in ToInt()")
+	}
+	if _, err := ToUint(s); err == nil {
+		t.Errorf("expecting error in ToUint()")
+	}
+	if _, err := ToFloat(s); err == nil {
+		t.Errorf("expecting error in ToFloat()")
+	}
 }
 
 func TestTrue(t *testing.T) {
@@ -189,6 +208,10 @@ func TestTrue(t *testing.T) {
 		if val != v.out.(bool) {
 			t.Errorf("expecting %v value from %v (%T), got %v", v.out, v.in, v.in, val)
 		}
+	}
+	ret, ok := IsTrue(nil)
+	if ret || !ok {
+		t.Errorf("invalid value should return false, true")
 	}
 }
 

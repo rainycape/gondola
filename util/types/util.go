@@ -62,6 +62,61 @@ func ToInt(val interface{}) (int, error) {
 	return 0, fmt.Errorf("can't convert %v to int", v.Type())
 }
 
+// ToUint tries to convert its argument to an unsigned integer. It will convert
+// bool, int, uint and its variants, floats and even strings if it can parse
+// them.
+func ToUint(val interface{}) (uint, error) {
+	iv := reflect.ValueOf(val)
+	if !iv.IsValid() {
+		return 0, fmt.Errorf("invalid value")
+	}
+	v := reflect.Indirect(iv)
+	switch v.Kind() {
+	case reflect.String:
+		val, err := strconv.ParseUint(v.String(), 0, 64)
+		return uint(val), err
+	case reflect.Bool:
+		if v.Bool() {
+			return 1, nil
+		}
+		return 0, nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return uint(v.Int()), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return uint(v.Uint()), nil
+	case reflect.Float32, reflect.Float64:
+		return uint(v.Float()), nil
+	}
+	return 0, fmt.Errorf("can't convert %v to uint", v.Type())
+}
+
+// ToFloat tries to convert its argument to a 64-bit float. It will convert
+// bool, int, uint and its variants, floats and even strings if it can parse
+// them.
+func ToFloat(val interface{}) (float64, error) {
+	iv := reflect.ValueOf(val)
+	if !iv.IsValid() {
+		return 0, fmt.Errorf("invalid value")
+	}
+	v := reflect.Indirect(iv)
+	switch v.Kind() {
+	case reflect.String:
+		return strconv.ParseFloat(v.String(), 64)
+	case reflect.Bool:
+		if v.Bool() {
+			return 1, nil
+		}
+		return 0, nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return float64(v.Int()), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return float64(v.Uint()), nil
+	case reflect.Float32, reflect.Float64:
+		return v.Float(), nil
+	}
+	return 0, fmt.Errorf("can't convert %v to float64", v.Type())
+}
+
 // Equal is a shortcut for reflect.DeepEqual.
 func Equal(obj1, obj2 interface{}) bool {
 	return reflect.DeepEqual(obj1, obj2)

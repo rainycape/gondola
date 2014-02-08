@@ -308,3 +308,23 @@ func TestSettable(t *testing.T) {
 		}
 	}
 }
+
+func TestConvert(t *testing.T) {
+	tests := []typesTest{
+		{42.0, 42},
+		{42.0, uint(42)},
+		{42, 42.0},
+		{3.14, "3.14"},
+		{[]byte("go"), "go"},
+	}
+	for _, v := range tests {
+		out := reflect.New(reflect.TypeOf(v.out))
+		if err := Convert(v.in, out.Interface()); err != nil {
+			t.Error(err)
+			continue
+		}
+		if !Equal(out.Elem().Interface(), v.out) {
+			t.Errorf("expecting %v, got %v", v.out, out.Elem().Interface())
+		}
+	}
+}

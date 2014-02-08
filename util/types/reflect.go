@@ -8,14 +8,22 @@ import (
 )
 
 var (
-	ErrCantSet = errors.New("can't set value (you might need to pass a pointer)")
+	ErrCantSet      = errors.New("can't set value (you might need to pass a pointer)")
+	ErrInvalidValue = errors.New("invalid value")
 )
 
 func SettableValue(val interface{}) (reflect.Value, error) {
 	v := reflect.ValueOf(val)
+	if !v.IsValid() {
+		return v, ErrInvalidValue
+	}
 	for v.Type().Kind() == reflect.Ptr {
 		if !v.Elem().IsValid() {
-			v.Set(reflect.New(v.Type().Elem()))
+			if v.CanSet() {
+				v.Set(reflect.New(v.Type().Elem()))
+			} else {
+				break
+			}
 		}
 		v = v.Elem()
 	}

@@ -292,7 +292,7 @@ func jsonStructFields(st *types.Struct, opts *Options) []*Field {
 				key = n
 			}
 			omitEmpty = ftag.Has("omitempty")
-		} else if !field.IsExported() {
+		} else if !field.Exported() {
 			continue
 		}
 		if key != "-" {

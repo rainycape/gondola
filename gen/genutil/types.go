@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"code.google.com/p/go.tools/go/types"
 	"fmt"
+	"gnd.la/util/internal/importer"
 	"go/ast"
 	"go/build"
 	"go/parser"
@@ -36,7 +37,7 @@ func (p *Package) types(exported bool, include *regexp.Regexp, exclude *regexp.R
 	scope := p.Scope()
 	for _, v := range scope.Names() {
 		obj := scope.Lookup(v)
-		if exported && !obj.IsExported() {
+		if exported && !obj.Exported() {
 			continue
 		}
 		if _, ok := obj.(*types.Const); ok {
@@ -138,11 +139,7 @@ func NewPackage(path string) (*Package, error) {
 		p.files[v] = f
 		p.astFiles[ii] = f.ast
 	}
-	imp := newImporter(types.Config{
-		IgnoreFuncBodies: true,
-		FakeImportC:      true,
-		Error:            errorHandler,
-	})
+	imp := importer.New()
 	context := &types.Config{
 		IgnoreFuncBodies: true,
 		FakeImportC:      true,

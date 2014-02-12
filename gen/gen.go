@@ -207,6 +207,8 @@ func stringsOptions(val interface{}) (*strings.Options, error) {
 
 func toMap(val interface{}) (map[string]interface{}, bool) {
 	switch v := val.(type) {
+	case nil:
+		return nil, true
 	case map[string]interface{}:
 		return v, true
 	case map[interface{}]interface{}:

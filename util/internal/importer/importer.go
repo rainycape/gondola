@@ -32,6 +32,7 @@ func (imp *Importer) Import(imports map[string]*types.Package, path string) (*ty
 	}
 	pkg, err := gcimporter.Import(imports, path)
 	if err == nil {
+		imports[path] = pkg
 		imp.imports[path] = pkg
 		return pkg, nil
 	}
@@ -46,8 +47,10 @@ func (imp *Importer) Import(imports map[string]*types.Package, path string) (*ty
 	for _, v := range bpkg.CgoFiles {
 		gofiles = append(gofiles, filepath.Join(bpkg.Dir, v))
 	}
+	conf := imp.conf
+	conf.Import = imp.Import
 	loader := &loader.Config{
-		TypeChecker: imp.conf,
+		TypeChecker: conf,
 		TypeCheckFuncBodies: func(name string) bool {
 			// the parser fails to parse isatty
 			return name != "gnd.la/log"
@@ -62,7 +65,7 @@ func (imp *Importer) Import(imports map[string]*types.Package, path string) (*ty
 	if err != nil {
 		return nil, err
 	}
-	if err := importImports(loader, bpkg.Imports); err != nil {
+	if err := importImports(loader, imports, bpkg.Imports); err != nil {
 		return nil, err
 	}
 	pr, err := loader.Load()
@@ -75,16 +78,13 @@ func (imp *Importer) Import(imports map[string]*types.Package, path string) (*ty
 	return pkg, nil
 }
 
-func importImports(cfg *loader.Config, imports []string) error {
-	if len(imports) == 0 {
-		return nil
-	}
-	for _, v := range imports {
+func importImports(cfg *loader.Config, imports map[string]*types.Package, req []string) error {
+	for _, v := range req {
 		if v == "C" || v == "unsafe" {
 			// Pseudo-packages
 			continue
 		}
-		if _, ok := cfg.ImportPkgs[v]; ok {
+		if _, ok := cfg.ImportPkgs[v]; ok || imports[v] != nil {
 			// Already imported
 			continue
 		}
@@ -93,7 +93,7 @@ func importImports(cfg *loader.Config, imports []string) error {
 		if err != nil {
 			return err
 		}
-		if err := importImports(cfg, bpkg.Imports); err != nil {
+		if err := importImports(cfg, imports, bpkg.Imports); err != nil {
 			return err
 		}
 	}

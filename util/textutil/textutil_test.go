@@ -34,7 +34,7 @@ func TestIni(t *testing.T) {
 		{"a = b  \n 3 = 7", map[string]string{"a": "b", "3": "7"}, ""},
 		{"a = b  \r\n 3 = 7", map[string]string{"a": "b", "3": "7"}, ""},
 		{"a = multiline\\\n value  \n 3 = 7", map[string]string{"a": "multiline value", "3": "7"}, ""},
-		{"3 = 7\ninvalid", map[string]string{"a": "multiline value", "3": "7"}, "invalid line 2 \"invalid\" - missing = character"},
+		{"3 = 7\ninvalid", map[string]string{"a": "multiline value", "3": "7"}, "invalid line 2 \"invalid\" - missing separator \"=\""},
 	}
 	for _, v := range iniTests {
 		res, err := ParseIni(strings.NewReader(v.text))

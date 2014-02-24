@@ -26,6 +26,10 @@ import (
 	"time"
 )
 
+const (
+	devConfigName = "dev.conf"
+)
+
 func formatTime(t time.Time) interface{} {
 	if t.IsZero() {
 		return nil
@@ -502,6 +506,12 @@ func (p *Project) ProxyConnection(conn net.Conn, port int) {
 }
 
 func findConfig(dir string, name string) string {
+	if name == "" {
+		if c := findConfig(dir, devConfigName); c != "" {
+			return c
+		}
+		name = config.DefaultName
+	}
 	configPath := filepath.Join(dir, name)
 	for _, v := range []string{configPath, name} {
 		if _, err := os.Stat(v); err == nil {
@@ -559,7 +569,7 @@ func init() {
 		Help: "Starts the development server",
 		Flags: admin.Flags(
 			admin.StringFlag("dir", ".", "Directory of the project"),
-			admin.StringFlag("config", config.DefaultName, "Configuration name to use"),
+			admin.StringFlag("config", "", "Configuration name to use - if empty the following are tried, in order "+devConfigName+", "+config.DefaultName),
 			admin.StringFlag("tags", "", "Go build tags to pass to the compiler"),
 			admin.BoolFlag("no-debug", false, "Disable AppDebug, TemplateDebug and LogDebug - see gnd.la/config for details"),
 			admin.BoolFlag("no-cache", false, "Disables the cache when running the project"),

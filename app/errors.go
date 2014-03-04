@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"reflect"
 	"syscall"
@@ -82,9 +83,14 @@ func InvalidParameterType(name string, typ reflect.Type) {
 }
 
 func isIgnorable(err interface{}) bool {
-	if e, ok := err.(error); ok && e == syscall.EPIPE {
-		// Client closed the connection
-		return true
+	if e, ok := err.(error); ok {
+		if ne, ok := e.(*net.OpError); ok {
+			e = ne.Err
+		}
+		if e == syscall.EPIPE {
+			// Client closed the connection
+			return true
+		}
 	}
 	return false
 }

@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template/parse"
@@ -346,7 +347,9 @@ func (t *Template) preparedAssetsGroups(vars VarMap, parent *Template, groups []
 			a.Name = name
 		}
 		added := false
-		if v.Options.Bundable() {
+		// Don't add bundable groups if we're not going to bundle. Otherwise, it
+		// messes with asset ordering.
+		if !t.Debug && v.Options.Bundable() {
 			for ii, g := range groups {
 				if g[0].Options.Bundable() || g[0].Options.Bundle() {
 					if canBundle(g[0], v) {
@@ -375,9 +378,82 @@ func (t *Template) preparedAssetsGroups(vars VarMap, parent *Template, groups []
 	return groups, nil
 }
 
+type groupsByPriority []*assets.Group
+
+func (g groupsByPriority) Len() int {
+	return len(g)
+}
+
+func (g groupsByPriority) Less(i, j int) bool {
+	v1, v2 := 0, 0
+	var err error
+	if g[i].Options != nil {
+		v1, err = g[i].Options.Priority()
+		if err != nil {
+			panic(fmt.Errorf("invalid priority in group %v: %s", g[i], err))
+		}
+	}
+	if g[j].Options != nil {
+		v2, err = g[j].Options.Priority()
+		if err != nil {
+			panic(fmt.Errorf("invalid priority in group %v: %s", g[j], err))
+		}
+	}
+	return v1 < v2
+}
+
+func (g groupsByPriority) Swap(i, j int) {
+	g[i], g[j] = g[j], g[i]
+}
+
+type groupListByPriority [][]*assets.Group
+
+// each group list get the lowest of the declared priorities
+func (g groupListByPriority) groupPriority(i int) int {
+	prio := 0
+	for _, v := range g[i] {
+		if v.Options != nil {
+			if val, _ := v.Options.Priority(); val != 0 && (prio == 0 || val < prio) {
+				prio = val
+			}
+		}
+	}
+	return prio
+}
+
+func (g groupListByPriority) Len() int {
+	return len(g)
+}
+
+func (g groupListByPriority) Less(i, j int) bool {
+	return g.groupPriority(i) < g.groupPriority(j)
+}
+
+func (g groupListByPriority) Swap(i, j int) {
+	g[i], g[j] = g[j], g[i]
+}
+
+func sortGroups(groups [][]*assets.Group) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = r.(error)
+		}
+	}()
+	// Sort each group list by priority
+	for _, v := range groups {
+		sort.Stable(groupsByPriority(v))
+	}
+	// Sort the list of all groups by priority
+	sort.Stable(groupListByPriority(groups))
+	return
+}
+
 func (t *Template) prepareAssets() error {
 	groups, err := t.preparedAssetsGroups(t.vars, t, nil)
 	if err != nil {
+		return err
+	}
+	if err := sortGroups(groups); err != nil {
 		return err
 	}
 	var top bytes.Buffer

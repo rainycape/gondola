@@ -3,6 +3,7 @@ package assets
 import (
 	"fmt"
 	"gnd.la/util/textutil"
+	"strconv"
 	"strings"
 )
 
@@ -28,6 +29,14 @@ func ParseOptions(options string) (Options, error) {
 func (o Options) BoolOpt(key string) bool {
 	_, ok := o[key]
 	return ok
+}
+
+func (o Options) IntOpt(key string) (int, error) {
+	v, ok := o[key]
+	if !ok {
+		return 0, nil
+	}
+	return strconv.Atoi(v)
 }
 
 func (o Options) StringOpt(key string) string {
@@ -74,4 +83,8 @@ func (o Options) Bundable() bool {
 
 func (o Options) Cdn() bool {
 	return o.BoolOpt("cdn")
+}
+
+func (o Options) Priority() (int, error) {
+	return o.IntOpt("priority")
 }

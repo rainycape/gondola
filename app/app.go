@@ -1180,14 +1180,14 @@ func (app *App) importAssets(included *includedApp) error {
 // to call it to set the App up without making it listen on
 // a port.
 func (app *App) Prepare() error {
-	if len(app.Secret) < 32 {
+	if app.Secret != "" && len(app.Secret) < 32 && os.Getenv("GONDOLA_ALLOW_SHORT_SECRET") == "" {
 		if os.Getenv("GONDOLA_IS_DEV_SERVER") != "" {
 			os.Setenv("GONDOLA_IS_DEV_SERVER", "")
 		} else {
 			return fmt.Errorf("secret %q is too short, must be at least 32 characters - use gondola random-string to generate one", app.Secret)
 		}
 	}
-	if app.CookieSigner == nil {
+	if app.CookieSigner == nil && app.Secret != "" {
 		app.CookieSigner = &cryptoutil.Signer{
 			Salt: []byte("gnd.la/app/cookies.salt"),
 			Key:  []byte(app.Secret),

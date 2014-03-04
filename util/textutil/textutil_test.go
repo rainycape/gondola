@@ -1,24 +1,50 @@
 package textutil
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 )
 
-func TestSplitFields(t *testing.T) {
-	cases := map[string][]string{
-		"The, quick, brown":             []string{"The", "quick", "brown"},
-		"'fo\"x', 'jum,ps', \"ov',er\"": []string{"fo\"x", "jum,ps", "ov',er"},
+type splitCase struct {
+	s      string
+	sep    string
+	result []string
+}
+
+func sepRepr(sep string) string {
+	switch sep {
+	case "":
+		return "SPACE"
 	}
-	for k, v := range cases {
-		fields, err := SplitFields(k, ",")
+	return fmt.Sprintf("%q", sep)
+}
+
+func resultRepr(res []string) string {
+	values := make([]string, len(res))
+	for ii, v := range res {
+		values[ii] = fmt.Sprintf("%q", v)
+	}
+	return fmt.Sprintf("[%s] (%d values)", strings.Join(values, ", "), len(values))
+}
+
+func TestSplitFields(t *testing.T) {
+	cases := []splitCase{
+		{"The, quick, brown", ",", []string{"The", "quick", "brown"}},
+		{"'fo\"x', 'jum,ps', \"ov',er\"", ",", []string{"fo\"x", "jum,ps", "ov',er"}},
+		{"  a\tb\r\nc ", "", []string{"a", "b", "c"}},
+		{"''  a\tb\r\nc ", "", []string{"", "a", "b", "c"}},
+		{"''  a\tb\r\nc ''   ", "", []string{"", "a", "b", "c", ""}},
+	}
+	for _, v := range cases {
+		fields, err := SplitFields(v.s, v.sep)
 		if err != nil {
-			t.Errorf("error splitting %q: %s", k, err)
+			t.Errorf("error splitting %q with sep %s: %s", v.s, sepRepr(v.sep), err)
 			continue
 		}
-		if !reflect.DeepEqual(fields, v) {
-			t.Errorf("error splitting %q. wanted %v (%d values), got %v instead (%d values)", k, v, len(v), fields, len(fields))
+		if !reflect.DeepEqual(fields, v.result) {
+			t.Errorf("error splitting %q with sep %s. wanted %v, got %v", v.s, sepRepr(v.sep), resultRepr(v.result), resultRepr(fields))
 		}
 	}
 }

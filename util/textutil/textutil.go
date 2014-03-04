@@ -10,6 +10,7 @@ import (
 const (
 	stateValue = iota
 	stateValueQuoted
+	stateValueUnquoted
 	stateEscape
 )
 
@@ -34,17 +35,18 @@ type SplitOptions struct {
 // options parameter. See the type SplitOptions for the available options.
 func SplitFieldsOptions(text string, sep string, opts *SplitOptions) ([]string, error) {
 	quotes := "'\""
-	if opts != nil && opts.Quotes != NO_QUOTES {
-		quotes = opts.Quotes
+	if opts != nil {
+		if opts.Quotes != NO_QUOTES {
+			quotes = opts.Quotes
+		} else {
+			quotes = ""
+		}
 	}
 	state := stateValue
 	var curQuote rune
 	var prevState int
 	var values []string
-	sepMap := make(map[rune]bool, len(sep))
-	for _, v := range sep {
-		sepMap[v] = true
-	}
+	isSep := makeSeparator(sep)
 	quotesMap := make(map[rune]bool, len(quotes))
 	for _, v := range quotes {
 		quotesMap[v] = true
@@ -52,7 +54,7 @@ func SplitFieldsOptions(text string, sep string, opts *SplitOptions) ([]string, 
 	var buf bytes.Buffer
 	for ii, v := range text {
 		if state == stateEscape {
-			if !sepMap[v] && !quotesMap[v] {
+			if isSep(v) && !quotesMap[v] {
 				return nil, fmt.Errorf("invalid escape sequence \\%s at %d", string(v), ii)
 			}
 			buf.WriteRune(v)
@@ -63,13 +65,16 @@ func SplitFieldsOptions(text string, sep string, opts *SplitOptions) ([]string, 
 		case v == '\\':
 			prevState = state
 			state = stateEscape
-		case sepMap[v] && state != stateValueQuoted:
-			values = append(values, buf.String())
-			buf.Reset()
+		case isSep(v) && state != stateValueQuoted:
+			if buf.Len() > 0 || state == stateValueUnquoted {
+				values = append(values, buf.String())
+				buf.Reset()
+				state = stateValue
+			}
 		case quotesMap[v]:
 			if state == stateValueQuoted {
 				if v == curQuote {
-					state = stateValue
+					state = stateValueUnquoted
 				} else {
 					buf.WriteRune(v)
 				}
@@ -80,13 +85,16 @@ func SplitFieldsOptions(text string, sep string, opts *SplitOptions) ([]string, 
 				buf.WriteRune(v)
 			}
 		default:
-			if buf.Len() == 0 && state != stateValueQuoted && unicode.IsSpace(v) {
+			if buf.Len() == 0 && state != stateValueQuoted && (isSep(v) || unicode.IsSpace(v)) {
 				continue
 			}
 			buf.WriteRune(v)
+			if state == stateValueUnquoted {
+				state = stateValue
+			}
 		}
 	}
-	if buf.Len() > 0 {
+	if buf.Len() > 0 || state == stateValueUnquoted {
 		if state == stateValueQuoted {
 			return nil, fmt.Errorf("unfinished quoted value %q", buf.String())
 		}
@@ -109,4 +117,18 @@ func SplitFieldsOptions(text string, sep string, opts *SplitOptions) ([]string, 
 // a field starting or ending with spaces, quote it).
 func SplitFields(text string, sep string) ([]string, error) {
 	return SplitFieldsOptions(text, sep, nil)
+}
+
+func makeSeparator(sep string) func(rune) bool {
+	if sep == "" {
+		return unicode.IsSpace
+	}
+	sepMap := make(map[rune]struct{}, len(sep))
+	for _, v := range sep {
+		sepMap[v] = struct{}{}
+	}
+	return func(r rune) bool {
+		_, ok := sepMap[r]
+		return ok
+	}
 }

@@ -988,11 +988,9 @@ func copyGroup(src *assets.Group) *assets.Group {
 		a := *v
 		copies[ii] = &a
 	}
-	return &assets.Group{
-		Manager: src.Manager,
-		Assets:  copies,
-		Options: src.Options,
-	}
+	g := *src
+	g.Assets = copies
+	return &g
 }
 
 func namespacedTree(tree *parse.Tree, ns []string) *parse.Tree {

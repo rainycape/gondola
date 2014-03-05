@@ -1371,8 +1371,10 @@ func printableValue(v reflect.Value) (interface{}, bool, bool) {
 		return nil, false, true
 	}
 
-	if !isPrintable(v.Type()) {
-		if v.CanAddr() && isPrintable(reflect.PtrTo(v.Type())) {
+	typ := v.Type()
+	if !typ.Implements(errType) && !typ.Implements(stringerType) {
+		ptyp := reflect.PtrTo(typ)
+		if v.CanAddr() && (ptyp.Implements(errType) || ptyp.Implements(stringerType)) {
 			v = v.Addr()
 		} else {
 			switch v.Kind() {
@@ -1382,10 +1384,6 @@ func printableValue(v reflect.Value) (interface{}, bool, bool) {
 		}
 	}
 	return v.Interface(), true, true
-}
-
-func isPrintable(typ reflect.Type) bool {
-	return typ.Implements(errType) || typ.Implements(stringerType)
 }
 
 func stackable(v reflect.Value) reflect.Value {

@@ -21,7 +21,6 @@ import (
 	"path"
 	"reflect"
 	"regexp"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -928,19 +927,11 @@ func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error
 	return t.ExecuteTemplateVars(w, t.root, data, vars)
 }
 
-var bufPool = make(chan *bytes.Buffer, runtime.GOMAXPROCS(0))
-
 func (t *Template) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars VarMap) error {
 	if profile.On {
 		profile.Startf("template-exec", "%s => %s", t.qname(t.name), name).AutoEnd()
 	}
-	var buf *bytes.Buffer
-	select {
-	case buf = <-bufPool:
-		buf.Reset()
-	default:
-		buf = new(bytes.Buffer)
-	}
+	buf := getBuffer()
 	err := t.prog.execute(buf, name, data, vars)
 	if err != nil {
 		return err
@@ -965,10 +956,7 @@ func (t *Template) ExecuteTemplateVars(w io.Writer, name string, data interface{
 		header.Set("Content-Length", strconv.Itoa(buf.Len()))
 	}
 	_, err = w.Write(buf.Bytes())
-	select {
-	case bufPool <- buf:
-	default:
-	}
+	putBuffer(buf)
 	return err
 }
 

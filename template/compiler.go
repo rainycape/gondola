@@ -7,7 +7,6 @@ import (
 	"gnd.la/util/types"
 	"html/template"
 	"reflect"
-	"runtime"
 	"strings"
 	"text/template/parse"
 )
@@ -197,8 +196,6 @@ type variable struct {
 	value reflect.Value
 }
 
-var statePool = make(chan *state, runtime.GOMAXPROCS(0))
-
 type state struct {
 	p         *program
 	w         *bytes.Buffer
@@ -213,21 +210,19 @@ type state struct {
 }
 
 func newState(p *program, w *bytes.Buffer) *state {
-	select {
-	case s := <-statePool:
+	if s := getState(); s != nil {
 		s.reset()
 		s.p = p
 		s.w = w
 		return s
-	default:
-		res := make([]reflect.Value, 1)
-		resPtr := &res[0]
-		return &state{
-			p:      p,
-			w:      w,
-			res:    res,
-			resPtr: resPtr,
-		}
+	}
+	res := make([]reflect.Value, 1)
+	resPtr := &res[0]
+	return &state{
+		p:      p,
+		w:      w,
+		res:    res,
+		resPtr: resPtr,
 	}
 }
 
@@ -237,13 +232,6 @@ func (s *state) reset() {
 	s.marks = s.marks[:0]
 	s.dot = s.dot[:0]
 	s.iterators = s.iterators[:0]
-}
-
-func (s *state) put() {
-	select {
-	case statePool <- s:
-	default:
-	}
 }
 
 func (s *state) countDefines(name string, tr *parse.Tree, node parse.Node) int {
@@ -1297,7 +1285,7 @@ func (p *program) executeScratch(s *scratch) (*state, error) {
 	var buf bytes.Buffer
 	st := newState(p, &buf)
 	err := st.execute(name, "", reflect.Value{})
-	st.put()
+	putState(st)
 	delete(p.code, name)
 	if err != nil {
 		return nil, err
@@ -1336,7 +1324,7 @@ func (p *program) execute(w *bytes.Buffer, name string, data interface{}, vars V
 	s := newState(p, w)
 	s.pushVar("Vars", reflect.ValueOf(vars))
 	err := s.execute(name, "", reflect.ValueOf(data))
-	s.put()
+	putState(s)
 	return err
 }
 

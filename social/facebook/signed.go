@@ -22,6 +22,9 @@ func decodeBase64(s string) ([]byte, error) {
 
 func ParseSignedRequest(app *App, req string) (map[string]interface{}, error) {
 	fields := strings.SplitN(req, ".", 2)
+	if len(fields) != 2 {
+		return nil, fmt.Errorf("signed request must have 2 fields, not %d", len(fields))
+	}
 	signature, err := decodeBase64(fields[0])
 	if err != nil {
 		return nil, fmt.Errorf("error decoding facebook signature: %s", err)

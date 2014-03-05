@@ -1,9 +1,10 @@
-package tester
+package tester_test
 
 import (
 	"bytes"
 	"fmt"
 	"gnd.la/app"
+	"gnd.la/app/tester"
 	"gnd.la/util"
 	"gnd.la/util/generic"
 	"io/ioutil"
@@ -32,29 +33,29 @@ func (r *reporter) Fatal(args ...interface{}) {
 }
 
 func TestExpect(t *testing.T) {
-	tester := New(t, testApp)
-	tester.Get("/hello", nil).Expect(200).Contains("hello").Expect("hello world").Match("\\w+ \\w+").
+	tt := tester.New(t, testApp)
+	tt.Get("/hello", nil).Expect(200).Contains("hello").Expect("hello world").Match("\\w+ \\w+").
 		ExpectHeader("X-Hello", "World").ExpectHeader("X-Number", 42).ContainsHeader("X-Hello", "Wo").
 		MatchHeader("X-Hello", "W.*d")
-	tester.Post("/does-not-exist", nil).Expect(404)
+	tt.Post("/does-not-exist", nil).Expect(404)
 	echoData := []byte{1, 2, 3, 4, 5, 6}
-	tester.Post("/echo", echoData).Expect(echoData)
-	tester.Post("/echo", echoData).Expect(bytes.NewReader(echoData))
-	tester.Post("/echo", string(echoData)).Expect(echoData)
-	tester.Post("/echo", echoData).Expect(string(echoData))
-	tester.Post("/echo", bytes.NewReader(echoData)).Expect(echoData)
-	tester.Post("/echo", nil).Expect(200).Expect("")
-	tester.Post("/echo", nil).Expect(200).Expect(nil)
+	tt.Post("/echo", echoData).Expect(echoData)
+	tt.Post("/echo", echoData).Expect(bytes.NewReader(echoData))
+	tt.Post("/echo", string(echoData)).Expect(echoData)
+	tt.Post("/echo", echoData).Expect(string(echoData))
+	tt.Post("/echo", bytes.NewReader(echoData)).Expect(echoData)
+	tt.Post("/echo", nil).Expect(200).Expect("")
+	tt.Post("/echo", nil).Expect(200).Expect(nil)
 	form := map[string]interface{}{"foo": 1, "bar": "baz"}
 	formExpect := "bar=baz\nfoo=1\n"
-	tester.Form("/echo-form", form).Expect(formExpect)
-	tester.Get("/echo-form", form).Expect(formExpect)
+	tt.Form("/echo-form", form).Expect(formExpect)
+	tt.Get("/echo-form", form).Expect(formExpect)
 }
 
 func TestInvalidRegexp(t *testing.T) {
 	r := &reporter{T: t}
-	tester := New(r, testApp)
-	tester.Get("/hello", nil).Match("\\Ga+")
+	tt := tester.New(r, testApp)
+	tt.Get("/hello", nil).Match("\\Ga+")
 	if r.fatal == nil || !strings.Contains(r.fatal.Error(), "error compiling regular expression") {
 		t.Errorf("expecting invalid re error, got %s", r.fatal)
 	}
@@ -62,8 +63,8 @@ func TestInvalidRegexp(t *testing.T) {
 
 func TestInvalidWriteHeader(t *testing.T) {
 	r := &reporter{T: t}
-	tester := New(r, testApp)
-	tester.Get("/invalid-write-header", nil).Expect(nil)
+	tt := tester.New(r, testApp)
+	tt.Get("/invalid-write-header", nil).Expect(nil)
 	if r.err == nil || !strings.Contains(r.err.Error(), "WriteHeader() called with invalid code") {
 		t.Errorf("expecting invalid WriteHeader() error, got %s", r.err)
 	}
@@ -71,8 +72,8 @@ func TestInvalidWriteHeader(t *testing.T) {
 
 func TestMultipleWriteHeader(t *testing.T) {
 	r := &reporter{T: t}
-	tester := New(r, testApp)
-	err := tester.Get("/multiple-write-header", nil).Expect(nil).Err()
+	tt := tester.New(r, testApp)
+	err := tt.Get("/multiple-write-header", nil).Expect(nil).Err()
 	if err != r.err {
 		t.Errorf("bad error from Err()")
 	}
@@ -83,49 +84,49 @@ func TestMultipleWriteHeader(t *testing.T) {
 
 func TestExpectErrors(t *testing.T) {
 	r := &reporter{T: t}
-	tester := New(r, testApp)
-	tester.Get("/hello", nil).Expect(400)
+	tt := tester.New(r, testApp)
+	tt.Get("/hello", nil).Expect(400)
 	if r.err == nil {
 		t.Error("expecting an error")
 	}
-	tester.Get("/hello", nil).Contains("nothing")
+	tt.Get("/hello", nil).Contains("nothing")
 	if r.err == nil {
 		t.Error("expecting an error")
 	}
-	tester.Get("/hello", nil).Expect("nothing")
+	tt.Get("/hello", nil).Expect("nothing")
 	if r.err == nil {
 		t.Error("expecting an error")
 	}
-	tester.Get("/hello", nil).ExpectHeader("X-Hello", 13)
+	tt.Get("/hello", nil).ExpectHeader("X-Hello", 13)
 	if r.err == nil {
 		t.Error("expecting an error")
 	}
-	tester.Get("/hello", nil).ExpectHeader("X-Number", 37)
+	tt.Get("/hello", nil).ExpectHeader("X-Number", 37)
 	if r.err == nil {
 		t.Error("expecting an error")
 	}
-	tester.Get("/hello", nil).Expect(nil)
+	tt.Get("/hello", nil).Expect(nil)
 	if r.err == nil {
 		t.Error("expecting an error")
 	}
 	something := []byte{1, 2, 3, 4, 5, 6}
-	tester.Post("/echo", nil).Expect(something)
+	tt.Post("/echo", nil).Expect(something)
 	if r.err == nil {
 		t.Error("expecting an error")
 	}
-	tester.Post("/echo", nil).Expect(bytes.NewReader(something))
+	tt.Post("/echo", nil).Expect(bytes.NewReader(something))
 	if r.err == nil {
 		t.Error("expecting an error")
 	}
-	tester.Post("/echo", something).Expect(nil)
+	tt.Post("/echo", something).Expect(nil)
 	if r.err == nil {
 		t.Error("expecting an error")
 	}
-	tester.Post("/echo", something).Expect(float64(0))
+	tt.Post("/echo", something).Expect(float64(0))
 	if r.err == nil {
 		t.Error("expecting an error")
 	}
-	tester.Post("/echo", float64(0)).Expect(float64(0))
+	tt.Post("/echo", float64(0)).Expect(float64(0))
 	if r.fatal == nil {
 		t.Error("expecting a fatal error")
 	}

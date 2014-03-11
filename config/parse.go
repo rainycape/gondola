@@ -113,24 +113,27 @@ func parseValue(v reflect.Value, raw string) error {
 			}
 		}
 	case reflect.Map:
-		fields, err := textutil.SplitFields(raw, ":,")
+		fields, err := textutil.SplitFields(raw, ",")
 		if err != nil {
 			return fmt.Errorf("error splitting values: %s", err)
 		}
 		v.Set(reflect.MakeMap(v.Type()))
 		ktyp := v.Type().Key()
 		etyp := v.Type().Elem()
-		for ii := 0; ii < len(fields); ii += 2 {
-			if len(fields) == ii+1 {
-				return fmt.Errorf("missing map value at index %d", ii/2)
+		for ii, field := range fields {
+			subFields, err := textutil.SplitFields(field, "=")
+			if err != nil {
+				return fmt.Errorf("error splitting key-value %q: %s", field, err)
 			}
 			k := reflect.New(ktyp)
-			if err := input.Parse(fields[ii], k.Interface()); err != nil {
-				return fmt.Errorf("error parsing key at index %d: %s", ii/2, err)
+			if err := input.Parse(subFields[0], k.Interface()); err != nil {
+				return fmt.Errorf("error parsing key at index %d: %s", ii, err)
 			}
 			elem := reflect.New(etyp)
-			if err := input.Parse(fields[ii+1], elem.Interface()); err != nil {
-				return fmt.Errorf("error parsing value at index %d: %s", ii/2, err)
+			if len(subFields) > 0 {
+				if err := input.Parse(subFields[1], elem.Interface()); err != nil {
+					return fmt.Errorf("error parsing value at index %d: %s", ii, err)
+				}
 			}
 			v.SetMapIndex(k.Elem(), elem.Elem())
 		}

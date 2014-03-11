@@ -27,7 +27,7 @@ var (
 )
 
 func parse(raw string, key, secret *string) error {
-	fields, err := textutil.SplitFieldsOptions(raw, ":", &textutil.SplitOptions{Count: 2})
+	fields, err := textutil.SplitFieldsOptions(raw, ":", &textutil.SplitOptions{ExactCount: 2})
 	if err != nil {
 		return err
 	}

@@ -5,16 +5,17 @@ import (
 	"io"
 	"io/ioutil"
 	"strings"
+	"unicode/utf8"
 )
 
 // IniOptions specify the options for ParseIniOptions.
 type IniOptions struct {
-	// Separator indicates the string used as key-value separator.
+	// Separator indicates the characters used as key-value separator.
 	// If empty, "=" is used.
 	Separator string
-	// Comment indicates the string used to check if a line is a comment.
-	// Lines starting with this string are ignored. If empty, all lines
-	// are parsed.
+	// Comment indicates the characters used to check if a line is a comment.
+	// Lines starting with any character in this string are ignored.
+	// If empty, all lines are parsed.
 	Comment string
 }
 
@@ -24,8 +25,8 @@ type IniOptions struct {
 //  key2 = value
 //
 // Values that contain newlines ("\n" or "\r\n") need to
-// escape them by ending the previous line with a '\'
-// character. Lines starting with the ';' character are
+// be escaped by ending the previous line with a '\'
+// character. Lines starting with ';' or '#' are
 // considered comments and ignored. Empty lines are ignored
 // too. If a non-empty, non-comment line does not contain
 // a '=' an error is returned.
@@ -42,34 +43,43 @@ func ParseIniOptions(r io.Reader, opts *IniOptions) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading ini input: %s", err)
 	}
-	s := strings.Replace(strings.Replace(strings.Replace(string(data), "\\\n", "", -1), "\\\r\n", "", -1), "\r\n", "\n", -1)
 	var separator string
 	var comment string
 	if opts != nil {
 		separator = opts.Separator
 		comment = opts.Comment
 	} else {
-		comment = ";"
+		comment = ";#"
 	}
+	isComment := makeRuneChecker(comment)
 	if separator == "" {
 		separator = "="
 	}
-	values := make(map[string]string)
-	for ii, line := range strings.Split(s, "\n") {
-		if line == "" || (comment != "" && strings.HasPrefix(line, comment)) {
+	isSeparator := makeRuneChecker(separator)
+	lines := SplitLines(string(data))
+	values := make(map[string]string, len(lines))
+	for ii, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
 			continue
 		}
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" {
-			parts := strings.SplitN(trimmed, separator, 2)
-			if len(parts) != 2 {
-				return nil, fmt.Errorf("invalid line %d %q - missing separator %q", ii+1, line, separator)
-			}
-			key := strings.TrimSpace(parts[0])
-			value := strings.TrimSpace(parts[1])
-			values[key] = value
+		first, _ := utf8.DecodeRuneInString(line)
+		if isComment(first) {
+			continue
 		}
-
+		sep := -1
+		for jj := 0; jj < len(line); jj++ {
+			if isSeparator(rune(line[jj])) {
+				sep = jj
+				break
+			}
+		}
+		if sep < 0 {
+			return nil, fmt.Errorf("invalid line %d %q - missing separator %q", ii+1, line, separator)
+		}
+		key := strings.TrimSpace(line[:sep])
+		value := strings.TrimSpace(line[sep+1:])
+		values[key] = value
 	}
 	return values, nil
 }

@@ -36,6 +36,13 @@ func TestSplitFields(t *testing.T) {
 		{"  a\tb\r\nc ", "", []string{"a", "b", "c"}},
 		{"''  a\tb\r\nc ", "", []string{"", "a", "b", "c"}},
 		{"''  a\tb\r\nc ''   ", "", []string{"", "a", "b", "c", ""}},
+		{"a = b", "=", []string{"a", "b"}},
+		{" a = b ", "=", []string{"a", "b"}},
+		{"'a ' = b", "=", []string{"a ", "b"}},
+		{"'a ' = ' b '", "=", []string{"a ", " b "}},
+		{"' a' = b", "=", []string{" a", "b"}},
+		{"' a ' = b", "=", []string{" a ", "b"}},
+		{"'a' = 'b' ", "=", []string{"a", "b"}},
 	}
 	for _, v := range cases {
 		fields, err := SplitFields(v.s, v.sep)
@@ -59,6 +66,7 @@ func TestIni(t *testing.T) {
 	iniTests := []*iniTest{
 		{"a = b  \n 3 = 7", map[string]string{"a": "b", "3": "7"}, ""},
 		{"a = b  \r\n 3 = 7", map[string]string{"a": "b", "3": "7"}, ""},
+		{"a = b  \r\n 3 = 7=7", map[string]string{"a": "b", "3": "7=7"}, ""},
 		{"a = multiline\\\n value  \n 3 = 7", map[string]string{"a": "multiline value", "3": "7"}, ""},
 		{"3 = 7\ninvalid", map[string]string{"a": "multiline value", "3": "7"}, "invalid line 2 \"invalid\" - missing separator \"=\""},
 	}
@@ -80,6 +88,20 @@ func TestIni(t *testing.T) {
 					t.Errorf("expecting %v parsing %q, got %v instead", v.expect, v.text, res)
 				}
 			}
+		}
+	}
+}
+
+func TestSplitLines(t *testing.T) {
+	tests := map[string][]string{
+		"a\nb\nc":     []string{"a", "b", "c"},
+		"a\r\nb\nc":   []string{"a", "b", "c"},
+		"a\r\nb\\\nc": []string{"a", "bc"},
+	}
+	for k, v := range tests {
+		lines := SplitLines(k)
+		if !reflect.DeepEqual(lines, v) {
+			t.Errorf("expecting %v when splitting lines from %q, got %v instead", v, k, lines)
 		}
 	}
 }

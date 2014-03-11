@@ -4,6 +4,8 @@ package textutil
 import (
 	"bytes"
 	"fmt"
+	"strconv"
+	"strings"
 	"unicode"
 )
 
@@ -20,15 +22,36 @@ const (
 	NO_QUOTES = "\uffff"
 )
 
+type SplitError struct {
+	Pos int
+	Err error
+}
+
+func (s *SplitError) Error() string {
+	return fmt.Sprintf("index %d: %s", s.Pos, s.Err)
+}
+
+func newSplitError(text string, pos int, format string, args ...interface{}) *SplitError {
+	e := fmt.Errorf(format, args...)
+	return &SplitError{
+		Pos: pos,
+		Err: e,
+	}
+}
+
 type SplitOptions struct {
-	// Characters that are admitted as quote characters. If empty,
+	// Quotes includes the characters that are admitted as quote characters. If empty,
 	// the default quoting characters ' and " are used. If you want
 	// no quoting characters set this string to NO_QUOTES.
 	Quotes string
-	// If > 0 specifies the exact number of fields that
+	// ExactCount specifies the exact number of fields that
 	// the text must have after splitting them. If the
 	// number does not match, an error is returned.
-	Count int
+	// Values <= 0 are ignored.
+	ExactCount int
+	// MaxSplits indicates the maximum number of splits performed. Id est,
+	// MaxSplits = 1 will yield at most 2 fields. Values <= 0 are ignored.
+	MaxSplits int
 }
 
 // SplitFieldsOptions works like SplitFields, but accepts an additional
@@ -36,29 +59,30 @@ type SplitOptions struct {
 func SplitFieldsOptions(text string, sep string, opts *SplitOptions) ([]string, error) {
 	quotes := "'\""
 	if opts != nil {
-		if opts.Quotes != NO_QUOTES {
-			quotes = opts.Quotes
-		} else {
+		if opts.Quotes == NO_QUOTES {
 			quotes = ""
+		} else if opts.Quotes != "" {
+			quotes = opts.Quotes
 		}
 	}
 	state := stateValue
 	var curQuote rune
+	var quotePos int
 	var prevState int
 	var values []string
 	isSep := makeSeparator(sep)
-	quotesMap := make(map[rune]bool, len(quotes))
-	for _, v := range quotes {
-		quotesMap[v] = true
-	}
+	isQuote := makeRuneChecker(quotes)
 	var buf bytes.Buffer
-	for ii, v := range text {
+	runes := []rune(text)
+	for ii := 0; ii < len(runes); ii++ {
+		v := runes[ii]
 		if state == stateEscape {
-			if isSep(v) && !quotesMap[v] {
-				return nil, fmt.Errorf("invalid escape sequence \\%s at %d", string(v), ii)
+			if !isSep(v) && !isQuote(v) && v != '\n' {
+				quoted := strconv.Quote(string(v))
+				return nil, newSplitError(text, ii, "invalid escape sequence \"\\%s\"", quoted[1:len(quoted)-1])
 			}
-			buf.WriteRune(v)
 			state = prevState
+			buf.WriteRune(v)
 			continue
 		}
 		switch {
@@ -67,19 +91,36 @@ func SplitFieldsOptions(text string, sep string, opts *SplitOptions) ([]string, 
 			state = stateEscape
 		case isSep(v) && state != stateValueQuoted:
 			if buf.Len() > 0 || state == stateValueUnquoted {
-				values = append(values, buf.String())
+				done := false
+				if opts != nil && opts.MaxSplits > 0 && opts.MaxSplits == len(values) {
+					buf.WriteString(string(runes[ii:]))
+					done = true
+				}
+				s := buf.String()
+				if state != stateValueUnquoted {
+					s = strings.TrimRightFunc(s, unicode.IsSpace)
+				}
+				s = strings.TrimSuffix(s, NO_QUOTES)
+				values = append(values, s)
+				if done {
+					return values, nil
+				}
 				buf.Reset()
 				state = stateValue
 			}
-		case quotesMap[v]:
+		case isQuote(v):
 			if state == stateValueQuoted {
 				if v == curQuote {
 					state = stateValueUnquoted
+					// write NO_QUOTES to the buffer, so we now
+					// where to stop trimming
+					buf.WriteString(NO_QUOTES)
 				} else {
 					buf.WriteRune(v)
 				}
 			} else if buf.Len() == 0 {
 				curQuote = v
+				quotePos = ii
 				state = stateValueQuoted
 			} else {
 				buf.WriteRune(v)
@@ -96,13 +137,20 @@ func SplitFieldsOptions(text string, sep string, opts *SplitOptions) ([]string, 
 	}
 	if buf.Len() > 0 || state == stateValueUnquoted {
 		if state == stateValueQuoted {
-			return nil, fmt.Errorf("unfinished quoted value %q", buf.String())
+			return nil, newSplitError(text, quotePos, "unclosed quote")
 		}
-		values = append(values, buf.String())
+		s := buf.String()
+		if state != stateValueUnquoted {
+			s = strings.TrimRightFunc(s, unicode.IsSpace)
+		}
+		s = strings.TrimSuffix(s, NO_QUOTES)
+		if len(s) > 0 {
+			values = append(values, s)
+		}
 	}
-	if opts != nil && opts.Count > 0 {
-		if opts.Count != len(values) {
-			return nil, fmt.Errorf("invalid number of fields %d, must be %d", len(values), opts.Count)
+	if opts != nil && opts.ExactCount > 0 {
+		if opts.ExactCount != len(values) {
+			return nil, fmt.Errorf("invalid number of fields %d, must be %d", len(values), opts.ExactCount)
 		}
 	}
 	return values, nil
@@ -119,16 +167,30 @@ func SplitFields(text string, sep string) ([]string, error) {
 	return SplitFieldsOptions(text, sep, nil)
 }
 
+// SplitLines splits the given text into lines. Lines might be terminated
+// by either "\r\n" (as in Windows) or just "\n" (as in Unix). Newlines might
+// be escaped by prepending them with the '\' character.
+func SplitLines(text string) []string {
+	text = strings.Replace(text, "\r\n", "\n", -1)
+	// replace escaped newlines
+	text = strings.Replace(text, "\\\n", "", -1)
+	return strings.Split(text, "\n")
+}
+
+func makeRuneChecker(s string) func(rune) bool {
+	m := make(map[rune]struct{}, len(s))
+	for _, v := range s {
+		m[v] = struct{}{}
+	}
+	return func(r rune) bool {
+		_, ok := m[r]
+		return ok
+	}
+}
+
 func makeSeparator(sep string) func(rune) bool {
 	if sep == "" {
 		return unicode.IsSpace
 	}
-	sepMap := make(map[rune]struct{}, len(sep))
-	for _, v := range sep {
-		sepMap[v] = struct{}{}
-	}
-	return func(r rune) bool {
-		_, ok := sepMap[r]
-		return ok
-	}
+	return makeRuneChecker(sep)
 }

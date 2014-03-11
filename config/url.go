@@ -39,7 +39,7 @@ func (o Options) String() string {
 // Systems in Gondola using this configuration type include the
 // cache, the ORM and the blobstore.
 // Config URLs are parsed using the following algorithm:
-//	- Anything before the :// is parsed as Sheme
+//	- Anything before the :// is parsed as Scheme
 //	- The part from the :// until the end or the first ? is parsed as Value
 //	- Anything after the ? is parsed as a query string and stored in Options,
 //	    with the difference that multiple values for the same parameter are

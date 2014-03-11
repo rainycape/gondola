@@ -2,19 +2,20 @@
 
 package log
 
-// #include <unistd.h>
-import "C"
 import (
 	"io"
 	"os"
+	"syscall"
+	"unsafe"
 )
 
 func isatty(w io.Writer) bool {
-	is := false
-	if f, ok := w.(*os.File); ok {
-		if C.isatty(C.int(f.Fd())) > 0 {
-			is = true
+	if ioctlReadTermios != 0 {
+		if f, ok := w.(*os.File); ok {
+			var termios syscall.Termios
+			_, _, err := syscall.Syscall6(syscall.SYS_IOCTL, uintptr(f.Fd()), ioctlReadTermios, uintptr(unsafe.Pointer(&termios)), 0, 0, 0)
+			return err == 0
 		}
 	}
-	return is
+	return false
 }

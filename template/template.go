@@ -599,9 +599,7 @@ func (t *Template) parseCommentVariables(values []string) ([]string, error) {
 }
 
 func (t *Template) parseComment(comment string, file string, included bool) error {
-	// Escaped newlines
-	comment = strings.Replace(comment, "\\\n", " ", -1)
-	lines := strings.Split(comment, "\n")
+	lines := textutil.SplitLines(comment)
 	extended := false
 	for _, v := range lines {
 		m := keyRe.FindStringSubmatchIndex(v)

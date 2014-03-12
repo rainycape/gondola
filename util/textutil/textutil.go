@@ -22,8 +22,14 @@ const (
 	NO_QUOTES = "\uffff"
 )
 
+// SplitError represents an error while splitting the fields. Note that not
+// all errors returned for SplitFields are *SplitError (e.g. if the number of
+// fields does not match ExactCount, the error is NOT an *SplitError).
 type SplitError struct {
+	// Pos indicates the position in the input while the error originated,
+	// zero indexed.
 	Pos int
+	// Err is the original error.
 	Err error
 }
 
@@ -39,6 +45,7 @@ func newSplitError(text string, pos int, format string, args ...interface{}) *Sp
 	}
 }
 
+// SplitOptions represent options which can be specified when calling SplitFieldsOptions.
 type SplitOptions struct {
 	// Quotes includes the characters that are admitted as quote characters. If empty,
 	// the default quoting characters ' and " are used. If you want

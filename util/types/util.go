@@ -38,6 +38,14 @@ func ToString(val interface{}) string {
 // bool, int, uint and its variants, floats and even strings if it can parse
 // them.
 func ToInt(val interface{}) (int, error) {
+	v, err := ToInt64(val)
+	return int(v), err
+}
+
+// ToInt64 tries to convert its argument to an int64. It will convert
+// bool, int, uint and its variants, floats and even strings if it can parse
+// them.
+func ToInt64(val interface{}) (int64, error) {
 	iv := reflect.ValueOf(val)
 	if !iv.IsValid() {
 		return 0, fmt.Errorf("invalid value")
@@ -46,18 +54,18 @@ func ToInt(val interface{}) (int, error) {
 	switch v.Kind() {
 	case reflect.String:
 		val, err := strconv.ParseInt(v.String(), 0, 64)
-		return int(val), err
+		return val, err
 	case reflect.Bool:
 		if v.Bool() {
 			return 1, nil
 		}
 		return 0, nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return int(v.Int()), nil
+		return v.Int(), nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return int(v.Uint()), nil
+		return int64(v.Uint()), nil
 	case reflect.Float32, reflect.Float64:
-		return int(v.Float()), nil
+		return int64(v.Float()), nil
 	}
 	return 0, fmt.Errorf("can't convert %v to int", v.Type())
 }
@@ -66,6 +74,14 @@ func ToInt(val interface{}) (int, error) {
 // bool, int, uint and its variants, floats and even strings if it can parse
 // them.
 func ToUint(val interface{}) (uint, error) {
+	v, err := ToUint64(val)
+	return uint(v), err
+}
+
+// ToUint64 tries to convert its argument to an unsigned integer. It will convert
+// bool, int, uint and its variants, floats and even strings if it can parse
+// them.
+func ToUint64(val interface{}) (uint64, error) {
 	iv := reflect.ValueOf(val)
 	if !iv.IsValid() {
 		return 0, fmt.Errorf("invalid value")
@@ -74,18 +90,18 @@ func ToUint(val interface{}) (uint, error) {
 	switch v.Kind() {
 	case reflect.String:
 		val, err := strconv.ParseUint(v.String(), 0, 64)
-		return uint(val), err
+		return val, err
 	case reflect.Bool:
 		if v.Bool() {
 			return 1, nil
 		}
 		return 0, nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return uint(v.Int()), nil
+		return uint64(v.Int()), nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return uint(v.Uint()), nil
+		return v.Uint(), nil
 	case reflect.Float32, reflect.Float64:
-		return uint(v.Float()), nil
+		return uint64(v.Float()), nil
 	}
 	return 0, fmt.Errorf("can't convert %v to uint", v.Type())
 }

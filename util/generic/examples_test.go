@@ -4,6 +4,20 @@ import (
 	"fmt"
 )
 
+func ExampleSum() {
+	in := []int{1, 2, 3, 4}
+	out := Sum(in).(int)
+	fmt.Println(out)
+	// Output: 10
+}
+
+func ExampleSum_slice() {
+	in := [][]int{[]int{1, 2}, []int{3, 4}}
+	out := Sum(in).([]int)
+	fmt.Println(out)
+	// Output: [1 2 3 4]
+}
+
 func ExampleFilter_even() {
 	in := []int{1, 2, 3, 4}
 	out := Filter(in, func(a int) bool { return a%2 == 0 }).([]int)

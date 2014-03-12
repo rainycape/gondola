@@ -72,26 +72,6 @@ func methodValueFunc(m reflect.Method) mapFunc {
 	}
 }
 
-func boolLess(a handle, b handle) bool {
-	return !(*reflect.Value)(a).Bool() && (*reflect.Value)(b).Bool()
-}
-
-func intLess(a handle, b handle) bool {
-	return (*reflect.Value)(a).Int() < (*reflect.Value)(b).Int()
-}
-
-func uintLess(a handle, b handle) bool {
-	return (*reflect.Value)(a).Uint() < (*reflect.Value)(b).Uint()
-}
-
-func floatLess(a handle, b handle) bool {
-	return (*reflect.Value)(a).Float() < (*reflect.Value)(b).Float()
-}
-
-func stringLess(a handle, b handle) bool {
-	return (*reflect.Value)(a).String() < (*reflect.Value)(b).String()
-}
-
 func getHandle(val reflect.Value) handle {
 	return handle(&val)
 }
@@ -102,17 +82,11 @@ func getElem(h handle) handle {
 }
 
 func getComparator(t reflect.Type) lessFunc {
-	switch t.Kind() {
-	case reflect.Bool:
-		return boolLess
-	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
-		return intLess
-	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
-		return uintLess
-	case reflect.Float32, reflect.Float64:
-		return floatLess
-	case reflect.String:
-		return stringLess
+	cmp := getReflectComparator(t)
+	if cmp != nil {
+		return func(a handle, b handle) bool {
+			return cmp((*reflect.Value)(a), (*reflect.Value)(b))
+		}
 	}
 	return nil
 }

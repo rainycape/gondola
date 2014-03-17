@@ -23,6 +23,7 @@ var (
 		"mysql":    "gnd.la/orm/driver/mysql",
 	}
 	errUntypedNilPointer = errors.New("untyped nil pointer passed to Next(). Please, cast it to the appropriate type e.g. (*MyType)(nil)")
+	errNoModel           = errors.New("query without model - did you forget output parameters?")
 )
 
 const (
@@ -522,6 +523,9 @@ func (o *Orm) models(objs []interface{}, q query.Q, sort []driver.Sort, jt JoinT
 		}
 		models[vm] = struct{}{}
 		methods = append(methods, vm.fields.Methods)
+	}
+	if jm.model == nil {
+		return nil, nil, errNoModel
 	}
 	if q != nil {
 		if err := jm.joinWithQuery(q, jt, models, &methods); err != nil {

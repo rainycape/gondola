@@ -29,7 +29,7 @@ func zlibEncode(b []byte) ([]byte, error) {
 
 func zlibDecode(b []byte) ([]byte, error) {
 	// Check for a valid zlib header before calling zlib.NewReader
-	if b[0]&0x0f != 8 || len(b) < 2 {
+	if len(b) < 2 || b[0]&0x0f != 8 {
 		return b, nil
 	}
 	h := uint(b[0])<<8 | uint(b[1])

@@ -59,6 +59,9 @@ type SplitOptions struct {
 	// MaxSplits indicates the maximum number of splits performed. Id est,
 	// MaxSplits = 1 will yield at most 2 fields. Values <= 0 are ignored.
 	MaxSplits int
+	// KeepQuotes indicates wheter to keep the quotes in the quoted fields.
+	// Otherwise, quotes are removed from the fields.
+	KeepQuotes bool
 }
 
 // SplitFieldsOptions works like SplitFields, but accepts an additional
@@ -118,6 +121,9 @@ func SplitFieldsOptions(text string, sep string, opts *SplitOptions) ([]string, 
 		case isQuote(v):
 			if state == stateValueQuoted {
 				if v == curQuote {
+					if opts != nil && opts.KeepQuotes {
+						buf.WriteRune(v)
+					}
 					state = stateValueUnquoted
 					// write NO_QUOTES to the buffer, so we now
 					// where to stop trimming
@@ -129,6 +135,9 @@ func SplitFieldsOptions(text string, sep string, opts *SplitOptions) ([]string, 
 				curQuote = v
 				quotePos = ii
 				state = stateValueQuoted
+				if opts != nil && opts.KeepQuotes {
+					buf.WriteRune(v)
+				}
 			} else {
 				buf.WriteRune(v)
 			}

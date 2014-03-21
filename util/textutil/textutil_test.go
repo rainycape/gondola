@@ -56,6 +56,17 @@ func TestSplitFields(t *testing.T) {
 	}
 }
 
+func TestKeepQuotes(t *testing.T) {
+	fields, err := SplitFieldsOptions("\"The\", 'quick', brown", ",", &SplitOptions{KeepQuotes: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	exp := []string{"\"The\"", "'quick'", "brown"}
+	if !reflect.DeepEqual(fields, exp) {
+		t.Errorf("error splitting keeping quotes - want %v, got %v", exp, fields)
+	}
+}
+
 type iniTest struct {
 	text   string
 	expect map[string]string

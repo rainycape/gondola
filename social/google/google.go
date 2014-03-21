@@ -35,7 +35,7 @@ type Token struct {
 }
 
 func (a *App) Parse(s string) error {
-	fields, err := textutil.SplitFieldsOptions(s, ":", &textutil.SplitOptions{Count: 2})
+	fields, err := textutil.SplitFieldsOptions(s, ":", &textutil.SplitOptions{ExactCount: 2})
 	if err != nil {
 		return err
 	}

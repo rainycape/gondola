@@ -356,11 +356,11 @@ func (s *state) call(fn reflect.Value, name string, args int, fp fastPath) error
 	if isVariadic {
 		last--
 		if args < last {
-			return fmt.Errorf("function %q requires at least %d arguments, %d given", last, args)
+			return fmt.Errorf("function %q requires at least %d arguments, %d given", name, last, args)
 		}
 	} else {
 		if args != numIn {
-			return fmt.Errorf("function %q requires exactly %d arguments, %d given", numIn, args)
+			return fmt.Errorf("function %q requires exactly %d arguments, %d given", name, numIn, args)
 		}
 	}
 	// arguments are in reverse order

@@ -12,37 +12,62 @@ import (
 )
 
 var (
-	// Since Go fails to rebuild packages which change with
-	// different build tags, and the mantainers don't seem
-	// interested in fixing it (http://golang.org/issue/3172),
-	// we must delete packages that import profile, either direcly
-	// or transitively, when cleaning to be sure
-	// they're built with the right tags.
-	profilePkg = "gnd.la/app/profile"
+	staticFlags = map[string]bool{
+		"ignore":  true,
+		"IGNORE":  true,
+		"none":    true,
+		"NONE":    true,
+		"windows": true,
+		"linux":   true,
+		"darwin":  true,
+		"freebsd": true,
+		"openbsd": true,
+		"netbsd":  true,
+		"amd64":   true,
+		"386":     true,
+		"arm":     true,
+		"cgo":     true,
+		"go1.1":   true,
+		"go1.2":   true,
+		"go1.3":   true,
+	}
 )
 
-func importsProfile(ctx *build.Context, pkgs map[string]bool, pkg *build.Package) bool {
+// Since Go fails to rebuild packages which change with
+// different build tags, and the mantainers don't seem
+// interested in fixing it (http://golang.org/issue/3172),
+// we must delete packages that depend on builds tags,
+// either direcly or transitively, when cleaning to be sure
+// they're built with the right tags.
+func flagsMayVary(flags []string) bool {
+	for _, v := range flags {
+		if !staticFlags[v] {
+			return true
+		}
+	}
+	return false
+}
+
+func usesTags(ctx *build.Context, pkgs map[string]bool, pkg *build.Package) bool {
 	if pkg.Goroot {
 		return false
 	}
 	ip := pkg.ImportPath
-	imports, ok := pkgs[ip]
+	uses, ok := pkgs[ip]
 	if ok {
-		return imports
+		return uses
 	}
+	uses = flagsMayVary(pkg.AllTags)
 	for _, v := range pkg.Imports {
-		if v == profilePkg {
-			imports = true
-		}
 		s, err := ctx.Import(v, "", 0)
 		if err == nil && s != nil {
-			// Always call importsProfile for imported pkgs,
+			// Always call usesTags for imported pkgs,
 			// so we end up walking all the graph.
-			imports = importsProfile(ctx, pkgs, s) || imports
+			uses = usesTags(ctx, pkgs, s) || uses
 		}
 	}
-	pkgs[ip] = imports
-	return imports
+	pkgs[ip] = uses
+	return uses
 }
 
 func clean(dir string) error {
@@ -65,14 +90,17 @@ func clean(dir string) error {
 		return err
 	}
 	pkgs := make(map[string]bool)
-	importsProfile(&ctx, pkgs, pkg)
+	usesTags(&ctx, pkgs, pkg)
 	var toClean []string
 	for k, v := range pkgs {
 		if v {
 			toClean = append(toClean, k)
 		}
 	}
-	args := []string{"clean", "-i", dir, profilePkg}
+	args := []string{"clean", "-i"}
+	if !pkgs[dir] {
+		args = append(args, dir)
+	}
 	args = append(args, toClean...)
 	cmd := exec.Command("go", args...)
 	log.Debugln("Running", cmdString(cmd))

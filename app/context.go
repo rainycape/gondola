@@ -18,6 +18,15 @@ import (
 	"time"
 )
 
+var (
+	// CookieSalt is the default salt used for signing
+	// cookies. For extra security, you might change this
+	// value but keep in mind that all previously issued
+	// signed cookies will be invalidated, since their
+	// signature won't match.
+	CookieSalt = []byte("gnd.la/app/cookies.salt")
+)
+
 type ContextFinalizer func(*Context)
 
 type Context struct {
@@ -339,8 +348,10 @@ func (c *Context) URL() *url.URL {
 // on gnd.la/cookies for more information.
 func (c *Context) Cookies() *cookies.Cookies {
 	if c.cookies == nil {
-		c.cookies = cookies.New(c.R, c, c.app.CookieCodec, c.app.CookieSigner,
-			c.app.CookieEncrypter, c.app.CookieOptions)
+		signer, _ := c.app.Signer(CookieSalt)
+		encrypter, _ := c.app.Encrypter()
+		c.cookies = cookies.New(c.R, c, c.app.CookieCodec, signer,
+			encrypter, c.app.CookieOptions)
 	}
 	return c.cookies
 }

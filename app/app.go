@@ -6,6 +6,7 @@ package app
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"gnd.la/app/cookies"
 	"gnd.la/app/profile"
@@ -55,6 +56,9 @@ var (
 	SchemeXHeaders = []string{"X-Scheme", "X-Forwarded-Proto"}
 
 	inDevServer bool
+
+	errNoSecret = errors.New("app has no secret")
+	errNoKey    = errors.New("app has no encryption key")
 )
 
 type RecoverHandler func(*Context, interface{}) interface{}
@@ -182,14 +186,14 @@ type App struct {
 	// CookieCodec indicates the codec used for encoding and
 	// decoding cookies. If nil, gob is used.
 	CookieCodec *codec.Codec
-	// CookieSigner indicates the Signer used to sign secure
-	// and encrypted cookies. If nil, HMAC-SHA1 is used, using
-	// the App Secret as the key.
-	CookieSigner *cryptoutil.Signer
-	// CookieEncrypter indicates the Encrypte used to encrypt
-	// and decrypt encrypted cookies. If nil, AES is used, using
-	// the App EncryptionKey as the key.
-	CookieEncrypter *cryptoutil.Encrypter
+
+	// Hasher is the hash function used to sign values. If nil,
+	// it defaults to HMAC-SHA1.
+	Hasher cryptoutil.Hasher
+
+	// Cipherer is the cipher function used to encrypt values. If nil,
+	// it defaults to AES.
+	Cipherer cryptoutil.Cipherer
 
 	handlers           []*handlerInfo
 	trustXHeaders      bool
@@ -1175,6 +1179,53 @@ func (app *App) importAssets(included *includedApp) error {
 	return nil
 }
 
+// Signer returns a *cryptoutil.Signer using the given salt and
+// the App Hasher and Secret to sign values. If salt is smaller
+// than 16 bytes or the App has no Secret, an error is returned.
+func (app *App) Signer(salt []byte) (*cryptoutil.Signer, error) {
+	if len(salt) < 16 {
+		return nil, fmt.Errorf("salt must be at least 32 bytes, it's %d", len(salt))
+	}
+	if app.Secret == "" {
+		return nil, errNoSecret
+	}
+	return &cryptoutil.Signer{
+		Hasher: app.Hasher,
+		Salt:   salt,
+		Key:    []byte(app.Secret),
+	}, nil
+}
+
+// Encrypter returns a *cryptoutil.Encrypter using the App
+// Cipherer and Key to encrypt values. If the App has no
+// Key, an error will be returned.
+func (app *App) Encrypter() (*cryptoutil.Encrypter, error) {
+	if app.EncryptionKey == "" {
+		return nil, errNoKey
+	}
+	return &cryptoutil.Encrypter{
+		Cipherer: app.Cipherer,
+		Key:      []byte(app.EncryptionKey),
+	}, nil
+}
+
+// EncryptSigner returns a *cryptoutil.EncryptSigner composed by
+// App.Signer and App.Encrypter. See those methods for more details.
+func (app *App) EncryptSigner(salt []byte) (*cryptoutil.EncryptSigner, error) {
+	signer, err := app.Signer(salt)
+	if err != nil {
+		return nil, err
+	}
+	encrypter, err := app.Encrypter()
+	if err != nil {
+		return nil, err
+	}
+	return &cryptoutil.EncryptSigner{
+		Encrypter: encrypter,
+		Signer:    signer,
+	}, nil
+}
+
 // Prepare is automatically called for you. This function is
 // only exposed because the gnd.la/app/tester package needs
 // to call it to set the App up without making it listen on
@@ -1187,17 +1238,6 @@ func (app *App) Prepare() error {
 			return fmt.Errorf("secret %q is too short, must be at least 32 characters - use gondola random-string to generate one", app.Secret)
 		}
 	}
-	if app.CookieSigner == nil && app.Secret != "" {
-		app.CookieSigner = &cryptoutil.Signer{
-			Salt: []byte("gnd.la/app/cookies.salt"),
-			Key:  []byte(app.Secret),
-		}
-	}
-	if app.CookieEncrypter == nil && app.EncryptionKey != "" {
-		app.CookieEncrypter = &cryptoutil.Encrypter{
-			Key: []byte(app.EncryptionKey),
-		}
-	}
 	for _, v := range app.included {
 		child := v.app
 		child.Debug = app.Debug
@@ -1207,8 +1247,8 @@ func (app *App) Prepare() error {
 		child.DefaultLanguage = app.DefaultLanguage
 		child.CookieOptions = app.CookieOptions
 		child.CookieCodec = app.CookieCodec
-		child.CookieSigner = app.CookieSigner
-		child.CookieEncrypter = app.CookieEncrypter
+		child.Hasher = app.Hasher
+		child.Cipherer = app.Cipherer
 		child.languageHandler = app.languageHandler
 		child.userFunc = app.userFunc
 		child.Logger = app.Logger

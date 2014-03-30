@@ -1,6 +1,7 @@
 package form
 
 import (
+	"fmt"
 	"gnd.la/i18n"
 	"gnd.la/util/structs"
 	"reflect"
@@ -22,6 +23,13 @@ type Field struct {
 	sval   reflect.Value
 	pos    int
 	err    error
+}
+
+func (f *Field) String() string {
+	if f.err != nil {
+		return fmt.Sprintf("%s=%s - error %s", f.Name, f.Value(), f.err)
+	}
+	return fmt.Sprintf("%s=%s", f.Name, f.Value())
 }
 
 func (f *Field) Id() string {

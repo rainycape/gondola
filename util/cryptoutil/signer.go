@@ -19,6 +19,8 @@ var (
 	ErrTampered = errors.New("the value has been tampered with")
 )
 
+// Hasher represents a function type which returns a hash.Hash
+// with the given key.
 type Hasher func(key []byte) (hash.Hash, error)
 
 // Signer signs messages using the provided Hasher function,
@@ -32,9 +34,14 @@ type Hasher func(key []byte) (hash.Hash, error)
 // authentication system, it's ok to use the same salt for all the forms, but
 // not to use the same salt for the forms and the authentication).
 type Signer struct {
+	// Hasher is the function used to obtain a hash.Has from the
+	// Key.
 	Hasher Hasher
-	Key    []byte
-	Salt   []byte
+	// Key is the key used for signing the data.
+	Key []byte
+	// Salt is prepended to the value to be signed. See the Signer
+	// documentation for security considerations about the salt.
+	Salt []byte
 }
 
 func (s *Signer) sign(data []byte) ([]byte, error) {
@@ -62,6 +69,9 @@ func (s *Signer) sign(data []byte) ([]byte, error) {
 	return h.Sum(nil), nil
 }
 
+// Sign signs the given data and returns the data plus the signature
+// as a string. See Signer documentation for the characteristics of
+// the returned string.
 func (s *Signer) Sign(data []byte) (string, error) {
 	signature, err := s.sign(data)
 	if err != nil {
@@ -70,6 +80,9 @@ func (s *Signer) Sign(data []byte) (string, error) {
 	return base64.Encode(data) + ":" + base64.Encode(signature), nil
 }
 
+// Unsign takes a string, previously returned from Sign, checks
+// that its signature is valid and, in that case, returns the initial
+// data. If the signature is not valid, an error is returned.
 func (s *Signer) Unsign(signed string) ([]byte, error) {
 	parts := strings.Split(signed, ":")
 	if len(parts) != 2 {

@@ -43,6 +43,8 @@ func (e *Encrypter) getCipher() (cipher.Block, error) {
 	return cipherer(e.Key)
 }
 
+// Encrypt encrypts the given data using the Encrypter's
+// Cipherer and Key, using a random initialization vector.
 func (e *Encrypter) Encrypt(data []byte) ([]byte, error) {
 	ci, err := e.getCipher()
 	if err != nil {
@@ -57,6 +59,8 @@ func (e *Encrypter) Encrypt(data []byte) ([]byte, error) {
 	return out, nil
 }
 
+// Decrypt decrypts the given data using the Encrypter's
+// Cipherer and Key.
 func (e *Encrypter) Decrypt(data []byte) ([]byte, error) {
 	ci, err := e.getCipher()
 	if err != nil {

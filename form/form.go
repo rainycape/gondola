@@ -97,6 +97,8 @@ func (f *Form) makeField(name string) (*Field, error) {
 		typ = SELECT
 	} else {
 		switch s.Types[idx].Kind() {
+		case reflect.Func:
+			return nil, nil
 		case reflect.String:
 			if s.Types[idx] == reflect.TypeOf(password.Password("")) || tag.Has("password") {
 				typ = PASSWORD
@@ -154,12 +156,14 @@ func (f *Form) lookupField(name string) (*Field, error) {
 }
 
 func (f *Form) makeFields(names []string) error {
-	fields := make([]*Field, len(names))
-	var err error
-	for ii, v := range names {
-		fields[ii], err = f.makeField(v)
+	fields := make([]*Field, 0, len(names))
+	for _, v := range names {
+		field, err := f.makeField(v)
 		if err != nil {
 			return err
+		}
+		if field != nil {
+			fields = append(fields, field)
 		}
 	}
 	f.fields = fields

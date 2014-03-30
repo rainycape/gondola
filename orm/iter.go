@@ -57,7 +57,7 @@ func (i *Iter) Err() error {
 	return nil
 }
 
-// P panics if the iter has an error. It's intended as a shorthand
+// Assert panics if the iter has an error. It's intended as a shorthand
 // to save a few lines of code. For iterating over
 // the results, a common pattern is:
 //
@@ -68,13 +68,13 @@ func (i *Iter) Err() error {
 //         panic(err)
 //     }
 //
-// With P() you can instead use this code and save a few keystrokes:
+// With Assert() you can instead use this code and save a few keystrokes:
 //
 //     for iter.Next(&obj) {
 //     ... do something with obj...
 //     }
-//     iter.P()
-func (i *Iter) P() {
+//     iter.Assert()
+func (i *Iter) Assert() {
 	if err := i.Err(); err != nil {
 		panic(err)
 	}

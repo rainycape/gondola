@@ -36,7 +36,7 @@ func testLoadSaveMethods(t *testing.T, o *Orm) {
 	if obj.saved != 1 {
 		t.Errorf("Save() was called %d times rather than 1", obj.saved)
 	}
-	err := o.Table(SaveLoadTable).One(&obj)
+	_, err := o.Table(SaveLoadTable).One(&obj)
 	if err != nil {
 		t.Error(err)
 	}
@@ -71,7 +71,7 @@ func testLoadSaveMethodsErrors(t *testing.T, o *Orm) {
 	}
 	le := &LoadError{}
 	o.MustSaveInto(LoadErrorTable, le)
-	err = o.Table(LoadErrorTable).Filter(Eq("Object.Id", 1)).One(&le)
+	_, err = o.Table(LoadErrorTable).Filter(Eq("Object.Id", 1)).One(&le)
 	if err != loadError {
 		t.Errorf("unexpected error %v when loading LoadError", err)
 	}

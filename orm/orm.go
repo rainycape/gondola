@@ -85,8 +85,17 @@ func (o *Orm) Query(q query.Q) *Query {
 }
 
 // One is a shorthand for Query(q).One(&out)
-func (o *Orm) One(q query.Q, out ...interface{}) error {
+func (o *Orm) One(q query.Q, out ...interface{}) (bool, error) {
 	return o.Query(q).One(out...)
+}
+
+// MustOne works like One, but panics if there's an error.
+func (o *Orm) MustOne(q query.Q, out ...interface{}) bool {
+	ok, err := o.One(q, out...)
+	if err != nil {
+		panic(err)
+	}
+	return ok
 }
 
 // All is a shorthand for Query(nil)

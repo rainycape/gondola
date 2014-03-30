@@ -48,7 +48,7 @@ func testCodecs(t *testing.T, o *Orm) {
 	j1 := &JsonEncoded{Rects: rects}
 	o.MustSave(j1)
 	var j2 *JsonEncoded
-	err := o.One(q, &j2)
+	_, err := o.One(q, &j2)
 	if err != nil {
 		t.Error(err)
 	} else if !reflect.DeepEqual(j2.Rects, rects) {
@@ -57,7 +57,7 @@ func testCodecs(t *testing.T, o *Orm) {
 	g1 := &GobEncoded{Rects: rects}
 	o.MustSave(g1)
 	var g2 *GobEncoded
-	err = o.One(q, &g2)
+	_, err = o.One(q, &g2)
 	if err != nil {
 		t.Error(err)
 	} else if !reflect.DeepEqual(g2.Rects, rects) {

@@ -88,20 +88,29 @@ func (q *Query) Sort(field string, dir Sort) *Query {
 	return q
 }
 
-// One fetches the first result for this query. If there
-// are no results, it returns ErrNotFound.
-func (q *Query) One(out ...interface{}) error {
+// One fetches the first result for this query. The first
+// return value indicates if a result was found.
+func (q *Query) One(out ...interface{}) (bool, error) {
 	iter := q.iter(1)
 	if iter.Next(out...) {
 		// Must close the iter manually, because we're not
 		// reaching the end.
 		iter.Close()
-		return nil
+		return true, nil
 	}
 	if err := iter.Err(); err != nil {
-		return err
+		return false, err
 	}
-	return ErrNotFound
+	return false, nil
+}
+
+// MustOne works like One, but panics if there's an error.
+func (q *Query) MustOne(out ...interface{}) bool {
+	ok, err := q.One(out...)
+	if err != nil {
+		panic(err)
+	}
+	return ok
 }
 
 // Exists returns wheter a result with the specified query

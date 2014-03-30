@@ -142,7 +142,7 @@ func testTime(t *testing.T, o *Orm) {
 	t1.Id = 0
 	t1.Timestamp = now
 	o.MustSave(t1)
-	err := o.One(Eq("Id", 1), &t1)
+	_, err := o.One(Eq("Id", 1), &t1)
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -150,7 +150,7 @@ func testTime(t *testing.T, o *Orm) {
 			t.Errorf("expected zero timestamp, got %v instead", t1.Timestamp)
 		}
 	}
-	err = o.One(Eq("Id", 2), t1)
+	_, err = o.One(Eq("Id", 2), t1)
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -187,7 +187,7 @@ func testSaveDelete(t *testing.T, o *Orm) {
 		t.Errorf("expected count = 2, got %v instead", count)
 	}
 	var obj2 *Object
-	err := o.One(Eq("Id", 2), &obj2)
+	_, err := o.One(Eq("Id", 2), &obj2)
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -233,7 +233,7 @@ func testData(t *testing.T, o *Orm) {
 	data := []byte{1, 2, 3, 4, 5, 6}
 	o.MustSave(&Data{Data: data})
 	var d *Data
-	err := o.One(Eq("Id", 1), &d)
+	_, err := o.One(Eq("Id", 1), &d)
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -257,7 +257,7 @@ func testInnerPointer(t *testing.T, o *Orm) {
 	out2 := Outer{Key: "bar", Inner: &Inner{A: 4, B: 2}}
 	o.MustSave(&out2)
 	var in Outer
-	err := o.One(Eq("Key", "foo"), &in)
+	_, err := o.One(Eq("Key", "foo"), &in)
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -265,7 +265,7 @@ func testInnerPointer(t *testing.T, o *Orm) {
 			t.Errorf("want %v, got %+v", nil, in.Inner)
 		}
 	}
-	err = o.One(Eq("Key", "bar"), &in)
+	_, err = o.One(Eq("Key", "bar"), &in)
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -359,7 +359,7 @@ func testCompositePrimaryKey(t *testing.T, o *Orm) {
 	comp.Value = "Baz"
 	o.MustSave(comp)
 	var comp2 *Composite
-	err = o.Table(table).Filter(Eq("Id", 1)).One(&comp2)
+	_, err = o.Table(table).Filter(Eq("Id", 1)).One(&comp2)
 	if err != nil {
 		t.Error(err)
 	} else if comp2.Value != comp.Value {

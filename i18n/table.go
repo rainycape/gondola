@@ -15,6 +15,9 @@ type Tabler interface {
 }
 
 func getTable(lang Languager) *table.Table {
+	if lang == nil {
+		return nil
+	}
 	if tabler, ok := lang.(Tabler); ok {
 		return tabler.TranslationTable()
 	}

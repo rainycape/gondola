@@ -283,14 +283,15 @@ func (t *Template) noCompiled(msg string) error {
 }
 
 func (t *Template) namespaceIn(parent *Template) string {
-	return strings.Join(t.namespace[len(parent.namespace):], nsSep)
+	from := 0
+	if parent != nil {
+		from = len(parent.namespace)
+	}
+	return strings.Join(t.namespace[from:], nsSep)
 }
 
 func (t *Template) qname(name string) string {
-	if len(t.namespace) > 0 {
-		name = t.Namespace() + nsMark + name
-	}
-	return name
+	return NamespacedName(t.namespace, name)
 }
 
 func (t *Template) importTrees(tmpl *Template, name string) error {
@@ -1067,6 +1068,13 @@ func namespacedTree(tree *parse.Tree, ns []string) *parse.Tree {
 		})
 	}
 	return tree
+}
+
+func NamespacedName(ns []string, name string) string {
+	if len(ns) > 0 {
+		return strings.Join(ns, nsSep) + nsMark + name
+	}
+	return name
 }
 
 func nop() interface{} { return nil }

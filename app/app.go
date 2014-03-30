@@ -615,7 +615,19 @@ func (app *App) chainTemplate(t *tmpl, included *includedApp) (*tmpl, error) {
 	if err := app.rewriteAssets(t.tmpl, included); err != nil {
 		return nil, err
 	}
-	if err := wrapper.tmpl.InsertTemplate(t.tmpl, included.main); err != nil {
+	name := template.NamespacedName([]string{included.app.name}, "~")
+	for _, v := range wrapper.tmpl.Trees() {
+		templateutil.WalkTree(v, func(n, p parse.Node) {
+			if n.Type() == parse.NodeTemplate {
+				tmpl := n.(*parse.TemplateNode)
+				if tmpl.Name == included.main {
+					tmpl.Name = name
+				}
+			}
+		})
+
+	}
+	if err := wrapper.tmpl.InsertTemplate(t.tmpl, name); err != nil {
 		return nil, err
 	}
 	return wrapper, nil

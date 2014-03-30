@@ -26,7 +26,12 @@ func (c *Context) User() users.User {
 // SignIn sets the cookie for signin in the given user. The default
 // cookie options for the App are used.
 func (c *Context) SignIn(user users.User) error {
-	return c.Cookies().SetSecure(users.COOKIE_NAME, user.Id())
+	err := c.Cookies().SetSecure(users.COOKIE_NAME, user.Id())
+	if err != nil {
+		return err
+	}
+	c.user = user
+	return nil
 }
 
 // MustSignIn works like SignIn, but panics if there's an error.

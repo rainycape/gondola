@@ -10,7 +10,7 @@ type SmtpWriter struct {
 	level  LLevel
 	server string
 	from   string
-	to     string
+	to     []string
 }
 
 func (w *SmtpWriter) Level() LLevel {
@@ -18,13 +18,16 @@ func (w *SmtpWriter) Level() LLevel {
 }
 
 func (w *SmtpWriter) Write(level LLevel, flags int, b []byte) (int, error) {
-	if w.server == "" || w.from == "" || w.to == "" {
+	if w.server == "" || w.from == "" || len(w.to) == 0 {
 		return 0, nil
 	}
 
 	hostname, _ := os.Hostname()
 	subject := fmt.Sprintf("%s message on %s", level.String(), hostname)
-	err := mail.SendVia(w.server, w.from, w.to, string(b), mail.Headers{"Subject": subject}, nil)
+	err := mail.Send(w.to, &mail.Options{
+		Subject: subject,
+		Message: b,
+	})
 	if err != nil {
 		return 0, err
 	}
@@ -32,5 +35,6 @@ func (w *SmtpWriter) Write(level LLevel, flags int, b []byte) (int, error) {
 }
 
 func NewSmtpWriter(level LLevel, server, from, to string) *SmtpWriter {
-	return &SmtpWriter{level, server, from, to}
+	addrs := mail.MustParseAddressList(to)
+	return &SmtpWriter{level, server, from, addrs}
 }

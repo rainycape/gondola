@@ -5,33 +5,70 @@ package mail
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"gnd.la/util"
+	"gnd.la/util/generic"
 	"io"
 	"io/ioutil"
+	"net/mail"
 	"net/smtp"
 	"strings"
-	"text/template"
 )
 
 var (
 	defaultServer = "localhost:25"
 	defaultFrom   = ""
 	admin         = ""
+	errNoMessage  = errors.New("no message specified")
+	errNoFrom     = errors.New("missing From: address")
+	// Changed for tests
+	printer = fmt.Printf
 )
 
+// ParseAddressList splits a comma separated list of addresses
+// into multiple email addresses. The returned addresses can be
+// used to call Send().
+func ParseAddressList(s string) ([]string, error) {
+	addrs, err := mail.ParseAddressList(s)
+	if err != nil {
+		return nil, err
+	}
+	return generic.Map(addrs, func(addr *mail.Address) string {
+		if addr.Name != "" {
+			return fmt.Sprintf("%s <%s>", addr.Name, addr.Address)
+		}
+		return addr.Address
+	}).([]string), nil
+}
+
+// MustParseAddressList works like ParseAddressList, but panics
+// if there's an error.
+func MustParseAddressList(s string) []string {
+	addrs, err := ParseAddressList(s)
+	if err != nil {
+		panic(err)
+	}
+	return addrs
+}
+
+// Headers represent additional headers to be added to
+// the email like e.g. Reply-To.
 type Headers map[string]string
 
+// Attachment represents an email attachment. Attachments are encoded
+// using a multipart email with base64 encoding. Use NewAttachment to
+// create an Attachment.
 type Attachment struct {
 	name        string
 	contentType string
 	data        []byte
 }
 
-// NewAttachment returns a new attachment which can be passed
-// to Send() and SendVia(). If contentType is empty, it defaults
-// to application/octet-stream
-func NewAttachment(name, contentType string, r io.Reader) (*Attachment, error) {
+// NewAttachment returns a new attachment which can be included in the
+// Options passed to Send(). If contentType is empty, it defaults
+// to application/octet-stream.
+func NewAttachment(name string, contentType string, r io.Reader) (*Attachment, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -46,20 +83,61 @@ func NewAttachment(name, contentType string, r io.Reader) (*Attachment, error) {
 	return &Attachment{name, contentType, data}, nil
 }
 
-// SendVia sends an email using the specified server from the specified address
-// to the given addresses (separated by commmas). Attachments and addittional
-// headers might be specified, like Subject or Reply-To. To include authentication info,
-// embed it into the server address (e.g. user@gmail.com:patata@smtp.gmail.com).
-// If you want to use CRAM authentication, prefix the username with cram?
-// (e.g. cram?pepe:12345@example.com), otherwise PLAIN is used.
-// If server is empty, it defaults to localhost:25. If from is empty, DefaultFrom()
-// is used in its place.
-func SendVia(server, from, to, message string, headers Headers, attachments []*Attachment) error {
-	if server == "" {
-		server = "localhost:25"
+// Template is the interface used to send a template as an email.
+// There are several types implementing this interface, like
+// text/template.Template and html/template.Template.
+type Template interface {
+	// Execute executes the template with the given data, writing
+	// its result to w and returning any potential errors.
+	Execute(w io.Writer, data interface{}) error
+}
+
+// Options specify several options available when sending an email.
+type Options struct {
+	// Server to send the email. If empty, the value returned from
+	// DefaultServer() is used. See DefaultServer() documentation
+	// for the format of this field.
+	Server string
+	// From address. If empty, defaults to the value from DefaultFrom().
+	// Note that this (or DefaultFrom()) always overwrites any From header
+	// set using the Header field.
+	From string
+	// Subject of the email. If non-empty, overwrites any Subject header
+	// set using the Headers field.
+	Subject string
+	// Additional email Headers. Might be nil.
+	Headers Headers
+	// Attachments to add to the email. See Attachment and NewAttachment.
+	Attachments []*Attachment
+	// Message indicates the message body. It might be one of the following:
+	//
+	//  - string
+	//  - []byte
+	//  - io.Reader
+	//  - Template
+	Message interface{}
+	// Data is only used when Message is a Template. When executing the Template,
+	// this is passed as its data argument.
+	Data interface{}
+}
+
+// Send sends an email to the given addresses and using the given Options. Note that
+// if Options is nil, an error is returned. See the Options documentation for
+// further information.
+func Send(to []string, opts *Options) error {
+	if opts == nil {
+		return errNoMessage
+	}
+	from := defaultFrom
+	server := defaultServer
+	if opts.Server != "" {
+		server = opts.Server
+	}
+	if opts.From != "" {
+		from = opts.From
 	}
 	if from == "" {
-		from = defaultFrom
+		return errNoFrom
 	}
 	var auth smtp.Auth
 	cram, username, password, server := parseServer(server)
@@ -70,22 +148,48 @@ func SendVia(server, from, to, message string, headers Headers, attachments []*A
 			auth = smtp.PlainAuth("", username, password, server)
 		}
 	}
-	buf := bytes.NewBuffer(nil)
+	var buf bytes.Buffer
+	headers := opts.Headers
 	if headers == nil {
 		headers = make(Headers)
-		headers["To"] = to
 	}
+	if opts.Subject != "" {
+		headers["Subject"] = opts.Subject
+	}
+	headers["From"] = from
 	for k, v := range headers {
 		buf.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
 	}
-	if len(attachments) > 0 {
+	var message string
+	switch x := opts.Message.(type) {
+	case Template:
+		var b bytes.Buffer
+		err := x.Execute(&b, opts.Data)
+		if err != nil {
+			return fmt.Errorf("error executing message template: %s", err)
+		}
+		message = b.String()
+	case string:
+		message = x
+	case []byte:
+		message = string(x)
+	case io.Reader:
+		data, err := ioutil.ReadAll(x)
+		if err != nil {
+			return fmt.Errorf("error reading message body: %s", err)
+		}
+		message = string(data)
+	default:
+		return fmt.Errorf("invalid message type %T", opts.Message)
+	}
+	if len(opts.Attachments) > 0 {
 		boundary := "Gondola-Boundary-" + util.RandomString(16)
 		buf.WriteString("MIME-Version: 1.0\r\n")
 		buf.WriteString("Content-Type: multipart/mixed; boundary=" + boundary + "\r\n")
 		buf.WriteString("--" + boundary + "\n")
 		buf.WriteString("Content-Type: text/plain; charset=utf-8\r\n")
 		buf.WriteString(message)
-		for _, v := range attachments {
+		for _, v := range opts.Attachments {
 			buf.WriteString("\r\n\r\n--" + boundary + "\r\n")
 			buf.WriteString(fmt.Sprintf("Content-Type: %s\r\n", v.contentType))
 			buf.WriteString("Content-Transfer-Encoding: base64\r\n")
@@ -101,46 +205,33 @@ func SendVia(server, from, to, message string, headers Headers, attachments []*A
 		buf.Write([]byte{'\r', '\n'})
 		buf.WriteString(message)
 	}
-	return smtp.SendMail(server, auth, from, strings.Split(to, ","), buf.Bytes())
-}
-
-// Send works like SendVia(), but uses the mail server
-// specified by DefaultServer()
-func Send(from, to, message string, headers Headers, attachments []*Attachment) error {
-	return SendVia(defaultServer, from, to, message, headers, attachments)
-}
-
-// SendTemplateVia parses the template from templateFile, executes it
-// with the data argument and then sends the resulting string as
-// the message using SendVia.
-func SendTemplateVia(server, from, to, templateFile string, data interface{}, headers Headers, attachments []*Attachment) error {
-	tmpl, err := template.ParseFiles(templateFile)
-	if err != nil {
-		return err
+	if server == "echo" {
+		printer("To: %s\n\n%s\n", strings.Join(to, ", "), buf.String())
+		return nil
 	}
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, data)
-	if err != nil {
-		return err
-	}
-	return SendVia(server, from, to, buf.String(), headers, attachments)
+	return smtp.SendMail(server, auth, from, to, buf.Bytes())
 }
 
-// SendTemplate works like SendTemplateVia, but uses the mail
-// server specified by DefaultServer()
-func SendTemplate(from, to, templateFile string, data interface{}, headers Headers, attachments []*Attachment) error {
-	return SendTemplateVia(defaultServer, from, to, templateFile, data, headers, attachments)
-}
-
-// DefaultServer returns the default mail server URL.
+// DefaultServer returns the default mail server address.
 func DefaultServer() string {
 	return defaultServer
 }
 
-// SetDefaultServer sets the default mail server URL.
-// See the documentation on SendVia()
-// for further information (authentication, etc...).
-// The default value is localhost:25.
+// SetDefaultServer sets the default mail server adress in the format
+// [user:password]@host[:port]. If you want to use CRAM authentication,
+// prefix the username with "cram?" - witout quotes, otherwise PLAIN
+// authentication is used. Additionally, the special value "echo" can be
+// used for testing, and will cause the email to be printed
+// to the standard output, rather than sent. The following are valid examples
+// of server addresses.
+//
+//  - localhost
+//  - localhost:25
+//  - user@gmail.com:patata@smtp.gmail.com
+//  - cram?pepe:12345@example.com
+//  - echo
+//
+// The default server value is localhost:25.
 func SetDefaultServer(s string) {
 	if s == "" {
 		s = "localhost:25"

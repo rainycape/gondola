@@ -10,7 +10,11 @@ import (
 	"path/filepath"
 )
 
-func Compile(filename string, translations []*po.Po) error {
+type CompileOptions struct {
+	DefaultContext string
+}
+
+func Compile(filename string, translations []*po.Po, opts *CompileOptions) error {
 	var buf bytes.Buffer
 	dir := filepath.Dir(filename)
 	p, err := build.ImportDir(dir, 0)
@@ -20,8 +24,12 @@ func Compile(filename string, translations []*po.Po) error {
 	buf.WriteString("import \"gnd.la/i18n/table\"\n")
 	buf.WriteString(genutil.AutogenString())
 	buf.WriteString("func init() {\n")
+	var defaultContext string
+	if opts != nil {
+		defaultContext = opts.DefaultContext
+	}
 	for _, v := range translations {
-		table := poToTable(v)
+		table := poToTable(v, defaultContext)
 		form, err := funcFromFormula(v.Attrs["Plural-Forms"])
 		if err != nil {
 			return err
@@ -36,9 +44,12 @@ func Compile(filename string, translations []*po.Po) error {
 	return genutil.WriteAutogen(filename, buf.Bytes())
 }
 
-func poToTable(p *po.Po) *table.Table {
+func poToTable(p *po.Po, ctx string) *table.Table {
 	translations := make(map[string]table.Translation)
 	for _, v := range p.Messages {
+		if v.Context == "" {
+			v.Context = ctx
+		}
 		if empty(v.Translations) {
 			continue
 		}

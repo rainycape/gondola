@@ -11,7 +11,7 @@ import (
 )
 
 func MakeMessages(ctx *app.Context) {
-	m, err := messages.Extract(".", messages.DefaultFunctions(), messages.DefaultTypes(), messages.DefaultTagFields())
+	m, err := messages.Extract(".", nil)
 	if err != nil {
 		panic(err)
 	}
@@ -53,8 +53,11 @@ func CompileMessages(ctx *app.Context) {
 		pos[ii] = p
 	}
 	var out string
+	var defCtx string
 	ctx.ParseParamValue("o", &out)
-	if err := messages.Compile(out, pos); err != nil {
+	ctx.ParseParamValue("ctx", &defCtx)
+	opts := &messages.CompileOptions{DefaultContext: defCtx}
+	if err := messages.Compile(out, pos, opts); err != nil {
 		panic(err)
 	}
 }
@@ -70,6 +73,7 @@ func init() {
 		Help: "Compiles all po files from the current directory and its subdirectories",
 		Flags: admin.Flags(
 			admin.StringFlag("o", "messages.go", "Output filename. Can't be empty."),
+			admin.StringFlag("ctx", "", "Default context for messages without it."),
 		),
 	})
 }

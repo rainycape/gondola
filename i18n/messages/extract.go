@@ -63,16 +63,33 @@ func DefaultTagFields() []string {
 	}
 }
 
-func Extract(dir string, functions []*Function, types []string, tagFields []string) ([]*Message, error) {
+type ExtractOptions struct {
+	Functions []*Function
+	Types     []string
+	TagFields []string
+}
+
+func DefaultExtractOptions() *ExtractOptions {
+	return &ExtractOptions{
+		Functions: DefaultFunctions(),
+		Types:     DefaultTypes(),
+		TagFields: DefaultTagFields(),
+	}
+}
+
+func Extract(dir string, opts *ExtractOptions) ([]*Message, error) {
+	if opts == nil {
+		opts = DefaultExtractOptions()
+	}
 	messages := make(messageMap)
-	err := extract(messages, dir, functions, types, tagFields)
+	err := extract(messages, dir, opts)
 	if err != nil {
 		return nil, err
 	}
 	return messages.Messages(), nil
 }
 
-func extract(messages messageMap, dir string, functions []*Function, types []string, tagFields []string) error {
+func extract(messages messageMap, dir string, opts *ExtractOptions) error {
 	f, err := os.Open(dir)
 	if err != nil {
 		return err
@@ -87,7 +104,7 @@ func extract(messages messageMap, dir string, functions []*Function, types []str
 		p := filepath.Join(dir, name)
 		if v.IsDir() {
 			if !pkgutil.IsPackage(p) {
-				if err := extract(messages, p, functions, types, tagFields); err != nil {
+				if err := extract(messages, p, opts); err != nil {
 					return err
 				}
 			}
@@ -96,11 +113,11 @@ func extract(messages messageMap, dir string, functions []*Function, types []str
 		switch strings.ToLower(filepath.Ext(name)) {
 		// TODO: text and strings files
 		case ".html", ".txt":
-			if err := extractTemplateMessages(messages, p, functions); err != nil {
+			if err := extractTemplateMessages(messages, p, opts); err != nil {
 				return err
 			}
 		case ".go":
-			if err := extractGoMessages(messages, p, functions, types, tagFields); err != nil {
+			if err := extractGoMessages(messages, p, opts); err != nil {
 				return err
 			}
 		case ".po", ".pot":
@@ -110,29 +127,31 @@ func extract(messages messageMap, dir string, functions []*Function, types []str
 	return nil
 }
 
-func extractGoMessages(messages messageMap, path string, functions []*Function, types []string, tagFields []string) error {
+func extractGoMessages(messages messageMap, path string, opts *ExtractOptions) error {
 	log.Debugf("Extracting messages from Go file %s", path)
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
 	if err != nil {
 		return fmt.Errorf("error parsing go file %s: %s", path, err)
 	}
-	for _, v := range functions {
-		if v.Template {
-			continue
+	if opts != nil {
+		for _, v := range opts.Functions {
+			if v.Template {
+				continue
+			}
+			if err := extractGoFunc(messages, fset, f, v); err != nil {
+				return err
+			}
 		}
-		if err := extractGoFunc(messages, fset, f, v); err != nil {
-			return err
+		for _, v := range opts.Types {
+			if err := extractGoType(messages, fset, f, v); err != nil {
+				return err
+			}
 		}
-	}
-	for _, v := range types {
-		if err := extractGoType(messages, fset, f, v); err != nil {
-			return err
-		}
-	}
-	for _, v := range tagFields {
-		if err := extractGoTagField(messages, fset, f, v); err != nil {
-			return err
+		for _, v := range opts.TagFields {
+			if err := extractGoTagField(messages, fset, f, v); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -235,16 +254,18 @@ func extractGoTagField(messages messageMap, fset *token.FileSet, f *ast.File, ta
 	return nil
 }
 
-func extractTemplateMessages(messages messageMap, path string, functions []*Function) error {
+func extractTemplateMessages(messages messageMap, path string, opts *ExtractOptions) error {
 	log.Debugf("Extracting messages from template file %s", path)
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
 	}
 	funcs := make(map[string]*Function)
-	for _, v := range functions {
-		if v.Template {
-			funcs[v.Name] = v
+	if opts != nil {
+		for _, v := range opts.Functions {
+			if v.Template {
+				funcs[v.Name] = v
+			}
 		}
 	}
 	text := string(b)

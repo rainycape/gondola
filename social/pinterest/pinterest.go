@@ -223,7 +223,7 @@ func SignIn(account *Account) (*Session, error) {
 	return sess, nil
 }
 
-func Boards(session *Session) ([]*Board, error) {
+func (s *Session) Boards() ([]*Board, error) {
 	data := map[string]interface{}{
 		"options": map[string]string{},
 		"module": map[string]interface{}{
@@ -232,7 +232,7 @@ func Boards(session *Session) ([]*Board, error) {
 			"append":  false,
 		},
 	}
-	resp, err := request(session, noopUrl, "GET", "", data)
+	resp, err := request(s, noopUrl, "GET", "", data)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +271,7 @@ func Boards(session *Session) ([]*Board, error) {
 	return nil, errUnexpectedResponse
 }
 
-func Post(session *Session, board *Board, pin *Pin) (*Pin, error) {
+func (s *Session) Post(board *Board, pin *Pin) (*Pin, error) {
 	var source string
 	if pin.Link != "" {
 		source = pin.Link
@@ -284,7 +284,7 @@ func Post(session *Session, board *Board, pin *Pin) (*Pin, error) {
 	}
 	host := url.QueryEscape(fmt.Sprintf("%s://%s", u.Scheme, u.Host))
 	ref := fmt.Sprintf("http://www.pinterest.com/pin/find/?url=%s", host)
-	resp, err := request(session, createPinUrl, "POST", ref, map[string]interface{}{
+	resp, err := request(s, createPinUrl, "POST", ref, map[string]interface{}{
 		"options": map[string]interface{}{
 			"link":           pin.Link,
 			"is_video":       nil,

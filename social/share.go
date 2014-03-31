@@ -62,7 +62,7 @@ func Share(s Service, item *Item, config interface{}) (interface{}, error) {
 			boardName = b
 		}
 		if board == nil {
-			boards, err := pinterest.Boards(sess)
+			boards, err := sess.Boards()
 			if err != nil {
 				return nil, err
 			}
@@ -87,7 +87,7 @@ func Share(s Service, item *Item, config interface{}) (interface{}, error) {
 			Image:       item.Images[0].String(),
 			Description: item.Title,
 		}
-		return pinterest.Post(sess, board, pin)
+		return sess.Post(board, pin)
 	}
 	return nil, fmt.Errorf("Share() does not support service %s", s)
 }

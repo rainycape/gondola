@@ -25,6 +25,13 @@ func TestSignIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("Session %+v", sess)
+	boards, err := sess.Boards()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range boards {
+		t.Logf("Board %+v", *v)
+	}
 }
 
 func TestPost(t *testing.T) {
@@ -33,15 +40,11 @@ func TestPost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("Session %+v", sess)
-	boards, err := Boards(sess)
+	boards, err := sess.Boards()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, v := range boards {
-		t.Logf("Board %+v", *v)
-	}
-	pin, err := Post(sess, boards[0], &Pin{
+	pin, err := sess.Post(boards[0], &Pin{
 		Link:        "http://cuteanimals.me",
 		Image:       "http://cuteanimals.me/-img/52770a211605fb1528000003.jpg",
 		Description: "Just testing",

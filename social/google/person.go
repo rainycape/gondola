@@ -62,12 +62,13 @@ func (p *Person) decodeMap(m map[string]interface{}) error {
 	p.Links = decodeValues(m["urls"])
 	p.Gender, _ = m["gender"].(string)
 	p.Occupation, _ = m["occupation"].(string)
-	age := m["ageRange"].(map[string]interface{})
-	min, _ := age["min"].(float64)
-	max, _ := age["max"].(float64)
-	p.Age = AgeRange{
-		Min: int(min),
-		Max: int(max),
+	if age, ok := m["ageRange"].(map[string]interface{}); ok {
+		min, _ := age["min"].(float64)
+		max, _ := age["max"].(float64)
+		p.Age = AgeRange{
+			Min: int(min),
+			Max: int(max),
+		}
 	}
 	p.Lang = m["language"].(string)
 	return nil

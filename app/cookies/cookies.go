@@ -31,6 +31,8 @@ var (
 	// Tried to use encrypted cookies without an Encrypter.
 	ErrNoEncrypter = errors.New("no encrypter specified")
 
+	errNoRequest = errors.New("no request available")
+
 	// Maximum representable UNIX time with a signed 32 bit integer. This
 	// means that cookies won't be really permanent, but they will expire
 	// on January 19th 2038. I don't know about you, but I hope to be around
@@ -200,12 +202,17 @@ func (c *Cookies) Has(name string) bool {
 // GetCookie returns the raw *http.Coookie with
 // the given name.
 func (c *Cookies) GetCookie(name string) (*http.Cookie, error) {
+	if c.r == nil {
+		return nil, errNoRequest
+	}
 	return c.r.Cookie(name)
 }
 
 // SetCookie sets the given *http.Cookie.
 func (c *Cookies) SetCookie(cookie *http.Cookie) {
-	http.SetCookie(c.w, cookie)
+	if c.w != nil {
+		http.SetCookie(c.w, cookie)
+	}
 }
 
 // Get uses the cookie value with the given name to

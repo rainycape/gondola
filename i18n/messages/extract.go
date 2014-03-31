@@ -95,7 +95,7 @@ func extract(messages messageMap, dir string, functions []*Function, types []str
 		}
 		switch strings.ToLower(filepath.Ext(name)) {
 		// TODO: text and strings files
-		case ".html":
+		case ".html", ".txt":
 			if err := extractTemplateMessages(messages, p, functions); err != nil {
 				return err
 			}

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"text/template/parse"
 )
@@ -13,6 +14,9 @@ import (
 const (
 	leftDelim  = "{{"
 	rightDelim = "}}"
+
+	BeginTranslatableBlock = "begintrans"
+	EndTranslatableBlock   = "endtrans"
 )
 
 var (
@@ -159,4 +163,101 @@ func ReplaceVariableShorthands(text string, chr byte, name string) string {
 		buf.WriteByte(v)
 	}
 	return buf.String()
+}
+
+// ReplaceTranslatableBlocks replaces begintrans/endtrans blocks
+// with an equivalent action using the translation function named
+// by fn.
+func ReplaceTranslatableBlocks(tr *parse.Tree, fn string) error {
+	var err error
+	begin := fmt.Sprintf("{{%s}}", BeginTranslatableBlock)
+	end := fmt.Sprintf("{{%s}}", EndTranslatableBlock)
+	WalkTree(tr, func(n, p parse.Node) {
+		if err != nil {
+			return
+		}
+		if n.Type() == parse.NodeAction && n.String() == begin {
+			list, ok := p.(*parse.ListNode)
+			if !ok {
+				loc, ctx := tr.ErrorContext(n)
+				err = fmt.Errorf("%s:%s:%s not in ListNode (%T)", loc, ctx, BeginTranslatableBlock, p)
+				return
+			}
+			cmd := &parse.CommandNode{
+				NodeType: parse.NodeCommand,
+				Pos:      n.Position(),
+			}
+			pipe := &parse.PipeNode{
+				NodeType: parse.NodePipe,
+				Pos:      n.Position(),
+				Cmds:     []*parse.CommandNode{cmd},
+			}
+			repl := &parse.ActionNode{
+				NodeType: parse.NodeAction,
+				Pos:      n.Position(),
+				Pipe:     pipe,
+			}
+			if repl != nil {
+			}
+			pos := -1
+			for ii, v := range list.Nodes {
+				if v == n {
+					pos = ii
+					break
+				}
+			}
+			var pipes []parse.Node
+			var buf bytes.Buffer
+			endPos := -1
+		Nodes:
+			for ii, v := range list.Nodes[pos+1:] {
+				switch x := v.(type) {
+				case *parse.TextNode:
+					buf.Write(x.Text)
+				case *parse.ActionNode:
+					if x.String() == end {
+						endPos = ii
+						break Nodes
+					}
+					if len(x.Pipe.Decl) > 0 {
+						loc, ctx := tr.ErrorContext(n)
+						err = fmt.Errorf("%s:%s:%s translatable block can't contain a pipe with declaractions", loc, ctx, v)
+					}
+					buf.WriteString("%v")
+					pipes = append(pipes, x.Pipe)
+				default:
+					loc, ctx := tr.ErrorContext(n)
+					err = fmt.Errorf("%s:%s:%s translatable block can't contain %T", loc, ctx, v)
+					return
+				}
+			}
+			if buf.Len() > 0 {
+				text := buf.String()
+				quoted := strconv.Quote(text)
+				innerPipe := &parse.PipeNode{
+					NodeType: parse.NodePipe,
+					Pos:      n.Position(),
+					Cmds: []*parse.CommandNode{
+						&parse.CommandNode{
+							NodeType: parse.NodeCommand,
+							Pos:      n.Position(),
+							Args: []parse.Node{parse.NewIdentifier(fn), &parse.StringNode{
+								NodeType: parse.NodeString,
+								Pos:      n.Position(),
+								Quoted:   quoted,
+								Text:     text,
+							}},
+						},
+					},
+				}
+				cmd.Args = append(cmd.Args, parse.NewIdentifier("printf"), innerPipe)
+				cmd.Args = append(cmd.Args, pipes...)
+			}
+			nodes := list.Nodes[:pos]
+			nodes = append(nodes, repl)
+			nodes = append(nodes, list.Nodes[endPos+pos+1:]...)
+			list.Nodes = nodes
+		}
+	})
+	return err
 }

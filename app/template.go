@@ -52,6 +52,8 @@ func newTemplate(app *App, loader loaders.Loader, manager *assets.Manager) *tmpl
 		"tn":       nop,
 		"tc":       nop,
 		"tnc":      nop,
+		templateutil.BeginTranslatableBlock: nop,
+		templateutil.EndTranslatableBlock:   nop,
 	})
 	return t
 }
@@ -137,6 +139,9 @@ func (t *tmpl) replaceNode(n, p parse.Node, fname string) error {
 
 func (t *tmpl) rewriteTranslationFuncs() error {
 	for _, tr := range t.tmpl.Trees() {
+		if err := templateutil.ReplaceTranslatableBlocks(tr, "t"); err != nil {
+			return err
+		}
 		var err error
 		templateutil.WalkTree(tr, func(n, p parse.Node) {
 			if err != nil {

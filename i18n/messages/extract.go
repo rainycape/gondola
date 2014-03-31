@@ -253,6 +253,9 @@ func extractTemplateMessages(messages messageMap, path string, functions []*Func
 		return err
 	}
 	for _, v := range treeSet {
+		if err := templateutil.ReplaceTranslatableBlocks(v, "t"); err != nil {
+			return err
+		}
 		templateutil.WalkTree(v, func(n, p parse.Node) {
 			var fname string
 			switch n.Type() {

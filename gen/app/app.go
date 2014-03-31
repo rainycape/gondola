@@ -21,13 +21,18 @@ type Templates struct {
 	Hooks map[string]string `yaml:"hooks"`
 }
 
+type Translations struct {
+	Context string `yaml:"context"`
+}
+
 type App struct {
-	Dir       string
-	Name      string            `yaml:"name"`
-	Handlers  map[string]string `yaml:"handlers"`
-	Vars      map[string]string `yaml:"vars"`
-	Templates *Templates        `yaml:"templates"`
-	Assets    string            `yaml:"assets"`
+	Dir          string
+	Name         string            `yaml:"name"`
+	Handlers     map[string]string `yaml:"handlers"`
+	Vars         map[string]string `yaml:"vars"`
+	Templates    *Templates        `yaml:"templates"`
+	Translations *Translations     `yaml:"translations"`
+	Assets       string            `yaml:"assets"`
 }
 
 func (app *App) writeLoader(buf *bytes.Buffer, dir string, release bool) error {
@@ -57,6 +62,14 @@ func (app *App) Gen(release bool) error {
 	fmt.Fprintf(&buf, "var (\n App *app.App\n)\n")
 	buf.WriteString("func init() {\n")
 	buf.WriteString("App = app.New()\n")
+	// TODO: Enable this when we have a solution for
+	// executing templates from differnt apps from the
+	// same *app.Context, which would need different
+	// default translation contexts.
+	//
+	/*if app.Translations != nil && app.Translations.Context != "" {
+		fmt.Fprintf(&buf, "App.TranslationContext = %q\n", app.Translations.Context)
+	}*/
 	fmt.Fprintf(&buf, "App.SetName(%q)\n", app.Name)
 	buf.WriteString("var manager *assets.Manager\n")
 	if app.Assets != "" {

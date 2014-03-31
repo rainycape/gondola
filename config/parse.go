@@ -130,10 +130,11 @@ func parseValue(v reflect.Value, raw string) error {
 				return fmt.Errorf("error parsing key at index %d: %s", ii, err)
 			}
 			elem := reflect.New(etyp)
-			if len(subFields) > 0 {
-				if err := input.Parse(subFields[1], elem.Interface()); err != nil {
-					return fmt.Errorf("error parsing value at index %d: %s", ii, err)
-				}
+			if len(subFields) < 2 {
+				return fmt.Errorf("invalid map field %q", field)
+			}
+			if err := input.Parse(subFields[1], elem.Interface()); err != nil {
+				return fmt.Errorf("error parsing value at index %d: %s", ii, err)
 			}
 			v.SetMapIndex(k.Elem(), elem.Elem())
 		}

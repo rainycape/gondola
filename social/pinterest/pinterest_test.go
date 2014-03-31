@@ -18,6 +18,15 @@ func parseAccount(tb testing.TB) *Account {
 	return nil
 }
 
+func TestSignIn(t *testing.T) {
+	acc := parseAccount(t)
+	sess, err := SignIn(acc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Session %+v", sess)
+}
+
 func TestPost(t *testing.T) {
 	acc := parseAccount(t)
 	sess, err := SignIn(acc)

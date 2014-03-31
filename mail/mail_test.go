@@ -36,7 +36,7 @@ func TestValidation(t *testing.T) {
 		{"@gmail.com", "", true, false},
 		{"pepe@gmail.com", "", true, true},
 		{"Pepe <pepe@gmail.com>", "pepe@gmail.com", true, true},
-		{"fiam@raichu.rm-fr.net", "", true, true},
+		{"fiam@abra.rm-fr.net", "", true, true},
 		{"pepe@gmaildoesnotexistwolololhopefullynooneregistersthisdomainandbreaksthistest.com", "", false, true},
 		{"pepe@gmaildoesnotexistwolololhopefullynooneregistersthisdomainandbreaksthistest.com", "", true, false},
 	}

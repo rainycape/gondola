@@ -408,7 +408,7 @@ func (s *state) call(fn reflect.Value, name string, args int, fp fastPath) error
 		}
 		if fp != nil {
 			if err := fp(in, s.scratch, s.resPtr); err != nil {
-				return fmt.Errorf("%q returned an error: %s", err)
+				return fmt.Errorf("%q returned an error: %s", name, err)
 			}
 			res = s.res
 		} else {

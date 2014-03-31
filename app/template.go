@@ -78,23 +78,27 @@ func (t *tmpl) Parse(file string) error {
 }
 
 func (t *tmpl) execute(w io.Writer, name string, data interface{}, vars template.VarMap) error {
-	// TODO: Don't ignore received cars
-	var context *Context
+	ctx, _ := w.(*Context)
+	return t.executeContext(ctx, w, name, data, vars)
+}
+
+func (t *tmpl) executeContext(ctx *Context, w io.Writer, name string, data interface{}, vars template.VarMap) error {
+	// TODO: Don't ignore received vars
 	var request *http.Request
-	if context, _ = w.(*Context); context != nil {
-		request = context.R
+	if ctx != nil {
+		request = ctx.R
 	}
 	var tvars map[string]interface{}
 	var err error
 	if t.app.namespace != nil {
-		tvars, err = t.app.namespace.eval(context)
+		tvars, err = t.app.namespace.eval(ctx)
 		if err != nil {
 			return err
 		}
 	} else {
 		tvars = make(map[string]interface{})
 	}
-	tvars["Ctx"] = context
+	tvars["Ctx"] = ctx
 	tvars["Request"] = request
 	if name == "" {
 		name = t.tmpl.Root()

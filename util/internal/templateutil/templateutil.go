@@ -99,8 +99,19 @@ func ReplaceNode(n parse.Node, p parse.Node, nn parse.Node) error {
 				break
 			}
 		}
-	/*case *parse.ListNode:
-	case *parse.IfNode:
+	case *parse.ListNode:
+		for ii, v := range pn.Nodes {
+			if v == n {
+				var nodes []parse.Node
+				nodes = append(nodes, pn.Nodes[:ii]...)
+				nodes = append(nodes, nn)
+				nodes = append(nodes, pn.Nodes[ii+1:]...)
+				pn.Nodes = nodes
+				found = true
+				break
+			}
+		}
+	/*case *parse.IfNode:
 	case *parse.WithNode:
 	case *parse.RangeNode:*/
 	default:

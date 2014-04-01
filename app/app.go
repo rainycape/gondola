@@ -88,11 +88,10 @@ type handlerInfo struct {
 }
 
 type includedApp struct {
-	prefix  string
-	app     *App
-	base    string
-	main    string
-	renames map[string]string
+	prefix    string
+	app       *App
+	container string
+	renames   map[string]string
 }
 
 func (a *includedApp) assetFuncName() string {
@@ -293,13 +292,13 @@ func (app *App) AddRecoverHandler(rh RecoverHandler) {
 	app.RecoverHandlers = append(app.RecoverHandlers, rh)
 }
 
-func (app *App) Include(prefix string, included *App, base string, main string) {
-	if err := app.include(prefix, included, base, main); err != nil {
+func (app *App) Include(prefix string, included *App, containerTemplate string) {
+	if err := app.include(prefix, included, containerTemplate); err != nil {
 		panic(err)
 	}
 }
 
-func (app *App) include(prefix string, child *App, base string, main string) error {
+func (app *App) include(prefix string, child *App, containerTemplate string) error {
 	if child.parent != nil {
 		return fmt.Errorf("app %v already has been included in another app", child)
 	}
@@ -324,10 +323,16 @@ func (app *App) include(prefix string, child *App, base string, main string) err
 	}
 	child.parent = app
 	included := &includedApp{
-		prefix: prefix,
-		app:    child,
-		base:   base,
-		main:   main,
+		prefix:    prefix,
+		app:       child,
+		container: containerTemplate,
+	}
+	// Check if the container is fine. Not completely sure if this
+	// is a good idea, since the panic will happen on start rather
+	// than on a request, but otherwise the error could go unnoticed
+	// until a handler from the included app is invoked.
+	if _, _, err := app.loadContainerTemplate(included); err != nil {
+		return err
 	}
 	child.childInfo = included
 	if child.assetsManager != nil {
@@ -607,30 +612,76 @@ func (app *App) rewriteAssets(t *template.Template, included *includedApp) error
 	return nil
 }
 
+func (app *App) loadContainerTemplate(included *includedApp) (*tmpl, string, error) {
+	container, err := app.loadTemplate(included.container)
+	if err != nil {
+		return nil, "", err
+	}
+	name := template.NamespacedName([]string{included.app.name}, "~")
+	found := false
+	var loc string
+	for _, v := range container.tmpl.Trees() {
+		if err != nil {
+			return nil, "", err
+		}
+		templateutil.WalkTree(v, func(n, p parse.Node) {
+			if err != nil {
+				return
+			}
+			if n.Type() == parse.NodeAction && n.String() == "{{app}}" {
+				if found {
+					dloc, _ := v.ErrorContext(n)
+					err = fmt.Errorf("duplicate {{ app }} node in container template %q: %s and %s",
+						included.container, loc, dloc)
+					return
+				}
+				// Used for error message if duplicate is found
+				loc, _ = v.ErrorContext(n)
+				found = true
+				pos := n.Position()
+				dot := &parse.DotNode{Pos: pos}
+				cmd := &parse.CommandNode{
+					NodeType: parse.NodeCommand,
+					Pos:      pos,
+					Args:     []parse.Node{dot},
+				}
+				pipe := &parse.PipeNode{
+					NodeType: parse.NodePipe,
+					Pos:      pos,
+					Cmds:     []*parse.CommandNode{cmd},
+				}
+				tmpl := &parse.TemplateNode{
+					NodeType: parse.NodeTemplate,
+					Pos:      pos,
+					Name:     name,
+					Pipe:     pipe,
+				}
+				err = templateutil.ReplaceNode(n, p, tmpl)
+			}
+		})
+	}
+	if err != nil {
+		return nil, "", err
+	}
+	if !found {
+		return nil, "", fmt.Errorf("container template %q does not contain an {{ app }} node", included.container)
+	}
+	return container, name, nil
+}
+
 func (app *App) chainTemplate(t *tmpl, included *includedApp) (*tmpl, error) {
-	wrapper, err := app.loadTemplate(included.base)
+	log.Debugf("chaining template %s", t.tmpl.Name())
+	container, name, err := app.loadContainerTemplate(included)
 	if err != nil {
 		return nil, err
 	}
 	if err := app.rewriteAssets(t.tmpl, included); err != nil {
 		return nil, err
 	}
-	name := template.NamespacedName([]string{included.app.name}, "~")
-	for _, v := range wrapper.tmpl.Trees() {
-		templateutil.WalkTree(v, func(n, p parse.Node) {
-			if n.Type() == parse.NodeTemplate {
-				tmpl := n.(*parse.TemplateNode)
-				if tmpl.Name == included.main {
-					tmpl.Name = name
-				}
-			}
-		})
-
-	}
-	if err := wrapper.tmpl.InsertTemplate(t.tmpl, name); err != nil {
+	if err := container.tmpl.InsertTemplate(t.tmpl, name); err != nil {
 		return nil, err
 	}
-	return wrapper, nil
+	return container, nil
 }
 
 // Address returns the address this app is configured to listen

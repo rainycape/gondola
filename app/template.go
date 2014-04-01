@@ -52,6 +52,7 @@ func newTemplate(app *App, loader loaders.Loader, manager *assets.Manager) *tmpl
 		"tn":       nop,
 		"tc":       nop,
 		"tnc":      nop,
+		"app":      nop,
 		templateutil.BeginTranslatableBlock: nop,
 		templateutil.EndTranslatableBlock:   nop,
 	})

@@ -1211,14 +1211,17 @@ func (p *program) walk(n parse.Node) error {
 		p.addSTRING(x.Text)
 	case *parse.TemplateNode:
 		s := p.s.snap()
-		if err := p.walk(x.Pipe); err != nil {
-			return err
+		pop := -1
+		if x.Pipe != nil {
+			if err := p.walk(x.Pipe); err != nil {
+				return err
+			}
+			pipe := p.s.snap()
+			p.s.restore(s)
+			pipe.putPop()
+			pop = pipe.takePop()
+			p.s.add(pipe)
 		}
-		pipe := p.s.snap()
-		p.s.restore(s)
-		pipe.putPop()
-		pop := pipe.takePop()
-		p.s.add(pipe)
 		ns := namespace(x.Name)
 		if pns := namespace(p.s.name); pns != "" {
 			ns = ns[len(pns):]

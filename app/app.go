@@ -15,6 +15,7 @@ import (
 	"gnd.la/encoding/codec"
 	"gnd.la/loaders"
 	"gnd.la/log"
+	"gnd.la/mail"
 	"gnd.la/orm"
 	"gnd.la/signal"
 	"gnd.la/template"
@@ -1023,6 +1024,51 @@ func (app *App) logError(ctx *Context, err interface{}) {
 			req = util.Lines(string(dump), 0, 10000, true)
 			buf.WriteString("\nRequest:\n")
 			buf.WriteString(req)
+		}
+		// Check if there are any attached files that we might
+		// want to send in an email
+		if !app.Debug && mail.AdminEmail() != "" {
+			ctx.R.ParseMultipartForm(32 << 20) // 32 MiB, as stdlib
+			if form := ctx.R.MultipartForm; form != nil {
+				var count int
+				var attachments []*mail.Attachment
+				var message bytes.Buffer
+				if len(form.File) > 0 {
+					for k, v := range form.File {
+						for _, file := range v {
+							f, err := file.Open()
+							if err != nil {
+								fmt.Fprintf(&message, "%s => error %s", k, err)
+								continue
+							}
+							name := file.Filename
+							contentType := file.Header.Get("Content-Type")
+							attachment, err := mail.NewAttachment(name, contentType, f)
+							f.Close()
+							if err != nil {
+								fmt.Fprintf(&message, "%s => error %s", k, err)
+								continue
+							}
+							count++
+							fmt.Fprintf(&message, "%s => %s (%s)", k, file.Filename, contentType)
+							attachments = append(attachments, attachment)
+						}
+					}
+					fmt.Fprintf(&message, "\nError:\n%s", buf.String())
+					host, _ := os.Hostname()
+					from := mail.DefaultFrom()
+					if from == "" {
+						from = fmt.Sprintf("errors@%s", host)
+					}
+					opts := &mail.Options{
+						From:        from,
+						Subject:     fmt.Sprintf("Panic with %d attached files on %s", count, host),
+						Message:     message.String(),
+						Attachments: attachments,
+					}
+					ctx.SendMail(mail.AdminEmail(), "", nil, opts)
+				}
+			}
 		}
 	}
 	log.Error(buf.String())

@@ -1,3 +1,5 @@
+// +build !windows,!appengine
+
 package runtimeutil
 
 import (
@@ -9,16 +11,6 @@ import (
 	"sort"
 	"strings"
 )
-
-type section interface {
-	Data() ([]byte, error)
-}
-
-type debugFile interface {
-	Section(name string) section
-	Addr(name string) uint64
-	Close() error
-}
 
 type syms []*gosym.Sym
 
@@ -112,33 +104,43 @@ func prettyStack(lines []string, _html bool) (ret []string) {
 			copy(params, fn.Params)
 			sort.Sort(syms(params))
 			fname, args := splitFunc(lines[jj])
-			if !strings.HasPrefix(fname, "runtime.") {
-				kk := 0
+			var reprs []string
+			if strings.HasPrefix(fname, "runtime.") {
+				reprs = args
+			} else {
+				pos := 0
+			Params:
 				for ii, v := range params {
-					if kk >= len(args) || args[kk] == "..." || strings.Contains(v.Name, ".~anon") {
+					if pos >= len(args) {
 						break
 					}
-					repr, ok := fieldRepr(table, fn, v, args[kk:], _html)
-					if ok {
-						args[kk] = repr
+					if strings.Contains(v.Name, ".~anon") {
+						reprs = append(reprs, args[ii:]...)
+						break
 					}
-					used := 1
-					if ii < len(params)-1 {
-						size := int(params[ii+1].Value - v.Value)
-						used = size / int(reflect.TypeOf(uintptr(0)).Size())
+					typ := reflectType(v.GoType)
+					used := int(typ.Size() / reflect.TypeOf(uintptr(0)).Size())
+					end := pos + used
+					if end > len(args) {
+						end = len(args)
 					}
-					if used > 1 {
-						// Remove consumed args
-						end := kk + used
-						if end > len(args) {
-							end = len(args)
+					values := args[pos:end]
+					for _, val := range values {
+						if val == "..." {
+							reprs = append(reprs, values...)
+							break Params
 						}
-						args = append(args[:kk+1], args[end:]...)
 					}
-					kk++
+					pos = end
+					repr, ok := fieldRepr(v, typ, values, _html)
+					if ok {
+						reprs = append(reprs, repr)
+					} else {
+						reprs = append(reprs, values...)
+					}
 				}
 			}
-			lines[jj] = fmt.Sprintf("%s(%s)", fname, strings.Join(args, ", "))
+			lines[jj] = fmt.Sprintf("%s(%s)", fname, strings.Join(reprs, ", "))
 		}
 		jj += 2
 	}

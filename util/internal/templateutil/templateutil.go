@@ -5,6 +5,8 @@ package templateutil
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,6 +26,22 @@ var (
 	varNotDefinedRe  = regexp.MustCompile("undefined variable \"\\$(\\w+)\"")
 	defineRe         = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
 )
+
+// DumpTree writes a *parse.Tree element by element to the given
+// io.Writer. If w is nil, the result is printed to stdout.
+func DumpTree(w io.Writer, tree *parse.Tree) error {
+	if w == nil {
+		w = os.Stdout
+	}
+	var err error
+	WalkTree(tree, func(n, p parse.Node) {
+		if err != nil {
+			return
+		}
+		fmt.Fprintf(w, "%T %v\n", n, n)
+	})
+	return err
+}
 
 // WalkTree visits all the nodes in the tree, calling f
 // for every node with its parent.

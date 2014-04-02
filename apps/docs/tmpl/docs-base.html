@@ -1,0 +1,14 @@
+{{/*
+  styles: docs.less
+*/}}
+{{ define "Title" }}{{ .Title }}{{ end }}
+{{ with .Header }}<h1>{{ . }}</h1>{{ end }}
+{{ with .Breadcrumbs }}
+  {{ $last := add (len .) -1 }}
+  <ol class="breadcrumb">
+    {{ range $ii, $v := . }}
+      <li{{ if eq $ii $last }} class="active"{{ end }}>{{ if neq $ii $last }}<a href="{{ $v.Href }}">{{ $v.Title }}</a>{{ else }}{{ $v.Title }}{{ end }}</li>
+    {{ end }}
+  </ol>
+{{ end }}
+{{ extend }}

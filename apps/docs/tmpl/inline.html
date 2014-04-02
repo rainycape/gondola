@@ -1,0 +1,12 @@
+{{/*
+  styles|bundable: docs.less
+*/}}
+{{ define "inline" }}
+  {{ if not .IsEmpty }}
+    {{ $p := .ImportPath }}
+    <tr><td><a href="{{ reverse @Package $p }}">{{ $p }}</a></td><td>{{ .Synopsis }}</td></tr>
+  {{ end }}
+  {{ range .Packages }}
+      {{ template "inline" . }}
+  {{ end }}
+{{ end }}

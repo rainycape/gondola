@@ -1,0 +1,13 @@
+{{/*
+    extends: docs-base.html
+    styles: googlecode.css
+    scripts|bundle: highlight.pack.js, highlight.js
+*/}}
+<div class="container source-code">
+  <div class="numbers">
+    {{ range .Lines }}
+      <a href="#line-{{ . }}">{{ . }}</a>
+    {{ end }}
+  </div>
+  <pre style="padding-left: {{ .Padding }}em" class="{{ .Highlighter }}"><code>{{ .Code }}</code></pre>
+</div>

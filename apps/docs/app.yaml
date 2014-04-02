@@ -1,0 +1,17 @@
+name: Docs
+handlers:
+    ListHandler: ^/$
+    StdListHandler: ^/pkg/std/?
+    PackageHandler: ^/pkg/(.+)
+    SourceHandler: ^/src/(.+)
+
+vars:
+    ListHandlerName: List
+    StdListHandlerName: StdList
+    PackageHandlerName: Package
+    SourceHandlerName: Source
+
+assets: assets
+
+templates:
+    path: tmpl

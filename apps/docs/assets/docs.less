@@ -1,0 +1,145 @@
+@barcolor: #333;
+@translucentBarcolor: fade(@barcolor, 90%);
+
+.label-inverse {
+    background: #333;
+}
+
+.label-gray {
+    background: #cdcdcd;
+}
+
+.label-orange {
+    background: #db7f20;
+}
+
+/* Source code formatting */
+
+/* These have different position because
+    they're not syntax higlighted with
+    highlight.js
+*/
+.coverage-file .source-code .numbers {
+    left: 2px;
+    top: 2px;
+}
+
+.source-code {
+    position: relative;
+    a, pre, pre code {
+        font-family:Monaco, Menlo, Consolas, "Courier New", monospace !important;
+        font-size: 13px !important;
+        line-height: 18px !important;
+    }
+    .numbers {
+        position: absolute;
+        top: 9px;
+        left: 5px;
+        a {
+            display: block;
+            text-align: right;
+            &:after {
+                content: ':';
+            }
+        }
+    }
+    pre, pre code {
+        white-space: pre;
+        word-break: normal;
+        word-wrap: normal;
+        overflow: auto;
+    }
+    pre {
+        padding: 2px 2px 2px 0;
+    }
+}
+
+/* Package documentation */
+.import {
+    font-family: Monaco, Menlo, Consolas, 'Courier New', monospace;
+    font-size: 16px;
+}
+
+.pkg-doc pre, pre.doc {
+    overflow: auto;
+    white-space: pre;
+    word-break: normal;
+    word-wrap: normal;
+}
+
+.doc-anchor {
+    padding-left: 5px;
+    display: none;
+    font-size: 75%;
+
+    .fa-external-link {
+        font-size: 90%;
+    }
+
+    i {
+        -webkit-transition: all 0.2s;
+        -moz-transition: all 0.2s;
+        -o-transition: all 0.2s;
+        -ms-transition: all 0.2s;
+        transition: all 0.2s;
+    }
+
+    &.slide-up {
+        position: relative;
+    }
+    &.inverted {
+        display: inline;
+        i {
+            -webkit-transform: rotate(180deg);
+            -moz-transform: rotate(180deg);
+            -o-transform: rotate(180deg);
+            -ms-transform: rotate(180deg);
+            transform: rotate(180deg);
+        }
+    }
+}
+
+h1, h2, h3, h4, h5, h5 {
+    &:hover {
+        .doc-anchor {
+            display: inline;
+        }
+    }
+}
+
+.doc {
+    .comment {
+        color: darken(#5cb85c, 15%);
+    }
+    .literal {
+        color: #800;
+    }
+    .builtin {
+        color: #606;
+    }
+    .token {
+        color: #008;
+    }
+}
+
+.doc-popover {
+    display: none;
+    table.table {
+        width: auto;
+    }
+}
+
+.popover-title {
+    position: relative;
+
+    .after-title {
+        position: absolute;
+        top: 5px;
+        right: 10px;
+
+        &, a {
+            font-size: 10px;
+            padding: 2px 4px;
+        }
+    }
+}

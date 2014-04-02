@@ -1,0 +1,17 @@
+{{/*
+  extends: docs-base.html
+  includes: inline.html
+*/}}
+
+{{ range .Groups }}
+  <div class="container">
+    <h2>{{ .Title }}</h2>
+    <table class="table table-striped">
+      <tbody>
+        {{ range .Packages }}
+          {{ template "inline" . }}
+        {{ end }}
+      </tbody>
+    </table>
+  </div>
+{{ end }}

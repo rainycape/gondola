@@ -1,0 +1,11 @@
+{{/*
+    extends: docs-base.html
+*/}}
+<div class="container dir">
+  <h4>Directory contents</h4>
+  <ul>
+    {{ range .Files }}
+      <li><a href="{{ . }}">{{ . }}</a></li>
+    {{ end }}
+  </ul>
+</div>

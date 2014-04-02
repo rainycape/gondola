@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -45,6 +46,7 @@ type Context struct {
 	translations    *table.Table
 	hasTranslations bool
 	background      bool
+	wg              *sync.WaitGroup
 	// Left to users, to store data in their custom
 	// context types.
 	Data interface{}
@@ -453,8 +455,8 @@ func (c *Context) Close() {
 // suitable for using after the request has been serviced
 // (id est, in goroutines spawned from the Handler which
 // might outlast the Handler's lifetime). Please, see also
-// Finalize.
-func (c *Context) BackgroundContext() *Context {
+// Finalize and Go.
+func (c *Context) backgroundContext() *Context {
 	ctx := c.app.NewContext(nil)
 	ctx.R = c.R
 	ctx.background = true
@@ -478,11 +480,53 @@ func (c *Context) BackgroundContext() *Context {
 //	}()
 //	ctx.MustExecute("mytemplate.html", data)
 //  }
-func (c *Context) Finalize() {
+//
+// See also Go.
+func (c *Context) finalize(wg *sync.WaitGroup) {
+	wg.Done()
 	if err := recover(); err != nil {
 		c.app.recoverErr(c, err)
 	}
 	c.app.CloseContext(c)
+}
+
+// Go spawns a new goroutine using a copy of the given Context
+// suitable for using after the request has been serviced
+// (id est, in goroutines spawned from the Handler which
+// might outlast the Handler's lifetime). Additionaly, Go also
+// handles error recovering from the spawned goroutine. The initial
+// Context can also wait for all background contexts to finish
+// by calling Wait().
+//
+// In the following example, the handler finishes and returns the
+// executed template while CrunchData is still potentially running.
+//
+//  func MyHandler(ctx *app.Context) {
+//	data := AcquireData(ctx)
+//	ctx.Go(func (c *app.Context) {
+//	    CrunchData(c, data) // note the usage of c rather than ctx
+//	}
+//	ctx.MustExecute("mytemplate.html", data)
+//  }
+func (c *Context) Go(f func(*Context)) {
+	if c.wg == nil {
+		c.wg = new(sync.WaitGroup)
+	}
+	c.wg.Add(1)
+	bg := c.backgroundContext()
+	go func() {
+		defer bg.finalize(c.wg)
+		f(bg)
+	}()
+}
+
+// Wait waits for any pending background contexts spawned from
+// Go() to finish. If there are no background contexts spawned
+// from this context, this functions returns immediately.
+func (c *Context) Wait() {
+	if c.wg != nil {
+		c.wg.Wait()
+	}
 }
 
 // Intercept http.ResponseWriter calls to find response

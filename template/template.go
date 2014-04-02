@@ -299,14 +299,14 @@ func (t *Template) importTrees(tmpl *Template, name string) error {
 		if k == topBoilerplateName || k == bottomBoilerplateName {
 			continue
 		}
-		if _, ok := t.trees[k]; ok {
-			return fmt.Errorf("duplicate template %q", k)
-		}
 		var treeName string
 		if k == tmpl.root && name != "" {
 			treeName = name
 		} else {
 			treeName = tmpl.qname(k)
+		}
+		if _, ok := t.trees[treeName]; ok {
+			return fmt.Errorf("duplicate template %q", k)
 		}
 		if err := t.AddParseTree(treeName, namespacedTree(v, tmpl.namespace)); err != nil {
 			return err

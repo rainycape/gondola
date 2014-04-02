@@ -59,9 +59,8 @@ func (app *App) Gen(release bool) error {
 	buf.WriteString("var _ = loaders.FSLoader\n")
 	buf.WriteString("var _ = template.New\n")
 	buf.WriteString("var _ = assets.NewManager\n")
-	fmt.Fprintf(&buf, "var (\n App *app.App\n)\n")
+	fmt.Fprintf(&buf, "var (\n App = app.New()\n)\n")
 	buf.WriteString("func init() {\n")
-	buf.WriteString("App = app.New()\n")
 	// TODO: Enable this when we have a solution for
 	// executing templates from differnt apps from the
 	// same *app.Context, which would need different

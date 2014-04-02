@@ -113,6 +113,7 @@ var (
 	commentRe                = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
 	keyRe                    = regexp.MustCompile(`(?s:\s*([\w\-_])+?(:|\|))`)
 	defineRe                 = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
+	blockRe                  = regexp.MustCompile(`\{\{\s*block\s*("[\w\-_]+")\s*?(.*?)\s*?\}\}`)
 	topTree                  = compileTree(topBoilerplate)
 	bottomTree               = compileTree(bottomBoilerplate)
 	templatePrepend          = fmt.Sprintf("{{ $%s := .%s }}\n", varsKey, varsKey)
@@ -743,6 +744,11 @@ func (t *Template) load(name string, included bool, from string) error {
 	s = templatePrepend + defineRe.ReplaceAllString(s, "$0"+strings.Replace(templatePrepend, "$", "$$", -1))
 	// Replace @variable shorthands
 	s = templateutil.ReplaceVariableShorthands(s, '@', varsKey)
+	// Replace {{ block }} with {{ template }} + {{ define }}
+	s, err = replaceBlocks(name, s)
+	if err != nil {
+		return err
+	}
 	var fns map[string]interface{}
 	if t.funcMap != nil {
 		fns = t.funcMap.asTemplateFuncs()
@@ -1115,6 +1121,41 @@ func namespacedTree(tree *parse.Tree, ns []string) *parse.Tree {
 		})
 	}
 	return tree
+}
+
+func errorContext(name string, s string, pos int) string {
+	var text string
+	if pos <= len(s) {
+		text = s[:pos]
+	}
+	var col int
+	idx := strings.LastIndex(text, "\n")
+	if idx == -1 {
+		col = pos
+	} else {
+		col = pos - idx - 1
+	}
+	line := 1 + strings.Count(text, "\n")
+	return fmt.Sprintf("%s:%d:%d", name, line, col)
+}
+
+func replaceBlocks(name string, s string) (string, error) {
+	for m := blockRe.FindStringSubmatchIndex(s); m != nil; m = blockRe.FindStringSubmatchIndex(s) {
+		all := s[m[0]:m[1]]
+		name := s[m[2]:m[3]]
+		if name == "" {
+			return "", fmt.Errorf("%s: invalid {{ block }} tag %q, missing name (must be quoted)", errorContext(name, s, m[0]), all)
+		}
+		if _, err := strconv.Unquote(name); err != nil {
+			return "", fmt.Errorf("%s: invalid {{ block }} tag %q, name is not correctly quoted: %s", errorContext(name, s, m[0]), all, err)
+		}
+		rem := s[m[3]:m[4]]
+		if rem != "" {
+			return "", fmt.Errorf("%s: invalid {{ block }} tag %q, extra content after template name %q", errorContext(name, s, m[0]), all, rem)
+		}
+		s = fmt.Sprintf("%s{{ template %s . }}{{ define %s }}%s", s[:m[0]], name, name, s[m[1]:])
+	}
+	return s, nil
 }
 
 func NamespacedName(ns []string, name string) string {

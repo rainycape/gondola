@@ -374,7 +374,12 @@ func (p *Package) FuncLink(fn *ast.FuncDecl) string {
 }
 
 func (p *Package) HasDoc() bool {
-	return p.dpkg != nil && strings.TrimSpace(doc.Synopsis(p.dpkg.Doc)) != strings.TrimSpace(p.dpkg.Doc)
+	if p.dpkg != nil {
+		synopsis := strings.TrimSpace(doc.Synopsis(p.dpkg.Doc))
+		full := strings.Replace(strings.Replace(strings.TrimSpace(p.dpkg.Doc), "\r", "", -1), "\n", " ", -1)
+		return synopsis != full
+	}
+	return false
 }
 
 func (p *Package) Doc() *doc.Package {

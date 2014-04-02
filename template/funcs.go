@@ -338,4 +338,7 @@ var templateFuncs = FuncMap{
 	"#printf":   fmt.Sprintf,
 	"#println":  fmt.Sprintln,
 	"#urlquery": template.URLQueryEscaper,
+
+	// Pseudo-functions which act as custom tags
+	"extend": nop,
 }

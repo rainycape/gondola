@@ -144,6 +144,7 @@ type Template struct {
 	contentType   string
 	hooks         []*Hook
 	children      []*Template
+	loaded        []string
 }
 
 func (t *Template) init() {
@@ -599,7 +600,7 @@ func (t *Template) parseCommentVariables(values []string) ([]string, error) {
 	return parsed, nil
 }
 
-func (t *Template) parseComment(comment string, file string, included bool) error {
+func (t *Template) parseComment(name string, comment string, file string, included bool) error {
 	lines := textutil.SplitLines(comment)
 	extended := false
 	for _, v := range lines {
@@ -654,7 +655,7 @@ func (t *Template) parseComment(comment string, file string, included bool) erro
 				fallthrough
 			case "include", "includes":
 				for _, n := range values {
-					err := t.load(n, inc)
+					err := t.load(n, inc, name)
 					if err != nil {
 						return err
 					}
@@ -706,8 +707,12 @@ func (t *Template) loadText(name string) (string, error) {
 	return s, nil
 }
 
-func (t *Template) load(name string, included bool) error {
-	// TODO: Detect circular dependencies
+func (t *Template) load(name string, included bool, from string) error {
+	for _, v := range t.loaded {
+		if v == name {
+			return nil
+		}
+	}
 	s, err := t.loadText(name)
 	if err != nil {
 		return err
@@ -717,7 +722,10 @@ func (t *Template) load(name string, included bool) error {
 	if matches != nil && len(matches) > 0 {
 		comment = matches[1]
 	}
-	err = t.parseComment(comment, name, included)
+	// Add it to the loaded list before calling parseComment, since
+	// it's the path which can trigger additional loads.
+	t.loaded = append(t.loaded, name)
+	err = t.parseComment(name, comment, name, included)
 	if err != nil {
 		return err
 	}
@@ -741,6 +749,9 @@ func (t *Template) load(name string, included bool) error {
 	}
 	treeMap, err := parse.Parse(name, s, leftDelim, rightDelim, templateFuncs.asTemplateFuncs(), fns)
 	if err != nil {
+		return err
+	}
+	if err := t.replaceExtendTag(name, treeMap, from); err != nil {
 		return err
 	}
 	var renames map[string]string
@@ -790,6 +801,42 @@ func (t *Template) load(name string, included bool) error {
 		t.renameTemplates(renames)
 	}
 	return nil
+}
+
+func (t *Template) replaceExtendTag(name string, treeMap map[string]*parse.Tree, from string) error {
+	var err error
+	hasExtend := false
+	var loc string
+	for _, v := range treeMap {
+		templateutil.WalkTree(v, func(n, p parse.Node) {
+			if err != nil {
+				return
+			}
+			if templateutil.IsPseudoFunction(n, "extend") {
+				if hasExtend {
+					loc2, _ := v.ErrorContext(n)
+					err = fmt.Errorf("multiple {{ extend }} tags in %q, %s and %s", name, loc, loc2)
+					return
+				}
+				hasExtend = true
+				loc, _ = v.ErrorContext(n)
+				var repl parse.Node
+				if from == "" {
+					// empty
+					log.Debugf("removing {{ extend }} from %q", name)
+					repl = &parse.TextNode{
+						NodeType: parse.NodeText,
+						Pos:      n.Position(),
+					}
+				} else {
+					log.Debugf("extending %q at %s with %q", name, loc, from)
+					repl = templateutil.TemplateNode(from, n.Position())
+				}
+				err = templateutil.ReplaceNode(n, p, repl)
+			}
+		})
+	}
+	return err
 }
 
 func (t *Template) walkTrees(nt parse.NodeType, f func(parse.Node)) {
@@ -870,7 +917,7 @@ func (t *Template) Funcs(funcs FuncMap) *Template {
 }
 
 func (t *Template) Include(name string) error {
-	err := t.load(name, true)
+	err := t.load(name, true, "")
 	if err != nil {
 		return err
 	}
@@ -889,7 +936,7 @@ func (t *Template) ParseVars(name string, vars VarMap) error {
 		t.name = name
 	}
 	t.vars = vars
-	err := t.load(name, false)
+	err := t.load(name, false, "")
 	if err != nil {
 		return err
 	}

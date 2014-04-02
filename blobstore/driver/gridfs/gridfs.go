@@ -1,3 +1,9 @@
+// Package gridfs implements a GridFS driver for the blobstore.
+//
+// GridFS is a file storage system built on top of mongodb. For more
+// information about mongodb visit http://www.mongodb.com.
+//
+// The URL for this driver must take the form gridfs://host/database.
 package gridfs
 
 import (

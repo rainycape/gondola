@@ -9,10 +9,18 @@ import (
 )
 
 var (
+	// ErrInvalidMetadataHash indicates that the metadata hash
+	// does not match the expected value and the file is likely
+	// to be corrupted.
 	ErrInvalidMetadataHash = errors.New("the metadata hash is invalid")
-	ErrInvalidDataHash     = errors.New("the data hash is invalid")
+	// ErrInvalidDataHash indicates that the data hash
+	// does not match the expected value and the file is likely
+	// to be corrupted.
+	ErrInvalidDataHash = errors.New("the data hash is invalid")
 )
 
+// RFile represents a blobstore file opened
+// for reading.
 type RFile struct {
 	id           string
 	metadataData []byte
@@ -22,14 +30,19 @@ type RFile struct {
 	rfile        driver.RFile
 }
 
+// Id returns the unique file identifier as a string.
 func (r *RFile) Id() string {
 	return r.id
 }
 
+// Read reads from the file into the p buffer. This
+// method implements the io.Reader interface.
 func (r *RFile) Read(p []byte) (int, error) {
 	return r.rfile.Read(p)
 }
 
+// Close closes the file. Once the file is closed, it
+// might not be used again.
 func (r *RFile) Close() error {
 	return r.rfile.Close()
 }
@@ -39,6 +52,7 @@ func (r *RFile) ReadAll() ([]byte, error) {
 	return ioutil.ReadAll(r)
 }
 
+// Seek implements the same semantics than os.File.Seek.
 func (r *RFile) Seek(offset int64, whence int) (int64, error) {
 	// Version + flags + metadata size + metadata hash + metadata length + data size + data hash
 	dataStart := int64(1 + 8 + 8 + 8 + len(r.metadataData) + 8 + 8)
@@ -64,6 +78,9 @@ func (r *RFile) Seek(offset int64, whence int) (int64, error) {
 	panic("invalid whence")
 }
 
+// GetMeta retrieves the file metadata, previously stored
+// when writing the file, into the meta argument, which
+// must be a pointer.
 func (r *RFile) GetMeta(meta interface{}) error {
 	if r.metadataData != nil {
 		return unmarshal(r.metadataData, meta)
@@ -71,6 +88,8 @@ func (r *RFile) GetMeta(meta interface{}) error {
 	return nil
 }
 
+// Verify checks the integrity of both the data and
+// the metadata in the file.
 func (r *RFile) Verify() error {
 	if r.metadataHash != 0 {
 		mh := newHash()

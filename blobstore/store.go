@@ -16,10 +16,17 @@ var (
 	}
 )
 
+// Store represents a connection to a blobstore. Use New()
+// to initialize a Store and Store.Close to close it.
 type Store struct {
 	drv driver.Driver
 }
 
+// New returns a new *Store using the given url as its configure
+// the URL scheme represents the driver used and the rest of the
+// values in the URL are driver dependent. Please, see the package
+// documentation for the available drivers and each driver sub-package
+// for driver-specific documentation.
 func New(url *config.URL) (*Store, error) {
 	if url == nil {
 		return nil, fmt.Errorf("blobstore is not configured")
@@ -40,10 +47,15 @@ func New(url *config.URL) (*Store, error) {
 	}, nil
 }
 
+// Create returns a new file for writing and sets its metadata
+// to meta (which might be nil). Note that the file should be
+// closed by calling WFile.Close.
 func (s *Store) Create(meta interface{}) (*WFile, error) {
 	return s.CreateId(newId(), meta)
 }
 
+// CreateId works like Create, but uses the given id rather than generating
+// a new one. If a file with the same id already exists, it's overwritten.
 func (s *Store) CreateId(id string, meta interface{}) (wfile *WFile, err error) {
 	var w driver.WFile
 	w, err = s.drv.Create(id)
@@ -113,6 +125,9 @@ func (s *Store) CreateId(id string, meta interface{}) (wfile *WFile, err error) 
 	}, nil
 }
 
+// Open opens the file with the given id for reading. Note that
+// the file should closed by calling RFile.Close after you're
+// done with it.
 func (s *Store) Open(id string) (rfile *RFile, err error) {
 	var r driver.RFile
 	r, err = s.drv.Open(id)
@@ -174,10 +189,14 @@ func (s *Store) ReadAll(id string) (data []byte, err error) {
 	return f.ReadAll()
 }
 
+// Store works like StoreId, but generates a new id for the file.
 func (s *Store) Store(b []byte, meta interface{}) (string, error) {
 	return s.StoreId(newId(), b, meta)
 }
 
+// StoreId is a shorthand for storing the given data in b and the metadata
+// in meta with the given file id. If a file with the same id exists, it's
+// overwritten.
 func (s *Store) StoreId(id string, b []byte, meta interface{}) (string, error) {
 	f, err := s.CreateId(id, meta)
 	if err != nil {
@@ -192,10 +211,12 @@ func (s *Store) StoreId(id string, b []byte, meta interface{}) (string, error) {
 	return f.Id(), nil
 }
 
+// Remove deletes the file with the given id.
 func (s *Store) Remove(id string) error {
 	return s.drv.Remove(id)
 }
 
+// Close closes the connection to the blobstore.
 func (s *Store) Close() error {
 	return s.drv.Close()
 }

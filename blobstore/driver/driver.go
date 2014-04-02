@@ -1,3 +1,5 @@
+// Package driver includes the interfaces required to implement
+// a blobstore driver.
 package driver
 
 import (

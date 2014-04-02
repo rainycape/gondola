@@ -1,4 +1,11 @@
-package gridfs
+// Package s3 implements an s3 driver for the blobstore.
+//
+// The URL format for this driver is:
+//
+//  s3://bucket_name?access_key={key}&secret_key={secret}[&region={region}]
+//
+// Region is option, but if it's provided, it must be a valid one.
+package s3
 
 import (
 	"bytes"

@@ -54,51 +54,53 @@
         {{ . }}
       </div>
     {{ end }}
-    {{ if $p.ImportPath }}<h2>Index</h2>{{ end }}
-    <ul class="list-unstyled">
-      {{ if $p.HasDoc }}
-        <li><a href="#pkg-documentation">Documentation</a></li>
-      {{ end }}
+    {{ if or ($p.HasDoc) ($p.Funcs) ($examples) (and $doc $doc.Consts) (and $doc $doc.Vars) (and $doc $doc.Types) }}
+      {{ if $p.ImportPath }}<h2>Index</h2>{{ end }}
+      <ul class="list-unstyled">
+        {{ if $p.HasDoc }}
+          <li><a href="#pkg-documentation">Documentation</a></li>
+        {{ end }}
+        {{ with $doc }}
+          {{ with .Consts }}
+            <li><a href="#pkg-constants">Constants</a></li>
+          {{ end }}
+          {{ with .Vars }}
+            <li><a href="#pkg-variables">Variables</a></li>
+          {{ end }}
+          {{ with $examples }}
+            <li><a href="#pkg-examples">Examples</a></li>
+          {{ end }}
+        {{ end }}
+      </ul>
       {{ with $doc }}
-        {{ with .Consts }}
-          <li><a href="#pkg-constants">Constants</a></li>
+        {{ with .Types }}
+          <h3>Types</h3>
+          <ul class="list-unstyled">
+            {{ range . }}
+              <li>
+                <a href="#{{ type_id . }}">{{ .Name }}</a>
+                {{ if or .Funcs .Methods }}
+                  <ul>
+                    {{ range .Funcs }}
+                      <li><a href="#{{ func_id . }}">{{ func_list_name .Decl }}</a></li>
+                    {{ end }}
+                    {{ range .Methods }}
+                      <li><a href="#{{ func_id . }}">{{ func_list_name .Decl }}</a></li>
+                    {{ end }}
+                  </ul>
+                {{ end }}
+              </li>
+            {{ end }}
+          </ul>
         {{ end }}
-        {{ with .Vars }}
-          <li><a href="#pkg-variables">Variables</a></li>
+        {{ with $p.Funcs }}
+          <h3>Functions</h3>
+          <ul class="list-unstyled">
+            {{ range . }}
+              <li><a href="#{{ func_id . }}">{{ func_list_name .Decl }}</a></li>
+            {{ end }}
+          </ul>
         {{ end }}
-        {{ with $examples }}
-          <li><a href="#pkg-examples">Examples</a></li>
-        {{ end }}
-      {{ end }}
-    </ul>
-    {{ with $doc }}
-      {{ with .Types }}
-        <h3>Types</h3>
-        <ul class="list-unstyled">
-          {{ range . }}
-            <li>
-              <a href="#{{ type_id . }}">{{ .Name }}</a>
-              {{ if or .Funcs .Methods }}
-                <ul>
-                  {{ range .Funcs }}
-                    <li><a href="#{{ func_id . }}">{{ func_list_name .Decl }}</a></li>
-                  {{ end }}
-                  {{ range .Methods }}
-                    <li><a href="#{{ func_id . }}">{{ func_list_name .Decl }}</a></li>
-                  {{ end }}
-                </ul>
-              {{ end }}
-            </li>
-          {{ end }}
-        </ul>
-      {{ end }}
-      {{ with $p.Funcs }}
-        <h3>Functions</h3>
-        <ul class="list-unstyled">
-          {{ range . }}
-            <li><a href="#{{ func_id . }}">{{ func_list_name .Decl }}</a></li>
-          {{ end }}
-        </ul>
       {{ end }}
     {{ end }}
     {{ with $p.Packages }}

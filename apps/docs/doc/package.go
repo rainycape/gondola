@@ -90,7 +90,7 @@ func (p *Package) symbolHref(symbol string) string {
 				if v.Name == tn {
 					for _, m := range v.Methods {
 						if m.Name == fn {
-							return "#" + MethodId(fn, fn)
+							return "#" + MethodId(tn, fn)
 						}
 					}
 					return ""

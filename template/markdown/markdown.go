@@ -24,7 +24,7 @@ import (
 
 const (
 	flags = blackfriday.HTML_USE_SMARTYPANTS | blackfriday.HTML_SMARTYPANTS_FRACTIONS |
-		blackfriday.HTML_SMARTYPANTS_LATEX_DASHES | blackfriday.HTML_SKIP_SCRIPT
+		blackfriday.HTML_SMARTYPANTS_LATEX_DASHES | blackfriday.HTML_SAFELINK
 	extensions = blackfriday.EXTENSION_NO_INTRA_EMPHASIS | blackfriday.EXTENSION_TABLES |
 		blackfriday.EXTENSION_FENCED_CODE | blackfriday.EXTENSION_AUTOLINK |
 		blackfriday.EXTENSION_STRIKETHROUGH | blackfriday.EXTENSION_SPACE_HEADERS

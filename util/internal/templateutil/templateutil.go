@@ -194,18 +194,22 @@ func ReplaceVariableShorthands(text string, chr byte, name string) string {
 	return buf.String()
 }
 
+// IsPseudoFunction returns true iff n is a *parse.ActionNode
+// consisting solely of a fn call without any arguments.
+func IsPseudoFunction(n parse.Node, fn string) bool {
+	return n.Type() == parse.NodeAction && n.String() == leftDelim+fn+rightDelim
+}
+
 // ReplaceTranslatableBlocks replaces begintrans/endtrans blocks
 // with an equivalent action using the translation function named
 // by fn.
 func ReplaceTranslatableBlocks(tr *parse.Tree, fn string) error {
 	var err error
-	begin := fmt.Sprintf("{{%s}}", BeginTranslatableBlock)
-	end := fmt.Sprintf("{{%s}}", EndTranslatableBlock)
 	WalkTree(tr, func(n, p parse.Node) {
 		if err != nil {
 			return
 		}
-		if n.Type() == parse.NodeAction && n.String() == begin {
+		if IsPseudoFunction(n, BeginTranslatableBlock) {
 			list, ok := p.(*parse.ListNode)
 			if !ok {
 				loc, ctx := tr.ErrorContext(n)
@@ -244,7 +248,7 @@ func ReplaceTranslatableBlocks(tr *parse.Tree, fn string) error {
 				case *parse.TextNode:
 					buf.Write(x.Text)
 				case *parse.ActionNode:
-					if x.String() == end {
+					if IsPseudoFunction(x, EndTranslatableBlock) {
 						endPos = ii
 						break Nodes
 					}

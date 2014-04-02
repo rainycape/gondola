@@ -629,7 +629,7 @@ func (app *App) loadContainerTemplate(included *includedApp) (*tmpl, string, err
 			if err != nil {
 				return
 			}
-			if n.Type() == parse.NodeAction && n.String() == "{{app}}" {
+			if templateutil.IsPseudoFunction(n, "app") {
 				if found {
 					dloc, _ := v.ErrorContext(n)
 					err = fmt.Errorf("duplicate {{ app }} node in container template %q: %s and %s",

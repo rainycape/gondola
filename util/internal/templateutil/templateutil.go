@@ -294,3 +294,25 @@ func ReplaceTranslatableBlocks(tr *parse.Tree, fn string) error {
 	})
 	return err
 }
+
+// TemplateNode returns a *parse.Template node invoking the given
+// template passing . as the argument.
+func TemplateNode(name string, pos parse.Pos) *parse.TemplateNode {
+	dot := &parse.DotNode{Pos: pos}
+	cmd := &parse.CommandNode{
+		NodeType: parse.NodeCommand,
+		Pos:      pos,
+		Args:     []parse.Node{dot},
+	}
+	pipe := &parse.PipeNode{
+		NodeType: parse.NodePipe,
+		Pos:      pos,
+		Cmds:     []*parse.CommandNode{cmd},
+	}
+	return &parse.TemplateNode{
+		NodeType: parse.NodeTemplate,
+		Pos:      pos,
+		Name:     name,
+		Pipe:     pipe,
+	}
+}

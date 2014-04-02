@@ -639,24 +639,7 @@ func (app *App) loadContainerTemplate(included *includedApp) (*tmpl, string, err
 				// Used for error message if duplicate is found
 				loc, _ = v.ErrorContext(n)
 				found = true
-				pos := n.Position()
-				dot := &parse.DotNode{Pos: pos}
-				cmd := &parse.CommandNode{
-					NodeType: parse.NodeCommand,
-					Pos:      pos,
-					Args:     []parse.Node{dot},
-				}
-				pipe := &parse.PipeNode{
-					NodeType: parse.NodePipe,
-					Pos:      pos,
-					Cmds:     []*parse.CommandNode{cmd},
-				}
-				tmpl := &parse.TemplateNode{
-					NodeType: parse.NodeTemplate,
-					Pos:      pos,
-					Name:     name,
-					Pipe:     pipe,
-				}
+				tmpl := templateutil.TemplateNode(name, n.Position())
 				err = templateutil.ReplaceNode(n, p, tmpl)
 			}
 		})

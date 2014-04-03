@@ -11,8 +11,8 @@ import (
 	"gnd.la/gen/json"
 	"gnd.la/gen/strings"
 	"gnd.la/util/types"
+	"gnd.la/util/yaml"
 	"io/ioutil"
-	"launchpad.net/goyaml"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -37,7 +37,7 @@ func Gen(pkgName string, config string) error {
 		return fmt.Errorf("could not read %s: %s", config, err)
 	}
 	var opts map[string]interface{}
-	if err := goyaml.Unmarshal(data, &opts); err != nil {
+	if err := yaml.Unmarshal(data, &opts); err != nil {
 		return fmt.Errorf("could not decode YAML: %s", err)
 	}
 	for k, v := range opts {

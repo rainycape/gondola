@@ -7,8 +7,8 @@ import (
 	"gnd.la/gen/genutil"
 	"gnd.la/loaders"
 	"gnd.la/log"
+	"gnd.la/util/yaml"
 	"io/ioutil"
-	"launchpad.net/goyaml"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -161,7 +161,7 @@ func Parse(dir string) (*App, error) {
 		return nil, fmt.Errorf("error reading %s: %s", appFilename, err)
 	}
 	var app *App
-	if err := goyaml.Unmarshal(data, &app); err != nil {
+	if err := yaml.Unmarshal(data, &app); err != nil {
 		return nil, err
 	}
 	app.Dir = dir

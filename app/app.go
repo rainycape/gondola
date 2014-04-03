@@ -515,6 +515,7 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 	tmpl := app.templatesCache[name]
 	app.templatesMutex.RUnlock()
 	if tmpl == nil {
+		log.Debugf("Loading root template %s", name)
 		if profile.On {
 			defer profile.Startf("template-load", name).End()
 		}

@@ -195,6 +195,9 @@ type App struct {
 	// it defaults to AES.
 	Cipherer cryptoutil.Cipherer
 
+	// used for Get/Set
+	values map[string]interface{}
+
 	handlers           []*handlerInfo
 	trustXHeaders      bool
 	appendSlash        bool
@@ -1316,6 +1319,22 @@ func (app *App) EncryptSigner(salt []byte) (*cryptoutil.EncryptSigner, error) {
 		Encrypter: encrypter,
 		Signer:    signer,
 	}, nil
+}
+
+// Get returns the value for the given key, previously stored
+// with Set.
+func (app *App) Get(key string) interface{} {
+	return app.values[key]
+}
+
+// Set stores an arbitraty value associated with the given
+// key. THis is mainly used for reusable apps which require
+// storing some global state related to the app.
+func (app *App) Set(key string, value interface{}) {
+	if app.values == nil {
+		app.values = make(map[string]interface{})
+	}
+	app.values[key] = value
 }
 
 // Prepare is automatically called for you. This function is

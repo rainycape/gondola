@@ -531,7 +531,7 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 		if profile.On {
 			defer profile.Startf("template-load", name).End()
 		}
-		t, err := app.loadTemplate(name)
+		t, err := app.loadTemplate(app.templatesLoader, app.assetsManager, name)
 		if err != nil {
 			return nil, err
 		}
@@ -566,8 +566,8 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 	return tmpl, nil
 }
 
-func (app *App) loadTemplate(name string) (*tmpl, error) {
-	t := newAppTemplate(app)
+func (app *App) loadTemplate(loader loaders.Loader, manager *assets.Manager, name string) (*tmpl, error) {
+	t := newTemplate(app, loader, manager)
 	var vars map[string]interface{}
 	if app.namespace != nil {
 		var err error
@@ -585,7 +585,7 @@ func (app *App) loadTemplate(name string) (*tmpl, error) {
 			return nil, err
 		}
 	}
-	if app.parent != nil {
+	if app.parent != nil && loader == app.templatesLoader {
 		t.tmpl.AddNamespace(app.name)
 		if !t.tmpl.IsFinal() {
 			return app.parent.chainTemplate(t, app.childInfo)
@@ -630,7 +630,7 @@ func (app *App) rewriteAssets(t *template.Template, included *includedApp) error
 }
 
 func (app *App) loadContainerTemplate(included *includedApp) (*tmpl, string, error) {
-	container, err := app.loadTemplate(included.container)
+	container, err := app.loadTemplate(app.templatesLoader, app.assetsManager, included.container)
 	if err != nil {
 		return nil, "", err
 	}

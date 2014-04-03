@@ -3,17 +3,7 @@ package app
 import (
 	"fmt"
 	"gnd.la/mail"
-	"io"
 )
-
-type mailTemplate struct {
-	tmpl *tmpl
-	ctx  *Context
-}
-
-func (t *mailTemplate) Execute(w io.Writer, data interface{}) error {
-	return t.tmpl.executeContext(t.ctx, w, "", data, nil)
-}
 
 // MailTemplate returns the given template as mail.Template which can be used
 // to send App templates with gnd.la/mail.Send. Don't try to use a Template
@@ -26,7 +16,7 @@ func (c *Context) MailTemplate(template string) (mail.Template, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &mailTemplate{tmpl: t.(*tmpl), ctx: c}, nil
+	return &linkedTemplate{tmpl: t.(*tmpl), ctx: c}, nil
 }
 
 // SendMail is a shorthand function for sending an email from a template.

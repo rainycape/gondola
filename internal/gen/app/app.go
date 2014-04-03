@@ -71,6 +71,10 @@ func (app *App) Gen(release bool) error {
 	}*/
 	fmt.Fprintf(&buf, "App.SetName(%q)\n", app.Name)
 	buf.WriteString("var manager *assets.Manager\n")
+	if !release {
+		// Avoid leaving manager unused
+		buf.WriteString("manager = manager\n")
+	}
 	if app.Assets != "" {
 		buf.WriteString("assetsLoader := ")
 		if err := app.writeLoader(&buf, filepath.Join(app.Dir, app.Assets), release); err != nil {

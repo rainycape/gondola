@@ -40,6 +40,6 @@ func RmGen(ctx *app.Context) {
 
 func init() {
 	admin.Register(RmGen, &admin.Options{
-		Help: "Remove Gondola generated files (identifier by *.gen.*)",
+		Help: "Remove Gondola generated files (identified by *.gen.*)",
 	})
 }

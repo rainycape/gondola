@@ -300,6 +300,18 @@ func (app *App) Include(prefix string, included *App, containerTemplate string) 
 	if err := app.include(prefix, included, containerTemplate); err != nil {
 		panic(err)
 	}
+	if app.namespace == nil {
+		app.namespace = new(namespace)
+	}
+	if app.namespace.vars == nil {
+		app.namespace.vars = make(map[string]interface{})
+	}
+	apps, _ := app.namespace.vars["Apps"].(map[string]interface{})
+	if apps == nil {
+		apps = make(map[string]interface{})
+	}
+	apps[included.name] = included
+	app.namespace.vars["Apps"] = apps
 }
 
 func (app *App) include(prefix string, child *App, containerTemplate string) error {

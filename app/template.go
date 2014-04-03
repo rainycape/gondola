@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	reservedVariables     = []string{"Ctx", "Request"}
+	reservedVariables     = []string{"Ctx", "Request", "App", "Apps"}
 	internalAssetsManager = assets.NewManager(appAssets, assetsPrefix)
 	profileHook           *template.Hook
 )

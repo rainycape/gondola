@@ -5,6 +5,7 @@ import (
 	_ "gnd.la/blobstore/driver/file"
 	_ "gnd.la/blobstore/driver/gridfs"
 	_ "gnd.la/blobstore/driver/s3"
+	"gnd.la/config"
 	"hash/adler32"
 	"io/ioutil"
 	"net"
@@ -52,9 +53,13 @@ func zeroData(t *testing.T, size int64) []byte {
 	return fileData(t, "/dev/zero", size)
 }
 
-func testStore(t *testing.T, meta *Meta, config string) {
-	t.Logf("Testing store with config %s", config)
-	store, err := New(config)
+func testStore(t *testing.T, meta *Meta, cfg string) {
+	t.Logf("Testing store with config %s", cfg)
+	u, err := config.ParseURL(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := New(u)
 	if err != nil {
 		t.Fatal(err)
 	}

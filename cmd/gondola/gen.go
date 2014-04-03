@@ -3,7 +3,7 @@ package main
 import (
 	"gnd.la/admin"
 	"gnd.la/app"
-	"gnd.la/gen"
+	"gnd.la/util/internal/gen"
 )
 
 func Gen(ctx *app.Context) {

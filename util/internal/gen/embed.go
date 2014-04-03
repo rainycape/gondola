@@ -7,7 +7,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"gnd.la/gen/genutil"
+	"gnd.la/util/internal/gen/genutil"
 	"io/ioutil"
 	"os"
 	"path/filepath"

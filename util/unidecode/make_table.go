@@ -7,7 +7,7 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"fmt"
-	"gnd.la/gen/genutil"
+	"gnd.la/util/internal/gen/genutil"
 	"io/ioutil"
 	"strconv"
 	"strings"

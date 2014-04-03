@@ -3,9 +3,9 @@ package messages
 import (
 	"bytes"
 	"fmt"
-	"gnd.la/gen/genutil"
 	"gnd.la/i18n/po"
 	"gnd.la/i18n/table"
+	"gnd.la/internal/gen/genutil"
 	"go/build"
 	"path/filepath"
 )

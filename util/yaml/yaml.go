@@ -9,6 +9,9 @@ package yaml
 
 import (
 	"gopkg.in/yaml.v1"
+	"io"
+	"io/ioutil"
+	"os"
 )
 
 // Marshal returns the YAML encoding of the in argument. Unexported field names are ignored,
@@ -38,4 +41,26 @@ func Marshal(in interface{}) ([]byte, error) {
 // See Marshal for the available struct field tags.
 func Unmarshal(in []byte, out interface{}) error {
 	return yaml.Unmarshal(in, out)
+}
+
+// UnmarshalReader works like Unmarshal, but accepts an io.Reader rather
+// than the encoded YAML data.
+func UnmarshalReader(r io.Reader, out interface{}) error {
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return Unmarshal(data, out)
+}
+
+// UnmarshalFile works like Unmarshal, but accepts a filename rather
+// than the encoded YAML data.
+func UnmarshalFile(filename string, out interface{}) error {
+	f, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	err = UnmarshalReader(f, out)
+	f.Close()
+	return err
 }

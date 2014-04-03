@@ -1337,6 +1337,21 @@ func (app *App) Set(key string, value interface{}) {
 	app.values[key] = value
 }
 
+// Clone returns a copy of the *App. This is mainly useful for including an
+// app multiple times. Note that cloning an App which has been already included
+// is considered a programming error and will result in a panic.
+func (app *App) Clone() *App {
+	if app.parent != nil {
+		panic(fmt.Errorf("can't clone app %s, it has been already included", app.name))
+	}
+	a := *app
+	a.values = make(map[string]interface{}, len(app.values))
+	for k, v := range app.values {
+		a.values[k] = v
+	}
+	return &a
+}
+
 // Prepare is automatically called for you. This function is
 // only exposed because the gnd.la/app/tester package needs
 // to call it to set the App up without making it listen on

@@ -88,7 +88,9 @@ func newOrm(t T, url string, logging bool) *Orm {
 	if logging {
 		// Set logger
 		o.SetLogger(log.Std)
-		log.SetLevel(log.LDebug)
+		if testing.Verbose() {
+			log.SetLevel(log.LDebug)
+		}
 	} else {
 		log.SetLevel(log.LInfo)
 	}

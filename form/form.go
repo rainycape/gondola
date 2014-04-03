@@ -327,7 +327,7 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 	case RADIO:
 		for ii, v := range f.fieldChoices(field) {
 			var value interface{}
-			id := fmt.Sprintf("%s_%d", field.Id, ii)
+			id := fmt.Sprintf("%s_%d", field.Id(), ii)
 			if err := f.writeLabel(buf, field, id, v.Name, false, ii); err != nil {
 				return err
 			}

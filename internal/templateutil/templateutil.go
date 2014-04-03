@@ -260,7 +260,7 @@ func ReplaceTranslatableBlocks(tr *parse.Tree, fn string) error {
 					pipes = append(pipes, x.Pipe)
 				default:
 					loc, ctx := tr.ErrorContext(n)
-					err = fmt.Errorf("%s:%s:%s translatable block can't contain %T", loc, ctx, v)
+					err = fmt.Errorf("%s translatable block can't contain %T %s", loc, v, ctx)
 					return
 				}
 			}

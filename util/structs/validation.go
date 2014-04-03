@@ -41,14 +41,14 @@ func ValidationFunction(obj interface{}, field string, args ...interface{}) (fn 
 		// Check validation function arguments and return value
 		ft := f.Type()
 		if ft.NumOut() != 1 || ft.Out(0).String() != "error" {
-			err = fmt.Errorf("invalid validation function %s (type %s): it must return just one value of type error", fname, val.Type)
+			err = fmt.Errorf("invalid validation function %s (type %s): it must return just one value of type error", fname, val.Type())
 			return
 		}
 		if ft.NumIn() > 0 {
 			vals := values(args)
 			for ii, v := range vals {
 				if ii < ft.NumIn() && v.Type() != ft.In(ii) {
-					err = fmt.Errorf("invalid validation function %s (type %s): argument #%d must be of type %s", fname, val.Type, ii, v.Type)
+					err = fmt.Errorf("invalid validation function %s (type %s): argument #%d must be of type %s", fname, val.Type(), ii, v.Type())
 					return
 				}
 			}

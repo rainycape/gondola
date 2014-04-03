@@ -202,7 +202,7 @@ func TestTrue(t *testing.T) {
 	for _, v := range truthTests {
 		val, ok := IsTrue(v.in)
 		if !ok {
-			t.Error("can't determine truth value for %T", v.in)
+			t.Errorf("can't determine truth value for %T", v.in)
 			continue
 		}
 		if val != v.out.(bool) {

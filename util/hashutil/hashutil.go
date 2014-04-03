@@ -44,7 +44,7 @@ func _hash(h hash.Hash, src interface{}) string {
 
 func _chash(h crypto.Hash, src interface{}) string {
 	if !h.Available() {
-		panic(fmt.Errorf("Hash %s is not available", h))
+		panic(fmt.Errorf("Hash %v is not available", h))
 	}
 	return _hash(h.New(), src)
 }

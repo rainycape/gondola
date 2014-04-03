@@ -38,7 +38,7 @@ func (s *backendScanner) Scan(src interface{}) error {
 	case time.Time:
 		return s.Backend.ScanTime(&x, s.Out, s.Tag)
 	}
-	return fmt.Errorf("can't scan value %v (%T)", src)
+	return fmt.Errorf("can't scan value %v (%T)", src, src)
 }
 
 func (s *backendScanner) IsNil() bool {

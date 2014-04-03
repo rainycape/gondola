@@ -1,7 +1,7 @@
 package astutil
 
 import (
-	"gnd.la/util/internal/pkgutil"
+	"gnd.la/internal/pkgutil"
 	"gnd.la/util/structs"
 	"gnd.la/util/textutil"
 	"go/ast"

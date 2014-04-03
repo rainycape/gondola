@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"code.google.com/p/go.tools/go/types"
 	"fmt"
-	"gnd.la/util/internal/importer"
+	"gnd.la/internal/importer"
 	"go/ast"
 	"go/build"
 	"go/parser"

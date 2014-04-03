@@ -1,7 +1,7 @@
 package template
 
 import (
-	itemplate "gnd.la/util/internal/template"
+	itemplate "gnd.la/internal/template"
 	"html/template"
 )
 

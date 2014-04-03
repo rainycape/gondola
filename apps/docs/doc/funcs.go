@@ -3,8 +3,8 @@ package doc
 import (
 	"bytes"
 	"fmt"
+	"gnd.la/internal/astutil"
 	"gnd.la/template"
-	"gnd.la/util/internal/astutil"
 	"go/ast"
 	"go/doc"
 	"go/printer"

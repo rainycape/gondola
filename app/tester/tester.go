@@ -24,7 +24,7 @@ import (
 	"flag"
 	"fmt"
 	"gnd.la/app"
-	"gnd.la/util/internal"
+	"gnd.la/internal"
 	"gnd.la/util/types"
 	"io"
 	"io/ioutil"

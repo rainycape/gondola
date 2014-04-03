@@ -2,10 +2,10 @@ package messages
 
 import (
 	"fmt"
+	"gnd.la/internal/astutil"
+	"gnd.la/internal/pkgutil"
+	"gnd.la/internal/templateutil"
 	"gnd.la/log"
-	"gnd.la/util/internal/astutil"
-	"gnd.la/util/internal/pkgutil"
-	"gnd.la/util/internal/templateutil"
 	"go/ast"
 	"go/parser"
 	"go/token"

@@ -2,7 +2,7 @@ package doc
 
 import (
 	"errors"
-	"gnd.la/util/internal/astutil"
+	"gnd.la/internal/astutil"
 	"go/ast"
 	"go/doc"
 	"strings"

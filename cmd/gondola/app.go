@@ -3,7 +3,7 @@ package main
 import (
 	"gnd.la/admin"
 	"gnd.la/app"
-	gapp "gnd.la/util/internal/gen/app"
+	gapp "gnd.la/internal/gen/app"
 )
 
 func GenApp(ctx *app.Context) {

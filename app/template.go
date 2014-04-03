@@ -3,10 +3,10 @@ package app
 import (
 	"fmt"
 	"gnd.la/app/profile"
+	"gnd.la/internal/templateutil"
 	"gnd.la/loaders"
 	"gnd.la/template"
 	"gnd.la/template/assets"
-	"gnd.la/util/internal/templateutil"
 	"io"
 	"net/http"
 	"os"

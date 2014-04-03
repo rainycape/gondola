@@ -1,7 +1,7 @@
 package util
 
 import (
-	"gnd.la/util/internal"
+	"gnd.la/internal"
 	"os"
 	"path/filepath"
 )

@@ -7,9 +7,9 @@ package gen
 
 import (
 	"fmt"
-	"gnd.la/util/internal/gen/genutil"
-	"gnd.la/util/internal/gen/json"
-	"gnd.la/util/internal/gen/strings"
+	"gnd.la/internal/gen/genutil"
+	"gnd.la/internal/gen/json"
+	"gnd.la/internal/gen/strings"
 	"gnd.la/util/types"
 	"gnd.la/util/yaml"
 	"io/ioutil"

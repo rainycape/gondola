@@ -12,8 +12,12 @@ type fsloader struct {
 	dir string
 }
 
+func (f *fsloader) path(name string) string {
+	return filepath.FromSlash(path.Join(f.dir, name))
+}
+
 func (f *fsloader) Load(name string) (ReadSeekCloser, time.Time, error) {
-	p := filepath.FromSlash(path.Join(f.dir, name))
+	p := f.path(name)
 	fd, err := os.Open(p)
 	if err != nil {
 		return nil, time.Time{}, err
@@ -27,7 +31,7 @@ func (f *fsloader) Load(name string) (ReadSeekCloser, time.Time, error) {
 }
 
 func (f *fsloader) Create(name string, overwrite bool) (io.WriteCloser, error) {
-	p := filepath.FromSlash(path.Join(f.dir, name))
+	p := f.path(name)
 	if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
 		return nil, err
 	}

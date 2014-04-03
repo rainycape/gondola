@@ -8,7 +8,7 @@ import (
 	"gnd.la/html"
 	"gnd.la/i18n"
 	"gnd.la/users/password"
-	"gnd.la/util"
+	"gnd.la/util/stringutil"
 	"gnd.la/util/structs"
 	"gnd.la/util/types"
 	"html/template"
@@ -82,11 +82,11 @@ func (f *Form) makeField(name string) (*Field, error) {
 	if idx < 0 {
 		return nil, fmt.Errorf("can't map form field %q", name)
 	}
-	mangled := util.CamelCaseToLower(name, "_")
+	mangled := stringutil.CamelCaseToLower(name, "_")
 	tag := s.Tags[idx]
 	label := tag.Value("label")
 	if label == "" {
-		label = util.CamelCaseToWords(name, " ")
+		label = stringutil.CamelCaseToWords(name, " ")
 	}
 	var typ Type
 	if tag.Has("hidden") {

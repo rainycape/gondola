@@ -11,8 +11,8 @@ import (
 	"gnd.la/loaders"
 	"gnd.la/log"
 	"gnd.la/template/assets"
-	"gnd.la/util"
-	"gnd.la/util/textutil"
+	"gnd.la/util/pathutil"
+	"gnd.la/util/stringutil"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -602,7 +602,7 @@ func (t *Template) parseCommentVariables(values []string) ([]string, error) {
 }
 
 func (t *Template) parseComment(name string, comment string, file string, included bool) error {
-	lines := textutil.SplitLines(comment)
+	lines := stringutil.SplitLines(comment)
 	extended := false
 	for _, v := range lines {
 		m := keyRe.FindStringSubmatchIndex(v)
@@ -629,7 +629,7 @@ func (t *Template) parseComment(name string, comment string, file string, includ
 					value = rem
 				}
 			}
-			splitted, err := textutil.SplitFields(value, ",")
+			splitted, err := stringutil.SplitFields(value, ",")
 			if err != nil {
 				return fmt.Errorf("error parsing value for asset key %q: %s", key, err)
 			}
@@ -1034,7 +1034,7 @@ func AddFuncs(f FuncMap) {
 // the tmpl directory, relative to the application
 // binary.
 func DefaultTemplateLoader() loaders.Loader {
-	return loaders.FSLoader(util.RelativePath("tmpl"))
+	return loaders.FSLoader(pathutil.Relative("tmpl"))
 }
 
 // New returns a new template with the given loader and assets

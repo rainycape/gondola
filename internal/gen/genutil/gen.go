@@ -4,7 +4,7 @@ package genutil
 import (
 	"bytes"
 	"fmt"
-	"gnd.la/util"
+	"gnd.la/util/fileutil"
 	"go/format"
 	"io/ioutil"
 	"os"
@@ -38,5 +38,5 @@ func WriteAutogen(filename string, data []byte) error {
 		return err
 	}
 	overwrite := IsAutogen(filename)
-	return util.WriteFile(filename, formatted, overwrite, 0644)
+	return fileutil.WriteFile(filename, formatted, overwrite, 0644)
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"gnd.la/admin"
 	"gnd.la/app"
-	"gnd.la/util"
+	"gnd.la/util/stringutil"
 )
 
 const (
@@ -14,7 +14,7 @@ const (
 func RandomString(ctx *app.Context) {
 	var length int
 	ctx.ParseParamValue("length", &length)
-	fmt.Println(util.RandomPrintableString(length))
+	fmt.Println(stringutil.RandomPrintable(length))
 }
 
 func init() {

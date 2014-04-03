@@ -3,7 +3,7 @@ package google
 import (
 	"encoding/json"
 	"errors"
-	"gnd.la/util/textutil"
+	"gnd.la/util/stringutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -35,7 +35,7 @@ type Token struct {
 }
 
 func (a *App) Parse(s string) error {
-	fields, err := textutil.SplitFieldsOptions(s, ":", &textutil.SplitOptions{ExactCount: 2})
+	fields, err := stringutil.SplitFieldsOptions(s, ":", &stringutil.SplitOptions{ExactCount: 2})
 	if err != nil {
 		return err
 	}

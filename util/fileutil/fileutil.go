@@ -1,4 +1,5 @@
-package util
+// Package fileutil contains small utility functions for working with files.
+package fileutil
 
 import (
 	"fmt"

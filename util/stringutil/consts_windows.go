@@ -1,5 +1,5 @@
 // +build windows
 
-package textutil
+package stringutil
 
 const LineSeparator = "\r\n"

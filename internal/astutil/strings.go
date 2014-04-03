@@ -2,8 +2,8 @@ package astutil
 
 import (
 	"gnd.la/internal/pkgutil"
+	"gnd.la/util/stringutil"
 	"gnd.la/util/structs"
-	"gnd.la/util/textutil"
 	"go/ast"
 	"go/token"
 )
@@ -14,7 +14,7 @@ type String struct {
 }
 
 func (s *String) fields() []string {
-	fields, err := textutil.SplitFields(s.Value, "|")
+	fields, err := stringutil.SplitFields(s.Value, "|")
 	if err != nil {
 		// TODO: Do something better here
 		panic(err)

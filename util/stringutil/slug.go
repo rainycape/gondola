@@ -1,4 +1,4 @@
-package util
+package stringutil
 
 import (
 	"gnd.la/util/unidecode"

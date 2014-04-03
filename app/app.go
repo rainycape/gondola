@@ -22,9 +22,9 @@ import (
 	"gnd.la/signal"
 	"gnd.la/template"
 	"gnd.la/template/assets"
-	"gnd.la/util"
 	"gnd.la/util/cryptoutil"
 	"gnd.la/util/hashutil"
+	"gnd.la/util/stringutil"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -686,7 +686,7 @@ func (app *App) SetAddress(address string) {
 // asset loader associated with this app. prefix might be a relative
 // (e.g. /static/) or absolute (e.g. http://static.example.com/) url
 // while dir should be the path to the directory where the static
-// assets reside. You probably want to use RelativePath() in gnd.la/util
+// assets reside. You probably want to use pathutil.Relative()
 // to define the directory relative to the application binary. Note
 // that /favicon.ico and /robots.txt will be handled too, but they
 // will must be in the directory which contains the rest of the assets.
@@ -1004,7 +1004,7 @@ func (app *App) logError(ctx *Context, err interface{}) {
 		dump, derr := httputil.DumpRequest(ctx.R, true)
 		if derr == nil {
 			// This cleans up empty lines and replaces \r\n with \n
-			req = util.Lines(string(dump), 0, 10000, true)
+			req = stringutil.Lines(string(dump), 0, 10000, true)
 			buf.WriteString("\nRequest:\n")
 			buf.WriteString(req)
 		}

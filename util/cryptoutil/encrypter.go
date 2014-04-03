@@ -4,7 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"errors"
-	"gnd.la/util"
+	"gnd.la/util/stringutil"
 )
 
 var (
@@ -53,7 +53,7 @@ func (e *Encrypter) Encrypt(data []byte) ([]byte, error) {
 	bs := ci.BlockSize()
 	out := make([]byte, bs+len(data))
 	iv := out[:bs]
-	copy(iv, util.RandomBytes(bs))
+	copy(iv, stringutil.RandomBytes(bs))
 	stream := cipher.NewCTR(ci, iv)
 	stream.XORKeyStream(out[bs:], data)
 	return out, nil

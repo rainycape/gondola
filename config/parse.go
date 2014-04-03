@@ -6,8 +6,8 @@ import (
 	"gnd.la/form/input"
 	"gnd.la/log"
 	"gnd.la/signal"
-	"gnd.la/util"
-	"gnd.la/util/textutil"
+	"gnd.la/util/pathutil"
+	"gnd.la/util/stringutil"
 	"gnd.la/util/types"
 	"io"
 	"os"
@@ -19,7 +19,7 @@ import (
 const DefaultName = "app.conf"
 
 var (
-	defaultFilename = util.RelativePath(DefaultName)
+	defaultFilename = pathutil.Relative(DefaultName)
 	configName      *string
 )
 
@@ -65,11 +65,11 @@ func Filename() string {
 }
 
 func fileParameterName(name string) string {
-	return util.CamelCaseToLower(name, "_")
+	return stringutil.CamelCaseToLower(name, "_")
 }
 
 func flagParameterName(name string) string {
-	return util.CamelCaseToLower(name, "-")
+	return stringutil.CamelCaseToLower(name, "-")
 }
 
 func parseValue(v reflect.Value, raw string) error {
@@ -101,7 +101,7 @@ func parseValue(v reflect.Value, raw string) error {
 	case reflect.String:
 		v.SetString(raw)
 	case reflect.Slice:
-		fields, err := textutil.SplitFields(raw, ",")
+		fields, err := stringutil.SplitFields(raw, ",")
 		if err != nil {
 			return fmt.Errorf("error splitting values: %s", err)
 		}
@@ -113,7 +113,7 @@ func parseValue(v reflect.Value, raw string) error {
 			}
 		}
 	case reflect.Map:
-		fields, err := textutil.SplitFields(raw, ",")
+		fields, err := stringutil.SplitFields(raw, ",")
 		if err != nil {
 			return fmt.Errorf("error splitting values: %s", err)
 		}
@@ -121,7 +121,7 @@ func parseValue(v reflect.Value, raw string) error {
 		ktyp := v.Type().Key()
 		etyp := v.Type().Elem()
 		for ii, field := range fields {
-			subFields, err := textutil.SplitFields(field, "=")
+			subFields, err := stringutil.SplitFields(field, "=")
 			if err != nil {
 				return fmt.Errorf("error splitting key-value %q: %s", field, err)
 			}
@@ -188,7 +188,7 @@ func parseFile(filename string, fields fieldMap) error {
 }
 
 func parseReader(r io.Reader, fields fieldMap) error {
-	values, err := textutil.ParseIni(r)
+	values, err := stringutil.ParseIni(r)
 	if err != nil {
 		return err
 	}

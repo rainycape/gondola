@@ -7,8 +7,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"gnd.la/util"
 	"gnd.la/util/generic"
+	"gnd.la/util/stringutil"
 	"io"
 	"io/ioutil"
 	"net/mail"
@@ -183,7 +183,7 @@ func Send(to []string, opts *Options) error {
 		return fmt.Errorf("invalid message type %T", opts.Message)
 	}
 	if len(opts.Attachments) > 0 {
-		boundary := "Gondola-Boundary-" + util.RandomString(16)
+		boundary := "Gondola-Boundary-" + stringutil.Random(16)
 		buf.WriteString("MIME-Version: 1.0\r\n")
 		buf.WriteString("Content-Type: multipart/mixed; boundary=" + boundary + "\r\n")
 		buf.WriteString("--" + boundary + "\n")

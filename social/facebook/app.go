@@ -2,7 +2,7 @@ package facebook
 
 import (
 	"fmt"
-	"gnd.la/util/textutil"
+	"gnd.la/util/stringutil"
 )
 
 type App struct {
@@ -11,7 +11,7 @@ type App struct {
 }
 
 func (a *App) Parse(s string) error {
-	fields, err := textutil.SplitFields(s, ":")
+	fields, err := stringutil.SplitFields(s, ":")
 	if err != nil {
 		return err
 	}

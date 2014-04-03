@@ -12,9 +12,8 @@ import (
 	"gnd.la/app/profile"
 	"gnd.la/encoding/base64"
 	"gnd.la/log"
-	"gnd.la/util"
 	"gnd.la/util/cryptoutil"
-	"gnd.la/util/textutil"
+	"gnd.la/util/stringutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -57,7 +56,7 @@ func requestProfile(u string, method string, values url.Values, secret string) (
 	}
 	if secret != "" {
 		ts := time.Now().Unix()
-		nonce := util.RandomString(32)
+		nonce := stringutil.Random(32)
 		signer := cryptoutil.Signer{Salt: []byte(profile.Salt), Key: []byte(secret)}
 		signed, err := signer.Sign([]byte(fmt.Sprintf("%d:%s", ts, nonce)))
 		if err != nil {
@@ -113,13 +112,13 @@ func Profile(ctx *app.Context) {
 	var values url.Values
 	if data != "" {
 		values = make(url.Values)
-		fields, err := textutil.SplitFields(data, ";")
+		fields, err := stringutil.SplitFields(data, ";")
 		if err != nil {
 			log.Fatalf("invalid data: %s", err)
 
 		}
 		for _, v := range fields {
-			parts, err := textutil.SplitFields(data, ";")
+			parts, err := stringutil.SplitFields(data, ";")
 			if err != nil || len(parts) != 2 {
 				log.Fatalf("invalid data parameter %q: %s", v, err)
 			}

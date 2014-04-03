@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"gnd.la/util/oauth"
-	"gnd.la/util/textutil"
+	"gnd.la/util/stringutil"
 	"net/http"
 	"net/url"
 )
@@ -27,7 +27,7 @@ var (
 )
 
 func parse(raw string, key, secret *string) error {
-	fields, err := textutil.SplitFieldsOptions(raw, ":", &textutil.SplitOptions{ExactCount: 2})
+	fields, err := stringutil.SplitFieldsOptions(raw, ":", &stringutil.SplitOptions{ExactCount: 2})
 	if err != nil {
 		return err
 	}

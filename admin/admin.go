@@ -7,7 +7,7 @@ import (
 	"gnd.la/app"
 	"gnd.la/signal"
 	"gnd.la/tasks"
-	"gnd.la/util"
+	"gnd.la/util/stringutil"
 	"io"
 	"io/ioutil"
 	"os"
@@ -47,7 +47,7 @@ func Register(f app.Handler, o *Options) error {
 			return fmt.Errorf("could not determine name for function %v. Please, provide a name using Options.", f)
 		}
 	}
-	cmdName := util.CamelCaseToLower(name, "-")
+	cmdName := stringutil.CamelCaseToLower(name, "-")
 	if _, ok := commands[cmdName]; ok {
 		return fmt.Errorf("duplicate command name %q", name)
 	}

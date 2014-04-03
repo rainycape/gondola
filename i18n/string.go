@@ -1,7 +1,7 @@
 package i18n
 
 import (
-	"gnd.la/util/textutil"
+	"gnd.la/util/stringutil"
 )
 
 // TranslatableString is the interface implemented
@@ -26,7 +26,7 @@ func (s String) TranslatedString(lang Languager) string {
 	if string(s) == "" {
 		return ""
 	}
-	fields, _ := textutil.SplitFields(string(s), "|")
+	fields, _ := stringutil.SplitFields(string(s), "|")
 	if len(fields) > 1 {
 		return Tc(fields[0], fields[1], lang)
 	}

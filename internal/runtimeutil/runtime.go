@@ -5,7 +5,7 @@ package runtimeutil
 import (
 	"fmt"
 	"gnd.la/html"
-	"gnd.la/util"
+	"gnd.la/util/stringutil"
 	"html/template"
 	"runtime"
 	"strconv"
@@ -97,7 +97,7 @@ func formatSource(filename string, line int, count int, numbers bool, highlight 
 		count += begin
 		begin = 0
 	}
-	source, err := util.FileLines(filename, begin, count, false)
+	source, err := stringutil.FileLines(filename, begin, count, false)
 	if err != nil {
 		return "", err
 	}

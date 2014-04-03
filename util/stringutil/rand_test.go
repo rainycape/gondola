@@ -1,4 +1,4 @@
-package util
+package stringutil
 
 import (
 	"testing"
@@ -15,7 +15,7 @@ const (
 func TestRandomString(t *testing.T) {
 	generated := make(map[string]bool)
 	for ii := 0; ii < rIterations; ii++ {
-		rand := RandomString(rN)
+		rand := Random(rN)
 		if len(rand) != rN {
 			t.Errorf("expecting %d characters, got %d", rN, len(rand))
 		}

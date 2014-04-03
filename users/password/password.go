@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"gnd.la/util"
+	"gnd.la/util/stringutil"
 	"strconv"
 	"strings"
 )
@@ -140,6 +140,6 @@ func NewHashed(plain string, hash Hash) Password {
 	}
 	// Use the same number of bits for the salt and the hash, since
 	// it provides the maximum possible security.
-	salt := util.RandomString(hash.Size())
+	salt := stringutil.Random(hash.Size())
 	return Password(fmt.Sprintf("%s:%d:%s:%s", hash.Name(), Rounds, salt, hash.Hash(salt, plain, Rounds)))
 }

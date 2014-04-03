@@ -3,7 +3,7 @@ package structs
 import (
 	"errors"
 	"fmt"
-	"gnd.la/util"
+	"gnd.la/util/stringutil"
 	"reflect"
 )
 
@@ -79,7 +79,7 @@ func fields(typ reflect.Type, tags []string, s *Struct, qprefix, mprefix string,
 		}
 		if name == "" {
 			// Default name
-			name = util.CamelCaseToLower(field.Name, "_")
+			name = stringutil.CamelCaseToLower(field.Name, "_")
 		}
 		name = mprefix + name
 		if _, ok := s.MNameMap[name]; ok {

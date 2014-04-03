@@ -1,5 +1,4 @@
-// Package textutil contains small utility functions for parsing text.
-package textutil
+package stringutil
 
 import (
 	"bytes"

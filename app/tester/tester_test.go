@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"gnd.la/app"
 	"gnd.la/app/tester"
-	"gnd.la/util"
 	"gnd.la/util/generic"
+	"gnd.la/util/stringutil"
 	"io/ioutil"
 	"net/url"
 	"sort"
@@ -134,7 +134,7 @@ func TestExpectErrors(t *testing.T) {
 
 func init() {
 	testApp = app.New()
-	testApp.Secret = util.RandomString(32)
+	testApp.Secret = stringutil.Random(32)
 	testApp.Handle("^/hello$", func(ctx *app.Context) {
 		ctx.Header().Add("X-Hello", "World")
 		ctx.Header().Add("X-Number", "42")

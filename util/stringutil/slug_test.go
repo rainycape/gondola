@@ -1,4 +1,4 @@
-package util
+package stringutil
 
 import (
 	"testing"
@@ -20,43 +20,4 @@ func TestSlug(t *testing.T) {
 	testSlug(t, "quita-del-37-5-para-los-grandes-depositos-del-banco-de-chipre", "Quita del 37,5% para los grandes depósitos del Banco de Chipre", -1)
 	testSlug(t, "el-bng-pide-el-cese-de-feijoo-y-el-resto-de-la-oposicion-explicaciones", "El BNG pide el cese de Feijóo y el resto de la oposición, explicaciones", -1)
 	testSlug(t, "el-papa-pide-una-solucion-politica-para-el-conflicto-en-siria", "El papa pide una “solución política” para el conflicto en Siria", -1)
-}
-
-func TestCamelCaseToLower(t *testing.T) {
-	cases := map[string]string{
-		"FooBarBaz":  "foo_bar_baz",
-		"FOOBarBaz":  "foo_bar_baz",
-		"TEST":       "test",
-		"goLANG":     "go_lang",
-		"myINTValue": "my_int_value",
-		"":           "",
-		"T":          "t",
-		"t":          "t",
-		"Id":         "id",
-		"FóoBar":     "fóo_bar",
-	}
-	for k, v := range cases {
-		if u := CamelCaseToLower(k, "_"); u != v {
-			t.Errorf("Error transforming camel case %q to lower. Want %q, got %q.", k, v, u)
-		}
-	}
-}
-
-func TestParseSize(t *testing.T) {
-	sizes := map[string]uint64{
-		"0":     0,
-		"0GB":   0,
-		"0.5K":  512,
-		"1.5MB": uint64(1024 * 1024 * 1.5),
-	}
-	for k, v := range sizes {
-		val, err := ParseSize(k)
-		if err != nil {
-			t.Error(err)
-			continue
-		}
-		if val != v {
-			t.Errorf("error parsing %q - want %d, got %d", k, v, val)
-		}
-	}
 }

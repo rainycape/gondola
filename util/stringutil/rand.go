@@ -1,4 +1,4 @@
-package util
+package stringutil
 
 import (
 	"crypto/rand"
@@ -13,17 +13,17 @@ const (
 
 // Most code in this file is adapted from https://github.com/dchest/uniuri
 
-// RandomString returns a random string with the given length.
+// Random returns a random string with the given length.
 // The alphabet used includes ASCII lowercase and uppercase
 // letters and numbers.
-func RandomString(length int) string {
+func Random(length int) string {
 	return randomString(length, alphanumeric)
 }
 
-// RandomPrintableString returns a random string with the
+// RandomPrintable returns a random string with the
 // given length, using all the ASCII printable characters
 // as the alphabet.
-func RandomPrintableString(length int) string {
+func RandomPrintable(length int) string {
 	return randomString(length, printable)
 }
 

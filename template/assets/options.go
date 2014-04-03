@@ -2,7 +2,7 @@ package assets
 
 import (
 	"fmt"
-	"gnd.la/util/textutil"
+	"gnd.la/util/stringutil"
 	"strconv"
 	"strings"
 )
@@ -10,7 +10,7 @@ import (
 type Options map[string]string
 
 func ParseOptions(options string) (Options, error) {
-	values, err := textutil.SplitFields(options, ",")
+	values, err := stringutil.SplitFields(options, ",")
 	if err != nil {
 		return nil, fmt.Errorf("error parsing asset options: %s", err)
 	}

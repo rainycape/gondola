@@ -3,7 +3,7 @@ package template
 import (
 	"bytes"
 	"fmt"
-	"gnd.la/util"
+	"gnd.la/util/stringutil"
 	"gnd.la/util/types"
 	"html/template"
 	"reflect"
@@ -1279,7 +1279,7 @@ func (p *program) scratchIsPure(s *scratch) bool {
 }
 
 func (p *program) executeScratch(s *scratch) (*state, error) {
-	name := util.RandomString(16)
+	name := stringutil.Random(16)
 	p.code[name] = s.buf
 	// We don't really need a buffer here, but let's
 	// pass one just in case. If a bug were found when

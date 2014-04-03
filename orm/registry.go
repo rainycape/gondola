@@ -8,7 +8,7 @@ import (
 	"gnd.la/orm/driver"
 	"gnd.la/orm/query"
 	"gnd.la/signal"
-	"gnd.la/util"
+	"gnd.la/util/stringutil"
 	"gnd.la/util/structs"
 	"reflect"
 	"regexp"
@@ -307,7 +307,7 @@ func defaultTableName(typ reflect.Type) string {
 	if p := typ.PkgPath(); p != "main" {
 		n = strings.Replace(p, "/", "_", -1) + n
 	}
-	return util.CamelCaseToLower(n, "_")
+	return stringutil.CamelCaseToLower(n, "_")
 }
 
 func typeName(typ reflect.Type) string {

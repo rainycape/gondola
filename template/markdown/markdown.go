@@ -8,51 +8,67 @@
 //
 // Any templates with the .md extension will be converted to HTML
 // interpreting their contents as Markdown.
-// Since Go's template syntax might conflict with Markdown's, any
-// commands (i.e. blocks between {{ and }}) won't be processed with
-// Markdown and will be included verbatim in the resulting template.
+// Since Go's template syntax needs to be escaping while using Markdown, any
+// '{' or '}' character not inside a quoted or code block (delimited by
+// either a single ` or three ```) will be automatically escaped.
+// For example:
+//
+//  {{ fun .Foo .Bar }}
+//
+// Will be passed to Markdown  as:
+//
+//  \{\{ fun .Foo .Bar \}\}
+//
+// But the following won't be altered:
+//
+//  `{{ fun .Foo .Bar }}`
+//
+// Neither will:
+//
+//  ```
+//  {{ fun .Foo .Bar }}
+//  ```
+//
 package markdown
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/russross/blackfriday"
 	"gnd.la/template"
 	"regexp"
-	"strconv"
 )
 
 const (
 	flags = blackfriday.HTML_USE_SMARTYPANTS | blackfriday.HTML_SMARTYPANTS_FRACTIONS |
-		blackfriday.HTML_SMARTYPANTS_LATEX_DASHES | blackfriday.HTML_SAFELINK
+		blackfriday.HTML_SMARTYPANTS_LATEX_DASHES
+	//| blackfriday.HTML_SAFELINK - safe link breaks commands as link targets
 	extensions = blackfriday.EXTENSION_NO_INTRA_EMPHASIS | blackfriday.EXTENSION_TABLES |
 		blackfriday.EXTENSION_FENCED_CODE | blackfriday.EXTENSION_AUTOLINK |
 		blackfriday.EXTENSION_STRIKETHROUGH | blackfriday.EXTENSION_SPACE_HEADERS
 )
+
+type unescape struct {
+	escaped   []byte
+	unescaped []byte
+}
 
 var (
 	renderer     = blackfriday.HtmlRenderer(flags, "", "")
 	beginComment = []byte("{{/*")
 	endComment   = []byte("*/}}")
 
-	referencesRe  = regexp.MustCompile("(?m)$\\s*\\[\\w+\\]:.*?$")
-	commandPrefix = "\uffffcommand"
-	commandRe     = regexp.MustCompile(commandPrefix + "\\d+")
-	fixupRe       = regexp.MustCompile("<p>(\\{\\{[^\\}]+\\})</p>")
-)
-
-func markdown(cur *bytes.Buffer, refs *bytes.Buffer) []byte {
-	if cur.Len() > 0 {
-		data := cur.Bytes()
-		if refs.Len() > 0 {
-			data = append(data, refs.Bytes()...)
-		}
-		md := blackfriday.Markdown(data, renderer, extensions)
-		cur.Reset()
-		return md
+	// these need to be done in order, so
+	// &amp; is the last one. Otherwise we would
+	// also replace instances where the user
+	// originally typed an escape sequence.
+	unescapes = []*unescape{
+		{[]byte("&quot;"), []byte("\"")},
+		{[]byte("&gt;"), []byte(">")},
+		{[]byte("&lt;"), []byte("<")},
+		{[]byte("&amp;"), []byte("&")},
 	}
-	return nil
-}
+	commandRe = regexp.MustCompile(`\{\{.*?\}\}`)
+)
 
 func toMarkdown(data []byte) ([]byte, error) {
 	var out bytes.Buffer
@@ -64,68 +80,40 @@ func toMarkdown(data []byte) ([]byte, error) {
 			data = data[end+len(endComment):]
 		}
 	}
-	var references bytes.Buffer
-	for _, v := range referencesRe.FindAll(data, -1) {
-		references.Write(v)
-		references.WriteByte('\n')
-	}
-	var text bytes.Buffer
-	var cmd bytes.Buffer
-	var commands [][]byte
-	command := false
-	end := len(data)
-	last := end - 1
-	for ii := 0; ii < end; ii++ {
-		c := data[ii]
-		switch c {
-		case '}':
-			if command && ii < last && data[ii+1] == '}' {
-				command = false
-				cmd.WriteString("}}")
-				if ii < last-1 && data[ii+2] == '\n' && false {
-					// Line ends with command, creating
-					// a md block
-					out.Write(markdown(&text, &references))
-					out.Write(cmd.Bytes())
-					out.WriteByte('\n')
-				} else {
-					// Inline command, process it with
-					// the rest of the markdown. To avoid
-					// alterting special characters inside
-					// a command, substitute it with a placeholder.
-					fmt.Fprintf(&text, "%s%d", commandPrefix, len(commands))
-					var c []byte
-					c = append(c, cmd.Bytes()...)
-					commands = append(commands, c)
-				}
-				cmd.Reset()
-				ii++
+	// Escape { and }, unless they're inside a quoted block
+	var buf bytes.Buffer
+	var quoted bool
+	for ii := 0; ii < len(data); ii++ {
+		v := data[ii]
+		switch v {
+		case '`':
+			if ii < len(data)-2 && data[ii+1] == '`' && data[ii+2] == '`' {
+				buf.WriteByte('`')
+				buf.WriteByte('`')
+				ii += 2
 			}
-		case '{':
-			if !command && ii < last && data[ii+1] == '{' {
-				command = true
-				ii++
-				cmd.WriteString("{{")
+			quoted = !quoted
+			buf.WriteByte(v)
+		case '{', '}':
+			if !quoted {
+				buf.WriteByte('\\')
 			}
+			fallthrough
 		default:
-			if command {
-				cmd.WriteByte(c)
-			} else {
-				text.WriteByte(c)
-			}
+			buf.WriteByte(v)
 		}
 	}
-	out.Write(markdown(&text, &references))
-	md := commandRe.ReplaceAllFunc(out.Bytes(), func(b []byte) []byte {
-		d := bytes.IndexByte(b, 'd')
-		pos, err := strconv.Atoi(string(b[d+1:]))
-		if err != nil {
-			panic(err)
+	md := blackfriday.Markdown(buf.Bytes(), renderer, extensions)
+	// blackfriday escapes some characters inside commands, so we must
+	// undo those escapes
+	md = commandRe.ReplaceAllFunc(md, func(b []byte) []byte {
+		for _, v := range unescapes {
+			b = bytes.Replace(b, v.escaped, v.unescaped, -1)
 		}
-		return commands[pos]
+		return b
 	})
-	md = fixupRe.ReplaceAll(md, []byte("${1}"))
-	return md, nil
+	out.Write(md)
+	return out.Bytes(), nil
 }
 
 func init() {

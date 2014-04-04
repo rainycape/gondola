@@ -67,7 +67,7 @@ func MustRegister(f app.Handler, o *Options) {
 	}
 }
 
-func performCommand(name string, cmd *command, args []string, a *app.App) {
+func performCommand(name string, cmd *command, args []string, a *app.App) (err error) {
 	// Parse command flags
 	set := flag.NewFlagSet(name, flag.ContinueOnError)
 	set.Usage = func() {
@@ -94,7 +94,7 @@ func performCommand(name string, cmd *command, args []string, a *app.App) {
 	}
 	// Print error/help messages ourselves
 	set.SetOutput(ioutil.Discard)
-	err := set.Parse(args)
+	err = set.Parse(args)
 	if err != nil {
 		if err == flag.ErrHelp {
 			return
@@ -104,7 +104,7 @@ func performCommand(name string, cmd *command, args []string, a *app.App) {
 			fmt.Fprintf(os.Stderr, "command %s does not accept flag %s\n", name, flagName)
 			return
 		}
-		panic(err)
+		return err
 	}
 	params := map[string]string{}
 	for _, arg := range cmd.flags {
@@ -114,9 +114,19 @@ func performCommand(name string, cmd *command, args []string, a *app.App) {
 		args:   set.Args(),
 		params: params,
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			if e, ok := r.(error); ok {
+				err = e
+			} else {
+				err = fmt.Errorf("%v", r)
+			}
+		}
+	}()
 	ctx := a.NewContext(provider)
 	defer a.CloseContext(ctx)
 	cmd.handler(ctx)
+	return
 }
 
 // Perform tries to perform an administrative command
@@ -136,7 +146,9 @@ func Perform(a *app.App) bool {
 		cmd := strings.ToLower(args[0])
 		for k, v := range commands {
 			if cmd == k {
-				performCommand(k, v, args[1:], a)
+				if err := performCommand(k, v, args[1:], a); err != nil {
+					fmt.Fprintf(os.Stderr, "error running command %s: %s\n", cmd, err)
+				}
 				return true
 			}
 		}

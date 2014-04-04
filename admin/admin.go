@@ -77,7 +77,7 @@ func UsageError(args ...interface{}) {
 	usageErrors(fmt.Sprint(args...))
 }
 
-// UsageErrorf stops works like UsageError, but accepts
+// UsageErrorf works like UsageError, but accepts
 // a format parameter.
 func UsageErrorf(format string, args ...interface{}) {
 	usageErrors(fmt.Sprintf(format, args...))

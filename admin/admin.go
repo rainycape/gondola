@@ -71,6 +71,17 @@ func MustRegister(f app.Handler, o *Options) {
 	}
 }
 
+// Error stops the command and prints the
+// given error.
+func Error(args ...interface{}) {
+	panic(fmt.Sprint(args...))
+}
+
+// Errorf works like Error, but accepts a format parameter.
+func Errorf(format string, args ...interface{}) {
+	panic(fmt.Sprintf(format, args...))
+}
+
 // UsageError stops the command and prints the
 // given error followed by the command usage.
 func UsageError(args ...interface{}) {

@@ -70,10 +70,8 @@ func (app *App) Gen(release bool) error {
 		fmt.Fprintf(&buf, "App.TranslationContext = %q\n", app.Translations.Context)
 	}*/
 	fmt.Fprintf(&buf, "App.SetName(%q)\n", app.Name)
-	buf.WriteString("var manager *assets.Manager\n")
-	if !release {
-		// Avoid leaving manager unused
-		buf.WriteString("manager = manager\n")
+	if app.Assets != "" || (app.Templates != nil && app.Templates.Path != "" && len(app.Templates.Hooks) > 0) {
+		buf.WriteString("var manager *assets.Manager\n")
 	}
 	if app.Assets != "" {
 		buf.WriteString("assetsLoader := ")

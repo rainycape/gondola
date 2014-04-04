@@ -71,6 +71,29 @@ func MustRegister(f app.Handler, o *Options) {
 	}
 }
 
+// UsageError stops the command and prints the
+// given error followed by the command usage.
+func UsageError(args ...interface{}) {
+	usageErrors(fmt.Sprint(args...))
+}
+
+// UsageErrorf stops works like UsageError, but accepts
+// a format parameter.
+func UsageErrorf(format string, args ...interface{}) {
+	usageErrors(fmt.Sprintf(format, args...))
+}
+
+type usageError string
+
+func (e usageError) Error() string {
+	return string(e)
+}
+
+func usageErrors(s string) {
+	err := usageError(s)
+	panic(err)
+}
+
 func performCommand(name string, cmd *command, args []string, a *app.App) (err error) {
 	// Parse command flags
 	set := flag.NewFlagSet(name, flag.ContinueOnError)
@@ -152,6 +175,9 @@ func Perform(a *app.App) bool {
 			if cmd == k {
 				if err := performCommand(k, v, args[1:], a); err != nil {
 					fmt.Fprintf(os.Stderr, "error running command %s: %s\n", cmd, err)
+					if _, ok := err.(usageError); ok {
+						commandHelp(cmd, -1, os.Stderr)
+					}
 				}
 				return true
 			}

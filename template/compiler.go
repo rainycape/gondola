@@ -24,8 +24,9 @@ var (
 )
 
 const (
-	templateHtmlEscaper = "html_template_htmlescaper"
-	templateJsEscaper   = "html_template_jsvalescaper"
+	templateHtmlEscaper    = "html_template_htmlescaper"
+	templateJsEscaper      = "html_template_jsvalescaper"
+	templateCommentEscaper = "html_template_commentescaper"
 )
 
 // TODO: Remove variables inside if or with when exiting the scope
@@ -1107,6 +1108,11 @@ func (p *program) walk(n parse.Node) error {
 			if p.s.noPrint {
 				// previous pipeline was precomputed
 				// and translated to a opWB
+				break
+			}
+			if name == templateCommentEscaper && !p.tmpl.tmpl.DropComments {
+				// Don't remove HTML comments, that's an idiotic
+				// behavior from html/template
 				break
 			}
 			// Check if the input of this function is a string or template.HTML

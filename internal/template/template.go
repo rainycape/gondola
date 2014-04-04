@@ -17,7 +17,9 @@ import (
 // Template is a specialized Template from "text/template" that produces a safe
 // HTML document fragment.
 type Template struct {
-	escaped bool
+	// Wether to drop HTML/CSS/JS comments. Default is false.
+	DropComments bool
+	escaped      bool
 	// We could embed the text/template field, but it's safer not to because
 	// we need to keep our version of the name space and the underlying
 	// template's in sync.
@@ -152,6 +154,7 @@ func (t *Template) AddParseTree(name string, tree *parse.Tree) (*Template, error
 	}
 	ret := &Template{
 		false,
+		false,
 		text,
 		text.Tree,
 		t.nameSpace,
@@ -180,6 +183,7 @@ func (t *Template) Clone() (*Template, error) {
 	}
 	ret := &Template{
 		false,
+		false,
 		textClone,
 		textClone.Tree,
 		&nameSpace{
@@ -195,6 +199,7 @@ func (t *Template) Clone() (*Template, error) {
 		x.Tree = x.Tree.Copy()
 		ret.set[name] = &Template{
 			false,
+			false,
 			x,
 			x.Tree,
 			ret.nameSpace,
@@ -206,6 +211,7 @@ func (t *Template) Clone() (*Template, error) {
 // New allocates a new HTML template with the given name.
 func New(name string) *Template {
 	tmpl := &Template{
+		false,
 		false,
 		template.New(name),
 		nil,
@@ -229,6 +235,7 @@ func (t *Template) New(name string) *Template {
 // new is the implementation of New, without the lock.
 func (t *Template) new(name string) *Template {
 	tmpl := &Template{
+		false,
 		false,
 		t.text.New(name),
 		nil,

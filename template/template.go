@@ -252,6 +252,14 @@ func (t *Template) Hook(hook *Hook) error {
 	return nil
 }
 
+func (t *Template) SetDropComments(drop bool) error {
+	if err := t.noCompiled("can't change wheter to drop comments"); err != nil {
+		return err
+	}
+	t.tmpl.DropComments = drop
+	return nil
+}
+
 func (t *Template) Compile() error {
 	if err := t.noCompiled("can't compile"); err != nil {
 		return err

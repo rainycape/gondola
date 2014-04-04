@@ -601,7 +601,7 @@ func (e *escaper) escapeText(c context, n *parse.TextNode) context {
 					written = j + 1
 				}
 			}
-		} else if isComment(c.state) && c.delim == delimNone {
+		} else if e.tmpl.DropComments && isComment(c.state) && c.delim == delimNone {
 			switch c.state {
 			case stateJSBlockCmt:
 				// http://es5.github.com/#x7.4:
@@ -621,7 +621,7 @@ func (e *escaper) escapeText(c context, n *parse.TextNode) context {
 			}
 			written = i1
 		}
-		if c.state != c1.state && isComment(c1.state) && c1.delim == delimNone {
+		if c.state != c1.state && e.tmpl.DropComments && isComment(c1.state) && c1.delim == delimNone {
 			// Preserve the portion between written and the comment start.
 			cs := i1 - 2
 			if c1.state == stateHTMLCmt {
@@ -638,7 +638,7 @@ func (e *escaper) escapeText(c context, n *parse.TextNode) context {
 	}
 
 	if written != 0 && c.state != stateError {
-		if !isComment(c.state) || c.delim != delimNone {
+		if !e.tmpl.DropComments || !isComment(c.state) || c.delim != delimNone {
 			b.Write(n.Text[written:])
 		}
 		e.editTextNode(n, b.Bytes())
@@ -733,7 +733,7 @@ func (e *escaper) commit() {
 		if _, err := e.tmpl.text.AddParseTree(t.Name(), t.Tree); err != nil {
 			panic("error adding derived template")
 		}
-		e.tmpl.set[t.Name()] = &Template{true, t, t.Tree, e.tmpl.nameSpace}
+		e.tmpl.set[t.Name()] = &Template{false, true, t, t.Tree, e.tmpl.nameSpace}
 	}
 	for n, s := range e.actionNodeEdits {
 		ensurePipelineContains(n.Pipe, s)

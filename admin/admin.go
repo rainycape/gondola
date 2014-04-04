@@ -25,6 +25,7 @@ var (
 type command struct {
 	handler app.Handler
 	help    string
+	usage   string
 	flags   []*Flag
 }
 
@@ -33,10 +34,12 @@ type command struct {
 func Register(f app.Handler, o *Options) error {
 	var name string
 	var help string
+	var usage string
 	var flags []*Flag
 	if o != nil {
 		name = o.Name
 		help = o.Help
+		usage = o.Usage
 		flags = o.Flags
 	}
 	if name == "" {
@@ -54,6 +57,7 @@ func Register(f app.Handler, o *Options) error {
 	commands[cmdName] = &command{
 		handler: f,
 		help:    help,
+		usage:   usage,
 		flags:   flags,
 	}
 	return nil
@@ -181,9 +185,12 @@ func commandHelp(name string, maxLen int, w io.Writer) {
 		maxLen = len(name) + 1
 	}
 	fmt.Fprintf(w, "%s:%s%s\n", name, strings.Repeat(" ", maxLen-len(name)), commands[name].help)
+	indent := strings.Repeat(" ", maxLen+1)
+	if usage := commands[name].usage; usage != "" {
+		fmt.Fprintf(w, "\n%sUsage: gondola %s %s\n", indent, name, usage)
+	}
 	if flags := commands[name].flags; len(flags) > 0 {
-		indent := strings.Repeat(" ", maxLen+1)
-		fmt.Fprintf(w, "%sAvailable flags for %v:\n", indent, name)
+		fmt.Fprintf(w, "\n%sAvailable flags for %v:\n", indent, name)
 		maxArgLen := -1
 		helps := make([]string, len(flags))
 		for ii, f := range flags {

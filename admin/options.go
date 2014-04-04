@@ -27,6 +27,8 @@ type Options struct {
 	Name string
 	// The help string that will be printed for this command.
 	Help string
+	// Usage is printed just after the Help, prepending the command to it.
+	Usage string
 	// Any flags this command might accept. Use the convenience
 	// functions to define them.
 	Flags []*Flag

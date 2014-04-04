@@ -262,6 +262,7 @@ func commandsHelp(w io.Writer) {
 	sort.Strings(cmds)
 	for _, v := range cmds {
 		commandHelp(v, maxLen, w)
+		fmt.Fprint(w, "\n\n")
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 	"gnd.la/form/input"
 	"gnd.la/i18n/table"
 	"gnd.la/users"
-	"gnd.la/util"
+	"gnd.la/util/urlutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -315,9 +315,9 @@ func (c *Context) RedirectBack() {
 		redir := "/"
 		// from parameter is used when redirecting to sign in page
 		from := c.FormValue("from")
-		if from != "" && util.EqualHosts(from, us) {
+		if from != "" && urlutil.SameHost(from, us) {
 			redir = from
-		} else if ref := c.R.Referer(); ref != "" && util.EqualHosts(ref, us) {
+		} else if ref := c.R.Referer(); ref != "" && urlutil.SameHost(ref, us) {
 			redir = ref
 		}
 		// us can be protocol relative

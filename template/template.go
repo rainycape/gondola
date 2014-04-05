@@ -315,8 +315,9 @@ func (t *Template) importTrees(tmpl *Template, name string) error {
 		} else {
 			treeName = tmpl.qname(k)
 		}
-		if _, ok := t.trees[treeName]; ok {
-			return fmt.Errorf("duplicate template %q", k)
+		if tr, ok := t.trees[treeName]; ok && tr != nil {
+			log.Debugf("template %q already provided in %q, ignoring definition in %q", treeName, tr.ParseName, v.ParseName)
+			continue
 		}
 		if err := t.AddParseTree(treeName, namespacedTree(v, tmpl.namespace)); err != nil {
 			return err

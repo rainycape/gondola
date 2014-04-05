@@ -56,7 +56,7 @@ func Min(in interface{}) interface{} {
 //  - basic types with a defined < operator
 //  - slices (their length is compared)
 //
-// If the element type is not comparable, Min will panic.
+// If the element type is not comparable, Max will panic.
 // Given a slice of type []T, the returned value will be
 // of type T.
 func Max(in interface{}) interface{} {

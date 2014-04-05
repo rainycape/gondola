@@ -9,9 +9,8 @@ const count = 1000 * 1000
 
 var dict map[int]int
 
-func testMap(t *testing.T, f func(interface{}, interface{})) {
-	var out []int
-	f(dict, &out)
+func testMap(t *testing.T, f func(interface{}) interface{}) {
+	out := f(dict).([]int)
 	if len(out) != len(dict) {
 		t.Fatalf("expecting %d elements, got %d instead", len(dict), len(out))
 	}
@@ -32,8 +31,7 @@ func TestValues(t *testing.T) {
 }
 
 func BenchmarkKeys(b *testing.B) {
-	var out []int
-	Keys(dict, &out)
+	_ = Keys(dict).([]int)
 }
 
 func BenchmarkKeysNonGeneric(b *testing.B) {

@@ -3,13 +3,13 @@ package assets
 import (
 	"gnd.la/loaders"
 	"gnd.la/util/hashutil"
+	"gnd.la/util/urlutil"
 	"io"
 	"io/ioutil"
 	"net/url"
 	"path"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 )
@@ -68,7 +68,7 @@ func (m *Manager) Create(name string, overwrite bool) (io.WriteCloser, error) {
 }
 
 func (m *Manager) URL(name string) string {
-	if strings.HasPrefix(name, "//") || strings.Contains(name, "://") {
+	if urlutil.IsURL(name) {
 		return name
 	}
 	m.mutex.RLock()

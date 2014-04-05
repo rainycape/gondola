@@ -19,8 +19,7 @@ var (
 )
 
 func TestSelectField(t *testing.T) {
-	var names []string
-	Select(selectables, "Name", &names)
+	names := Select(selectables, "Name").([]string)
 	for ii, v := range names {
 		if v != selectableName(ii) {
 			t.Errorf("bad selection at index %d. want %q, got %q", ii, selectableName(ii), v)
@@ -29,8 +28,7 @@ func TestSelectField(t *testing.T) {
 }
 
 func TestSelectMethod(t *testing.T) {
-	var names []string
-	Select(selectables, "GetName", &names)
+	names := Select(selectables, "GetName").([]string)
 	for ii, v := range names {
 		if v != selectableName(ii) {
 			t.Errorf("bad selection at index %d. want %q, got %q", ii, selectableName(ii), v)
@@ -40,9 +38,8 @@ func TestSelectMethod(t *testing.T) {
 
 func BenchmarkSelect(b *testing.B) {
 	b.ReportAllocs()
-	var names []string
 	for ii := 0; ii < b.N; ii++ {
-		Select(selectables, "Name", &names)
+		_ = Select(selectables, "Name").([]string)
 	}
 }
 
@@ -58,9 +55,8 @@ func BenchmarkSelectNonGeneric(b *testing.B) {
 
 func BenchmarkSelectMethod(b *testing.B) {
 	b.ReportAllocs()
-	var names []string
 	for ii := 0; ii < b.N; ii++ {
-		Select(selectables, "GetName", &names)
+		_ = Select(selectables, "GetName").([]string)
 	}
 }
 

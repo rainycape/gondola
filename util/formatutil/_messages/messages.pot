@@ -1,0 +1,9 @@
+#: number.go:41
+msgctxt "formautil"
+msgid ","
+msgstr ""
+
+#: number.go:55
+msgctxt "formautil"
+msgid "."
+msgstr ""

@@ -3,7 +3,7 @@ package driver
 import (
 	"fmt"
 	"gnd.la/config"
-	"gnd.la/util/formatutil"
+	"gnd.la/util/parseutil"
 	"runtime"
 	"sort"
 	"sync"
@@ -189,7 +189,7 @@ func openMemoryDriver(value string, o config.Options) (Driver, error) {
 	mdrv := &MemoryDriver{}
 	if o != nil {
 		if ms, ok := o["max_size"]; ok {
-			maxSize, err := formatutil.ParseSize(ms)
+			maxSize, err := parseutil.Size(ms)
 			if err != nil {
 				return nil, fmt.Errorf("invalid max_size %q", ms)
 			}

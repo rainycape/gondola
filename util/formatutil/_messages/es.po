@@ -1,0 +1,21 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"PO-Revision-Date: 2014-04-05 04:56+0100\n"
+"Last-Translator: manolo <fiam@ubuntu>\n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ASCII\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: number.go:41
+msgctxt "formautil"
+msgid ","
+msgstr "."
+
+#: number.go:55
+msgctxt "formautil"
+msgid "."
+msgstr ","

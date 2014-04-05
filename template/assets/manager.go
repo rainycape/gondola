@@ -63,6 +63,15 @@ func (m *Manager) LoadURL(u *url.URL) (loaders.ReadSeekCloser, time.Time, error)
 	return m.Load(p)
 }
 
+func (m *Manager) Has(name string) bool {
+	f, _, _ := m.Load(name)
+	if f != nil {
+		f.Close()
+		return true
+	}
+	return false
+}
+
 func (m *Manager) Create(name string, overwrite bool) (io.WriteCloser, error) {
 	return m.loader.Create(name, overwrite)
 }

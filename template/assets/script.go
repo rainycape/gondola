@@ -1,11 +1,85 @@
 package assets
 
+import (
+	"fmt"
+	"gnd.la/log"
+	"gnd.la/util/hashutil"
+	"gnd.la/util/urlutil"
+	"io"
+	"net/http"
+	"net/url"
+	"path"
+)
+
 func Script(name string) *Asset {
 	return &Asset{
 		Name:     name,
 		Position: Bottom,
 		Type:     TypeJavascript,
 	}
+}
+
+// Create a local fallback for the given script, downloading it if
+// necessary
+func scriptFallback(m *Manager, script *Asset, fallback string) (*Asset, error) {
+	fallbackName := script.Name
+	if !m.Has(fallbackName) {
+		var scriptURL string
+		if urlutil.IsURL(fallbackName) {
+			scriptURL = fallbackName
+			fallbackName = "asset.gen." + hashutil.Adler32(fallbackName) + "." + path.Base(fallbackName)
+		} else {
+			cdn, _, err := Cdn(fallbackName)
+			if err != nil {
+				return nil, err
+			}
+			scriptURL = cdn
+		}
+		if !m.Has(fallbackName) {
+			u, err := url.Parse(scriptURL)
+			if err != nil {
+				return nil, err
+			}
+			if u.Scheme == "" {
+				u.Scheme = "http"
+			}
+			log.Debugf("fetching local fallback for %s to %s", u, fallbackName)
+			resp, err := http.Get(u.String())
+			if err != nil {
+				return nil, err
+			}
+			defer resp.Body.Close()
+			w, err := m.Loader().Create(fallbackName, true)
+			if err != nil {
+				return nil, err
+			}
+			defer w.Close()
+			if _, err := io.Copy(w, resp.Body); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return &Asset{
+		Name:     fallbackName,
+		Position: Bottom,
+		Type:     TypeOther,
+		HTML:     fmt.Sprintf("<script>%s || document.write('<script src=\"%s\"><\\/script>')</script>", fallback, m.URL(fallbackName)),
+	}, nil
+}
+
+func appendScriptFallback(m *Manager, script *Asset, assets *[]*Asset, fallback string) error {
+	if fallback != "" {
+		if _, ok := script.Attributes["async"]; ok {
+			log.Debugf("skipping fallback for async script %s", script.Name)
+			return nil
+		}
+		fb, err := scriptFallback(m, script, fallback)
+		if err != nil {
+			return err
+		}
+		*assets = append(*assets, fb)
+	}
+	return nil
 }
 
 func scriptParser(m *Manager, names []string, options Options) ([]*Asset, error) {

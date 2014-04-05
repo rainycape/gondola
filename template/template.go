@@ -492,19 +492,20 @@ func (t *Template) prepareAssets() error {
 				}
 			} else if group[0].Options.Cdn() {
 				for _, g := range group {
+					var groupAssets []*assets.Asset
 					for _, a := range g.Assets {
-						cdn, err := assets.Cdn(a.Name)
+						cdnAssets, err := assets.CdnAssets(g.Manager, a)
 						if err != nil {
-							if f, _, _ := g.Manager.Load(a.Name); f != nil {
-								f.Close()
-								log.Errorf("could not find CDN for asset %q: %s - using local copy", a.Name, err)
-							} else {
+							if !g.Manager.Has(a.Name) {
 								return fmt.Errorf("could not find CDN for asset %q: %s", a.Name, err)
 							}
-						} else {
-							a.Name = cdn
+							log.Warningf("could not find CDN for asset %q: %s - using local copy", a.Name, err)
+							groupAssets = append(groupAssets, a)
+							continue
 						}
+						groupAssets = append(groupAssets, cdnAssets...)
 					}
+					g.Assets = groupAssets
 				}
 			}
 		}

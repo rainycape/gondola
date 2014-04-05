@@ -52,3 +52,8 @@ func Join(base string, rel string) (string, error) {
 	}
 	return b.ResolveReference(r).String(), nil
 }
+
+// IsURL returns true iff s looks like a URL.
+func IsURL(s string) bool {
+	return strings.Contains(s, "://") || strings.HasPrefix(s, "//")
+}

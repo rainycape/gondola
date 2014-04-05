@@ -745,6 +745,11 @@ func (t *Template) load(name string, included bool, from string) error {
 	if idx := strings.Index(s, "</body>"); idx >= 0 {
 		s = s[:idx] + fmt.Sprintf("{{ template %q . }}", bottomBoilerplateName) + s[idx:]
 	}
+	// Replace {{ block }} with {{ template }} + {{ define }}
+	s, err = replaceBlocks(name, s)
+	if err != nil {
+		return err
+	}
 	// The $Vars definition must be present at parse
 	// time, because otherwise the parser will throw an
 	// error when it finds a variable which wasn't
@@ -753,11 +758,6 @@ func (t *Template) load(name string, included bool, from string) error {
 	s = templatePrepend + defineRe.ReplaceAllString(s, "$0"+strings.Replace(templatePrepend, "$", "$$", -1))
 	// Replace @variable shorthands
 	s = templateutil.ReplaceVariableShorthands(s, '@', varsKey)
-	// Replace {{ block }} with {{ template }} + {{ define }}
-	s, err = replaceBlocks(name, s)
-	if err != nil {
-		return err
-	}
 	var fns map[string]interface{}
 	if t.funcMap != nil {
 		fns = t.funcMap.asTemplateFuncs()

@@ -19,32 +19,32 @@ import (
 func DefaultFunctions() []*Function {
 	return []*Function{
 		// Singular functions without context
-		{Name: "gnd.la/i18n.T"},
+		{Name: "gnd.la/i18n.T", Start: 1},
 		{Name: "gnd.la/i18n.Errorf"},
-		{Name: "gnd.la/i18n.Sprintf"},
+		{Name: "gnd.la/i18n.Sprintf", Start: 1},
 		{Name: "gnd.la/i18n.NewError"},
-		{Name: "gnd.la/app.Context.T"},
+		{Name: "gnd.la/app.Context.T", Start: 1},
 		{Name: "t", Template: true},
 		// Singular functions with context
-		{Name: "gnd.la/i18n.Tc", Context: true},
-		{Name: "gnd.la/i18n.Sprintfc", Context: true},
+		{Name: "gnd.la/i18n.Tc", Context: true, Start: 1},
+		{Name: "gnd.la/i18n.Sprintfc", Context: true, Start: 1},
 		{Name: "gnd.la/i18n.Errorfc", Context: true},
 		{Name: "gnd.la/i18n.NewErrorc", Context: true},
-		{Name: "gnd.la/app.Context.Tc", Context: true},
+		{Name: "gnd.la/app.Context.Tc", Context: true, Start: 1},
 		{Name: "tc", Template: true, Context: true},
 		// Plural functions without context
-		{Name: "gnd.la/i18n.Tn", Plural: true},
-		{Name: "gnd.la/i18n.Sprintfn", Plural: true},
+		{Name: "gnd.la/i18n.Tn", Plural: true, Start: 1},
+		{Name: "gnd.la/i18n.Sprintfn", Plural: true, Start: 1},
 		{Name: "gnd.la/i18n.Errorfn", Plural: true},
 		{Name: "gnd.la/i18n.NewErrorn", Plural: true},
-		{Name: "gnd.la/app.Context.Tn", Plural: true},
+		{Name: "gnd.la/app.Context.Tn", Plural: true, Start: 1},
 		{Name: "tn", Template: true, Plural: true},
 		// Plural functions with context
-		{Name: "gnd.la/i18n.Tnc", Context: true, Plural: true},
+		{Name: "gnd.la/i18n.Tnc", Context: true, Plural: true, Start: 1},
 		{Name: "gnd.la/i18n.Errorfnc", Context: true, Plural: true},
-		{Name: "gnd.la/i18n.Sprintfnc", Context: true, Plural: true},
+		{Name: "gnd.la/i18n.Sprintfnc", Context: true, Plural: true, Start: 1},
 		{Name: "gnd.la/i18n.NewErrornc", Context: true, Plural: true},
-		{Name: "gnd.la/app.Context.Tnc", Context: true, Plural: true},
+		{Name: "gnd.la/app.Context.Tnc", Context: true, Plural: true, Start: 1},
 		{Name: "tnc", Template: true, Context: true, Plural: true},
 	}
 }
@@ -162,7 +162,7 @@ func extractGoFunc(messages messageMap, fset *token.FileSet, f *ast.File, fn *Fu
 	if err != nil {
 		return err
 	}
-	n := 0
+	n := fn.Start
 	if fn.Context {
 		n++
 	}
@@ -206,7 +206,7 @@ func extractGoFunc(messages messageMap, fset *token.FileSet, f *ast.File, fn *Fu
 		}
 		if message != nil && position != nil {
 			if fn.Context {
-				ctx, cpos := astutil.StringLiteral(fset, c.Args[0])
+				ctx, cpos := astutil.StringLiteral(fset, c.Args[fn.Start])
 				if ctx == "" || cpos == nil {
 					log.Debugf("Skipping argument to context function %s (%v) - empty context", astutil.Ident(c.Fun), fset.Position(c.Pos()))
 					continue

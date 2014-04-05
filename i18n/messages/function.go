@@ -9,4 +9,6 @@ type Function struct {
 	Context bool
 	// Wheter the function has a plural form argument
 	Plural bool
+	// Position of the first translatable argument (0 indexed)
+	Start int
 }

@@ -21,16 +21,16 @@ func (c *Context) TranslationTable() *table.Table {
 }
 
 func (c *Context) T(str string) string {
-	return i18n.T(str, c)
+	return i18n.T(c, str)
 }
 func (c *Context) Tn(singular string, plural string, n int) string {
-	return i18n.Tn(singular, plural, n, c)
+	return i18n.Tn(c, singular, plural, n)
 }
 
 func (c *Context) Tc(context string, str string) string {
-	return i18n.Tc(context, str, c)
+	return i18n.Tc(c, context, str)
 }
 
 func (c *Context) Tnc(context string, singular string, plural string, n int) string {
-	return i18n.Tnc(context, singular, plural, n, c)
+	return i18n.Tnc(c, context, singular, plural, n)
 }

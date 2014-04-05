@@ -37,9 +37,9 @@ type translatableError struct {
 
 func (e *translatableError) sprintf(languager Languager) string {
 	if e.PluralFormat != "" {
-		return Sprintfnc(e.Context, e.Format, e.PluralFormat, e.N, languager, e.Args...)
+		return Sprintfnc(languager, e.Context, e.Format, e.PluralFormat, e.N, e.Args...)
 	}
-	return Sprintfc(e.Context, e.Format, languager, e.Args...)
+	return Sprintfc(languager, e.Context, e.Format, e.Args...)
 }
 
 func (e *translatableError) Error() string {

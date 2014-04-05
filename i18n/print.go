@@ -23,23 +23,23 @@ func placeholders(s string) (int, bool) {
 	return p, reordered
 }
 
-func Sprintf(format string, lang Languager, args ...interface{}) string {
-	format = T(format, lang)
+func Sprintf(lang Languager, format string, args ...interface{}) string {
+	format = T(lang, format)
 	return sprintf(lang, format, args)
 }
 
-func Sprintfc(ctx string, format string, lang Languager, args ...interface{}) string {
-	format = Tc(ctx, format, lang)
+func Sprintfc(lang Languager, ctx string, format string, args ...interface{}) string {
+	format = Tc(lang, ctx, format)
 	return sprintf(lang, format, args)
 }
 
-func Sprintfn(singular string, plural string, n int, lang Languager, args ...interface{}) string {
-	format := Tn(singular, plural, n, lang)
+func Sprintfn(lang Languager, singular string, plural string, n int, args ...interface{}) string {
+	format := Tn(lang, singular, plural, n)
 	return sprintf(lang, format, args)
 }
 
-func Sprintfnc(ctx string, singular string, plural string, n int, lang Languager, args ...interface{}) string {
-	format := Tnc(ctx, singular, plural, n, lang)
+func Sprintfnc(lang Languager, ctx string, singular string, plural string, n int, args ...interface{}) string {
+	format := Tnc(lang, ctx, singular, plural, n)
 	return sprintf(lang, format, args)
 }
 

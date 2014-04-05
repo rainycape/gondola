@@ -28,10 +28,10 @@ func (s String) TranslatedString(lang Languager) string {
 	}
 	fields, _ := stringutil.SplitFields(string(s), "|")
 	if len(fields) > 1 {
-		return Tc(fields[0], fields[1], lang)
+		return Tc(lang, fields[0], fields[1])
 	}
 	if len(fields) > 0 {
-		return T(fields[0], lang)
+		return T(lang, fields[0])
 	}
-	return T(string(s), lang)
+	return T(lang, string(s))
 }

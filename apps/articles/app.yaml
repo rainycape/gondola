@@ -1,0 +1,10 @@
+name: Articles
+handlers:
+    ArticleListHandler: ^/$
+    ArticleHandler: ^/(.+)/$
+vars:
+    ArticleHandlerName: Article
+    ArticleListHandlerName: List
+
+templates:
+    path: tmpl

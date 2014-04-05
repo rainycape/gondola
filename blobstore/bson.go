@@ -1,7 +1,7 @@
 package blobstore
 
 import (
-	"labix.org/v2/mgo/bson"
+	"gnd.la/internal/bson"
 )
 
 func marshal(in interface{}) ([]byte, error) {

@@ -12,5 +12,5 @@
 //
 // File metadata must be a struct and is serialized using BSON. For more
 // information about the BSON format and struct tags that you might use to
-// control the serialization, see labix.org/v2/mgo/bson.
+// control the serialization, see gnd.la/internal/bson.
 package blobstore

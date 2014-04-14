@@ -7,13 +7,18 @@ import (
 )
 
 var (
-	inTest bool
+	inTest      bool
+	inAppEngine bool
 )
 
 // InTest returns true iff called when running
 // from go test.
 func InTest() bool {
 	return inTest
+}
+
+func InAppEngine() bool {
+	return inAppEngine
 }
 
 func init() {

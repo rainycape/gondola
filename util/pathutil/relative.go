@@ -27,7 +27,7 @@ var (
 func Relative(name string) string {
 	var full string
 	rel := filepath.FromSlash(name)
-	if internal.InTest() {
+	if internal.InTest() || internal.InAppEngine() {
 		cwd, _ := os.Getwd()
 		full = filepath.Join(cwd, rel)
 	} else {

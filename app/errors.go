@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/http"
 	"reflect"
-	"syscall"
 )
 
 // Error represents an error which, besides a message,
@@ -87,7 +86,7 @@ func isIgnorable(err interface{}) bool {
 		if ne, ok := e.(*net.OpError); ok {
 			e = ne.Err
 		}
-		if e == syscall.EPIPE {
+		if e == ePIPE {
 			// Client closed the connection
 			return true
 		}

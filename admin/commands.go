@@ -1,11 +1,13 @@
 package admin
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
 	"gnd.la/app"
+	"gnd.la/loaders"
 	"gnd.la/log"
 )
 
@@ -49,6 +51,28 @@ func makeAssets(ctx *app.Context) {
 	}
 }
 
+func printResources(ctx *app.Context) {
+	var assets string
+	var templates string
+	if mgr := ctx.App().AssetsManager(); mgr != nil {
+		if ldr, ok := mgr.Loader().(loaders.DirLoader); ok {
+			assets = ldr.Dir()
+		}
+	}
+	if ldr, ok := ctx.App().TemplatesLoader().(loaders.DirLoader); ok {
+		templates = ldr.Dir()
+	}
+	resources := map[string]string{
+		"assets":    assets,
+		"templates": templates,
+	}
+	data, err := json.Marshal(resources)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(data))
+}
+
 func init() {
 	Register(catFile, &Options{
 		Help:  "Prints a file from the blobstore to the stdout",
@@ -57,4 +81,5 @@ func init() {
 	Register(makeAssets, &Options{
 		Help: "Pre-compile and bundle all app assets",
 	})
+	Register(printResources, &Options{Name: "_print-resources"})
 }

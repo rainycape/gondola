@@ -274,6 +274,10 @@ func commandsHelp(w io.Writer) {
 	var cmds []string
 	maxLen := 0
 	for k, _ := range commands {
+		if k[0] == '_' {
+			// Hidden command
+			continue
+		}
 		if l := len(k); l > maxLen {
 			maxLen = l
 		}

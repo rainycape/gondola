@@ -53,6 +53,16 @@ func Join(base string, rel string) (string, error) {
 	return b.ResolveReference(r).String(), nil
 }
 
+// MustJoin works like Join, but panics if there's
+// an error.
+func MustJoin(base string, rel string) string {
+	u, err := Join(base, rel)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
 // IsURL returns true iff s looks like a URL.
 func IsURL(s string) bool {
 	return strings.Contains(s, "://") || strings.HasPrefix(s, "//")

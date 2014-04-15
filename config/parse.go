@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"gnd.la/form/input"
+	"gnd.la/internal"
 	"gnd.la/log"
 	"gnd.la/signal"
 	"gnd.la/util/pathutil"
@@ -462,4 +463,10 @@ func Set(config interface{}) {
 	debug = debug && BoolValue(config, "AppDebug", false)
 	setMailConfig(config, debug)
 	signal.Emit(SET, config)
+}
+
+func init() {
+	if internal.InAppEngineDevServer() {
+		defaultFilename = pathutil.Relative("dev.conf")
+	}
 }

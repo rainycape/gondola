@@ -24,15 +24,12 @@ type Template struct {
 	dir         string
 }
 
-func (t *Template) Data() ([]byte, error) {
-	var buf bytes.Buffer
-	zw, _ := gzip.NewWriterLevel(&buf, gzip.BestCompression)
-	tw := tar.NewWriter(zw)
-	err := filepath.Walk(t.dir, func(path string, info os.FileInfo, err error) error {
+func (t *Template) addFiles(tw *tar.Writer, dir string) error {
+	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		name := strings.TrimPrefix(path, t.dir)
+		name := strings.TrimPrefix(path, dir)
 		if name != "" {
 			if name[0] == filepath.Separator {
 				name = name[1:]
@@ -63,8 +60,28 @@ func (t *Template) Data() ([]byte, error) {
 		}
 		return nil
 	})
-	if err != nil {
+}
+
+func (t *Template) addFilesFromSibling(tw *tar.Writer, name string) error {
+	return t.addFiles(tw, filepath.Join(filepath.Dir(t.dir), name))
+}
+
+func (t *Template) Data(gae bool) ([]byte, error) {
+	var buf bytes.Buffer
+	zw, _ := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	tw := tar.NewWriter(zw)
+	if err := t.addFiles(tw, t.dir); err != nil {
 		return nil, err
+	}
+	if gae {
+		if err := t.addFilesFromSibling(tw, "_appengine"); err != nil {
+			return nil, err
+		}
+	}
+	if filepath.Base(t.dir) != "blank" {
+		if err := t.addFilesFromSibling(tw, "_common"); err != nil {
+			return nil, err
+		}
 	}
 	if err := tw.Close(); err != nil {
 		return nil, err
@@ -86,6 +103,9 @@ func LoadTemplates(dir string) ([]*Template, error) {
 	}
 	var templates []*Template
 	for _, v := range files {
+		if s := v.Name()[0]; s == '.' || s == '_' {
+			continue
+		}
 		tmplDir := filepath.Join(dir, v.Name())
 		var tmpl Template
 		meta := filepath.Join(tmplDir, metaFile)

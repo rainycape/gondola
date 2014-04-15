@@ -47,10 +47,13 @@ func getAvailableTemplates() ([]*project.Template, error) {
 	return templates, nil
 }
 
-func getTemplateReader(url string) (*tar.Reader, error) {
+func getTemplateReader(url string, gae bool) (*tar.Reader, error) {
 	ep, err := urlutil.Join(serverUrl, url)
 	if err != nil {
 		return nil, err
+	}
+	if gae {
+		ep += "?gae=1"
 	}
 	resp, err := http.Get(ep)
 	if err != nil {
@@ -84,8 +87,10 @@ func NewCmd(ctx *app.Context) {
 	}
 	var list bool
 	var ptemplate string
+	var gae bool
 	ctx.ParseParamValue("list", &list)
 	ctx.ParseParamValue("template", &ptemplate)
+	ctx.ParseParamValue("gae", &gae)
 	if list {
 		w := tabwriter.NewWriter(os.Stdout, 8, 4, 2, ' ', 0)
 		for _, v := range tmpls {
@@ -107,7 +112,7 @@ func NewCmd(ctx *app.Context) {
 			if err := os.MkdirAll(name, 0755); err != nil {
 				panic(err)
 			}
-			r, err := getTemplateReader(v.URL)
+			r, err := getTemplateReader(v.URL, gae)
 			if err != nil {
 				panic(err)
 			}
@@ -170,8 +175,9 @@ func init() {
 		Help:  "Create a new Gondola project",
 		Usage: "<dir_name>",
 		Flags: admin.Flags(
-			admin.StringFlag("template", "basic", "Project template to use"),
+			admin.StringFlag("template", "hello", "Project template to use"),
 			admin.BoolFlag("list", false, "List available project templates"),
+			admin.BoolFlag("gae", false, "Create an App Engine hybrid project"),
 		),
 	})
 }

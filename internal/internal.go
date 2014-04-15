@@ -21,6 +21,10 @@ func InAppEngine() bool {
 	return inAppEngine
 }
 
+func InAppEngineDevServer() bool {
+	return os.Getenv("RUN_WITH_DEVAPPSERVER") != ""
+}
+
 func init() {
 	inTest = strings.Contains(os.Args[0], string(filepath.Separator)+"_test"+string(filepath.Separator))
 }

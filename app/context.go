@@ -271,6 +271,14 @@ func (c *Context) App() *App {
 	return c.app
 }
 
+// Request returns the *http.Request associated with this
+// context. Note that users should access the Context.R
+// field directly, rather than using this method (it solely
+// exists for App Engine compatibility).
+func (c *Context) Request() *http.Request {
+	return c.R
+}
+
 // MustReverse calls MustReverse on the App this context originated
 // from. See App.Reverse for details.
 func (c *Context) MustReverse(name string, args ...interface{}) string {

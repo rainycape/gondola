@@ -63,6 +63,16 @@ func Register(f app.Handler, o *Options) error {
 	return nil
 }
 
+// Remove eliminates a previously registered command.
+func Remove(name string) {
+	for k := range commands {
+		if k == name {
+			delete(commands, k)
+			break
+		}
+	}
+}
+
 // MustRegister works like Register, but panics
 // if there's an error
 func MustRegister(f app.Handler, o *Options) {

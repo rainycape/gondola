@@ -6,9 +6,7 @@ import (
 	"os"
 
 	"gnd.la/app"
-	"gnd.la/loaders"
 	"gnd.la/log"
-	"gnd.la/template/assets"
 )
 
 // Builtin admin commands implemented here
@@ -39,13 +37,7 @@ func catFile(ctx *app.Context) {
 func makeAssets(ctx *app.Context) {
 	a := ctx.App()
 	a.TemplateDebug = false
-	var tmplDir string
-	var assetsDir string
-	ctx.ParseParamValue("assets", &assetsDir)
-	ctx.ParseParamValue("templates", &tmplDir)
-	a.SetTemplatesLoader(loaders.FSLoader(tmplDir))
 	loader := a.TemplatesLoader()
-	a.SetAssetsManager(assets.NewManager(loaders.FSLoader(assetsDir), ""))
 	if names, err := loader.List(); err == nil {
 		for _, name := range names {
 			if _, err := a.LoadTemplate(name); err != nil {
@@ -64,9 +56,5 @@ func init() {
 	})
 	Register(makeAssets, &Options{
 		Help: "Pre-compile and bundle all app assets",
-		Flags: Flags(
-			StringFlag("assets", "assets", "Assets directory"),
-			StringFlag("templates", "tmpl", "Templates directory"),
-		),
 	})
 }

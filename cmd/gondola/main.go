@@ -14,6 +14,8 @@ func main() {
 		log.SetLevel(log.LDebug)
 	}
 	a := app.New()
+	admin.Remove("cat-file")
+	admin.Remove("make-assets")
 	if !admin.Perform(a) {
 		flag.Usage()
 	}

@@ -1,3 +1,5 @@
+// +build !appengine
+
 #include <runtime.h>
 
 void ·goroutineId(int32 ret) {

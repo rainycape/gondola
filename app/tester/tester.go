@@ -16,6 +16,11 @@
 // Will run your tests against the server at example.com, rather than
 // using the compiled code. This is pretty useful to make sure your
 // tests pass on production after deploying your application.
+//
+// App Engine apps with a correctly set up app.yaml might also use the -R
+// flag to automatically test against http://<your-app-id>.appspot.com.
+//
+//  goapp test -v -R
 package tester
 
 import (
@@ -40,6 +45,7 @@ import (
 
 var (
 	remoteHost *string
+	gaeRemote  *bool
 )
 
 // Reporter is the interface used to log and
@@ -463,6 +469,10 @@ func New(r Reporter, a *app.App) *Tester {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
+	if *gaeRemote && *remoteHost == "" {
+		h := internal.AppEngineAppHost()
+		remoteHost = &h
+	}
 	if err := a.Prepare(); err != nil {
 		r.Fatal(fmt.Errorf("error preparing app: %s", err))
 	}
@@ -548,5 +558,8 @@ func encode(params map[string]interface{}) string {
 func init() {
 	if internal.InTest() {
 		remoteHost = flag.String("H", "", "Host to run the test against")
+		if h := internal.AppEngineAppHost(); h != "" {
+			gaeRemote = flag.Bool("R", false, fmt.Sprintf("Run tests against %s", h))
+		}
 	}
 }

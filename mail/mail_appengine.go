@@ -24,51 +24,50 @@ var (
 	}
 )
 
-func sendMail(to []string, msg *Message) error {
+func prepareAddrs(addrs []string, toAdmins *bool) []string {
+	var ret []string
+	for _, v := range addrs {
+		if v == Admin {
+			*toAdmins = true
+			continue
+		}
+		ret = append(ret, v)
+	}
+	return ret
+}
+
+func sendMail(to []string, cc []string, bcc []string, msg *Message) error {
 	c, ok := msg.Context.(appengine.Context)
 	if !ok {
 		return errNoContext
 	}
-	body, err := messageBody(msg)
-	if err != nil {
-		return err
-	}
+	var toAdmins bool
 	gaeMsg := &mail.Message{
-		Sender:  msg.From,
-		ReplyTo: msg.Headers["Reply-To"],
-		To:      to,
-		Subject: msg.Subject,
-		Headers: make(nmail.Header),
-	}
-	if cc := msg.Headers["Cc"]; cc != "" {
-		addrs, err := ParseAddressList(cc)
-		if err != nil {
-			return err
-		}
-		gaeMsg.Cc = addrs
-	}
-	if bcc := msg.Headers["Bcc"]; bcc != "" {
-		addrs, err := ParseAddressList(bcc)
-		if err != nil {
-			return err
-		}
-		gaeMsg.Bcc = addrs
-	}
-	if msg.HTML {
-		gaeMsg.HTMLBody = body
-	} else {
-		gaeMsg.Body = body
+		Sender:   msg.From,
+		ReplyTo:  msg.ReplyTo,
+		To:       prepareAddrs(to, &toAdmins),
+		Cc:       prepareAddrs(cc, &toAdmins),
+		Bcc:      prepareAddrs(bcc, &toAdmins),
+		Subject:  msg.Subject,
+		Body:     msg.TextBody,
+		HTMLBody: msg.HTMLBody,
+		Headers:  make(nmail.Header),
 	}
 	for _, v := range msg.Attachments {
 		gaeMsg.Attachments = append(gaeMsg.Attachments, mail.Attachment{
 			Name:      v.name,
 			Data:      v.data,
-			ContentID: v.contentType,
+			ContentID: v.ContentID,
 		})
 	}
 	for _, v := range allowedHeaders {
 		if value := msg.Headers[v]; value != "" {
 			gaeMsg.Headers[v] = append(gaeMsg.Headers[v], value)
+		}
+	}
+	if toAdmins {
+		if err := mail.SendToAdmins(c, gaeMsg); err != nil {
+			return nil
 		}
 	}
 	return mail.Send(c, gaeMsg)

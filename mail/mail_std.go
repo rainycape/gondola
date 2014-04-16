@@ -5,6 +5,7 @@ package mail
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/smtp"
 	"strings"
@@ -12,7 +13,31 @@ import (
 	"gnd.la/util/stringutil"
 )
 
-func sendMail(to []string, msg *Message) error {
+var (
+	errNoAdminEmail = errors.New("mail.Admin specified as a mail destinary, but no mail.AdminEmail() has been set")
+)
+
+func joinAddrs(addrs []string) (string, error) {
+	var values []string
+	for _, v := range addrs {
+		if v == Admin {
+			addr := AdminEmail()
+			if addr == "" {
+				return "", errNoAdminEmail
+			}
+			addrs, err := ParseAddressList(addr)
+			if err != nil {
+				return "", fmt.Errorf("invalid admin address %q: %s", addr, err)
+			}
+			values = append(values, addrs...)
+			continue
+		}
+		values = append(values, v)
+	}
+	return strings.Join(values, ", "), nil
+}
+
+func sendMail(to []string, cc []string, bcc []string, msg *Message) error {
 	from := defaultFrom
 	server := defaultServer
 	if msg.Server != "" {
@@ -42,20 +67,50 @@ func sendMail(to []string, msg *Message) error {
 		headers["Subject"] = msg.Subject
 	}
 	headers["From"] = from
+	if msg.ReplyTo != "" {
+		headers["Reply-To"] = msg.ReplyTo
+	}
+	var err error
+	if len(to) > 0 {
+		headers["To"], err = joinAddrs(to)
+		if err != nil {
+			return err
+		}
+	}
+	if len(cc) > 0 {
+		headers["Cc"], err = joinAddrs(cc)
+		if err != nil {
+			return err
+		}
+	}
+	if len(bcc) > 0 {
+		headers["Bcc"], err = joinAddrs(bcc)
+		if err != nil {
+			return err
+		}
+	}
 	for k, v := range headers {
 		buf.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
 	}
-	body, err := messageBody(msg)
-	if err != nil {
-		return err
-	}
-	if len(msg.Attachments) > 0 {
+	if len(msg.Attachments) == 0 && msg.HTMLBody == "" {
+		buf.Write([]byte{'\r', '\n'})
+		buf.WriteString(msg.TextBody)
+	} else {
 		boundary := "Gondola-Boundary-" + stringutil.Random(16)
 		buf.WriteString("MIME-Version: 1.0\r\n")
 		buf.WriteString("Content-Type: multipart/mixed; boundary=" + boundary + "\r\n")
 		buf.WriteString("--" + boundary + "\n")
-		buf.WriteString("Content-Type: text/plain; charset=utf-8\r\n")
-		buf.WriteString(body)
+		if msg.TextBody != "" {
+			buf.WriteString("Content-Type: text/plain; charset=utf-8\r\n")
+			buf.WriteString(msg.TextBody)
+		}
+		if msg.HTMLBody != "" {
+			if msg.TextBody != "" {
+				buf.WriteString("\r\n\r\n--" + boundary + "\r\n")
+			}
+			buf.WriteString("Content-Type: text/html; charset=utf-8\r\n")
+			buf.WriteString(msg.HTMLBody)
+		}
 		for _, v := range msg.Attachments {
 			buf.WriteString("\r\n\r\n--" + boundary + "\r\n")
 			buf.WriteString(fmt.Sprintf("Content-Type: %s\r\n", v.contentType))
@@ -68,12 +123,9 @@ func sendMail(to []string, msg *Message) error {
 			buf.WriteString("\r\n--" + boundary)
 		}
 		buf.WriteString("--")
-	} else {
-		buf.Write([]byte{'\r', '\n'})
-		buf.WriteString(body)
 	}
 	if server == "echo" {
-		printer("To: %s\n\n%s\n", strings.Join(to, ", "), buf.String())
+		printer(buf.String())
 		return nil
 	}
 	return smtp.SendMail(server, auth, from, to, buf.Bytes())

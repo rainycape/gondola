@@ -3,7 +3,6 @@
 package mail
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -13,12 +12,20 @@ import (
 	"gnd.la/util/generic"
 )
 
+const (
+	// Emails sent to the Admin pseudo-address will be sent to the
+	// administrator (on non-GAE, this means sending it to AdminEmail()).
+	Admin = "admin"
+)
+
 var (
-	defaultServer = "localhost:25"
-	defaultFrom   = ""
-	admin         = ""
-	errNoMessage  = errors.New("no message specified")
-	errNoFrom     = errors.New("missing From: address")
+	defaultServer      = "localhost:25"
+	defaultFrom        = ""
+	admin              = ""
+	errNoMessage       = errors.New("no message specified")
+	errNoDestinataries = errors.New("no destinataries specified")
+	errNoBody          = errors.New("no message body")
+	errNoFrom          = errors.New("missing From: address")
 	// Changed for tests
 	printer = fmt.Printf
 )
@@ -50,7 +57,7 @@ func MustParseAddressList(s string) []string {
 }
 
 // Headers represent additional headers to be added to
-// the email like e.g. Reply-To.
+// the email.
 type Headers map[string]string
 
 // Attachment represents an email attachment. Attachments are encoded
@@ -60,6 +67,7 @@ type Attachment struct {
 	name        string
 	contentType string
 	data        []byte
+	ContentID   string
 }
 
 // NewAttachment returns a new attachment which can be included in the
@@ -77,19 +85,12 @@ func NewAttachment(name string, contentType string, r io.Reader) (*Attachment, e
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	return &Attachment{name, contentType, data}, nil
+	return &Attachment{name: name, contentType: contentType, data: data}, nil
 }
 
-// Template is the interface used to send a template as an email.
-// There are several types implementing this interface, like
-// text/template.Template and html/template.Template.
-type Template interface {
-	// Execute executes the template with the given data, writing
-	// its result to w and returning any potential errors.
-	Execute(w io.Writer, data interface{}) error
-}
-
-// Message describes an email to be sent.
+// Message describes an email to be sent. The fields that are mapped
+// to headers (e.g From, Subject, To, etc...) overwrite any headers set
+// in the Headers field when they're non-empty.
 type Message struct {
 	// Server to send the email. If empty, the value returned from
 	// DefaultServer() is used. See DefaultServer() documentation
@@ -99,25 +100,25 @@ type Message struct {
 	// Note that this (or DefaultFrom()) always overwrites any From header
 	// set using the Headers field.
 	From string
+	// ReplyTo address.
+	ReplyTo string
+	// Destinataries fields. These might be either a string or a []string. In the
+	// former case, the value is parsed using ParseAddressList.
+	// At least of them must be non-empty.
+	To, Cc, Bcc interface{}
 	// Subject of the email. If non-empty, overwrites any Subject header
 	// set using the Headers field.
 	Subject string
+	// TextBody is the message body to be sent as text/plain. Either this
+	// or HTMLBody must be non-empty
+	TextBody string
+	// HTMLBody is the message body to be sent as text/html. Either this
+	// or TextBody must be non-empty
+	HTMLBody string
 	// Additional email Headers. Might be nil.
 	Headers Headers
 	// Attachments to add to the email. See Attachment and NewAttachment.
 	Attachments []*Attachment
-	// Body indicates the message body. It might be one of the following:
-	//
-	//  - string
-	//  - []byte
-	//  - io.Reader
-	//  - Template
-	Body interface{}
-	// Data is only used when Body is a Template. When executing the Template,
-	// this is passed as its data argument.
-	Data interface{}
-	// HTML indicates if the message body is HTML.
-	HTML bool
 	// Context is used interally by Gondola and should not be altered by users.
 	Context interface{}
 }
@@ -126,11 +127,29 @@ type Message struct {
 // if Message is nil, an error is returned. See the Options documentation for
 // further information.
 // This function does not work on App Engine. Use gnd.la/app.Context.SendMail.
-func Send(to []string, msg *Message) error {
+func Send(msg *Message) error {
 	if msg == nil {
 		return errNoMessage
 	}
-	return sendMail(to, msg)
+	if msg.TextBody == "" && msg.HTMLBody == "" {
+		return errNoBody
+	}
+	to, err := parseDestinataries(msg.To, "To")
+	if err != nil {
+		return err
+	}
+	cc, err := parseDestinataries(msg.Cc, "Cc")
+	if err != nil {
+		return err
+	}
+	bcc, err := parseDestinataries(msg.Bcc, "Bcc")
+	if err != nil {
+		return err
+	}
+	if len(to) == 0 && len(cc) == 0 && len(bcc) == 0 {
+		return errNoDestinataries
+	}
+	return sendMail(to, cc, bcc, msg)
 }
 
 // DefaultServer returns the default mail server address.
@@ -185,29 +204,24 @@ func SetAdminEmail(email string) {
 	admin = email
 }
 
-func messageBody(msg *Message) (string, error) {
-	var body string
-	switch x := msg.Body.(type) {
-	case Template:
-		var b bytes.Buffer
-		err := x.Execute(&b, msg.Data)
-		if err != nil {
-			return "", fmt.Errorf("error executing message template: %s", err)
-		}
-		body = b.String()
+func parseDestinataries(value interface{}, name string) ([]string, error) {
+	var addrs []string
+	var err error
+	switch x := value.(type) {
+	case []string:
+		addrs = x
 	case string:
-		body = x
-	case []byte:
-		body = string(x)
-	case io.Reader:
-		data, err := ioutil.ReadAll(x)
-		if err != nil {
-			return "", fmt.Errorf("error reading message body: %s", err)
+		if x == Admin {
+			addrs = []string{x}
+			break
 		}
-		body = string(data)
+		addrs, err = ParseAddressList(x)
+		if err != nil {
+			err = fmt.Errorf("invalid %s field: %s", name, err)
+		}
 	case nil:
 	default:
-		return "", fmt.Errorf("invalid body type %T", msg.Body)
+		err = fmt.Errorf("invalid %s field type %T", name, value)
 	}
-	return body, nil
+	return addrs, err
 }

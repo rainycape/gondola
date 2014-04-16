@@ -67,8 +67,7 @@ func TestValidation(t *testing.T) {
 }
 
 type EmailTest struct {
-	To      []string
-	Options *Options
+	Message *Message
 	Expect  string
 }
 
@@ -84,36 +83,17 @@ func makeAttachments(b []byte) []*Attachment {
 var (
 	emailTests = []EmailTest{
 		{
-			Options: &Options{
-				Message: "foo",
+			Message: &Message{
+				TextBody: "foo",
 			},
-			Expect: "To: go@example.com\n\nFrom: go@example.com\r\n\r\nfoo\n",
+			Expect: "From: sender@example.com\r\nTo: receiver@example.com\r\n\r\nfoo",
 		},
 		{
-			Options: &Options{
-				Message: []byte("foo"),
-			},
-			Expect: "To: go@example.com\n\nFrom: go@example.com\r\n\r\nfoo\n",
-		},
-		{
-			Options: &Options{
-				Message: bytes.NewReader([]byte("foo")),
-			},
-			Expect: "To: go@example.com\n\nFrom: go@example.com\r\n\r\nfoo\n",
-		},
-		{
-			Options: &Options{
-				Message: tmpl,
-				Data:    map[string]string{"foo": "bar"},
-			},
-			Expect: "To: go@example.com\n\nFrom: go@example.com\r\n\r\nbar\n",
-		},
-		{
-			Options: &Options{
-				Message:     "foo",
+			Message: &Message{
+				TextBody:    "foo",
 				Attachments: makeAttachments([]byte("bar")),
 			},
-			Expect: "To: go@example.com\n\nFrom: go@example.com\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=Gondola-Boundary-A\r\n--Gondola-Boundary-A\nContent-Type: text/plain; charset=utf-8\r\nfoo\r\n\r\n--Gondola-Boundary-A\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=\"file\"\r\n\r\nYmFy\r\n--Gondola-Boundary-A--\n",
+			Expect: "From: sender@example.com\r\nTo: receiver@example.com\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=Gondola-Boundary-A\r\n--Gondola-Boundary-A\nContent-Type: text/plain; charset=utf-8\r\nfoo\r\n\r\n--Gondola-Boundary-A\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=\"file\"\r\n\r\nYmFy\r\n--Gondola-Boundary-A--",
 		},
 	}
 )
@@ -133,21 +113,21 @@ func TestSendEmail(t *testing.T) {
 		return len(res), nil
 	}
 	for _, v := range emailTests {
-		if v.To == nil {
-			v.To = []string{"go@example.com"}
+		if v.Message.To == nil {
+			v.Message.To = []string{"receiver@example.com"}
 		}
-		if v.Options.From == "" {
-			v.Options.From = "go@example.com"
+		if v.Message.From == "" {
+			v.Message.From = "sender@example.com"
 		}
-		v.Options.Server = "echo"
-		if err := Send(v.To, v.Options); err != nil {
+		v.Message.Server = "echo"
+		if err := Send(v.Message); err != nil {
 			t.Error(err)
 			continue
 		}
 		// boundary is random, so we need to change it
 		res = replaceBoundary(res)
 		if res != v.Expect {
-			t.Errorf("options %v expecting email %q, got %q instead", v, v.Expect, res)
+			t.Errorf("message %v expecting email %q, got %q instead", v, v.Expect, res)
 		}
 	}
 }

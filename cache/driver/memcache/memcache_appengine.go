@@ -1,26 +1,28 @@
-// +build !appengine
+// +build appengine
 
 package memcache
 
 import (
-	"github.com/rainycape/gomemcache/memcache"
+	"time"
+
+	"appengine"
+	"appengine/memcache"
+
 	"gnd.la/cache/driver"
 	"gnd.la/config"
-	"strings"
-	"time"
 )
 
 type memcacheDriver struct {
-	*memcache.Client
+	c appengine.Context
 }
 
 func (c *memcacheDriver) Set(key string, b []byte, timeout int) error {
-	item := memcache.Item{Key: key, Value: b, Expiration: int32(timeout)}
-	return c.Client.Set(&item)
+	item := &memcache.Item{Key: key, Value: b, Expiration: time.Duration(timeout) * time.Second}
+	return memcache.Add(c.c, item)
 }
 
 func (c *memcacheDriver) Get(key string) ([]byte, error) {
-	item, err := c.Client.Get(key)
+	item, err := memcache.Get(c.c, key)
 	if err != nil && err != memcache.ErrCacheMiss {
 		return nil, err
 	}
@@ -31,7 +33,7 @@ func (c *memcacheDriver) Get(key string) ([]byte, error) {
 }
 
 func (c *memcacheDriver) GetMulti(keys []string) (map[string][]byte, error) {
-	results, err := c.Client.GetMulti(keys)
+	results, err := memcache.GetMulti(c.c, keys)
 	if err != nil && err != memcache.ErrCacheMiss {
 		return nil, err
 	}
@@ -43,7 +45,7 @@ func (c *memcacheDriver) GetMulti(keys []string) (map[string][]byte, error) {
 }
 
 func (c *memcacheDriver) Delete(key string) error {
-	err := c.Client.Delete(key)
+	err := memcache.Delete(c.c, key)
 	if err != nil && err != memcache.ErrCacheMiss {
 		return err
 	}
@@ -51,23 +53,19 @@ func (c *memcacheDriver) Delete(key string) error {
 }
 
 func (c *memcacheDriver) Connection() interface{} {
-	return c.Client
+	return c
+}
+
+func (c *memcacheDriver) SetContext(ctx appengine.Context) {
+	c.c = ctx
+}
+
+func (c *memcacheDriver) Close() error {
+	return nil
 }
 
 func memcacheOpener(value string, o config.Options) (driver.Driver, error) {
-	hosts := strings.Split(value, ",")
-	conns := make([]string, len(hosts))
-	for ii, v := range hosts {
-		conns[ii] = driver.DefaultPort(v, 11211)
-	}
-	client := memcache.New(conns...)
-	if tm, ok := o.Int("timeout"); ok {
-		client.SetTimeout(time.Millisecond * time.Duration(tm))
-	}
-	if maxIdle, ok := o.Int("max_idle"); ok {
-		client.SetMaxIdleConnsPerAddr(maxIdle)
-	}
-	return &memcacheDriver{Client: client}, nil
+	return &memcacheDriver{}, nil
 }
 
 func init() {

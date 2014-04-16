@@ -369,12 +369,7 @@ func (c *Context) Cookies() *cookies.Cookies {
 // Cache is a shorthand for ctx.App().Cache(), but panics in case
 // of error, instead of returning it.
 func (c *Context) Cache() *Cache {
-	if c.app.c == nil {
-		if _, err := c.app.Cache(); err != nil {
-			panic(err)
-		}
-	}
-	return c.app.c
+	return c.cache()
 }
 
 // Blobstore is a shorthand for ctx.App().Blobstore(), but panics in

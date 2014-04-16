@@ -11,7 +11,6 @@ import (
 	"gnd.la/app/cookies"
 	"gnd.la/app/profile"
 	"gnd.la/blobstore"
-	"gnd.la/cache"
 	"gnd.la/encoding/codec"
 	"gnd.la/internal/runtimeutil"
 	"gnd.la/internal/templateutil"
@@ -830,27 +829,10 @@ func (app *App) MustListenAndServe() {
 // DefaultCache(). Use gnd.la/config to change the default
 // cache. The cache.Cache is initialized only once and shared
 // among all requests and tasks served from this app.
+// On App Engine, this method always returns an error. Use
+// Context.Cache instead.
 func (app *App) Cache() (*Cache, error) {
-	if app.c == nil {
-		app.mu.Lock()
-		defer app.mu.Unlock()
-		if app.c == nil {
-			if app.parent != nil {
-				var err error
-				app.c, err = app.parent.Cache()
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				c, err := cache.New(defaultCache)
-				if err != nil {
-					return nil, err
-				}
-				app.c = &Cache{Cache: c}
-			}
-		}
-	}
-	return app.c, nil
+	return app.cache()
 }
 
 // App returns this app's ORM connection, using the

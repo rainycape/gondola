@@ -21,6 +21,12 @@
 // flag to automatically test against http://<your-app-id>.appspot.com.
 //
 //  goapp test -v -R
+//
+// The -L flag is also supported on GAE apps, for testing against
+// http://localhost:8080. Note that you must manually start your
+// app with goapp serve.
+//
+//  goapp test -v -L
 package tester
 
 import (
@@ -43,9 +49,14 @@ import (
 	"time"
 )
 
+const (
+	gaeLocalHost = "http://localhost:8080"
+)
+
 var (
 	remoteHost *string
 	gaeRemote  *bool
+	gaeLocal   *bool
 )
 
 // Reporter is the interface used to log and
@@ -469,9 +480,17 @@ func New(r Reporter, a *app.App) *Tester {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
-	if *gaeRemote && *remoteHost == "" {
-		h := internal.AppEngineAppHost()
-		remoteHost = &h
+	if *remoteHost == "" {
+		if *gaeLocal {
+			h := gaeLocalHost
+			remoteHost = &h
+		} else if *gaeRemote {
+			h := internal.AppEngineAppHost()
+			remoteHost = &h
+		}
+	}
+	if *remoteHost != "" {
+		r.Log(fmt.Sprintf("using host %s", *remoteHost))
 	}
 	if err := a.Prepare(); err != nil {
 		r.Fatal(fmt.Errorf("error preparing app: %s", err))
@@ -560,6 +579,7 @@ func init() {
 		remoteHost = flag.String("H", "", "Host to run the test against")
 		if h := internal.AppEngineAppHost(); h != "" {
 			gaeRemote = flag.Bool("R", false, fmt.Sprintf("Run tests against %s", h))
+			gaeLocal = flag.Bool("L", false, fmt.Sprintf("Run tests against %s", gaeLocalHost))
 		}
 	}
 }

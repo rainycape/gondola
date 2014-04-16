@@ -977,6 +977,12 @@ func (t *Template) AddParseTree(name string, tree *parse.Tree) error {
 	return nil
 }
 
+// ContentType returns the template content type, usually found
+// by its extension.
+func (t *Template) ContentType() string {
+	return t.contentType
+}
+
 func (t *Template) Execute(w io.Writer, data interface{}) error {
 	return t.ExecuteTemplateVars(w, t.root, data, nil)
 }

@@ -18,7 +18,7 @@ type memcacheDriver struct {
 
 func (c *memcacheDriver) Set(key string, b []byte, timeout int) error {
 	item := &memcache.Item{Key: key, Value: b, Expiration: time.Duration(timeout) * time.Second}
-	return memcache.Add(c.c, item)
+	return memcache.Set(c.c, item)
 }
 
 func (c *memcacheDriver) Get(key string) ([]byte, error) {

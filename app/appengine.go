@@ -1,4 +1,4 @@
-// build !appengine
+// +build appengine
 
 package app
 
@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"gnd.la/cache"
+	"gnd.la/mail"
 
 	"appengine"
 )
@@ -32,4 +33,8 @@ func (c *Context) cache() *Cache {
 		conn.SetContext(ctx)
 	}
 	return &Cache{Cache: ca}
+}
+
+func (c *Context) prepareMessage(msg *mail.Message) {
+	msg.Context = appengine.NewContext(c.R)
 }

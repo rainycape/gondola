@@ -24,19 +24,22 @@ func (c *Context) MailTemplate(template string) (mail.Template, error) {
 // it's parsed with gnd.la/mail.ParseAddressList.
 //
 // If you need more granularity you can use Context.MailTemplate and gnd.la/mail.Send
-// directly. Note that fields other than Message and Data in the opts argument are not
-// altered and are passed as is to gnd.la/mail.Send.
-func (c *Context) SendMail(to interface{}, template string, data interface{}, opts *mail.Options) error {
+// directly. Note that fields other than Body and Data in the msg argument are not
+// altered and are passed as is to gnd.la/mail.Send. Also, note that if the template argument
+// is empty, the msg argument is passed unmodified to mail.Send.
+//
+// Note: mail.Send does not work on App Engine, users must always use this function instead.
+func (c *Context) SendMail(to interface{}, template string, data interface{}, msg *mail.Message) error {
 	if template != "" {
 		t, err := c.MailTemplate(template)
 		if err != nil {
 			return err
 		}
-		if opts == nil {
-			opts = &mail.Options{}
+		if msg == nil {
+			msg = &mail.Message{}
 		}
-		opts.Message = t
-		opts.Data = data
+		msg.Body = t
+		msg.Data = data
 	}
 	var addrs []string
 	switch x := to.(type) {
@@ -51,12 +54,13 @@ func (c *Context) SendMail(to interface{}, template string, data interface{}, op
 	default:
 		return fmt.Errorf("invalid to type %T (%v)", to, to)
 	}
-	return mail.Send(addrs, opts)
+	c.prepareMessage(msg)
+	return mail.Send(addrs, msg)
 }
 
 // MustSendMail works like SendMail, but panics if there's an error.
-func (c *Context) MustSendMail(to interface{}, template string, data interface{}, opts *mail.Options) {
-	if err := c.SendMail(to, template, data, opts); err != nil {
+func (c *Context) MustSendMail(to interface{}, template string, data interface{}, msg *mail.Message) {
+	if err := c.SendMail(to, template, data, msg); err != nil {
 		panic(err)
 	}
 }

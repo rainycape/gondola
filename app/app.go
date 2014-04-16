@@ -1041,13 +1041,13 @@ func (app *App) logError(ctx *Context, err interface{}) {
 					if from == "" {
 						from = fmt.Sprintf("errors@%s", host)
 					}
-					opts := &mail.Options{
+					msg := &mail.Message{
 						From:        from,
 						Subject:     fmt.Sprintf("Panic with %d attached files on %s", count, host),
-						Message:     message.String(),
+						Body:        message.String(),
 						Attachments: attachments,
 					}
-					ctx.SendMail(mail.AdminEmail(), "", nil, opts)
+					ctx.SendMail(mail.AdminEmail(), "", nil, msg)
 				}
 			}
 		}

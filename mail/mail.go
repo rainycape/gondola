@@ -4,16 +4,13 @@ package mail
 
 import (
 	"bytes"
-	"encoding/base64"
 	"errors"
 	"fmt"
-	"gnd.la/util/generic"
-	"gnd.la/util/stringutil"
 	"io"
 	"io/ioutil"
 	"net/mail"
-	"net/smtp"
-	"strings"
+
+	"gnd.la/util/generic"
 )
 
 var (
@@ -66,7 +63,7 @@ type Attachment struct {
 }
 
 // NewAttachment returns a new attachment which can be included in the
-// Options passed to Send(). If contentType is empty, it defaults
+// Message passed to Send(). If contentType is empty, it defaults
 // to application/octet-stream.
 func NewAttachment(name string, contentType string, r io.Reader) (*Attachment, error) {
 	data, err := ioutil.ReadAll(r)
@@ -92,15 +89,15 @@ type Template interface {
 	Execute(w io.Writer, data interface{}) error
 }
 
-// Options specify several options available when sending an email.
-type Options struct {
+// Message describes an email to be sent.
+type Message struct {
 	// Server to send the email. If empty, the value returned from
 	// DefaultServer() is used. See DefaultServer() documentation
 	// for the format of this field.
 	Server string
 	// From address. If empty, defaults to the value from DefaultFrom().
 	// Note that this (or DefaultFrom()) always overwrites any From header
-	// set using the Header field.
+	// set using the Headers field.
 	From string
 	// Subject of the email. If non-empty, overwrites any Subject header
 	// set using the Headers field.
@@ -109,107 +106,31 @@ type Options struct {
 	Headers Headers
 	// Attachments to add to the email. See Attachment and NewAttachment.
 	Attachments []*Attachment
-	// Message indicates the message body. It might be one of the following:
+	// Body indicates the message body. It might be one of the following:
 	//
 	//  - string
 	//  - []byte
 	//  - io.Reader
 	//  - Template
-	Message interface{}
-	// Data is only used when Message is a Template. When executing the Template,
+	Body interface{}
+	// Data is only used when Body is a Template. When executing the Template,
 	// this is passed as its data argument.
 	Data interface{}
+	// HTML indicates if the message body is HTML.
+	HTML bool
+	// Context is used interally by Gondola and should not be altered by users.
+	Context interface{}
 }
 
-// Send sends an email to the given addresses and using the given Options. Note that
-// if Options is nil, an error is returned. See the Options documentation for
+// Send sends an email to the given addresses and using the given Message. Note that
+// if Message is nil, an error is returned. See the Options documentation for
 // further information.
-func Send(to []string, opts *Options) error {
-	if opts == nil {
+// This function does not work on App Engine. Use gnd.la/app.Context.SendMail.
+func Send(to []string, msg *Message) error {
+	if msg == nil {
 		return errNoMessage
 	}
-	from := defaultFrom
-	server := defaultServer
-	if opts.Server != "" {
-		server = opts.Server
-	}
-	if opts.From != "" {
-		from = opts.From
-	}
-	if from == "" {
-		return errNoFrom
-	}
-	var auth smtp.Auth
-	cram, username, password, server := parseServer(server)
-	if username != "" || password != "" {
-		if cram {
-			auth = smtp.CRAMMD5Auth(username, password)
-		} else {
-			auth = smtp.PlainAuth("", username, password, server)
-		}
-	}
-	var buf bytes.Buffer
-	headers := opts.Headers
-	if headers == nil {
-		headers = make(Headers)
-	}
-	if opts.Subject != "" {
-		headers["Subject"] = opts.Subject
-	}
-	headers["From"] = from
-	for k, v := range headers {
-		buf.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
-	}
-	var message string
-	switch x := opts.Message.(type) {
-	case Template:
-		var b bytes.Buffer
-		err := x.Execute(&b, opts.Data)
-		if err != nil {
-			return fmt.Errorf("error executing message template: %s", err)
-		}
-		message = b.String()
-	case string:
-		message = x
-	case []byte:
-		message = string(x)
-	case io.Reader:
-		data, err := ioutil.ReadAll(x)
-		if err != nil {
-			return fmt.Errorf("error reading message body: %s", err)
-		}
-		message = string(data)
-	default:
-		return fmt.Errorf("invalid message type %T", opts.Message)
-	}
-	if len(opts.Attachments) > 0 {
-		boundary := "Gondola-Boundary-" + stringutil.Random(16)
-		buf.WriteString("MIME-Version: 1.0\r\n")
-		buf.WriteString("Content-Type: multipart/mixed; boundary=" + boundary + "\r\n")
-		buf.WriteString("--" + boundary + "\n")
-		buf.WriteString("Content-Type: text/plain; charset=utf-8\r\n")
-		buf.WriteString(message)
-		for _, v := range opts.Attachments {
-			buf.WriteString("\r\n\r\n--" + boundary + "\r\n")
-			buf.WriteString(fmt.Sprintf("Content-Type: %s\r\n", v.contentType))
-			buf.WriteString("Content-Transfer-Encoding: base64\r\n")
-			buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=%q\r\n\r\n", v.name))
-
-			b := make([]byte, base64.StdEncoding.EncodedLen(len(v.data)))
-			base64.StdEncoding.Encode(b, v.data)
-			buf.Write(b)
-			buf.WriteString("\r\n--" + boundary)
-		}
-		buf.WriteString("--")
-	} else {
-		buf.Write([]byte{'\r', '\n'})
-		buf.WriteString(message)
-	}
-	if server == "echo" {
-		printer("To: %s\n\n%s\n", strings.Join(to, ", "), buf.String())
-		return nil
-	}
-	return smtp.SendMail(server, auth, from, to, buf.Bytes())
+	return sendMail(to, msg)
 }
 
 // DefaultServer returns the default mail server address.
@@ -264,27 +185,29 @@ func SetAdminEmail(email string) {
 	admin = email
 }
 
-func parseServer(server string) (bool, string, string, string) {
-	// Check if the server includes authentication info
-	cram := false
-	var username string
-	var password string
-	if idx := strings.LastIndex(server, "@"); idx >= 0 {
-		var credentials string
-		credentials, server = server[:idx], server[idx+1:]
-		if strings.HasPrefix(credentials, "cram?") {
-			credentials = credentials[5:]
-			cram = true
+func messageBody(msg *Message) (string, error) {
+	var body string
+	switch x := msg.Body.(type) {
+	case Template:
+		var b bytes.Buffer
+		err := x.Execute(&b, msg.Data)
+		if err != nil {
+			return "", fmt.Errorf("error executing message template: %s", err)
 		}
-		colon := strings.Index(credentials, ":")
-		if colon >= 0 {
-			username = credentials[:colon]
-			if colon < len(credentials)-1 {
-				password = credentials[colon+1:]
-			}
-		} else {
-			username = credentials
+		body = b.String()
+	case string:
+		body = x
+	case []byte:
+		body = string(x)
+	case io.Reader:
+		data, err := ioutil.ReadAll(x)
+		if err != nil {
+			return "", fmt.Errorf("error reading message body: %s", err)
 		}
+		body = string(data)
+	case nil:
+	default:
+		return "", fmt.Errorf("invalid body type %T", msg.Body)
 	}
-	return cram, username, password, server
+	return body, nil
 }

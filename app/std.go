@@ -4,6 +4,7 @@ package app
 
 import (
 	"gnd.la/cache"
+	"gnd.la/mail"
 )
 
 // Methods that need to be redefined on appengine
@@ -38,4 +39,8 @@ func (c *Context) cache() *Cache {
 		}
 	}
 	return c.app.c
+}
+
+func (c *Context) prepareMessage(msg *mail.Message) {
+	// nop except on GAE
 }

@@ -839,31 +839,10 @@ func (app *App) Cache() (*Cache, error) {
 // default database parameters, as returned by DefaultDatabase().
 // Use gnd.la/config to change the default ORM. The orm.Orm
 // is initialized only once and shared among all requests and
-// tasks served from this app.
+// tasks served from this app. On App Engine, this method always
+// returns an error. Use Context.Orm instead.
 func (app *App) Orm() (*Orm, error) {
-	if app.o == nil {
-		app.mu.Lock()
-		defer app.mu.Unlock()
-		if app.o == nil {
-			if app.parent != nil {
-				var err error
-				app.o, err = app.parent.Orm()
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				o, err := app.openOrm()
-				if err != nil {
-					return nil, err
-				}
-				app.o = &Orm{Orm: o}
-			}
-			if log.Std.Level() == log.LDebug {
-				app.o.SetLogger(log.Std)
-			}
-		}
-	}
-	return app.o, nil
+	return app.orm()
 }
 
 func (app *App) openOrm() (*orm.Orm, error) {

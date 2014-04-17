@@ -387,12 +387,7 @@ func (c *Context) Blobstore() *blobstore.Store {
 // Orm is a shorthand for ctx.App().Orm(), but panics in case
 // of error, rather than returning it.
 func (c *Context) Orm() *Orm {
-	if c.app.o == nil {
-		if _, err := c.app.Orm(); err != nil {
-			panic(err)
-		}
-	}
-	return c.app.o
+	return c.orm()
 }
 
 // Execute loads the template with the given name using the

@@ -2,8 +2,9 @@ package log
 
 import (
 	"fmt"
-	"gnd.la/mail"
 	"os"
+
+	"gnd.la/net/mail"
 )
 
 type SmtpWriter struct {

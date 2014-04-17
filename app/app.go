@@ -16,7 +16,7 @@ import (
 	"gnd.la/internal/templateutil"
 	"gnd.la/loaders"
 	"gnd.la/log"
-	"gnd.la/mail"
+	"gnd.la/net/mail"
 	"gnd.la/orm"
 	"gnd.la/signal"
 	"gnd.la/template"

@@ -2,14 +2,14 @@ package config
 
 import (
 	"gnd.la/log"
-	"gnd.la/mail"
+	"gnd.la/net/mail"
 )
 
 var (
 	mailLogEnabled = false
 )
 
-// the options in gnd.la/mail are set from this
+// the options in gnd.la/net/mail are set from this
 // package to avoid an import cycle, since config
 // imports signal, which imports log, which imports
 // mail, so mail can't import config

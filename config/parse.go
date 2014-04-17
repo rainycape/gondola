@@ -379,7 +379,7 @@ func mapToString(v reflect.Value) string {
 // Parse parses the application configuration into the given config struct. If
 // the configuration is parsed successfully, the signal SET is
 // emitted with the given config as its object (which sets the default parameters
-// in gnd.la/app and gnd.la/mail, among other packages.
+// in gnd.la/app and gnd.la/net/mail, among other packages.
 // Check the documentation on the gnd.la/signal package
 // to learn more about Gondola's signals.
 //

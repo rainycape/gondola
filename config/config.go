@@ -8,7 +8,7 @@ const (
 
 // Config contains the common fields used to configure a Gondola
 // application. Settings alter the values returned by Default*
-// functions in gnd.la/app and gnd.la/mail.
+// functions in gnd.la/app and gnd.la/net/mail.
 // See the help and comment on each field for further information.
 type Config struct {
 	// AppDebug sets the value returned by gnd.la/app.DefaultAppDebug().
@@ -32,10 +32,10 @@ type Config struct {
 	Secret string `help:"Secret used for, among other things, hashing cookies"`
 	// EncryptionKey sets the value returned by gnd.la/app.DefaultEncryptionKey().
 	EncryptionKey string `help:"Key used for encryption (e.g. encrypted cookies)"`
-	// Mailserver sets the value returned by gnd.la/mail.DefaultServer().
-	MailServer string `default:"localhost:25" help:"Default mail server used by gnd.la/mail"`
-	// FromEmail sets the value returned by gnd.la/mail.DefaultFrom().
+	// Mailserver sets the value returned by gnd.la/net/mail.DefaultServer().
+	MailServer string `default:"localhost:25" help:"Default mail server used by gnd.la/net/mail"`
+	// FromEmail sets the value returned by gnd.la/net/mail.DefaultFrom().
 	FromEmail string `help:"Default From address when sending emails"`
-	// AdminEmail sets the value returned by gnd.la/mail.Admin().
+	// AdminEmail sets the value returned by gnd.la/net/mail.Admin().
 	AdminEmail string `help:"When running in non-debug mode, any error messages will be emailed to this adddress"`
 }

@@ -4,7 +4,7 @@ package app
 
 import (
 	"gnd.la/cache"
-	"gnd.la/mail"
+	"gnd.la/net/mail"
 )
 
 // Methods that need to be redefined on appengine

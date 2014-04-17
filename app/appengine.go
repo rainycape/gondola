@@ -6,7 +6,7 @@ import (
 	"errors"
 
 	"gnd.la/cache"
-	"gnd.la/mail"
+	"gnd.la/net/mail"
 
 	"appengine"
 )

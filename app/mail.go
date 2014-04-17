@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"strings"
 
-	"gnd.la/mail"
+	"gnd.la/net/mail"
 )
 
 func (c *Context) mailTemplate(template string) (*linkedTemplate, error) {
@@ -17,7 +17,7 @@ func (c *Context) mailTemplate(template string) (*linkedTemplate, error) {
 
 // SendMail is a shorthand function for sending an email from a template.
 // If the loaded gnd.la/template.Template.ContentType() returns a string
-// containing "html", the gnd.la/mail.Message HTMLBody field is set, other
+// containing "html", the gnd.la/net/mail.Message HTMLBody field is set, other
 // the TextBody field is used. Note that if template is empty, the msg is
 // passed unmodified to mail.Send(). Other Message fields are never altered.
 //

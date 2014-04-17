@@ -1,0 +1,13 @@
+From: sender@example.com
+To: receiver@example.com
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="Gondola-Boundary-A"
+
+--Gondola-Boundary-A
+Content-Type: text/plain; charset=UTF-8
+
+foo
+
+
+--Gondola-Boundary-A--

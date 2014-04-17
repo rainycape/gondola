@@ -55,8 +55,8 @@ func sendMail(to []string, cc []string, bcc []string, msg *Message) error {
 	}
 	for _, v := range msg.Attachments {
 		gaeMsg.Attachments = append(gaeMsg.Attachments, mail.Attachment{
-			Name:      v.name,
-			Data:      v.data,
+			Name:      v.Name,
+			Data:      v.Data,
 			ContentID: v.ContentID,
 		})
 	}

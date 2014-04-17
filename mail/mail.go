@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime"
 	"net/mail"
+	"path"
 
 	"gnd.la/util/generic"
 )

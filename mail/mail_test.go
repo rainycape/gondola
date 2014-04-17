@@ -1,8 +1,10 @@
 package mail
 
 import (
-	"bytes"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
 	"text/template"
@@ -71,29 +73,37 @@ type EmailTest struct {
 	Expect  string
 }
 
-func makeAttachments(b []byte) []*Attachment {
-	att, err := NewAttachment("", "", bytes.NewReader(b))
+func makeAttachments(file string, contentId string) []*Attachment {
+	f, err := os.Open(filepath.Join("testdata", file))
 	if err != nil {
 		panic(err)
 	}
+	att, err := NewAttachment(file, f)
+	if err != nil {
+		panic(err)
+	}
+	att.ContentID = contentId
 	return []*Attachment{att}
-
 }
 
 var (
-	emailTests = []EmailTest{
-		{
-			Message: &Message{
-				TextBody: "foo",
-			},
-			Expect: "From: sender@example.com\r\nTo: receiver@example.com\r\n\r\nfoo",
+	sendTests = []*Message{
+		&Message{
+			TextBody: "foo",
 		},
-		{
-			Message: &Message{
-				TextBody:    "foo",
-				Attachments: makeAttachments([]byte("bar")),
-			},
-			Expect: "From: sender@example.com\r\nTo: receiver@example.com\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=Gondola-Boundary-A\r\n--Gondola-Boundary-A\nContent-Type: text/plain; charset=utf-8\r\nfoo\r\n\r\n--Gondola-Boundary-A\r\nContent-Type: application/octet-stream\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=\"file\"\r\n\r\nYmFy\r\n--Gondola-Boundary-A--",
+		&Message{
+			TextBody:    "foo",
+			Attachments: makeAttachments("lenna.jpg", ""),
+		},
+		&Message{
+			TextBody:    "This is lenna",
+			HTMLBody:    "<b>THIS IS LENNA</b>",
+			Attachments: makeAttachments("lenna.jpg", ""),
+		},
+		&Message{
+			TextBody:    "This is lenna",
+			HTMLBody:    "<html><body>LENNA <br><img src=\"cid:LENNA\" alt=\"This is Lenna\"><br><b>EMBEDDED</b></body></html>",
+			Attachments: makeAttachments("lenna.jpg", "LENNA"),
 		},
 	}
 )
@@ -108,26 +118,36 @@ func TestSendEmail(t *testing.T) {
 		printer = p
 	}()
 	var res string
+	count := 0
 	printer = func(format string, args ...interface{}) (int, error) {
 		res = fmt.Sprintf(format, args...)
+		// This is useful when adding new tests
+		ioutil.WriteFile(filepath.Join("testdata", fmt.Sprintf("out.%d.eml", count)), []byte(res), 0644)
+		count++
 		return len(res), nil
 	}
-	for _, v := range emailTests {
-		if v.Message.To == nil {
-			v.Message.To = []string{"receiver@example.com"}
+	for ii, v := range sendTests {
+		if v.To == nil {
+			v.To = []string{"receiver@example.com"}
 		}
-		if v.Message.From == "" {
-			v.Message.From = "sender@example.com"
+		if v.From == "" {
+			v.From = "sender@example.com"
 		}
-		v.Message.Server = "echo"
-		if err := Send(v.Message); err != nil {
+		v.Server = "echo"
+		if err := Send(v); err != nil {
 			t.Error(err)
 			continue
 		}
 		// boundary is random, so we need to change it
 		res = replaceBoundary(res)
-		if res != v.Expect {
-			t.Errorf("message %v expecting email %q, got %q instead", v, v.Expect, res)
+		path := filepath.Join("testdata", fmt.Sprintf("expect.%d.eml", ii))
+		data, err := ioutil.ReadFile(path)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		if res != string(data) {
+			t.Errorf("message %v expecting email %q, got %q instead", v, string(data), res)
 		}
 	}
 }

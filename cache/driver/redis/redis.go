@@ -1,4 +1,10 @@
-// Package redis implements a Gondola cache backend using redis.
+// Package redis implements a Gondola cache driver using redis.
+//
+// The URL format for this driver is:
+//
+//  - redis://host[:port][#password={pw}&db={number}]
+//
+// If no db is provided, it defaults to -1.
 package redis
 
 import (

@@ -18,7 +18,7 @@ func (t *uniTyper) Type(_ string) reflect.Type {
 	return t.typ
 }
 
-// UniType returns a Type which returns the type of
+// UniType returns a Typer which returns the type of
 // obj for all the keys.
 func UniTyper(obj interface{}) Typer {
 	return &uniTyper{typ: reflect.TypeOf(obj)}

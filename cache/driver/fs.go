@@ -93,7 +93,7 @@ func (f *FileSystemDriver) Connection() interface{} {
 }
 
 func fsOpener(url *config.URL) (Driver, error) {
-	value := url.Value
+	value := filepath.FromSlash(url.Value)
 	if !filepath.IsAbs(value) {
 		value = pathutil.Relative(value)
 	}

@@ -54,17 +54,17 @@ func (c *memcacheDriver) Connection() interface{} {
 	return c.Client
 }
 
-func memcacheOpener(value string, o config.Options) (driver.Driver, error) {
-	hosts := strings.Split(value, ",")
+func memcacheOpener(url *config.URL) (driver.Driver, error) {
+	hosts := strings.Split(url.Value, ",")
 	conns := make([]string, len(hosts))
 	for ii, v := range hosts {
 		conns[ii] = driver.DefaultPort(v, 11211)
 	}
 	client := memcache.New(conns...)
-	if tm, ok := o.Int("timeout"); ok {
+	if tm, ok := url.Fragment.Int("timeout"); ok {
 		client.SetTimeout(time.Millisecond * time.Duration(tm))
 	}
-	if maxIdle, ok := o.Int("max_idle"); ok {
+	if maxIdle, ok := url.Fragment.Int("max_idle"); ok {
 		client.SetMaxIdleConnsPerAddr(maxIdle)
 	}
 	return &memcacheDriver{Client: client}, nil

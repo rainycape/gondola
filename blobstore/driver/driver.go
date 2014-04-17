@@ -10,7 +10,7 @@ var (
 	registry = map[string]Opener{}
 )
 
-type Opener func(value string, o config.Options) (Driver, error)
+type Opener func(url *config.URL) (Driver, error)
 
 type Driver interface {
 	Create(id string) (WFile, error)

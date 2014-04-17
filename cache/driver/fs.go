@@ -92,7 +92,8 @@ func (f *FileSystemDriver) Connection() interface{} {
 	return nil
 }
 
-func fsOpener(value string, o config.Options) (Driver, error) {
+func fsOpener(url *config.URL) (Driver, error) {
+	value := url.Value
 	if !filepath.IsAbs(value) {
 		value = pathutil.Relative(value)
 	}

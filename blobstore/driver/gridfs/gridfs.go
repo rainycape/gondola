@@ -3,7 +3,8 @@
 // GridFS is a file storage system built on top of mongodb. For more
 // information about mongodb visit http://www.mongodb.com.
 //
-// The URL for this driver must take the form gridfs://host/database.
+// The URL for this driver must take the form gridfs://host/database[#prefix={prefix}].
+// If prefix is not provided, "fs" is used.
 package gridfs
 
 import (
@@ -66,7 +67,8 @@ func (d *gridfsDriver) Close() error {
 	return nil
 }
 
-func gridfsOpener(value string, o config.Options) (driver.Driver, error) {
+func gridfsOpener(url *config.URL) (driver.Driver, error) {
+	value := url.Value
 	connections.RLock()
 	session := connections.sessions[value]
 	connections.RUnlock()
@@ -90,7 +92,7 @@ func gridfsOpener(value string, o config.Options) (driver.Driver, error) {
 		connections.Unlock()
 	}
 	scopy := session.Copy()
-	prefix := o.Get("prefix")
+	prefix := url.Fragment.Get("prefix")
 	if prefix == "" {
 		prefix = "fs"
 	}

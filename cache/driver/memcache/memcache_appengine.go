@@ -64,7 +64,7 @@ func (c *memcacheDriver) Close() error {
 	return nil
 }
 
-func memcacheOpener(value string, o config.Options) (driver.Driver, error) {
+func memcacheOpener(_ *config.URL) (driver.Driver, error) {
 	return &memcacheDriver{}, nil
 }
 

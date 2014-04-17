@@ -708,17 +708,15 @@ func (d *Driver) Capabilities() driver.Capability {
 }
 
 func NewDriver(b Backend, url *config.URL) (*Driver, error) {
-	conn, err := sql.Open(b.Name(), url.Value)
+	conn, err := sql.Open(b.Name(), url.ValueAndQuery())
 	if err != nil {
 		return nil, err
 	}
-	if opts := url.Options; opts != nil {
-		if mc, ok := opts.Int("max_conns"); ok {
-			setMaxConns(conn, mc)
-		}
-		if mic, ok := opts.Int("max_idle_conns"); ok {
-			conn.SetMaxIdleConns(mic)
-		}
+	if mc, ok := url.Fragment.Int("max_conns"); ok {
+		setMaxConns(conn, mc)
+	}
+	if mic, ok := url.Fragment.Int("max_idle_conns"); ok {
+		conn.SetMaxIdleConns(mic)
 	}
 	var transforms map[reflect.Type]struct{}
 	if tt := b.Transforms(); len(tt) > 0 {

@@ -52,7 +52,8 @@ func (f *fsDriver) Close() error {
 	return nil
 }
 
-func fsOpener(value string, o config.Options) (driver.Driver, error) {
+func fsOpener(url *config.URL) (driver.Driver, error) {
+	value := url.Value
 	if !filepath.IsAbs(value) {
 		value = pathutil.Relative(value)
 	}

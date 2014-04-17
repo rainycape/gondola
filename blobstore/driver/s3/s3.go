@@ -2,7 +2,7 @@
 //
 // The URL format for this driver is:
 //
-//  s3://bucket_name?access_key={key}&secret_key={secret}[&region={region}]
+//  s3://bucket_name#access_key={key}&secret_key={secret}[&region={region}]
 //
 // Region is option, but if it's provided, it must be a valid one.
 package s3
@@ -82,20 +82,21 @@ func (d *s3Driver) Close() error {
 	return nil
 }
 
-func s3Opener(value string, o config.Options) (driver.Driver, error) {
-	accessKey := o.Get("access_key")
+func s3Opener(url *config.URL) (driver.Driver, error) {
+	accessKey := url.Fragment.Get("access_key")
 	if accessKey == "" {
 		return nil, fmt.Errorf("no S3 access key provided")
 	}
-	secretKey := o.Get("secret_key")
+	secretKey := url.Fragment.Get("secret_key")
 	if secretKey == "" {
 		return nil, fmt.Errorf("no S3 secret key provided")
 	}
+	value := url.Value
 	if value == "" {
 		return nil, fmt.Errorf("please, provide a bucket name e.g. s3://mybucket")
 	}
 	region := aws.USEast
-	if r := o.Get("region"); r != "" {
+	if r := url.Fragment.Get("region"); r != "" {
 		reg, ok := aws.Regions[r]
 		if !ok {
 			var regions []string

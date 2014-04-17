@@ -292,14 +292,11 @@ func (c *Cache) error(err *cacheError) {
 }
 
 func newConfig(conf *config.URL) (*Cache, error) {
-	if conf.Options == nil {
-		conf.Options = config.Options{}
-	}
 	cache := &Cache{
 		Logger: log.Std,
 	}
 
-	if codecName := conf.Get("codec"); codecName != "" {
+	if codecName := conf.Fragment.Get("codec"); codecName != "" {
 		cache.codec = codec.Get(codecName)
 		if cache.codec == nil {
 			if imp := codec.RequiredImport(codecName); imp != "" {
@@ -311,9 +308,9 @@ func newConfig(conf *config.URL) (*Cache, error) {
 		cache.codec = codec.Get("gob")
 	}
 
-	cache.prefix = conf.Get("prefix")
+	cache.prefix = conf.Fragment.Get("prefix")
 	cache.prefixLen = len(cache.prefix)
-	if pipeName := conf.Get("pipe"); pipeName != "" {
+	if pipeName := conf.Fragment.Get("pipe"); pipeName != "" {
 		cache.pipe = pipe.Get(pipeName)
 		if cache.pipe == nil {
 			if imp := pipe.RequiredImport(pipeName); imp != "" {
@@ -335,7 +332,7 @@ func newConfig(conf *config.URL) (*Cache, error) {
 		opener = driver.Get("dummy")
 	}
 	var err error
-	if cache.driver, err = opener(conf.Value, conf.Options); err != nil {
+	if cache.driver, err = opener(conf); err != nil {
 		return nil, err
 	}
 	return cache, nil

@@ -185,18 +185,16 @@ func (d *MemoryDriver) pruneCache() {
 	}
 }
 
-func openMemoryDriver(value string, o config.Options) (Driver, error) {
+func openMemoryDriver(url *config.URL) (Driver, error) {
 	mdrv := &MemoryDriver{}
-	if o != nil {
-		if ms, ok := o["max_size"]; ok {
-			maxSize, err := parseutil.Size(ms)
-			if err != nil {
-				return nil, fmt.Errorf("invalid max_size %q", ms)
-			}
-			mdrv.maxSize = maxSize
-			mdrv.prune = make(chan struct{}, runtime.GOMAXPROCS(0))
-			go mdrv.pruneWorker(mdrv.prune)
+	if ms := url.Fragment.Get("max_size"); ms != "" {
+		maxSize, err := parseutil.Size(ms)
+		if err != nil {
+			return nil, fmt.Errorf("invalid max_size %q", ms)
 		}
+		mdrv.maxSize = maxSize
+		mdrv.prune = make(chan struct{}, runtime.GOMAXPROCS(0))
+		go mdrv.pruneWorker(mdrv.prune)
 	}
 	return mdrv, nil
 }

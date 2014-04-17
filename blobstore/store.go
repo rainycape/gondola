@@ -38,7 +38,7 @@ func New(url *config.URL) (*Store, error) {
 		}
 		return nil, fmt.Errorf("unknown blobstore driver %q. Perhaps you forgot an import?", url.Scheme)
 	}
-	drv, err := opener(url.Value, url.Options)
+	drv, err := opener(url)
 	if err != nil {
 		return nil, fmt.Errorf("error opening blobstore driver %q: %s", url.Scheme, err)
 	}

@@ -35,7 +35,7 @@ func (d *DummyDriver) Connection() interface{} {
 	return nil
 }
 
-func openDummyDriver(value string, o config.Options) (Driver, error) {
+func openDummyDriver(url *config.URL) (Driver, error) {
 	if ddrv == nil {
 		// No locking, since the worst thing that might
 		// happen is we end up with several DummyDriver

@@ -162,7 +162,10 @@ func (b *Backend) TransformOutValue(val reflect.Value) (interface{}, error) {
 }
 
 func mysqlOpener(url *config.URL) (driver.Driver, error) {
-	url.Value += "?charset=UTF8&sql_mode=ANSI&parseTime=true&loc=UTC"
+	url.Query["charset"] = "UTF8"
+	url.Query["sql_mode"] = "ANSI"
+	url.Query["parseTime"] = "true"
+	url.Query["loc"] = "UTC"
 	return sql.NewDriver(mysqlBackend, url)
 }
 

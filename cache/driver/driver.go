@@ -14,7 +14,7 @@ var (
 // the Gondola's cache package, while others are driver dependent
 // and are documented in each driver. Drivers should just ignore
 // options which they don't use.
-type Opener func(value string, o config.Options) (Driver, error)
+type Opener func(url *config.URL) (Driver, error)
 
 // Driver is the interface implemented by cache drivers.
 type Driver interface {

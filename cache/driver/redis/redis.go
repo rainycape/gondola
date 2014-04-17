@@ -58,17 +58,17 @@ func (r *redisDriver) Connection() interface{} {
 	return r.Client
 }
 
-func redisOpener(value string, o config.Options) (driver.Driver, error) {
-	password := o.Get("password")
+func redisOpener(url *config.URL) (driver.Driver, error) {
+	password := url.Fragment.Get("password")
 	db := int64(-1)
-	if d := o.Get("db"); d != "" {
+	if d := url.Fragment.Get("db"); d != "" {
 		val, err := strconv.ParseInt(d, 0, 64)
 		if err != nil {
 			return nil, fmt.Errorf("invalid db %q, must be an integer", d)
 		}
 		db = val
 	}
-	conn := driver.DefaultPort(value, 6379)
+	conn := driver.DefaultPort(url.Value, 6379)
 	client := redis.NewTCPClient(conn, password, db)
 	return &redisDriver{Client: client}, nil
 }

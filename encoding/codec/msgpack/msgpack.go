@@ -1,3 +1,10 @@
+// Package msgpack provides a codec implementation using msgpack.
+//
+// To enable it in your app, import it like:
+//
+//  import (
+//	_ "gnd.la/encoding/codec/msgpack"
+//  )
 package msgpack
 
 import (

@@ -1,6 +1,6 @@
 // Package codec implements functions for encoding and decoding
 // objects in several formats
-
+//
 // Any registered codec can be used by both gnd.la/cache and
 // gnd.la/orm.
 //

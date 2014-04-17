@@ -699,6 +699,10 @@ func (d *Driver) Rollback() error {
 	return d.db.tx.Rollback()
 }
 
+func (d *Driver) Capabilities() driver.Capability {
+	return driver.CAP_JOIN | driver.CAP_TRANSACTION | driver.CAP_AUTO_ID | driver.CAP_AUTO_INCREMENT | driver.CAP_PK | driver.CAP_COMPOSITE_PK | driver.CAP_UNIQUE
+}
+
 func NewDriver(b Backend, url *config.URL) (*Driver, error) {
 	conn, err := sql.Open(b.Name(), url.Value)
 	if err != nil {

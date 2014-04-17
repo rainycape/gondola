@@ -20,6 +20,7 @@ type Driver interface {
 	// List of struct tags to be read, in decreasing order of priority.
 	// The first non-empty tag is used.
 	Tags() []string
+	Capabilities() Capability
 }
 
 func Register(name string, opener Opener) {

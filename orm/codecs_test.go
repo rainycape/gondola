@@ -1,7 +1,6 @@
 package orm
 
 import (
-	_ "gnd.la/orm/driver/sqlite"
 	"reflect"
 	"testing"
 )
@@ -28,43 +27,33 @@ type GobEncoded struct {
 	Rects []Rect `orm:",codec=gob"`
 }
 
-func TestInvalidCodecs(t *testing.T) {
-	o := newMemoryOrm(t)
-	defer o.Close()
-	for _, v := range []interface{}{&InvalidCodec1{}} {
-		_, err := o.Register(v, nil)
-		if err == nil {
-			t.Errorf("Expecting an error when registering %T", v)
-		}
-	}
-}
-
 func testCodecs(t *testing.T, o *Orm) {
 	o.MustRegister((*JsonEncoded)(nil), nil)
 	o.MustRegister((*GobEncoded)(nil), nil)
 	o.MustInitialize()
-	q := Eq("Id", 1)
 	rects := []Rect{{A: 1, B: 2, C: 3, D: 4}, {A: 2, B: 3, C: 4, D: 5}}
 	j1 := &JsonEncoded{Rects: rects}
 	o.MustSave(j1)
+	id1 := j1.Id
 	var j2 *JsonEncoded
-	_, err := o.One(q, &j2)
+	_, err := o.One(Eq("Id", id1), &j2)
 	if err != nil {
 		t.Error(err)
+	} else if j2 == nil {
+		t.Error("j2 is nil")
 	} else if !reflect.DeepEqual(j2.Rects, rects) {
 		t.Errorf("invalid JSON decoded field. Want %v, got %v.", rects, j2.Rects)
 	}
 	g1 := &GobEncoded{Rects: rects}
 	o.MustSave(g1)
+	id2 := g1.Id
 	var g2 *GobEncoded
-	_, err = o.One(q, &g2)
+	_, err = o.One(Eq("Id", id2), &g2)
 	if err != nil {
 		t.Error(err)
+	} else if g2 == nil {
+		t.Error("g2 is nil")
 	} else if !reflect.DeepEqual(g2.Rects, rects) {
 		t.Errorf("invalid gob decoded field. Want %v, got %v.", rects, g2.Rects)
 	}
-}
-
-func TestCodecs(t *testing.T) {
-	runTest(t, testCodecs)
 }

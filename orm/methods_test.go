@@ -53,10 +53,6 @@ func testLoadSaveMethods(t *testing.T, o *Orm) {
 	}
 }
 
-func TestLoadSaveMethods(t *testing.T) {
-	runTest(t, testLoadSaveMethods)
-}
-
 func testLoadSaveMethodsErrors(t *testing.T, o *Orm) {
 	LoadErrorTable := o.MustRegister((*LoadError)(nil), &Options{
 		Table: "test_load_error",
@@ -71,26 +67,9 @@ func testLoadSaveMethodsErrors(t *testing.T, o *Orm) {
 	}
 	le := &LoadError{}
 	o.MustSaveInto(LoadErrorTable, le)
-	_, err = o.Table(LoadErrorTable).Filter(Eq("Object.Id", 1)).One(&le)
+	id := le.Id
+	_, err = o.Table(LoadErrorTable).Filter(Eq("Object.Id", id)).One(&le)
 	if err != loadError {
 		t.Errorf("unexpected error %v when loading LoadError", err)
-	}
-}
-
-func TestLoadSaveMethodsErrors(t *testing.T) {
-	runTest(t, testLoadSaveMethodsErrors)
-}
-
-func BenchmarkLoadSaveMethods(b *testing.B) {
-	o := newMemoryOrm(b)
-	defer o.Close()
-	tbl := o.MustRegister((*Object)(nil), &Options{
-		Table: "test_load_save_benchmark",
-	})
-	b.ResetTimer()
-	m := tbl.model.fields.Methods
-	obj := &Object{}
-	for ii := 0; ii < b.N; ii++ {
-		m.Load(obj)
 	}
 }

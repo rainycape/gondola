@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gnd.la/orm/driver"
 )
 
 type BadEvent struct {
@@ -30,6 +32,10 @@ var (
 )
 
 func testBadReferences(t *testing.T, o *Orm) {
+	if o.Driver().Capabilities()&driver.CAP_JOIN == 0 {
+		t.Log("skipping bad references test")
+		return
+	}
 	// TODO: Test for bad references which omit the field
 	// and bad references to non-existant field names
 	_, err := o.Register((*BadEvent)(nil), &Options{
@@ -77,6 +83,10 @@ func testIterErr(t *testing.T, iter *Iter) {
 }
 
 func testReferences(t *testing.T, o *Orm) {
+	if o.Driver().Capabilities()&driver.CAP_JOIN == 0 {
+		t.Log("skipping references test")
+		return
+	}
 	// Register Event first and then Timestamp. The ORM should
 	// re-arrange them so Timestamp is created before Event.
 	// TODO: Test for ambiguous joins, they don't work yet
@@ -212,12 +222,4 @@ func testReferences(t *testing.T, o *Orm) {
 	}
 	testCount(t, count, -1, "timestamp Id=1 with spawned reference")
 	testIterErr(t, iter)
-}
-
-func TestBadReferences(t *testing.T) {
-	runTest(t, testBadReferences)
-}
-
-func TestReferences(t *testing.T) {
-	runTest(t, testReferences)
 }

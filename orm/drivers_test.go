@@ -1,3 +1,5 @@
+// +build !appengine
+
 package orm
 
 import (
@@ -14,26 +16,6 @@ import (
 // This file has tests which run all the tests for
 // every driver.
 
-func testOrm(t *testing.T, o *Orm) {
-	tests := []func(*testing.T, *Orm){
-		testCodecs,
-		testAutoIncrement,
-		testTime,
-		testSaveDelete,
-		testLoadSaveMethods,
-		testLoadSaveMethodsErrors,
-		testData,
-		testInnerPointer,
-		testTransactions,
-		testCompositePrimaryKey,
-		testReferences,
-		testQueryAll,
-	}
-	for _, v := range tests {
-		v(t, o)
-	}
-}
-
 func TestSqlite(t *testing.T) {
 	name, o := newTmpOrm(t)
 	defer o.Close()
@@ -47,7 +29,9 @@ func TestPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	exec.Command("dropdb", "gotest").Run()
-	exec.Command("createdb", "gotest").Run()
+	if err := exec.Command("createdb", "gotest").Run(); err != nil {
+		t.Skip("cannot create gotest postgres database, skipping test")
+	}
 	o := newOrm(t, fmt.Sprintf("postgres://dbname=gotest user=%v password=%v", u.Username, u.Username), true)
 	testOrm(t, o)
 	o.Close()
@@ -57,7 +41,7 @@ func TestMysql(t *testing.T) {
 	o := newOrm(t, "mysql://gotest:gotest@/test", true)
 	db := o.SqlDB()
 	if _, err := db.Exec("DROP DATABASE IF EXISTS gotest"); err != nil {
-		t.Fatal(err)
+		t.Skip("cannot connect to mysql database, skipping test: %s", err)
 	}
 	if _, err := db.Exec("CREATE DATABASE gotest"); err != nil {
 		t.Fatal(err)

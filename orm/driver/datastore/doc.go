@@ -8,6 +8,12 @@
 //      _ "gnd.la/orm/driver/datastore"
 //  )
 //
+// The URL format for this package is:
+//
+//  datastore://
+//
+// No driver specific options are supported.
+//
 // Some caveats your need to be aware of:
 //
 //  - The datastore driver does not support OR nor NEQ queries.

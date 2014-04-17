@@ -60,32 +60,31 @@ func MustParseAddressList(s string) []string {
 // the email.
 type Headers map[string]string
 
-// Attachment represents an email attachment. Attachments are encoded
-// using a multipart email with base64 encoding. Use NewAttachment to
-// create an Attachment.
+// Attachment represents an email attachment.
+// See the conveniency function NewAttachment.
 type Attachment struct {
-	name        string
-	contentType string
-	data        []byte
+	Name        string
+	ContentType string
+	Data        []byte
 	ContentID   string
 }
 
 // NewAttachment returns a new attachment which can be included in the
-// Message passed to Send(). If contentType is empty, it defaults
-// to application/octet-stream.
-func NewAttachment(name string, contentType string, r io.Reader) (*Attachment, error) {
+// Message passed to Send(). The ContentType is derived from the file name.
+func NewAttachment(filename string, r io.Reader) (*Attachment, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
 
-	if name == "" {
-		name = "file"
+	if filename == "" {
+		filename = "file"
 	}
+	contentType := mime.TypeByExtension(path.Ext(filename))
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	return &Attachment{name: name, contentType: contentType, data: data}, nil
+	return &Attachment{Name: filename, ContentType: contentType, Data: data}, nil
 }
 
 // Message describes an email to be sent. The fields that are mapped

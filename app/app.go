@@ -1022,16 +1022,15 @@ func (app *App) logError(ctx *Context, err interface{}) {
 								fmt.Fprintf(&message, "%s => error %s", k, err)
 								continue
 							}
-							name := file.Filename
-							contentType := file.Header.Get("Content-Type")
-							attachment, err := mail.NewAttachment(name, contentType, f)
+							attachment, err := mail.NewAttachment(file.Filename, f)
+							attachment.ContentType = file.Header.Get("Content-Type")
 							f.Close()
 							if err != nil {
 								fmt.Fprintf(&message, "%s => error %s", k, err)
 								continue
 							}
 							count++
-							fmt.Fprintf(&message, "%s => %s (%s)", k, file.Filename, contentType)
+							fmt.Fprintf(&message, "%s => %s (%s)", k, attachment.Name, attachment.ContentType)
 							attachments = append(attachments, attachment)
 						}
 					}

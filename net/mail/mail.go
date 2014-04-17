@@ -68,7 +68,13 @@ type Attachment struct {
 	Name        string
 	ContentType string
 	Data        []byte
-	ContentID   string
+	// ContentID is used to reference attachments from
+	// the message HTML body. Note that attachments with
+	// a non-empty ContentID which is referenced from the
+	// HTML will not be included as downloadable attachments.
+	// However, if their ContentID is not found in the HTML
+	// they will be treated as normal attachments.
+	ContentID string
 }
 
 // NewAttachment returns a new attachment which can be included in the

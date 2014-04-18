@@ -46,14 +46,30 @@ func (c *Context) cache() *Cache {
 }
 
 func (c *Context) orm() *Orm {
+	// When using GCSQL, the Orm can be shared
+	// among all requests.
+	if o := c.app.o; o != nil {
+		return o
+	}
 	o, err := c.app.openOrm()
 	if err != nil {
 		panic(err)
 	}
 	if drv, ok := o.Driver().(*datastore.Driver); ok {
 		drv.SetContext(appengine.NewContext(c.R))
+		return &Orm{Orm: o}
 	}
-	return &Orm{Orm: o}
+	// We're using GCSQL backend
+	c.app.mu.Lock()
+	defer c.app.mu.Unlock()
+	if c.app.o == nil {
+		c.app.o = &Orm{Orm: o}
+	} else {
+		// Another goroutine set the ORM before us, just close
+		// this one.
+		o.Close()
+	}
+	return c.app.o
 }
 
 func (c *Context) prepareMessage(msg *mail.Message) {

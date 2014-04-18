@@ -4,7 +4,6 @@ package app
 
 import (
 	"gnd.la/cache"
-	"gnd.la/log"
 	"gnd.la/net/mail"
 )
 
@@ -50,9 +49,6 @@ func (app *App) orm() (*Orm, error) {
 					return nil, err
 				}
 				app.o = &Orm{Orm: o}
-			}
-			if log.Std.Level() == log.LDebug {
-				app.o.SetLogger(log.Std)
 			}
 		}
 	}

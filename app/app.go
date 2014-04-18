@@ -868,7 +868,14 @@ func (app *App) openOrm() (*orm.Orm, error) {
 	if defaultDatabase == nil {
 		return nil, fmt.Errorf("default database is not set")
 	}
-	return orm.New(defaultDatabase)
+	o, err := orm.New(defaultDatabase)
+	if err != nil {
+		return nil, err
+	}
+	if log.Std.Level() == log.LDebug {
+		o.SetLogger(log.Std)
+	}
+	return o, nil
 }
 
 // Blobstore returns a blobstore using the default blobstore

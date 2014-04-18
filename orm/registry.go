@@ -304,7 +304,7 @@ func defaultsToNullEmpty(typ reflect.Type, t *structs.Tag) bool {
 // Returns the default table name for a type
 func defaultTableName(typ reflect.Type) string {
 	n := typ.Name()
-	if p := typ.PkgPath(); p != "main" {
+	if p := typ.PkgPath(); !strings.HasPrefix(p, "main") {
 		n = strings.Replace(p, "/", "_", -1) + n
 	}
 	return stringutil.CamelCaseToLower(n, "_")

@@ -276,6 +276,21 @@ func (app *App) AddContextProcessor(cp ContextProcessor) {
 	app.ContextProcessors = append(app.ContextProcessors, cp)
 }
 
+// Once executes f with the first request it receives. This is mainly
+// used for ORM initialization on App Engine.
+func (app *App) Once(f func(*Context)) {
+	// TODO: Make this more efficient, remove the
+	// ContextProcessor once we've called f.
+	var once sync.Once
+	p := func(ctx *Context) bool {
+		once.Do(func() {
+			f(ctx)
+		})
+		return false
+	}
+	app.AddContextProcessor(p)
+}
+
 // AddContextFinalizer adds a context finalizer to the app.
 // Context finalizers run in the order they were added and
 // after the request has been served (even if it was stopped by
@@ -840,7 +855,8 @@ func (app *App) Cache() (*Cache, error) {
 // Use gnd.la/config to change the default ORM. The orm.Orm
 // is initialized only once and shared among all requests and
 // tasks served from this app. On App Engine, this method always
-// returns an error. Use Context.Orm instead.
+// returns an error. Use Context.Orm instead. To perform ORM
+// initialization, use App.Once.
 func (app *App) Orm() (*Orm, error) {
 	return app.orm()
 }

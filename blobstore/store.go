@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	"strconv"
 
 	"gnd.la/blobstore/driver"
 	"gnd.la/config"
@@ -137,37 +136,40 @@ func (s *Store) Driver() driver.Driver {
 
 // Serve servers the given file by writing it to the given http.ResponseWriter.
 // Some drivers might be able to serve the file directly from their backend. Otherwise,
-// the file will be read from the blobstore and written to w. start and end parameters can
-// be used to serve a partial request.
-func (s *Store) Serve(w http.ResponseWriter, id string, start uint64, length uint64) error {
+// the file will be read from the blobstore and written to w. The rng parameter might be
+// used for sending a partial response to the client.
+func (s *Store) Serve(w http.ResponseWriter, id string, rng *Range) error {
 	if s.srv != nil {
-		return s.srv.Serve(w, id, start, length)
+		return s.srv.Serve(w, id, rng)
 	}
 	f, err := s.Open(id)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
+	size, err := f.Size()
+	if err != nil {
+		return err
+	}
 	var r io.Reader = f
-	code := http.StatusOK
-	if start != 0 {
-		if _, err := f.Seek(int64(start), os.SEEK_SET); err != nil {
-			return err
+	if rng.IsValid() {
+		if rng.Start != nil {
+			var offset int64
+			if *rng.Start < 0 {
+				offset = int64(size) + *rng.Start
+			} else {
+				offset = *rng.Start
+			}
+			if _, err := f.Seek(offset, os.SEEK_SET); err != nil {
+				return err
+			}
 		}
-		code = http.StatusPartialContent
-	}
-	if length != 0 {
-		r = &io.LimitedReader{R: r, N: int64(length)}
-		code = http.StatusPartialContent
-	} else {
-		length, err = f.Size()
-		if err != nil {
-			return err
+		if rng.End != nil {
+			r = &io.LimitedReader{R: r, N: int64(rng.Size(size))}
 		}
-		length -= start
 	}
-	w.Header().Set("Content-Length", strconv.FormatUint(length, 10))
-	w.WriteHeader(code)
+	rng.Set(w, size)
+	w.WriteHeader(rng.StatusCode())
 	if _, err := io.Copy(w, r); err != nil {
 		return err
 	}

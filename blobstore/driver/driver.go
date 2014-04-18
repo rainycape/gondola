@@ -21,8 +21,16 @@ type Driver interface {
 	Close() error
 }
 
+type Range interface {
+	IsValid() bool
+	Range() (*int64, *int64)
+	Set(w http.ResponseWriter, total uint64)
+	StatusCode() int
+	String() string
+}
+
 type Server interface {
-	Serve(w http.ResponseWriter, id string, start uint64, end uint64) error
+	Serve(w http.ResponseWriter, id string, rng Range) error
 }
 
 func Register(name string, o Opener) {

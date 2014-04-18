@@ -816,8 +816,8 @@ func (app *App) ListenAndServe() error {
 	if err := app.Prepare(); err != nil {
 		return err
 	}
-	if app.Port <= 0 {
-		return fmt.Errorf("port %d is invalid, must be > 0", app.Port)
+	if err := app.checkPort(); err != nil {
+		return err
 	}
 	signal.Emit(WILL_LISTEN, app)
 	app.started = time.Now().UTC()

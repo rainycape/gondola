@@ -29,6 +29,10 @@ func (app *App) orm() (*Orm, error) {
 	return nil, errNoAppOrm
 }
 
+func (app *App) checkPort() error {
+	return nil
+}
+
 func (c *Context) cache() *Cache {
 	ca, err := cache.New(defaultCache)
 	if err != nil {

@@ -59,6 +59,13 @@ func (app *App) orm() (*Orm, error) {
 	return app.o, nil
 }
 
+func (app *App) checkPort() error {
+	if app.Port <= 0 {
+		return fmt.Errorf("port %d is invalid, must be > 0", app.Port)
+	}
+	return nil
+}
+
 func (c *Context) cache() *Cache {
 	if c.app.c == nil {
 		if _, err := c.app.Cache(); err != nil {

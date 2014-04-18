@@ -2,10 +2,12 @@ package blobstore
 
 import (
 	"errors"
-	"gnd.la/blobstore/driver"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+
+	"gnd.la/blobstore/driver"
 )
 
 var (
@@ -23,11 +25,13 @@ var (
 // for reading.
 type RFile struct {
 	id           string
+	file         driver.RFile
+	store        *Store
+	hasMeta      bool
 	metadataData []byte
 	metadataHash uint64
 	dataLength   uint64
 	dataHash     uint64
-	rfile        driver.RFile
 }
 
 // Id returns the unique file identifier as a string.
@@ -38,13 +42,13 @@ func (r *RFile) Id() string {
 // Read reads from the file into the p buffer. This
 // method implements the io.Reader interface.
 func (r *RFile) Read(p []byte) (int, error) {
-	return r.rfile.Read(p)
+	return r.file.Read(p)
 }
 
 // Close closes the file. Once the file is closed, it
 // might not be used again.
 func (r *RFile) Close() error {
-	return r.rfile.Close()
+	return r.file.Close()
 }
 
 // ReadAll is a shorthand for ioutil.ReadAll(r)
@@ -54,34 +58,16 @@ func (r *RFile) ReadAll() ([]byte, error) {
 
 // Seek implements the same semantics than os.File.Seek.
 func (r *RFile) Seek(offset int64, whence int) (int64, error) {
-	// Version + flags + metadata size + metadata hash + metadata length + data size + data hash
-	dataStart := int64(1 + 8 + 8 + 8 + len(r.metadataData) + 8 + 8)
-	switch whence {
-	case os.SEEK_SET:
-		offset += dataStart
-		pos, err := r.rfile.Seek(offset, whence)
-		if err == nil {
-			pos -= dataStart
-		}
-		return pos, err
-	case os.SEEK_CUR, os.SEEK_END:
-		pos, err := r.rfile.Seek(offset, whence)
-		if err == nil {
-			if pos < dataStart {
-				return r.Seek(0, os.SEEK_SET)
-			}
-			pos -= dataStart
-		}
-		return pos, err
-	}
-	// User passed something other than -1, 0 and 1.
-	panic("invalid whence")
+	return r.file.Seek(offset, whence)
 }
 
 // GetMeta retrieves the file metadata, previously stored
 // when writing the file, into the meta argument, which
 // must be a pointer.
 func (r *RFile) GetMeta(meta interface{}) error {
+	if err := r.decodeMeta(); err != nil {
+		return err
+	}
 	if r.metadataData != nil {
 		return unmarshal(r.metadataData, meta)
 	}
@@ -91,6 +77,9 @@ func (r *RFile) GetMeta(meta interface{}) error {
 // Verify checks the integrity of both the data and
 // the metadata in the file.
 func (r *RFile) Verify() error {
+	if err := r.decodeMeta(); err != nil {
+		return err
+	}
 	if r.metadataHash != 0 {
 		mh := newHash()
 		mh.Write(r.metadataData)
@@ -118,8 +107,53 @@ func (r *RFile) Verify() error {
 	return nil
 }
 
-// Size returns the size of the file (without the metadata or
-// any addtional data added by the storage system).
-func (r *RFile) Size() uint64 {
-	return r.dataLength
+// Size returns the size of the file stored file.
+func (r *RFile) Size() (uint64, error) {
+	if err := r.decodeMeta(); err != nil {
+		return 0, err
+	}
+	return r.dataLength, nil
+}
+
+func (r *RFile) decodeMeta() error {
+	if !r.hasMeta {
+		f, err := r.store.drv.Open(r.store.metaName(r.id))
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		var version uint8
+		if err = bread(f, &version); err != nil {
+			return err
+		}
+		if version != 1 {
+			return fmt.Errorf("can't read metadata files with version %d", version)
+		}
+		// Skip over the flags for now
+		var flags uint64
+		if err = bread(f, &flags); err != nil {
+			return err
+		}
+		var metadataLength uint64
+		if err = bread(f, &metadataLength); err != nil {
+			return err
+		}
+		if err = bread(f, &r.metadataHash); err != nil {
+			return err
+		}
+		if err = bread(f, &r.dataLength); err != nil {
+			return err
+		}
+		if err = bread(f, &r.dataHash); err != nil {
+			return err
+		}
+		if metadataLength > 0 {
+			r.metadataData = make([]byte, int(metadataLength))
+			if _, err = io.ReadFull(f, r.metadataData); err != nil {
+				return err
+			}
+		}
+		r.hasMeta = true
+	}
+	return nil
 }

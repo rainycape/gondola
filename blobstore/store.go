@@ -2,10 +2,14 @@ package blobstore
 
 import (
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"reflect"
+	"strconv"
+
 	"gnd.la/blobstore/driver"
 	"gnd.la/config"
-	"io"
-	"reflect"
 )
 
 var (
@@ -20,6 +24,7 @@ var (
 // to initialize a Store and Store.Close to close it.
 type Store struct {
 	drv driver.Driver
+	srv driver.Server
 }
 
 // New returns a new *Store using the given url as its configure
@@ -42,141 +47,46 @@ func New(url *config.URL) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error opening blobstore driver %q: %s", url.Scheme, err)
 	}
-	return &Store{
+	s := &Store{
 		drv: drv,
-	}, nil
+	}
+	if srv, ok := drv.(driver.Server); ok {
+		s.srv = srv
+	}
+	return s, nil
 }
 
 // Create returns a new file for writing and sets its metadata
 // to meta (which might be nil). Note that the file should be
 // closed by calling WFile.Close.
-func (s *Store) Create(meta interface{}) (*WFile, error) {
-	return s.CreateId(newId(), meta)
+func (s *Store) Create() (*WFile, error) {
+	return s.CreateId(newId())
 }
 
 // CreateId works like Create, but uses the given id rather than generating
 // a new one. If a file with the same id already exists, it's overwritten.
-func (s *Store) CreateId(id string, meta interface{}) (wfile *WFile, err error) {
-	var w driver.WFile
-	w, err = s.drv.Create(id)
+func (s *Store) CreateId(id string) (*WFile, error) {
+	w, err := s.drv.Create(id)
 	if err != nil {
-		panic(err)
-		return
+		return nil, err
 	}
-	defer func() {
-		if err != nil {
-			w.Close()
-			s.drv.Remove(id)
-		}
-	}()
-	// Write version number
-	if err = bwrite(w, uint8(1)); err != nil {
-		return
-	}
-	// Write flags
-	if err = bwrite(w, uint64(0)); err != nil {
-		return
-	}
-	metadataLength := uint64(0)
-	if meta != nil && !isNil(meta) {
-		var d []byte
-		d, err = marshal(meta)
-		if err != nil {
-			return
-		}
-		metadataLength = uint64(len(d))
-		if err = bwrite(w, metadataLength); err != nil {
-			return
-		}
-		h := newHash()
-		h.Write(d)
-		if err = bwrite(w, h.Sum64()); err != nil {
-			return
-		}
-		if _, err = w.Write(d); err != nil {
-			return
-		}
-	} else {
-		// No metadata. Write 0 for the length and the hash
-		if err = bwrite(w, uint64(0)); err != nil {
-			return
-		}
-		if err = bwrite(w, uint64(0)); err != nil {
-			return
-		}
-	}
-	seeker, ok := w.(io.Seeker)
-	if ok {
-		// Reserve 16 bytes for data header
-		if err = bwrite(w, uint64(0)); err != nil {
-			return
-		}
-		if err = bwrite(w, uint64(0)); err != nil {
-			return
-		}
-	}
-	// File is ready for writing. Hand it to the user.
 	return &WFile{
-		id:             id,
-		metadataLength: metadataLength,
-		dataHash:       newHash(),
-		wfile:          w,
-		seeker:         seeker,
+		id:       id,
+		file:     w,
+		dataHash: newHash(),
+		store:    s,
 	}, nil
 }
 
 // Open opens the file with the given id for reading. Note that
-// the file should closed by calling RFile.Close after you're
+// the file should be closed by calling RFile.Close after you're
 // done with it.
-func (s *Store) Open(id string) (rfile *RFile, err error) {
-	var r driver.RFile
-	r, err = s.drv.Open(id)
+func (s *Store) Open(id string) (*RFile, error) {
+	f, err := s.drv.Open(id)
 	if err != nil {
-		return
+		return nil, err
 	}
-	defer func() {
-		if err != nil {
-			rfile = nil
-			r.Close()
-		}
-	}()
-	var version uint8
-	if err = bread(r, &version); err != nil {
-		return
-	}
-	if version != 1 {
-		err = fmt.Errorf("can't read files with version %d", version)
-		return
-	}
-	// Skip over the flags for now
-	var flags uint64
-	if err = bread(r, &flags); err != nil {
-		return
-	}
-	rfile = &RFile{
-		id:    id,
-		rfile: r,
-	}
-	var metadataLength uint64
-	if err = bread(r, &metadataLength); err != nil {
-		return
-	}
-	if err = bread(r, &rfile.metadataHash); err != nil {
-		return
-	}
-	if metadataLength > 0 {
-		rfile.metadataData = make([]byte, int(metadataLength))
-		if _, err = r.Read(rfile.metadataData); err != nil {
-			return
-		}
-	}
-	if err = bread(r, &rfile.dataLength); err != nil {
-		return
-	}
-	if err = bread(r, &rfile.dataHash); err != nil {
-		return
-	}
-	return
+	return &RFile{id: id, file: f, store: s}, nil
 }
 
 // ReadAll is a shorthand for Open(f).ReadAll()
@@ -198,8 +108,11 @@ func (s *Store) Store(b []byte, meta interface{}) (string, error) {
 // in meta with the given file id. If a file with the same id exists, it's
 // overwritten.
 func (s *Store) StoreId(id string, b []byte, meta interface{}) (string, error) {
-	f, err := s.CreateId(id, meta)
+	f, err := s.CreateId(id)
 	if err != nil {
+		return "", err
+	}
+	if err := f.SetMeta(meta); err != nil {
 		return "", err
 	}
 	if _, err := f.Write(b); err != nil {
@@ -213,12 +126,61 @@ func (s *Store) StoreId(id string, b []byte, meta interface{}) (string, error) {
 
 // Remove deletes the file with the given id.
 func (s *Store) Remove(id string) error {
+	s.drv.Remove(s.metaName(id))
 	return s.drv.Remove(id)
+}
+
+// Driver returns the underlying driver
+func (s *Store) Driver() driver.Driver {
+	return s.drv
+}
+
+// Serve servers the given file by writing it to the given http.ResponseWriter.
+// Some drivers might be able to serve the file directly from their backend. Otherwise,
+// the file will be read from the blobstore and written to w. start and end parameters can
+// be used to serve a partial request.
+func (s *Store) Serve(w http.ResponseWriter, id string, start uint64, length uint64) error {
+	if s.srv != nil {
+		return s.srv.Serve(w, id, start, length)
+	}
+	f, err := s.Open(id)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	var r io.Reader = f
+	code := http.StatusOK
+	if start != 0 {
+		if _, err := f.Seek(int64(start), os.SEEK_SET); err != nil {
+			return err
+		}
+		code = http.StatusPartialContent
+	}
+	if length != 0 {
+		r = &io.LimitedReader{R: r, N: int64(length)}
+		code = http.StatusPartialContent
+	} else {
+		length, err = f.Size()
+		if err != nil {
+			return err
+		}
+		length -= start
+	}
+	w.Header().Set("Content-Length", strconv.FormatUint(length, 10))
+	w.WriteHeader(code)
+	if _, err := io.Copy(w, r); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Close closes the connection to the blobstore.
 func (s *Store) Close() error {
 	return s.drv.Close()
+}
+
+func (s *Store) metaName(id string) string {
+	return id + ".meta"
 }
 
 func isNil(v interface{}) bool {

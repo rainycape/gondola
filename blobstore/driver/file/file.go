@@ -1,16 +1,13 @@
 package file
 
 import (
+	"os"
+	"path"
+	"path/filepath"
+
 	"gnd.la/blobstore/driver"
 	"gnd.la/config"
 	"gnd.la/util/pathutil"
-	"os"
-	"path/filepath"
-)
-
-const (
-	idLength = 24
-	sep      = idLength - 2
 )
 
 type fsDriver struct {
@@ -25,7 +22,12 @@ func (f *fsDriver) tmp(id string) string {
 func (f *fsDriver) path(id string) string {
 	// Use the last two bytes as the dirname, since the
 	// two first increase monotonically with time
-	return filepath.Join(f.dir, id[sep:], id[:sep])
+	ext := path.Ext(id)
+	if ext != "" {
+		id = id[:len(id)-len(ext)]
+	}
+	sep := len(id) - 2
+	return filepath.Join(f.dir, id[sep:], id[:sep]+ext)
 }
 
 func (f *fsDriver) Create(id string) (driver.WFile, error) {

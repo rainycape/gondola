@@ -3,6 +3,8 @@
 package driver
 
 import (
+	"net/http"
+
 	"gnd.la/config"
 )
 
@@ -17,6 +19,10 @@ type Driver interface {
 	Open(id string) (RFile, error)
 	Remove(id string) error
 	Close() error
+}
+
+type Server interface {
+	Serve(w http.ResponseWriter, id string, start uint64, end uint64) error
 }
 
 func Register(name string, o Opener) {

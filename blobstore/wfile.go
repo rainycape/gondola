@@ -1,24 +1,21 @@
 package blobstore
 
 import (
-	"bytes"
-	"gnd.la/blobstore/driver"
 	"hash"
-	"io"
-	"os"
+
+	"gnd.la/blobstore/driver"
 )
 
 // WFile represents a file in the blobstore
 // opened for writing.
 type WFile struct {
-	id             string
-	metadataLength uint64
-	dataLength     uint64
-	dataHash       hash.Hash64
-	wfile          driver.WFile
-	seeker         io.Seeker
-	closed         bool
-	buf            bytes.Buffer
+	id         string
+	file       driver.WFile
+	meta       interface{}
+	dataHash   hash.Hash64
+	dataLength uint64
+	store      *Store
+	closed     bool
 }
 
 // Id returns the unique file identifier as a string.
@@ -31,39 +28,71 @@ func (w *WFile) Id() string {
 func (w *WFile) Write(p []byte) (int, error) {
 	w.dataHash.Write(p)
 	w.dataLength += uint64(len(p))
-	if w.seeker != nil {
-		return w.wfile.Write(p)
-	}
-	// The underlying driver does not support seeking, buffer
-	// writes.
-	return w.buf.Write(p)
+	return w.file.Write(p)
+}
+
+func (w *WFile) SetMeta(meta interface{}) error {
+	w.meta = meta
+	return nil
 }
 
 // Close closes the file. Once the file is closed, it
 // might not be used again.
 func (w *WFile) Close() error {
 	if !w.closed {
-		if w.seeker != nil {
-			// Seek to the end of the metadata to update the size and hash
-			dataLengthPos := int64(1 + 8 + 8 + 8 + w.metadataLength)
-			if _, err := w.seeker.Seek(dataLengthPos, os.SEEK_SET); err != nil {
-				return err
-			}
-		}
-		if err := bwrite(w.wfile, w.dataLength); err != nil {
+		if err := w.writeMeta(); err != nil {
 			return err
 		}
-		if err := bwrite(w.wfile, w.dataHash.Sum64()); err != nil {
+		return w.file.Close()
+	}
+	return nil
+}
+
+func (w *WFile) writeMeta() error {
+	f, err := w.store.drv.Create(w.store.metaName(w.id))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	// Write version number
+	if err := bwrite(f, uint8(1)); err != nil {
+		return err
+	}
+	// Write flags
+	if err := bwrite(f, uint64(0)); err != nil {
+		return err
+	}
+	var metadata []byte
+	metadataLength := uint64(0)
+	metadataHash := uint64(0)
+	if w.meta != nil && !isNil(w.meta) {
+		metadata, err = marshal(w.meta)
+		if err != nil {
 			return err
 		}
-		if w.seeker == nil {
-			// No seeking, write buffered data
-			if _, err := w.wfile.Write(w.buf.Bytes()); err != nil {
-				return err
-			}
+		metadataLength = uint64(len(metadata))
+		h := newHash()
+		h.Write(metadata)
+		metadataHash = h.Sum64()
+	}
+	// Metadata metadata
+	if err := bwrite(f, metadataLength); err != nil {
+		return err
+	}
+	if err := bwrite(f, metadataHash); err != nil {
+		return err
+	}
+	// Data metadata
+	if err := bwrite(f, w.dataLength); err != nil {
+		return err
+	}
+	if err := bwrite(f, w.dataHash.Sum64()); err != nil {
+		return err
+	}
+	if len(metadata) > 0 {
+		if _, err := f.Write(metadata); err != nil {
+			return err
 		}
-		w.closed = true
-		return w.wfile.Close()
 	}
 	return nil
 }

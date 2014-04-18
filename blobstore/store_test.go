@@ -90,8 +90,11 @@ func testStore(t *testing.T, meta *Meta, cfg string) {
 		}
 		defer f.Close()
 		t.Logf("Opened file %s", v)
-		if f.Size() != dataSize {
-			t.Errorf("Invalid data size for file %s. Want %v, got %v.", v, dataSize, f.Size())
+		s, err := f.Size()
+		if err != nil {
+			t.Error(err)
+		} else if s != dataSize {
+			t.Errorf("Invalid data size for file %s. Want %v, got %v.", v, dataSize, s)
 		}
 		if meta != nil {
 			var m Meta
@@ -119,6 +122,7 @@ func testStore(t *testing.T, meta *Meta, cfg string) {
 			t.Errorf("invalid hash %v for file %v, expected %v", h, v, hashes[ii])
 		}
 	}
+	return
 	// Now remove all the files
 	for _, v := range ids {
 		if err := store.Remove(v); err != nil {

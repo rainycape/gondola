@@ -24,6 +24,10 @@ var (
 	}
 	errUntypedNilPointer = errors.New("untyped nil pointer passed to Next(). Please, cast it to the appropriate type e.g. (*MyType)(nil)")
 	errNoModel           = errors.New("query without model - did you forget output parameters?")
+	// Rollback is returned from functions passed to Orm.Transaction to
+	// indicate that they want the transaction to be rolled back without
+	// returning any error from Orm.Transaction.
+	Rollback = errors.New("transaction rolled back")
 )
 
 const (
@@ -404,6 +408,13 @@ func (o *Orm) delete(m *model, q query.Q) (Result, error) {
 // not support transactions, Begin will return a fake
 // transaction.
 func (o *Orm) Begin() (*Tx, error) {
+	caps := o.driver.Capabilities()
+	if caps&driver.CAP_BEGIN == 0 {
+		if caps&driver.CAP_TRANSACTION == 0 {
+			return nil, fmt.Errorf("ORM driver %T does not support transactions", o.driver)
+		}
+		return nil, fmt.Errorf("ORM driver %T does not support Begin/Commit/Rollback - use Orm.Transaction instead", o.driver)
+	}
 	tx, err := o.driver.Begin()
 	if err != nil {
 		return nil, err
@@ -431,6 +442,45 @@ func (o *Orm) MustBegin() *Tx {
 		panic(err)
 	}
 	return tx
+}
+
+// Transaction runs the given function f inside a transaction. This
+// interface is provided because some drivers (most of the NoSQL based)
+// don't support the Begin/Commit interface and must run a transaction
+// as a function. To return from f rolling back the transaction without
+// generating an error return in Transaction, use Rollback. Returning
+// any other error will cause the transaction to be rolled back and the
+// error will be returned from Transaction. If no errors are returned
+// from f, the transaction is commited and the only error that might be
+// returned from Transaction will be one produced while committing.
+func (o *Orm) Transaction(f func(o *Orm) error) error {
+	caps := o.driver.Capabilities()
+	if caps&driver.CAP_TRANSACTION == 0 {
+		return fmt.Errorf("ORM driver %T does not support transactions", o.driver)
+	}
+	if caps&driver.CAP_BEGIN != 0 {
+		tx, err := o.Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Close()
+		if err := f(tx.Orm); err != nil {
+			if err == Rollback {
+				err = tx.Rollback()
+			}
+			return err
+		}
+		return tx.Commit()
+	}
+	err := o.driver.Transaction(func(d driver.Driver) error {
+		oc := *o
+		oc.conn = d
+		return f(&oc)
+	})
+	if err == Rollback {
+		err = nil
+	}
+	return err
 }
 
 // Close closes the database connection. Since the ORM

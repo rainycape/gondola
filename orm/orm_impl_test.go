@@ -295,8 +295,8 @@ func testInnerPointer(t *testing.T, o *Orm) {
 }
 
 func testTransactions(t *testing.T, o *Orm) {
-	if o.Driver().Capabilities()&driver.CAP_TRANSACTION == 0 {
-		t.Log("skipping transaction test")
+	if o.Driver().Capabilities()&driver.CAP_BEGIN == 0 {
+		t.Log("skipping transaction begin/commit/rollback test")
 		return
 	}
 	table := o.MustRegister((*AutoIncrement)(nil), &Options{
@@ -321,6 +321,43 @@ func testTransactions(t *testing.T, o *Orm) {
 	obj.Id = 0
 	tx2.MustSaveInto(table, obj)
 	tx2.MustRollback()
+	e, err = o.Exists(table, Eq("Id", obj.Id))
+	if err != nil {
+		t.Error(err)
+	} else if e {
+		t.Error("rolled back object exists")
+	}
+}
+
+func testFuncTransactions(t *testing.T, o *Orm) {
+	if o.Driver().Capabilities()&driver.CAP_TRANSACTION == 0 {
+		t.Log("skipping transaction func test")
+		return
+	}
+	table := o.MustRegister((*AutoIncrement)(nil), &Options{
+		Table: "test_transactions_func",
+	})
+	o.MustInitialize()
+	obj := &AutoIncrement{}
+	if err := o.Transaction(func(o *Orm) error {
+		_, err := o.SaveInto(table, obj)
+		return err
+	}); err != nil {
+		t.Error(err)
+	}
+	e, err := o.Exists(table, Eq("Id", obj.Id))
+	if err != nil {
+		t.Error(err)
+	} else if !e {
+		t.Error("commited object does not exist")
+	}
+	if err := o.Transaction(func(o *Orm) error {
+		obj.Id = 0
+		o.MustSaveInto(table, obj)
+		return Rollback
+	}); err != nil {
+		t.Error(err)
+	}
 	e, err = o.Exists(table, Eq("Id", obj.Id))
 	if err != nil {
 		t.Error(err)
@@ -481,6 +518,7 @@ func testOrm(t *testing.T, o *Orm) {
 		testData,
 		testInnerPointer,
 		testTransactions,
+		testFuncTransactions,
 		testCompositePrimaryKey,
 		testReferences,
 		testQueryAll,

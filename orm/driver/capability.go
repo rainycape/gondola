@@ -9,8 +9,10 @@ const (
 	CAP_NONE Capability = 0
 	// Can perform JOINs
 	CAP_JOIN = 1 << iota
-	// Can begin/commit transactions
+	// Can create transactions
 	CAP_TRANSACTION
+	// Can begin/commit/rollback a transaction
+	CAP_BEGIN
 	// Can automatically assign ids to rows
 	CAP_AUTO_ID
 	// Automatically assigned ids increase sequentially

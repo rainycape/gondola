@@ -286,8 +286,16 @@ func (d *Driver) Rollback() error {
 	return driver.ErrNotInTransaction
 }
 
+func (d *Driver) Transaction(f func(driver.Driver) error) error {
+	return datastore.RunInTransaction(d.c, func(c appengine.Context) error {
+		drv := *d
+		drv.c = c
+		return f(&drv)
+	}, nil)
+}
+
 func (d *Driver) Capabilities() driver.Capability {
-	return driver.CAP_AUTO_ID | driver.CAP_EVENTUAL | driver.CAP_PK
+	return driver.CAP_TRANSACTION | driver.CAP_AUTO_ID | driver.CAP_EVENTUAL | driver.CAP_PK
 }
 
 func (d *Driver) primaryKey(f *driver.Fields, data interface{}) reflect.Value {

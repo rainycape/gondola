@@ -14,6 +14,7 @@ type Driver interface {
 	Conn
 	MakeTables(m []Model) error
 	Begin() (Tx, error)
+	Transaction(f func(Driver) error) error
 	Close() error
 	// True if the driver can perform upserts
 	Upserts() bool

@@ -30,6 +30,10 @@ func TestTransactions(t *testing.T) {
 	runTest(t, testTransactions)
 }
 
+func TestFuncTransactions(t *testing.T) {
+	runTest(t, testFuncTransactions)
+}
+
 func TestQueryAll(t *testing.T) {
 	runTest(t, testQueryAll)
 }

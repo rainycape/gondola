@@ -151,11 +151,46 @@ func GaeDeploy(ctx *app.Context) {
 	}
 }
 
+func GaeTest(ctx *app.Context) {
+	log.Debugf("starting App Engine tests")
+	var tags string
+	ctx.ParseParamValue("tags", &tags)
+	var buildArgs []string
+	if tags != "" {
+		buildArgs = append(buildArgs, "-tags", tags)
+	}
+	serveCmd, err := startServe(buildArgs)
+	if err != nil {
+		panic(err)
+	}
+	serveCh := make(chan error, 1)
+	go func() {
+		serveCh <- serveCmd.Wait()
+	}()
+	args := append([]string{"test"}, buildArgs...)
+	var verbose bool
+	ctx.ParseParamValue("v", &verbose)
+	if verbose {
+		args = append(args, "-v")
+	}
+	args = append(args, "-L")
+	testCmd := exec.Command("goapp", args...)
+	runCmd(testCmd)
+	serveCmd.Process.Signal(os.Interrupt)
+	<-serveCh
+}
+
 func init() {
 	admin.Register(GaeDev, &admin.Options{
 		Help: "Start App Engine development server",
 	})
 	admin.Register(GaeDeploy, &admin.Options{
 		Help: "Deploy your application to App Engine development",
+	})
+	admin.Register(GaeTest, &admin.Options{
+		Help: "Start serving your app on localhost and run gnd.la/test/tester tests against it",
+		Flags: admin.Flags(
+			admin.BoolFlag("v", false, "Enable verbose tests"),
+		),
 	})
 }

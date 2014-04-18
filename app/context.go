@@ -375,13 +375,7 @@ func (c *Context) Cache() *Cache {
 // Blobstore is a shorthand for ctx.App().Blobstore(), but panics in
 // case of error instead of returning it.
 func (c *Context) Blobstore() *blobstore.Store {
-	if c.app.store == nil {
-		_, err := c.app.Blobstore()
-		if err != nil {
-			panic(err)
-		}
-	}
-	return c.app.store
+	return c.blobstore()
 }
 
 // Orm is a shorthand for ctx.App().Orm(), but panics in case

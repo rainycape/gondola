@@ -57,8 +57,9 @@ var (
 
 	inDevServer bool
 
-	errNoSecret = errors.New("app has no secret")
-	errNoKey    = errors.New("app has no encryption key")
+	errNoSecret           = errors.New("app has no secret")
+	errNoKey              = errors.New("app has no encryption key")
+	errNoDefaultBlobstore = errors.New("default blobstore is not set")
 )
 
 type RecoverHandler func(*Context, interface{}) interface{}
@@ -882,26 +883,10 @@ func (app *App) openOrm() (*orm.Orm, error) {
 // parameters, as returned by DefaultBlobstore(). Use
 // gnd.la/config to change the default blobstore. See
 // gnd.la/blobstore for further information on using the blobstore.
+// Note that this function does not work on App Engine. Use Context.Blobstore
+// instead.
 func (app *App) Blobstore() (*blobstore.Store, error) {
-	if app.store == nil {
-		app.mu.Lock()
-		defer app.mu.Unlock()
-		if app.store == nil {
-			var err error
-			if app.parent != nil {
-				app.store, err = app.parent.Blobstore()
-			} else {
-				if defaultBlobstore == nil {
-					return nil, fmt.Errorf("default blobstore is not set")
-				}
-				app.store, err = blobstore.New(defaultBlobstore)
-			}
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	return app.store, nil
+	return app.blobstore()
 }
 
 func (app *App) readXHeaders(r *http.Request) {

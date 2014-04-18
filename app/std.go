@@ -3,6 +3,9 @@
 package app
 
 import (
+	"fmt"
+
+	"gnd.la/blobstore"
 	"gnd.la/cache"
 	"gnd.la/net/mail"
 )
@@ -55,6 +58,28 @@ func (app *App) orm() (*Orm, error) {
 	return app.o, nil
 }
 
+func (app *App) blobstore() (*blobstore.Store, error) {
+	if app.store == nil {
+		app.mu.Lock()
+		defer app.mu.Unlock()
+		if app.store == nil {
+			var err error
+			if app.parent != nil {
+				app.store, err = app.parent.Blobstore()
+			} else {
+				if defaultBlobstore == nil {
+					return nil, errNoDefaultBlobstore
+				}
+				app.store, err = blobstore.New(defaultBlobstore)
+			}
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return app.store, nil
+}
+
 func (app *App) checkPort() error {
 	if app.Port <= 0 {
 		return fmt.Errorf("port %d is invalid, must be > 0", app.Port)
@@ -78,6 +103,16 @@ func (c *Context) orm() *Orm {
 		}
 	}
 	return c.app.o
+}
+
+func (c *Context) blobstore() *blobstore.Store {
+	if c.app.store == nil {
+		_, err := c.app.Blobstore()
+		if err != nil {
+			panic(err)
+		}
+	}
+	return c.app.store
 }
 
 func (c *Context) prepareMessage(msg *mail.Message) {

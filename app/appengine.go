@@ -5,6 +5,7 @@ package app
 import (
 	"errors"
 
+	"gnd.la/blobstore"
 	"gnd.la/cache"
 	"gnd.la/net/mail"
 	"gnd.la/orm/driver/datastore"
@@ -13,8 +14,9 @@ import (
 )
 
 var (
-	errNoAppCache = errors.New("App.Cache() does not work on App Engine - use Context.Cache() instead")
-	errNoAppOrm   = errors.New("App.Orm() does not work on App Engine - use Context.Orm() instead")
+	errNoAppCache     = errors.New("App.Cache() does not work on App Engine - use Context.Cache() instead")
+	errNoAppOrm       = errors.New("App.Orm() does not work on App Engine - use Context.Orm() instead")
+	errNoAppBlobstore = errors.New("App.Blobstore() does not work on App Engine - use Context.Blobstore() instead")
 )
 
 type contextSetter interface {
@@ -27,6 +29,10 @@ func (app *App) cache() (*Cache, error) {
 
 func (app *App) orm() (*Orm, error) {
 	return nil, errNoAppOrm
+}
+
+func (app *App) blobstore() (*blobstore.Store, error) {
+	return nil, errNoAppBlobstore
 }
 
 func (app *App) checkPort() error {
@@ -70,6 +76,20 @@ func (c *Context) orm() *Orm {
 		o.Close()
 	}
 	return c.app.o
+}
+
+func (c *Context) blobstore() *blobstore.Store {
+	if defaultBlobstore == nil {
+		panic(errNoDefaultBlobstore)
+	}
+	b, err := blobstore.New(defaultBlobstore)
+	if err != nil {
+		panic(err)
+	}
+	if drv, ok := b.Driver().(contextSetter); ok {
+		drv.SetContext(appengine.NewContext(c.R))
+	}
+	return b
 }
 
 func (c *Context) prepareMessage(msg *mail.Message) {

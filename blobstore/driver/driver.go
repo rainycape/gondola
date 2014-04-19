@@ -30,7 +30,12 @@ type Range interface {
 }
 
 type Server interface {
-	Serve(w http.ResponseWriter, id string, rng Range) error
+	// Serve serves the file directly from the driver to the given
+	// http.ResponseWriter. If this function returns (false, nil)
+	// the blobstore will request the file to the driver and serve
+	// it by copying its contents to w. Any non nil error return
+	// will cause the blobstore to return an error to the caller.
+	Serve(w http.ResponseWriter, id string, rng Range) (bool, error)
 }
 
 func Register(name string, o Opener) {

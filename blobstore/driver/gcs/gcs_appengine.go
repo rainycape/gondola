@@ -47,16 +47,16 @@ func (d *gcsDriver) Close() error {
 	return nil
 }
 
-func (d *gcsDriver) Serve(w http.ResponseWriter, id string, rng driver.Range) error {
+func (d *gcsDriver) Serve(w http.ResponseWriter, id string, rng driver.Range) (bool, error) {
 	if rng.IsValid() {
 		w.Header().Set("X-AppEngine-BlobRange", rng.String())
 	}
 	key, err := blobstore.BlobKeyForFile(d.c, d.path(id))
 	if err != nil {
-		return err
+		return false, err
 	}
 	blobstore.Send(w, key)
-	return nil
+	return true, nil
 }
 
 func (d *gcsDriver) SetContext(ctx appengine.Context) {

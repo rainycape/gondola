@@ -140,7 +140,9 @@ func (s *Store) Driver() driver.Driver {
 // used for sending a partial response to the client.
 func (s *Store) Serve(w http.ResponseWriter, id string, rng *Range) error {
 	if s.srv != nil {
-		return s.srv.Serve(w, id, rng)
+		if ok, err := s.srv.Serve(w, id, rng); ok || err != nil {
+			return err
+		}
 	}
 	f, err := s.Open(id)
 	if err != nil {

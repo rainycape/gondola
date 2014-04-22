@@ -430,10 +430,34 @@ func (c *Context) RemoteAddress() string {
 	return ""
 }
 
+// GetHeader is a shorthand for Context.R.Header.Get()
+func (c *Context) GetHeader(key string) string {
+	if c != nil && c.R != nil {
+		return c.R.Header.Get(key)
+	}
+	return ""
+}
+
+// SetHeader is a shorthand for Context.Header().Set
+func (c *Context) SetHeader(key string, value string) {
+	h := c.Header()
+	if h != nil {
+		h.Set(key, value)
+	}
+}
+
+// AddHeader is a shorthand for Context.Header().Add
+func (c *Context) AddHeader(key string, value string) {
+	h := c.Header()
+	if h != nil {
+		h.Add(key, value)
+	}
+}
+
 // IsXHR returns wheter the request was made via XMLHTTPRequest. Internally,
 // it uses X-Requested-With, which is set by all major JS libraries.
 func (c *Context) IsXHR() bool {
-	return c.R != nil && c.R.Header.Get("X-Requested-With") == "XMLHttpRequest"
+	return c.GetHeader("X-Requested-With") == "XMLHttpRequest"
 }
 
 // Close closes any resources opened by the context.

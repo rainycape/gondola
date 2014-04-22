@@ -27,15 +27,15 @@ func (s syms) Swap(i, j int) {
 }
 
 func makeTable(f debugFile) (*gosym.Table, error) {
-	symdat, err := f.Section(".gosymtab").Data()
+	symdat, err := f.Symtab()
 	if err != nil {
 		return nil, err
 	}
-	pclndat, err := f.Section(".gopclntab").Data()
+	pclndat, err := f.Pclntab()
 	if err != nil {
 		return nil, err
 	}
-	pcln := gosym.NewLineTable(pclndat, f.Addr(".text"))
+	pcln := gosym.NewLineTable(pclndat, f.TextAddr())
 	tab, err := gosym.NewTable(symdat, pcln)
 	if err != nil {
 		return nil, err

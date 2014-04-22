@@ -1,13 +1,15 @@
+// +build !windows,!darwin
+
 package runtimeutil
 
 import (
-	"debug/macho"
+	"debug/elf"
 	"fmt"
 	"io"
 )
 
 type file struct {
-	*macho.File
+	*elf.File
 }
 
 func (f *file) section(name string) ([]byte, error) {
@@ -19,19 +21,19 @@ func (f *file) section(name string) ([]byte, error) {
 }
 
 func (f *file) Symtab() ([]byte, error) {
-	return f.section("__gosymtab")
+	return f.section(".gosymtab")
 }
 
 func (f *file) Pclntab() ([]byte, error) {
-	return f.section("__gopclntab")
+	return f.section(".gopclntab")
 }
 
 func (f *file) TextAddr() uint64 {
-	return f.Section("__text").Addr
+	return f.Section(".text").Addr
 }
 
 func openDebugFile(r io.ReaderAt) (debugFile, error) {
-	f, err := macho.NewFile(r)
+	f, err := elf.NewFile(r)
 	if err != nil {
 		return nil, err
 	}

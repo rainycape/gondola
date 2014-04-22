@@ -115,7 +115,7 @@ type Project struct {
 	verbose    bool
 	port       int
 	appPort    int
-	building   bool
+	buildCmd   *exec.Cmd
 	errors     []*BuildError
 	cmd        *exec.Cmd
 	watcher    *fsnotify.Watcher
@@ -164,6 +164,8 @@ func (p *Project) importPackage(imported map[string]bool, pkgs *[]*build.Package
 	return nil
 }
 
+// Packages returns the packages imported by the Project, either
+// directly or transitively.
 func (p *Project) Packages() ([]*build.Package, error) {
 	var pkgs []*build.Package
 	imported := make(map[string]bool)
@@ -179,16 +181,16 @@ func (p *Project) StopMonitoring() {
 }
 
 func (p *Project) StartMonitoring() error {
-	pkgs, err := p.Packages()
-	if len(pkgs) == 0 && err != nil {
-		return err
-	}
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
 	}
-	for _, v := range pkgs {
-		if err := watcher.Watch(v.Dir); err != nil {
+	// Watch GOROOT, GOPATH and the project dir. Any modification
+	// to those dirs is likely to require a rebuild. The reason we
+	// don't watch each pkg dir is because on some systems (namely OS X)
+	// it will cause the process to open too many files.
+	for _, v := range []string{build.Default.GOROOT, build.Default.GOPATH, p.dir} {
+		if err := watcher.Watch(v); err != nil {
 			return err
 		}
 	}
@@ -203,6 +205,9 @@ func (p *Project) StartMonitoring() error {
 				if ev == nil {
 					// Closed
 					break finished
+				}
+				if ev.IsAttrib() {
+					break
 				}
 				ext := filepath.Ext(strings.ToLower(ev.Name))
 				if ext != ".go" && ext != ".h" && ext != ".c" && ext != ".s" && ext != ".cpp" && ext != ".cxx" {
@@ -233,11 +238,8 @@ func (p *Project) StartMonitoring() error {
 				if t != nil {
 					t.Stop()
 				}
-				if p.building {
-					break
-				}
 				t = time.AfterFunc(50*time.Millisecond, func() {
-					p.Compile()
+					p.Build()
 				})
 			case err := <-watcher.Error:
 				if err == nil {
@@ -337,9 +339,21 @@ func (p *Project) CompilerCmd() *exec.Cmd {
 	return p.GoCmd(args...)
 }
 
-func (p *Project) Compile() {
+// Build builds the project. If the project was already building, the build
+// is restarted.
+func (p *Project) Build() {
+	cmd := p.CompilerCmd()
+	var restarted bool
 	p.Lock()
-	defer p.Unlock()
+	if p.buildCmd != nil {
+		proc := p.buildCmd.Process
+		if proc != nil {
+			proc.Signal(os.Interrupt)
+			restarted = true
+			println("RESTART")
+		}
+	}
+	p.buildCmd = cmd
 	// Browsers might keep connections open
 	// after the request is served and they
 	// might need to be rerouted (e.g. the
@@ -347,16 +361,24 @@ func (p *Project) Compile() {
 	// them anymore).
 	p.DropConnections()
 	p.StopMonitoring()
-	p.building = true
+	p.Unlock()
 	if err := p.Stop(); err != nil {
 		log.Panic(err)
 	}
 	p.errors = nil
-	cmd := p.CompilerCmd()
-	log.Debugf("Building %s (%s)", p.Name(), cmdString(cmd))
+	if !restarted {
+		log.Debugf("Building %s (%s)", p.Name(), cmdString(cmd))
+	}
 	var buf bytes.Buffer
 	cmd.Stderr = &buf
-	err := cmd.Run()
+	err := p.buildCmd.Run()
+	p.Lock()
+	defer p.Unlock()
+	if p.buildCmd != cmd {
+		// Canceled by another build
+		return
+	}
+	p.buildCmd = nil
 	p.built = time.Now().UTC()
 	os.Stderr.Write(buf.Bytes())
 	if err != nil {
@@ -425,7 +447,6 @@ func (p *Project) Compile() {
 		}
 		p.GoCmd(args...).Run()
 	}()
-	p.building = false
 }
 
 func (p *Project) Handler(ctx *app.Context) {
@@ -544,7 +565,7 @@ func Dev(ctx *app.Context) {
 	ctx.ParseParamValue("profile", &p.profile)
 	ctx.ParseParamValue("v", &p.verbose)
 	clean(dir)
-	go p.Compile()
+	go p.Build()
 	eof := "C"
 	if runtime.GOOS == "windows" {
 		eof = "Z"

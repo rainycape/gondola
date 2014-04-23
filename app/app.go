@@ -42,6 +42,12 @@ const (
 	// WILL_LISTEN is emitted just before a *gnd.la/app.App will
 	// start listening. The object is the App.
 	WILL_LISTEN = "gnd.la/app.will-listen"
+	// WILL_PREPARE is emitted at the beginning of App.Prepare.
+	// The object is the App.
+	WILL_PREPARE = "gnd.la/app.will-prepare"
+	// DID_PREPARE is emitted when App.Prepare ends without errors.
+	// The object is the App.
+	DID_PREPARE = "gnd.la/app.did-prepare"
 )
 
 var (
@@ -1339,6 +1345,7 @@ func (app *App) Clone() *App {
 // to call it to set the App up without making it listen on
 // a port.
 func (app *App) Prepare() error {
+	signal.Emit(WILL_PREPARE, app)
 	if app.Secret != "" && len(app.Secret) < 32 && os.Getenv("GONDOLA_ALLOW_SHORT_SECRET") == "" {
 		if os.Getenv("GONDOLA_IS_DEV_SERVER") != "" {
 			os.Setenv("GONDOLA_IS_DEV_SERVER", "")
@@ -1361,6 +1368,7 @@ func (app *App) Prepare() error {
 		child.userFunc = app.userFunc
 		child.Logger = app.Logger
 	}
+	signal.Emit(DID_PREPARE, app)
 	return nil
 }
 

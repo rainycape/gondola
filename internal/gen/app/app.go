@@ -27,12 +27,12 @@ type Translations struct {
 
 type App struct {
 	Dir          string
-	Name         string            `yaml:"name"`
-	Handlers     map[string]string `yaml:"handlers"`
-	Vars         map[string]string `yaml:"vars"`
-	Templates    *Templates        `yaml:"templates"`
-	Translations *Translations     `yaml:"translations"`
-	Assets       string            `yaml:"assets"`
+	Name         string                 `yaml:"name"`
+	Handlers     map[string]string      `yaml:"handlers"`
+	Vars         map[string]interface{} `yaml:"vars"`
+	Templates    *Templates             `yaml:"templates"`
+	Translations *Translations          `yaml:"translations"`
+	Assets       string                 `yaml:"assets"`
 }
 
 func (app *App) writeLoader(buf *bytes.Buffer, dir string, release bool) error {
@@ -90,7 +90,7 @@ func (app *App) Gen(release bool) error {
 		for k, v := range app.Vars {
 			ident := k
 			name := v
-			if name == "" {
+			if name == "" || name == nil {
 				name = ident
 			}
 			obj := scope.Lookup(ident)

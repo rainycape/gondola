@@ -43,10 +43,16 @@ func (s *Struct) Map(qname string) (string, reflect.Type, error) {
 
 // Embeds returns true iff the struct embeds the given type.
 func (s *Struct) Embeds(typ reflect.Type) bool {
+	return s.Has("", typ)
+}
+
+// Has returns true iff the struct has a field with the given name
+// of the given type. If field is empty, it works like Embeds.
+func (s *Struct) Has(field string, typ reflect.Type) bool {
 	end := s.Type.NumField()
 	for ii := 0; ii < end; ii++ {
-		field := s.Type.Field(ii)
-		if field.Type == typ && field.Anonymous {
+		f := s.Type.Field(ii)
+		if f.Type == typ && ((field == "" && f.Anonymous) || field == f.Name) {
 			return true
 		}
 	}

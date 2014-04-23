@@ -66,7 +66,7 @@ func Emit(name string, object interface{}) {
 	if rec := signals[name]; rec != nil {
 		params := []reflect.Value{reflect.ValueOf(name), reflect.ValueOf(object)}
 		for _, v := range rec {
-			v.Call(params)
+			v.Call(params[:v.Type().NumIn()])
 		}
 	}
 }

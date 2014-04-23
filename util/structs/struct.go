@@ -41,6 +41,18 @@ func (s *Struct) Map(qname string) (string, reflect.Type, error) {
 	return "", nil, fmt.Errorf("can't map field %q to a mangled name", qname)
 }
 
+// Embeds returns true iff the struct embeds the given type.
+func (s *Struct) Embeds(typ reflect.Type) bool {
+	end := s.Type.NumField()
+	for ii := 0; ii < end; ii++ {
+		field := s.Type.Field(ii)
+		if field.Type == typ && field.Anonymous {
+			return true
+		}
+	}
+	return false
+}
+
 func NewStruct(t interface{}, tags []string) (*Struct, error) {
 	var typ reflect.Type
 	if tt, ok := t.(reflect.Type); ok {

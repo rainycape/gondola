@@ -99,10 +99,10 @@ func fields(typ reflect.Type, tags []string, s *Struct, qprefix, mprefix string,
 			name = stringutil.CamelCaseToLower(field.Name, "_")
 		}
 		name = mprefix + name
-		if _, ok := s.MNameMap[name]; ok {
-			return fmt.Errorf("duplicate field %q in struct %v", name, typ)
-		}
 		qname := qprefix + field.Name
+		if prev, ok := s.MNameMap[name]; ok {
+			return fmt.Errorf("duplicate field %q in %s: %s and %s", name, s.Type, s.QNames[prev], qname)
+		}
 		// Check type
 		ptr := false
 		t := field.Type

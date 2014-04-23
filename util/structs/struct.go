@@ -42,7 +42,12 @@ func (s *Struct) Map(qname string) (string, reflect.Type, error) {
 }
 
 func NewStruct(t interface{}, tags []string) (*Struct, error) {
-	typ := reflect.TypeOf(t)
+	var typ reflect.Type
+	if tt, ok := t.(reflect.Type); ok {
+		typ = tt
+	} else {
+		typ = reflect.TypeOf(t)
+	}
 	for typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
 	}

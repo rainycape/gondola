@@ -8,6 +8,7 @@ import (
 	"gnd.la/blobstore"
 	"gnd.la/cache"
 	"gnd.la/net/mail"
+	"gnd.la/orm"
 	"gnd.la/orm/driver/datastore"
 
 	"appengine"
@@ -28,7 +29,42 @@ func (app *App) cache() (*Cache, error) {
 }
 
 func (app *App) orm() (*Orm, error) {
-	return nil, errNoAppOrm
+	// When using GCSQL, there's no need for
+	// an appengine.Context to connect to the
+	// Orm backend, so the App can provide an *Orm.
+	// This is useful for automatically calling
+	// Initialize() on the Orm in App.Prepare().
+	//
+	// Don't document this fact, just in case this
+	// behavior changes in the future. Finding another
+	// way to automatically call Orm.Initialize() is easy,
+	// but breaking documented, public facing APIs is
+	// just ugly.
+	if o := app.o; o != nil {
+		return o, nil
+	}
+	if defaultDatabase == nil || defaultDatabase.Scheme == "datastore" {
+		return nil, errNoAppOrm
+	}
+	// Using GCSQL
+	o, err := app.openOrm()
+	if err != nil {
+		return nil, err
+	}
+	return app.setOrm(o), nil
+}
+
+func (app *App) setOrm(o *orm.Orm) *Orm {
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	if app.o == nil {
+		app.o = &Orm{Orm: o}
+	} else {
+		// Another goroutine set the ORM before us, just close
+		// this one.
+		o.Close()
+	}
+	return app.o
 }
 
 func (app *App) blobstore() (*blobstore.Store, error) {
@@ -66,16 +102,7 @@ func (c *Context) orm() *Orm {
 		return &Orm{Orm: o}
 	}
 	// We're using GCSQL backend
-	c.app.mu.Lock()
-	defer c.app.mu.Unlock()
-	if c.app.o == nil {
-		c.app.o = &Orm{Orm: o}
-	} else {
-		// Another goroutine set the ORM before us, just close
-		// this one.
-		o.Close()
-	}
-	return c.app.o
+	return c.app.setOrm(o)
 }
 
 func (c *Context) blobstore() *blobstore.Store {

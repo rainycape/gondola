@@ -350,7 +350,6 @@ func (p *Project) Build() {
 		if proc != nil {
 			proc.Signal(os.Interrupt)
 			restarted = true
-			println("RESTART")
 		}
 	}
 	p.buildCmd = cmd

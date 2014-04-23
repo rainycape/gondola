@@ -313,6 +313,6 @@ func init() {
 	MustRegister(help, &Options{
 		Help: "Show available commands with their respective help.",
 	})
-	signal.MustRegister(app.WILL_LISTEN, perform)
-	signal.MustRegister(tasks.WILL_SCHEDULE, perform)
+	signal.Register(app.WILL_PREPARE, perform)
+	signal.Register(tasks.WILL_SCHEDULE, perform)
 }

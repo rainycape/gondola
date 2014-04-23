@@ -2,13 +2,15 @@ package signal
 
 import (
 	"errors"
-	"gnd.la/log"
+	"fmt"
 	"reflect"
+
+	"gnd.la/internal/runtimeutil"
+	"gnd.la/log"
 )
 
 var (
-	signals      = map[string][]*reflect.Value{}
-	ErrEmptyName = errors.New("signal name can't be empty")
+	signals = map[string][]*reflect.Value{}
 )
 
 type Token struct {
@@ -17,32 +19,36 @@ type Token struct {
 
 // Register adds a new listener for the given signal name. The
 // second argument must be a function which accepts either:
+//
 // - no paremeters
 // - 1 parameter, which must be of type string
 // - 2 parameters, the first one must be string and the second one, interface{}
-// The function will be called whenever the signal is emitted. The first
+//
+// If the function does not match the required constraints, Register
+// will panic.
+//
+// The function will be called whenever the signal is emitted. The
 // returned value is the token, which is required to unregister this
 // listener. If you don't need to unregister it, you can safely ignore
 // the first returned value.
-func Register(name string, f interface{}) (*Token, error) {
-	if name == "" {
-		return nil, ErrEmptyName
-	}
-	if _, ok := signals[name]; !ok {
-		signals[name] = make([]*reflect.Value, 0)
-	}
-	val := reflect.ValueOf(f)
-	signals[name] = append(signals[name], &val)
-	return &Token{&val}, nil
-}
-
-// MustRegister works like Register, but panics if there's an error.
-func MustRegister(name string, f interface{}) *Token {
-	t, err := Register(name, f)
+func Register(name string, f interface{}) *Token {
+	tok, err := register(name, f)
 	if err != nil {
 		panic(err)
 	}
-	return t
+	return tok
+}
+
+func register(name string, f interface{}) (*Token, error) {
+	if name == "" {
+		return nil, errors.New("signal name can't be empty")
+	}
+	val := reflect.ValueOf(f)
+	if err := checkListener(val); err != nil {
+		return nil, err
+	}
+	signals[name] = append(signals[name], &val)
+	return &Token{&val}, nil
 }
 
 // Unregister removes a listener, previously registered using Register. The
@@ -97,4 +103,36 @@ func removeToken(s map[string][]*reflect.Value, name string, t *Token) {
 			delete(s, name)
 		}
 	}
+}
+
+func checkListener(val reflect.Value) error {
+	if !val.IsValid() {
+		return errors.New("listener is not a valid value - probably nil")
+	}
+	if val.Kind() != reflect.Func {
+		return fmt.Errorf("listener is of type %s, not function", val.Type())
+	}
+	vt := val.Type()
+	if vt.NumOut() > 0 {
+		return fmt.Errorf("listeners can't return arguments, %s returns %d", runtimeutil.FuncName(val.Interface()), vt.NumOut())
+	}
+	switch vt.NumIn() {
+	case 2:
+		emptyType := reflect.TypeOf((*interface{})(nil)).Elem()
+		typ := vt.In(1)
+		if typ != emptyType {
+			return fmt.Errorf("%s second argument must of type %s, not %s", runtimeutil.FuncName(val.Interface()), emptyType, typ)
+		}
+		fallthrough
+	case 1:
+		stringType := reflect.TypeOf("")
+		typ := vt.In(0)
+		if typ != stringType {
+			return fmt.Errorf("%s first argument must of type %s, not %s", runtimeutil.FuncName(val.Interface()), stringType, typ)
+		}
+	case 0:
+	default:
+		return fmt.Errorf("listeners can accept 0 or 1 or 2 arguments, %s accepts %d", runtimeutil.FuncName(val.Interface()), vt.NumIn())
+	}
+	return nil
 }

@@ -10,6 +10,7 @@ import (
 	"gnd.la/config"
 	"gnd.la/internal/runtimeutil"
 	"gnd.la/log"
+	"gnd.la/util/generic"
 	"go/build"
 	"html/template"
 	"io"
@@ -29,6 +30,27 @@ import (
 const (
 	devConfigName = "dev.conf"
 )
+
+var (
+	sourceExtensions = []string{
+		".go",
+		".h",
+		".c",
+		".s",
+		".cpp",
+		".cxx",
+	}
+)
+
+func isSource(filename string) bool {
+	ext := strings.ToLower(filepath.Ext(filename))
+	for _, v := range sourceExtensions {
+		if ext == v {
+			return true
+		}
+	}
+	return false
+}
 
 func formatTime(t time.Time) interface{} {
 	if t.IsZero() {
@@ -185,11 +207,22 @@ func (p *Project) StartMonitoring() error {
 	if err != nil {
 		return err
 	}
-	// Watch GOROOT, GOPATH and the project dir. Any modification
-	// to those dirs is likely to require a rebuild. The reason we
-	// don't watch each pkg dir is because on some systems (namely OS X)
-	// it will cause the process to open too many files.
-	for _, v := range []string{build.Default.GOROOT, build.Default.GOPATH, p.dir} {
+	var toWatch []string
+	switch runtime.GOOS {
+	case "darwin":
+		// Watch GOROOT, GOPATH and the project dir. Any modification
+		// to those dirs is likely to require a rebuild. The reason we
+		// don't watch each pkg dir is because watch events are recursive
+		// in OS X and watching all dirs will cause the process to open too many files.
+		toWatch = []string{build.Default.GOROOT, build.Default.GOPATH, p.dir}
+	default:
+		pkgs, err := p.Packages()
+		if err != nil {
+			return err
+		}
+		toWatch = generic.Map(pkgs, func(pkg *build.Package) string { return pkg.Dir }).([]string)
+	}
+	for _, v := range toWatch {
 		if err := watcher.Watch(v); err != nil {
 			return err
 		}
@@ -209,38 +242,37 @@ func (p *Project) StartMonitoring() error {
 				if ev.IsAttrib() {
 					break
 				}
-				ext := filepath.Ext(strings.ToLower(ev.Name))
-				if ext != ".go" && ext != ".h" && ext != ".c" && ext != ".s" && ext != ".cpp" && ext != ".cxx" {
-					if ext == ".conf" {
-						if ev.IsModify() {
-							log.Debugf("Config file %s changed, restarting...", p.configPath)
-							if err := p.Stop(); err != nil {
-								log.Errorf("Error stopping %s: %s", p.Name(), err)
-								break
-							}
-							if err := p.Start(); err != nil {
-								log.Panicf("Error starting %s: %s", p.Name(), err)
-							}
-						} else if ev.IsDelete() {
-							// It seems the Watcher stops watching a file
-							// if it receives a DELETE event for it. For some
-							// reason, some editors generate a DELETE event
-							// for a file when saving it, so we must watch the
-							// file again. Since fsnotify is in exp/ and its
-							// API might change, remove the watch first, just
-							// in case.
-							watcher.RemoveWatch(ev.Name)
-							watcher.Watch(ev.Name)
+				if ev.Name == p.configPath {
+					if ev.IsModify() {
+						log.Debugf("Config file %s changed, restarting...", p.configPath)
+						if err := p.Stop(); err != nil {
+							log.Errorf("Error stopping %s: %s", p.Name(), err)
+							break
 						}
+						if err := p.Start(); err != nil {
+							log.Panicf("Error starting %s: %s", p.Name(), err)
+						}
+					} else if ev.IsDelete() {
+						// It seems the Watcher stops watching a file
+						// if it receives a DELETE event for it. For some
+						// reason, some editors generate a DELETE event
+						// for a file when saving it, so we must watch the
+						// file again. Since fsnotify is in exp/ and its
+						// API might change, remove the watch first, just
+						// in case.
+						watcher.RemoveWatch(ev.Name)
+						watcher.Watch(ev.Name)
 					}
 					break
 				}
-				if t != nil {
-					t.Stop()
+				if isSource(ev.Name) {
+					if t != nil {
+						t.Stop()
+					}
+					t = time.AfterFunc(50*time.Millisecond, func() {
+						p.Build()
+					})
 				}
-				t = time.AfterFunc(50*time.Millisecond, func() {
-					p.Build()
-				})
 			case err := <-watcher.Error:
 				if err == nil {
 					// Closed

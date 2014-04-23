@@ -36,3 +36,7 @@ func (t *Table) Skip() *Table {
 	model.skip = true
 	return &Table{model: model}
 }
+
+func tableWithModel(m *model) *Table {
+	return &Table{model: &joinModel{model: m}}
+}

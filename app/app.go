@@ -1368,8 +1368,14 @@ func (app *App) Prepare() error {
 		child.userFunc = app.userFunc
 		child.Logger = app.Logger
 	}
-	signal.Emit(DID_PREPARE, app)
-	return nil
+	var err error
+	if o, _ := app.Orm(); o != nil {
+		err = o.Initialize()
+	}
+	if err == nil {
+		signal.Emit(DID_PREPARE, app)
+	}
+	return err
 }
 
 // New returns a new App initialized with the current default values.

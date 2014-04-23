@@ -14,32 +14,82 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
 type nameRegistry map[string]*model
 type typeRegistry map[reflect.Type]*model
 
+func (r typeRegistry) clone() typeRegistry {
+	cpy := make(typeRegistry, len(r))
+	for k, v := range r {
+		cpy[k] = v
+	}
+	return cpy
+}
+
+type pending struct {
+	typ  reflect.Type
+	opts *Options
+}
+
 var (
-	// these keep track of the registered models,
-	// using the driver tags as the key.
-	_nameRegistry = map[string]nameRegistry{}
-	_typeRegistry = map[string]typeRegistry{}
-	timeType      = reflect.TypeOf(time.Time{})
-	referencesRe  = regexp.MustCompile("([\\w\\.]+)(\\((\\w+)\\))?")
+	timeType     = reflect.TypeOf(time.Time{})
+	referencesRe = regexp.MustCompile("([\\w\\.]+)(\\((\\w+)\\))?")
+
+	globalRegistry struct {
+		sync.RWMutex
+		// these keep track of the registered models,
+		// using the driver tags as the key.
+		names map[string]nameRegistry
+		types map[string]typeRegistry
+	}
+
+	// models registered via orm.Register, need to be
+	// added to all future Orm instances in Initialize.
+	pendingRegistry struct {
+		sync.RWMutex
+		pending []*pending
+	}
 )
 
+// Register registers a new type for all ORMs instantiated after
+// this point. This is the preferred way to register structs and
+// it generally should be called from an init() function.
+func Register(t interface{}, opts *Options) {
+	pendingRegistry.Lock()
+	defer pendingRegistry.Unlock()
+	var typ reflect.Type
+	if tt, ok := t.(reflect.Type); ok {
+		typ = tt
+	} else {
+		typ = reflect.TypeOf(t)
+	}
+	pendingRegistry.pending = append(pendingRegistry.pending, &pending{typ, opts})
+}
+
+// Register is considered a low-level function and should only be
+// used if your app uses multiple ORM sources (e.g. Postgres and
+// MongoDB). Most of the time, users should use orm.Register()
+//
 // Register registers a struct for future usage with the ORMs with
 // the same driver. If you're using ORM instances with different drivers
-// (e.g. postgres and mongodb)  you must register each object type with each
-// driver (by creating an ORM of each type, calling Register() and then
-// CommitTables()). The first returned value is a Table object, which must be
+// you must register each object type with each driver by creating an ORM
+// of each type, calling Register() and then
+// Initialize. The first returned value is a Table object, which must be
 // using when querying the ORM in cases when an object is not provided
 // (like e.g. Count()). If you want to use the same type in multiple
 // tables, you must register it for every table and then use the Table
 // object returned to specify on which table you want to operate. If
 // no table is specified, the first registered table will be used.
-func (o *Orm) Register(t interface{}, opt *Options) (*Table, error) {
+func (o *Orm) Register(t interface{}, opts *Options) (*Table, error) {
+	globalRegistry.Lock()
+	defer globalRegistry.Unlock()
+	return o.registerLocked(t, opts)
+}
+
+func (o *Orm) registerLocked(t interface{}, opts *Options) (*Table, error) {
 	s, err := structs.NewStruct(t, o.dtags())
 	if err != nil {
 		switch err {
@@ -51,17 +101,19 @@ func (o *Orm) Register(t interface{}, opt *Options) (*Table, error) {
 		return nil, err
 	}
 	var table string
-	if opt != nil {
-		table = opt.Table
+	if opts != nil {
+		table = opts.Table
 	}
 	if table == "" {
 		table = defaultTableName(s.Type)
 	}
-	if _nameRegistry[o.tags] == nil {
-		_nameRegistry[o.tags] = nameRegistry{}
-		_typeRegistry[o.tags] = typeRegistry{}
+	if globalRegistry.names[o.tags] == nil {
+		globalRegistry.names[o.tags] = nameRegistry{}
+		globalRegistry.types[o.tags] = typeRegistry{}
 	}
-	if _, ok := _nameRegistry[o.tags][table]; ok {
+	names := globalRegistry.names[o.tags]
+	types := globalRegistry.types[o.tags]
+	if _, ok := names[table]; ok {
 		return nil, fmt.Errorf("duplicate ORM table name %q", table)
 	}
 	fields, references, err := o.fields(table, s)
@@ -69,19 +121,19 @@ func (o *Orm) Register(t interface{}, opt *Options) (*Table, error) {
 		return nil, err
 	}
 	var name string
-	if opt != nil && opt.Name != "" {
-		name = opt.Name
+	if opts != nil && opts.Name != "" {
+		name = opts.Name
 	} else {
 		name = typeName(s.Type)
 	}
-	if opt != nil {
-		if len(opt.PrimaryKey) > 0 {
+	if opts != nil {
+		if len(opts.PrimaryKey) > 0 {
 			if fields.PrimaryKey >= 0 {
-				return nil, fmt.Errorf("duplicate primary key in model %q. tags define %q as PK, options define %v",
-					name, fields.QNames[fields.PrimaryKey], opt.PrimaryKey)
+				return nil, fmt.Errorf("duplicate primary key in model %q. tags define %q as PK, optsions define %v",
+					name, fields.QNames[fields.PrimaryKey], opts.PrimaryKey)
 			}
-			fields.CompositePrimaryKey = make([]int, len(opt.PrimaryKey))
-			for ii, v := range opt.PrimaryKey {
+			fields.CompositePrimaryKey = make([]int, len(opts.PrimaryKey))
+			for ii, v := range opts.PrimaryKey {
 				pos, ok := fields.QNameMap[v]
 				if !ok {
 					return nil, fmt.Errorf("can't map qualified name %q on model %q when creating composite key", v, name)
@@ -95,39 +147,50 @@ func (o *Orm) Register(t interface{}, opt *Options) (*Table, error) {
 		name:       name,
 		shortName:  s.Type.Name(),
 		references: references,
-		options:    opt,
+		options:    opts,
 		table:      table,
 		tags:       o.tags,
 	}
-	_nameRegistry[o.tags][table] = model
+	names[table] = model
 	// The first registered table is the default for the type
 	typ := model.Type()
-	if _, ok := _typeRegistry[o.tags][typ]; !ok || opt != nil && opt.Default {
-		_typeRegistry[o.tags][typ] = model
+	if _, ok := types[typ]; !ok || opts != nil && opts.Default {
+		types[typ] = model
 	}
 	log.Debugf("Registered model %v (%q) with tags %q", typ, name, o.tags)
-	return &Table{model: &joinModel{model: model}}, nil
+	o.typeRegistry = types.clone()
+	return tableWithModel(model), nil
 }
 
-// MustRegister works like Register, but panics if there's an
-// error.
-func (o *Orm) MustRegister(t interface{}, opt *Options) *Table {
-	tbl, err := o.Register(t, opt)
-	if err != nil {
-		panic(err)
+func (o *Orm) initializePending() error {
+	pendingRegistry.RLock()
+	defer pendingRegistry.RUnlock()
+	for _, v := range pendingRegistry.pending {
+		if _, err := o.registerLocked(v.typ, v.opts); err != nil {
+			return err
+		}
 	}
-	return tbl
+	return nil
 }
 
+// Initialize is a low level function and should only be used
+// when dealing with multiple ORM types. If you're only using the
+// default ORM as returned by gnd.la/app.App.Orm() or
+// gnd.la/app.Context.Orm() you should not call this function
+// manually.
+//
 // Initialize resolves model references and creates tables and
 // indexes required by the registered models. You MUST call it
 // AFTER all the models have been registered and BEFORE starting
-// to use the ORM from several goroutines (for performance reasons,
-// the access to some shared resources from several ORM instances
-// is not thread safe).
+// to use the ORM for queries for each ORM type.
 func (o *Orm) Initialize() error {
+	globalRegistry.Lock()
+	defer globalRegistry.Unlock()
 	signal.Emit(WILL_INITIALIZE, o)
-	nr := _nameRegistry[o.tags]
+	if err := o.initializePending(); err != nil {
+		return err
+	}
+	nr := globalRegistry.names[o.tags]
 	// Resolve references
 	names := make(map[string]*model)
 	for _, v := range nr {
@@ -207,14 +270,6 @@ func (o *Orm) Initialize() error {
 	return o.driver.MakeTables(models)
 }
 
-// MustInitialize works like Initialize, but panics if
-// there's an error.
-func (o *Orm) MustInitialize() {
-	if err := o.Initialize(); err != nil {
-		panic(err)
-	}
-}
-
 func (o *Orm) fields(table string, s *structs.Struct) (*driver.Fields, map[string]*reference, error) {
 	methods, err := driver.MakeMethods(s.Type)
 	if err != nil {
@@ -287,6 +342,52 @@ func (o *Orm) dtags() []string {
 	return append(o.driver.Tags(), "orm")
 }
 
+func (o *Orm) model(obj interface{}) (*model, error) {
+	t := reflect.TypeOf(obj)
+	if t == nil {
+		return nil, errUntypedNilPointer
+	}
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	model := o.typeRegistry[t]
+	if model == nil {
+		return nil, fmt.Errorf("no model registered for type %v with tags %q", t, o.tags)
+	}
+	return model, nil
+}
+
+// NameTable returns the Table for the model with
+// the given Name. Note that this is not the table
+// name, but model name, provided in the Options.Name field.
+// If no Name was provided in the Options for a given
+// type, a name is assigned using the following rules:
+//
+//  - Types in package main use the type name as is.
+//	type Something... in package main is named Something
+//
+//  - Types in non-main packages use the fully qualified type name.
+//	type Something... in package foo/bar is named foo/bar.Something
+//	type Something... in package example.com/mypkg is named example.com/mypkg.Something
+func (o *Orm) NameTable(name string) *Table {
+	for _, v := range o.typeRegistry {
+		if v.name == name {
+			return tableWithModel(v)
+		}
+	}
+	return nil
+}
+
+// TypeTable returns the Table for the given type, or
+// nil if there's no such table.
+func (o *Orm) TypeTable(typ reflect.Type) *Table {
+	model := o.typeRegistry[typ]
+	if model != nil {
+		return tableWithModel(model)
+	}
+	return nil
+}
+
 // returns wheter the kind defaults to nullempty option
 func defaultsToNullEmpty(typ reflect.Type, t *structs.Tag) bool {
 	if t.Has("references") || t.Has("codec") {
@@ -315,4 +416,9 @@ func typeName(typ reflect.Type) string {
 		return p + "." + typ.Name()
 	}
 	return typ.Name()
+}
+
+func init() {
+	globalRegistry.names = make(map[string]nameRegistry)
+	globalRegistry.types = make(map[string]typeRegistry)
 }

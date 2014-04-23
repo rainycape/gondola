@@ -80,8 +80,8 @@ func equalTimes(t1, t2 time.Time) bool {
 
 func newOrm(t T, url string, logging bool) *Orm {
 	// Clear registry
-	_nameRegistry = map[string]nameRegistry{}
-	_typeRegistry = map[string]typeRegistry{}
+	globalRegistry.names = make(map[string]nameRegistry)
+	globalRegistry.types = make(map[string]typeRegistry)
 	o, err := New(config.MustParseURL(url))
 	if err != nil {
 		t.Fatal(err)
@@ -96,6 +96,20 @@ func newOrm(t T, url string, logging bool) *Orm {
 		log.SetLevel(log.LInfo)
 	}
 	return o
+}
+
+func (o *Orm) mustRegister(t interface{}, opts *Options) *Table {
+	tbl, err := o.Register(t, opts)
+	if err != nil {
+		panic(err)
+	}
+	return tbl
+}
+
+func (o *Orm) mustInitialize() {
+	if err := o.Initialize(); err != nil {
+		panic(err)
+	}
 }
 
 func newTmpOrm(t T) (string, *Orm) {
@@ -127,8 +141,8 @@ func testAutoIncrement(t *testing.T, o *Orm) {
 		t.Log("skipping auto increment test")
 		return
 	}
-	o.MustRegister((*AutoIncrement)(nil), nil)
-	o.MustInitialize()
+	o.mustRegister((*AutoIncrement)(nil), nil)
+	o.mustInitialize()
 	obj := &AutoIncrement{}
 	o.MustSave(obj)
 	if o.Driver().Capabilities()&driver.CAP_AUTO_INCREMENT != 0 {
@@ -143,8 +157,8 @@ func testAutoIncrement(t *testing.T, o *Orm) {
 }
 
 func testTime(t *testing.T, o *Orm) {
-	o.MustRegister((*Timestamp)(nil), nil)
-	o.MustInitialize()
+	o.mustRegister((*Timestamp)(nil), nil)
+	o.mustInitialize()
 	now := time.Now()
 	t1 := &Timestamp{}
 	o.MustSave(t1)
@@ -172,10 +186,10 @@ func testTime(t *testing.T, o *Orm) {
 }
 
 func testSaveDelete(t *testing.T, o *Orm) {
-	SaveTable := o.MustRegister((*Object)(nil), &Options{
+	SaveTable := o.mustRegister((*Object)(nil), &Options{
 		Table: "test_save",
 	})
-	o.MustInitialize()
+	o.mustInitialize()
 	obj := &Object{Value: "Foo"}
 	o.MustSaveInto(SaveTable, obj)
 	id1 := obj.Id
@@ -231,10 +245,10 @@ func testSaveDelete(t *testing.T, o *Orm) {
 }
 
 func testData(t *testing.T, o *Orm) {
-	o.MustRegister((*Data)(nil), &Options{
+	o.mustRegister((*Data)(nil), &Options{
 		Table: "test_data",
 	})
-	o.MustInitialize()
+	o.mustInitialize()
 	data := []byte{1, 2, 3, 4, 5, 6}
 	src := &Data{Data: data}
 	o.MustSave(src)
@@ -256,10 +270,10 @@ func testInnerPointer(t *testing.T, o *Orm) {
 		t.Log("skipping inner pointer test, datastore does not support them")
 		return
 	}
-	o.MustRegister((*Outer)(nil), &Options{
+	o.mustRegister((*Outer)(nil), &Options{
 		Table: "test_outer",
 	})
-	o.MustInitialize()
+	o.mustInitialize()
 	out := Outer{Key: "foo"}
 	if _, err := o.Save(&out); err != nil {
 		t.Error(err)
@@ -299,10 +313,10 @@ func testTransactions(t *testing.T, o *Orm) {
 		t.Log("skipping transaction begin/commit/rollback test")
 		return
 	}
-	table := o.MustRegister((*AutoIncrement)(nil), &Options{
+	table := o.mustRegister((*AutoIncrement)(nil), &Options{
 		Table: "test_transactions",
 	})
-	o.MustInitialize()
+	o.mustInitialize()
 	obj := &AutoIncrement{}
 	tx, err := o.Begin()
 	if err != nil {
@@ -334,10 +348,10 @@ func testFuncTransactions(t *testing.T, o *Orm) {
 		t.Log("skipping transaction func test")
 		return
 	}
-	table := o.MustRegister((*AutoIncrement)(nil), &Options{
+	table := o.mustRegister((*AutoIncrement)(nil), &Options{
 		Table: "test_transactions_func",
 	})
-	o.MustInitialize()
+	o.mustInitialize()
 	obj := &AutoIncrement{}
 	if err := o.Transaction(func(o *Orm) error {
 		_, err := o.SaveInto(table, obj)
@@ -387,11 +401,11 @@ func testCompositePrimaryKey(t *testing.T, o *Orm) {
 	if err == nil {
 		t.Error("expecting an error when registering non-existant field as PK")
 	}
-	table := o.MustRegister((*Composite)(nil), &Options{
+	table := o.mustRegister((*Composite)(nil), &Options{
 		Table:      "test_composite",
 		PrimaryKey: []string{"Id", "Name"},
 	})
-	o.MustInitialize()
+	o.mustInitialize()
 	comp := &Composite{
 		Id:    1,
 		Name:  "Foo",
@@ -435,11 +449,11 @@ func testCompositePrimaryKey(t *testing.T, o *Orm) {
 
 func testQueryAll(t *testing.T, o *Orm) {
 	const count = 10
-	_ = o.MustRegister((*AutoIncrement)(nil), &Options{
+	_ = o.mustRegister((*AutoIncrement)(nil), &Options{
 		Table:   "test_query_all",
 		Default: true,
 	})
-	o.MustInitialize()
+	o.mustInitialize()
 	obj := &AutoIncrement{}
 	for ii := 0; ii < count; ii++ {
 		obj.Id = 0

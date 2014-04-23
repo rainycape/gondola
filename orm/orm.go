@@ -38,19 +38,20 @@ const (
 )
 
 type Orm struct {
-	conn   driver.Conn
-	driver driver.Driver
-	logger *log.Logger
-	tags   string
+	conn         driver.Conn
+	driver       driver.Driver
+	logger       *log.Logger
+	tags         string
+	typeRegistry typeRegistry
 	// these fields are non-nil iff the ORM driver uses database/sql
 	db        *sql.DB
 	sqlDriver *ormsql.Driver
 }
 
 // Table returns a Query object initialized with the given table.
-// The Table object is returned when registering the model. See
-// the explanation on the Query's Table method about why strings
-// are not accepted.
+// The Table object is returned when registering the model. If you
+// need to obtain a Table from a model type or name, see Orm.TypeTable
+// and orm.NamedTable.
 func (o *Orm) Table(t *Table) *Query {
 	return &Query{
 		orm:    o,
@@ -548,21 +549,6 @@ func (o *Orm) SetLogger(logger *log.Logger) {
 	}
 }
 
-func (o *Orm) model(obj interface{}) (*model, error) {
-	t := reflect.TypeOf(obj)
-	if t == nil {
-		return nil, errUntypedNilPointer
-	}
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	model := _typeRegistry[o.tags][t]
-	if model == nil {
-		return nil, fmt.Errorf("no model registered for type %v with tags %q", t, o.tags)
-	}
-	return model, nil
-}
-
 func (o *Orm) models(objs []interface{}, q query.Q, sort []driver.Sort, jt JoinType) (*joinModel, []*driver.Methods, error) {
 	jm := &joinModel{}
 	models := make(map[*model]struct{})
@@ -650,10 +636,15 @@ func New(url *config.URL) (*Orm, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error opening ORM driver %q: %s", name, err)
 	}
+	tags := strings.Join(drv.Tags(), "-")
+	globalRegistry.RLock()
+	typeRegistry := globalRegistry.types[tags].clone()
+	globalRegistry.RUnlock()
 	o := &Orm{
-		conn:   drv,
-		driver: drv,
-		tags:   strings.Join(drv.Tags(), "-"),
+		conn:         drv,
+		driver:       drv,
+		tags:         tags,
+		typeRegistry: typeRegistry,
 	}
 	if sqlDriver, ok := drv.(*ormsql.Driver); ok {
 		o.sqlDriver = sqlDriver

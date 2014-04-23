@@ -72,7 +72,7 @@ func TestLoadSaveMethodsErrors(t *testing.T) {
 func BenchmarkLoadSaveMethods(b *testing.B) {
 	o := newMemoryOrm(b)
 	defer o.Close()
-	tbl := o.MustRegister((*Object)(nil), &Options{
+	tbl := o.mustRegister((*Object)(nil), &Options{
 		Table: "test_load_save_benchmark",
 	})
 	b.ResetTimer()

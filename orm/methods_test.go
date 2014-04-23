@@ -27,10 +27,10 @@ func (s *SaveError) Save() error {
 }
 
 func testLoadSaveMethods(t *testing.T, o *Orm) {
-	SaveLoadTable := o.MustRegister((*Object)(nil), &Options{
+	SaveLoadTable := o.mustRegister((*Object)(nil), &Options{
 		Table: "test_load_save_methods",
 	})
-	o.MustInitialize()
+	o.mustInitialize()
 	obj := &Object{Value: "Foo"}
 	o.MustSaveInto(SaveLoadTable, obj)
 	if obj.saved != 1 {
@@ -54,13 +54,13 @@ func testLoadSaveMethods(t *testing.T, o *Orm) {
 }
 
 func testLoadSaveMethodsErrors(t *testing.T, o *Orm) {
-	LoadErrorTable := o.MustRegister((*LoadError)(nil), &Options{
+	LoadErrorTable := o.mustRegister((*LoadError)(nil), &Options{
 		Table: "test_load_error",
 	})
-	SaveErrorTable := o.MustRegister((*SaveError)(nil), &Options{
+	SaveErrorTable := o.mustRegister((*SaveError)(nil), &Options{
 		Table: "test_save_error",
 	})
-	o.MustInitialize()
+	o.mustInitialize()
 	_, err := o.SaveInto(SaveErrorTable, &SaveError{})
 	if err != saveError {
 		t.Errorf("unexpected error %v when saving SaveError", err)

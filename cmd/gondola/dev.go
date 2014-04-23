@@ -476,9 +476,19 @@ func (p *Project) DropConnections() {
 	p.proxied = nil
 }
 
+func (p *Project) waitForBuild() {
+	for {
+		p.Lock()
+		if p.buildCmd == nil {
+			p.Unlock()
+			break
+		}
+		p.Unlock()
+	}
+}
+
 func (p *Project) HandleConnection(conn net.Conn) {
-	p.Lock()
-	p.Unlock()
+	p.waitForBuild()
 	if p.proxied == nil {
 		p.proxied = make(map[net.Conn]struct{})
 	}

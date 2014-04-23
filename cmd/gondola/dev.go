@@ -555,6 +555,7 @@ func findConfig(dir string, name string) string {
 func Dev(ctx *app.Context) {
 	var dir string
 	var configName string
+	var noBrowser bool
 	ctx.ParseParamValue("dir", &dir)
 	ctx.ParseParamValue("config", &configName)
 	path, err := filepath.Abs(dir)
@@ -573,6 +574,7 @@ func Dev(ctx *app.Context) {
 	ctx.ParseParamValue("no-debug", &p.noDebug)
 	ctx.ParseParamValue("no-cache", &p.noCache)
 	ctx.ParseParamValue("profile", &p.profile)
+	ctx.ParseParamValue("no-browser", &noBrowser)
 	ctx.ParseParamValue("v", &p.verbose)
 	clean(dir)
 	go p.Build()
@@ -585,6 +587,9 @@ func Dev(ctx *app.Context) {
 	if err != nil {
 		log.Panic(err)
 	}
+	if !noBrowser {
+		startBrowser(fmt.Sprintf("http://localhost:%d", p.port))
+	}
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -593,6 +598,21 @@ func Dev(ctx *app.Context) {
 		}
 		go p.HandleConnection(conn)
 	}
+}
+
+func startBrowser(url string) bool {
+	// try to start the browser
+	var args []string
+	switch runtime.GOOS {
+	case "darwin":
+		args = []string{"open"}
+	case "windows":
+		args = []string{"cmd", "/c", "start"}
+	default:
+		args = []string{"xdg-open"}
+	}
+	cmd := exec.Command(args[0], append(args[1:], url)...)
+	return cmd.Start() == nil
 }
 
 func init() {
@@ -607,6 +627,7 @@ func init() {
 			admin.BoolFlag("profile", false, "Compiles and runs the project with profiling enabled"),
 			admin.IntFlag("port", 8888, "Port to listen on"),
 			admin.BoolFlag("race", false, "Enable -race when building. If the platform does not support -race, this option is ignored."),
+			admin.BoolFlag("no-brower", false, "Don't open the default browser when starting the development server."),
 			admin.BoolFlag("v", false, "Enable verbose output"),
 		),
 	})

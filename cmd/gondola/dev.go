@@ -285,6 +285,12 @@ func (p *Project) ProjectCmd() *exec.Cmd {
 }
 
 func (p *Project) Start() error {
+	p.Lock()
+	defer p.Unlock()
+	return p.startLocked()
+}
+
+func (p *Project) startLocked() error {
 	p.started = time.Now().UTC()
 	p.port = randomFreePort()
 	cmd := p.ProjectCmd()
@@ -306,14 +312,17 @@ func (p *Project) Start() error {
 }
 
 func (p *Project) Stop() error {
+	p.Lock()
+	defer p.Unlock()
 	var err error
-	if p.cmd != nil {
-		cmd := p.cmd
-		p.cmd = nil
-		if cmd.Process != nil {
-			err = cmd.Process.Kill()
+	cmd := p.cmd
+	if cmd != nil {
+		proc := cmd.Process
+		if proc != nil {
+			err = proc.Kill()
 		}
 		cmd.Wait()
+		cmd = nil
 	}
 	return err
 }
@@ -428,7 +437,7 @@ func (p *Project) Build() {
 	}
 	if c := len(p.errors); c == 0 {
 		// TODO: Report error when starting project via web
-		if err := p.Start(); err != nil {
+		if err := p.startLocked(); err != nil {
 			log.Panic(err)
 		}
 	} else {

@@ -1,5 +1,3 @@
-// +build !appengine
-
 package orm
 
 import (
@@ -51,14 +49,7 @@ func TestReferences(t *testing.T) {
 }
 
 func TestInvalidCodecs(t *testing.T) {
-	o := newMemoryOrm(t)
-	defer o.Close()
-	for _, v := range []interface{}{&InvalidCodec1{}} {
-		_, err := o.Register(v, nil)
-		if err == nil {
-			t.Errorf("Expecting an error when registering %T", v)
-		}
-	}
+	runTest(t, testInvalidCodecs)
 }
 
 func TestCodecs(t *testing.T) {
@@ -78,17 +69,7 @@ func TestDefaults(t *testing.T) {
 }
 
 func BenchmarkLoadSaveMethods(b *testing.B) {
-	o := newMemoryOrm(b)
-	defer o.Close()
-	tbl := o.mustRegister((*Object)(nil), &Options{
-		Table: "test_load_save_benchmark",
-	})
-	b.ResetTimer()
-	m := tbl.model.fields.Methods
-	obj := &Object{}
-	for ii := 0; ii < b.N; ii++ {
-		m.Load(obj)
-	}
+	runBenchmark(b, benchmarkLoadSaveMethods)
 }
 
 func benchmarkInsert(b *testing.B, o *Orm) {

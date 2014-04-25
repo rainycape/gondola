@@ -2,8 +2,7 @@ package orm
 
 import (
 	"bytes"
-	"io/ioutil"
-	"os"
+	"flag"
 	"testing"
 	"time"
 
@@ -12,16 +11,48 @@ import (
 	"gnd.la/orm/driver"
 )
 
-// This file contains tests that are mostly independent of the ORM drivers.
-// In other words, tests in this file are for features in the ORM itself.
-// All of them use a temporary SQLite database.
-
 // Interface for testing.B and testing.T
 type T interface {
 	Error(...interface{})
 	Errorf(string, ...interface{})
 	Fatal(...interface{})
 	Logf(string, ...interface{})
+	Skip(...interface{})
+	Skipf(string, ...interface{})
+}
+
+// Interface for orm openers, so we can run each individual
+// test with any available driver.
+type opener interface {
+	Open(T) (*Orm, interface{})
+	Close(interface{})
+}
+
+var (
+	drv     = flag.String("driver", "default", "Driver to use for running the driver-less tests")
+	openers = make(map[string]opener)
+)
+
+func runTest(t *testing.T, f func(*testing.T, *Orm)) {
+	o := openers[*drv]
+	if o == nil {
+		t.Fatalf("no driver named %s", *drv)
+	}
+	orm, data := o.Open(t)
+	defer o.Close(data)
+	defer orm.Close()
+	f(t, orm)
+}
+
+func runBenchmark(b *testing.B, f func(*testing.B, *Orm)) {
+	o := openers[*drv]
+	if o == nil {
+		b.Fatalf("no driver named %s", *drv)
+	}
+	orm, data := o.Open(b)
+	defer o.Close(data)
+	defer orm.Close()
+	f(b, orm)
 }
 
 type AutoIncrement struct {
@@ -132,38 +163,6 @@ func (o *Orm) mustInitialize() {
 		panic(err)
 	}
 }
-
-func newTmpOrm(t T) (string, *Orm) {
-	f, err := ioutil.TempFile("", "sqlite-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	f.Close()
-	o := newOrm(t, "sqlite://"+f.Name(), true)
-	o.SqlDB().Exec("PRAGMA journal_mode = WAL")
-	return f.Name(), o
-}
-
-func newMemoryOrm(t T) *Orm {
-	o := newOrm(t, "sqlite://:memory:", true)
-	o.SqlDB().Exec("PRAGMA journal_mode = WAL")
-	return o
-}
-
-func runTest(t *testing.T, f func(*testing.T, *Orm)) {
-	name, o := newTmpOrm(t)
-	defer o.Close()
-	defer os.Remove(name)
-	f(t, o)
-}
-
-func runBenchmark(b *testing.B, f func(*testing.B, *Orm)) {
-	name, o := newTmpOrm(b)
-	defer o.Close()
-	defer os.Remove(name)
-	f(b, o)
-}
-
 func testAutoIncrement(t *testing.T, o *Orm) {
 	if o.Driver().Capabilities()&driver.CAP_AUTO_ID == 0 {
 		t.Log("skipping auto increment test")
@@ -630,6 +629,13 @@ func testDefaults(t *testing.T, o *Orm) {
 			t.Errorf("expecting today() value %s, got %s instead", today, def.Val3)
 		}
 	}
+}
+
+func runAllTests(t *testing.T, o opener) {
+	orm, data := o.Open(t)
+	defer o.Close(data)
+	defer orm.Close()
+	testOrm(t, orm)
 }
 
 func testOrm(t *testing.T, o *Orm) {

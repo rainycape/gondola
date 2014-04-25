@@ -4,26 +4,42 @@ package orm
 
 import (
 	"fmt"
-	_ "gnd.la/orm/driver/mysql"
-	_ "gnd.la/orm/driver/postgres"
-	_ "gnd.la/orm/driver/sqlite"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
 	"testing"
+
+	_ "gnd.la/orm/driver/mysql"
+	_ "gnd.la/orm/driver/postgres"
+	_ "gnd.la/orm/driver/sqlite"
 )
 
 // This file has tests which run all the tests for
 // every driver.
 
-func TestSqlite(t *testing.T) {
-	name, o := newTmpOrm(t)
-	defer o.Close()
-	defer os.Remove(name)
-	testOrm(t, o)
+type sqliteOpener struct {
 }
 
-func TestPostgres(t *testing.T) {
+func (o *sqliteOpener) Open(t T) (*Orm, interface{}) {
+	f, err := ioutil.TempFile("", "sqlite-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	orm := newOrm(t, "sqlite://"+f.Name(), true)
+	orm.SqlDB().Exec("PRAGMA journal_mode = WAL")
+	return orm, f.Name()
+}
+
+func (o *sqliteOpener) Close(data interface{}) {
+	os.Remove(data.(string))
+}
+
+type postgresOpener struct {
+}
+
+func (o *postgresOpener) Open(t T) (*Orm, interface{}) {
 	u, err := user.Current()
 	if err != nil {
 		t.Fatal(err)
@@ -32,24 +48,46 @@ func TestPostgres(t *testing.T) {
 	if err := exec.Command("createdb", "gotest").Run(); err != nil {
 		t.Skip("cannot create gotest postgres database, skipping test")
 	}
-	o := newOrm(t, fmt.Sprintf("postgres://dbname=gotest user=%v password=%v", u.Username, u.Username), true)
-	testOrm(t, o)
-	o.Close()
+	return newOrm(t, fmt.Sprintf("postgres://dbname=gotest user=%v password=%v", u.Username, u.Username), true), nil
 }
 
-func TestMysql(t *testing.T) {
-	o := newOrm(t, "mysql://gotest:gotest@/test", true)
-	db := o.SqlDB()
+func (o *postgresOpener) Close(_ interface{}) {}
+
+type mysqlOpener struct {
+}
+
+func (o *mysqlOpener) Open(t T) (*Orm, interface{}) {
+	orm := newOrm(t, "mysql://gotest:gotest@/test", true)
+	db := orm.SqlDB()
 	if _, err := db.Exec("DROP DATABASE IF EXISTS gotest"); err != nil {
 		t.Skipf("cannot connect to mysql database, skipping test: %s", err)
 	}
 	if _, err := db.Exec("CREATE DATABASE gotest"); err != nil {
 		t.Fatal(err)
 	}
-	if err := o.Close(); err != nil {
+	if err := orm.Close(); err != nil {
 		t.Fatal(err)
 	}
-	o = newOrm(t, "mysql://gotest:gotest@/gotest", true)
-	testOrm(t, o)
-	o.Close()
+	return newOrm(t, "mysql://gotest:gotest@/gotest", true), nil
+}
+
+func (o *mysqlOpener) Close(_ interface{}) {}
+
+func TestSqlite(t *testing.T) {
+	runAllTests(t, &sqliteOpener{})
+}
+
+func TestPostgres(t *testing.T) {
+	runAllTests(t, &postgresOpener{})
+}
+
+func TestMysql(t *testing.T) {
+	runAllTests(t, &mysqlOpener{})
+}
+
+func init() {
+	openers["default"] = &sqliteOpener{}
+	openers["sqlite"] = &sqliteOpener{}
+	openers["postgres"] = &postgresOpener{}
+	openers["mysql"] = &mysqlOpener{}
 }

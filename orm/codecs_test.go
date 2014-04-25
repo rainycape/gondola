@@ -27,6 +27,15 @@ type GobEncoded struct {
 	Rects []Rect `orm:",codec=gob"`
 }
 
+func testInvalidCodecs(t *testing.T, o *Orm) {
+	for _, v := range []interface{}{&InvalidCodec1{}} {
+		_, err := o.Register(v, nil)
+		if err == nil {
+			t.Errorf("Expecting an error when registering %T", v)
+		}
+	}
+}
+
 func testCodecs(t *testing.T, o *Orm) {
 	o.mustRegister((*JsonEncoded)(nil), nil)
 	o.mustRegister((*GobEncoded)(nil), nil)

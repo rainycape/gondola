@@ -73,3 +73,15 @@ func testLoadSaveMethodsErrors(t *testing.T, o *Orm) {
 		t.Errorf("unexpected error %v when loading LoadError", err)
 	}
 }
+
+func benchmarkLoadSaveMethods(b *testing.B, o *Orm) {
+	tbl := o.mustRegister((*Object)(nil), &Options{
+		Table: "test_load_save_benchmark",
+	})
+	b.ResetTimer()
+	m := tbl.model.fields.Methods
+	obj := &Object{}
+	for ii := 0; ii < b.N; ii++ {
+		m.Load(obj)
+	}
+}

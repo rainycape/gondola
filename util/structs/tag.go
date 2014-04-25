@@ -56,6 +56,10 @@ func (t *Tag) Alphanumeric() bool {
 	return t.Has("alphanumeric")
 }
 
+func (t *Tag) Length() (int, bool) {
+	return t.IntValue("length")
+}
+
 func (t *Tag) MaxLength() (int, bool) {
 	return t.IntValue("max_length")
 }

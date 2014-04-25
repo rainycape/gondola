@@ -1,15 +1,14 @@
-// +build go1.3
-
 package template
 
 import (
 	"bytes"
-	"sync"
+
+	"gnd.la/internal/pool"
 )
 
 var (
-	statePool sync.Pool
-	bufPool   sync.Pool
+	statePool = pool.New(0)
+	bufPool   = pool.New(0)
 )
 
 func getState() *state {

@@ -89,13 +89,15 @@ func (b *Backend) Transforms() []reflect.Type {
 }
 
 func (b *Backend) ScanInt(val int64, goVal *reflect.Value, t *structs.Tag) error {
-	switch goVal.Type().Kind() {
+	switch goVal.Kind() {
 	case reflect.Struct:
 		goVal.Set(reflect.ValueOf(time.Unix(val, 0).UTC()))
+		return nil
 	case reflect.Bool:
 		goVal.SetBool(val != 0)
+		return nil
 	}
-	return nil
+	return b.SqlBackend.ScanInt(val, goVal, t)
 }
 
 func (b *Backend) TransformOutValue(val reflect.Value) (interface{}, error) {

@@ -20,7 +20,6 @@ var (
 	mysqlBackend     = &Backend{}
 	transformedTypes = []reflect.Type{
 		reflect.TypeOf((*time.Time)(nil)),
-		reflect.TypeOf((*int64)(nil)),
 	}
 )
 
@@ -118,34 +117,27 @@ func (b *Backend) Transforms() []reflect.Type {
 	return transformedTypes
 }
 
-func (b *Backend) ScanInt(val int64, goVal *reflect.Value, t *structs.Tag) error {
-	goVal.SetInt(val)
-	return nil
-}
-
 func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, t *structs.Tag) error {
 	// mysql returns u?int types as []byte under
 	// some circumstances (not sure exactly when, but other
 	// times they're returned as an int64).
-	s := string(val)
-	typ := goVal.Type()
-	switch {
-	case types.IsInt(typ):
-		v, err := strconv.ParseInt(s, 10, 64)
+	switch types.Kind(goVal.Kind()) {
+	case types.Int:
+		v, err := strconv.ParseInt(string(val), 10, 64)
 		if err != nil {
 			return err
 		}
 		goVal.SetInt(v)
-	case types.IsUint(typ):
-		v, err := strconv.ParseInt(s, 10, 64)
+		return nil
+	case types.Uint:
+		v, err := strconv.ParseInt(string(val), 10, 64)
 		if err != nil {
 			return err
 		}
 		goVal.SetInt(v)
-	default:
-		return fmt.Errorf("unexpected type in ScanByteSlice()")
+		return nil
 	}
-	return nil
+	return b.SqlBackend.ScanByteSlice(val, goVal, t)
 }
 
 func (b *Backend) ScanTime(val *time.Time, goVal *reflect.Value, t *structs.Tag) error {

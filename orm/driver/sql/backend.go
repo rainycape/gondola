@@ -102,27 +102,46 @@ func (b *SqlBackend) Transforms() []reflect.Type {
 	return nil
 }
 
+// These Scan* methods always assume the type is right. Backends which might
+// receive different types (e.g. a string like a []byte) should implement their
+// own Scan* methods as required.
+
 func (b *SqlBackend) ScanInt(val int64, goVal *reflect.Value, t *structs.Tag) error {
+	goVal.SetInt(val)
 	return nil
 }
 
 func (b *SqlBackend) ScanFloat(val float64, goVal *reflect.Value, t *structs.Tag) error {
+	goVal.SetFloat(val)
 	return nil
 }
 
 func (b *SqlBackend) ScanBool(val bool, goVal *reflect.Value, t *structs.Tag) error {
+	goVal.SetBool(val)
 	return nil
 }
 
 func (b *SqlBackend) ScanByteSlice(val []byte, goVal *reflect.Value, t *structs.Tag) error {
+	if goVal.Kind() == reflect.String {
+		goVal.SetString(string(val))
+		return nil
+	}
+	if len(val) > 0 && !t.Has("raw") {
+		b := make([]byte, len(val))
+		copy(b, val)
+		val = b
+	}
+	goVal.Set(reflect.ValueOf(val))
 	return nil
 }
 
 func (b *SqlBackend) ScanString(val string, goVal *reflect.Value, t *structs.Tag) error {
+	goVal.SetString(val)
 	return nil
 }
 
 func (b *SqlBackend) ScanTime(val *time.Time, goVal *reflect.Value, t *structs.Tag) error {
+	goVal.Set(reflect.ValueOf(*val))
 	return nil
 }
 

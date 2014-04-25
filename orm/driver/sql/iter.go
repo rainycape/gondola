@@ -18,7 +18,7 @@ func (i *Iter) Next(out ...interface{}) bool {
 		var vals []reflect.Value
 		var fields []*driver.Fields
 		var values []interface{}
-		var scanners [][]scanner
+		var scanners [][]*scanner
 		model := i.model
 		for model.Skip() {
 			model = model.Join().Model()
@@ -59,7 +59,7 @@ func (i *Iter) Next(out ...interface{}) bool {
 			for _, p := range f.Pointers {
 				isNil := true
 				for jj, v := range f.Indexes {
-					if f.IsSubfield(v, p) && !vscanners[jj].IsNil() {
+					if f.IsSubfield(v, p) && !vscanners[jj].Nil {
 						isNil = false
 						nilVal = false
 						break
@@ -72,7 +72,7 @@ func (i *Iter) Next(out ...interface{}) bool {
 			}
 			if nilVal {
 				for _, v := range vscanners {
-					if !v.IsNil() {
+					if !v.Nil {
 						nilVal = false
 						break
 					}
@@ -85,7 +85,7 @@ func (i *Iter) Next(out ...interface{}) bool {
 		}
 		for _, s := range scanners {
 			for _, v := range s {
-				v.Put()
+				scannerPool.Put(v)
 			}
 		}
 		return i.err == nil

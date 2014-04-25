@@ -380,7 +380,7 @@ func (d *Driver) saveParameters(m driver.Model, data interface{}) (reflect.Value
 	return val, names, values, nil
 }
 
-func (d *Driver) outValues(m driver.Model, out interface{}) (reflect.Value, *driver.Fields, []interface{}, []scanner, error) {
+func (d *Driver) outValues(m driver.Model, out interface{}) (reflect.Value, *driver.Fields, []interface{}, []*scanner, error) {
 	val := reflect.ValueOf(out)
 	if !val.IsValid() {
 		// Untyped nil pointer
@@ -415,16 +415,11 @@ func (d *Driver) outValues(m driver.Model, out interface{}) (reflect.Value, *dri
 		return reflect.Value{}, nil, nil, nil, nil
 	}
 	values := make([]interface{}, len(fields.Indexes))
-	scanners := make([]scanner, len(fields.Indexes))
+	scanners := make([]*scanner, len(fields.Indexes))
 	for ii, v := range fields.Indexes {
 		field := d.fieldByIndex(val, v, true)
 		tag := fields.Tags[ii]
-		var s scanner
-		if _, ok := d.transforms[field.Type()]; ok {
-			s = BackendScanner(&field, tag, d.backend)
-		} else {
-			s = Scanner(&field, tag)
-		}
+		s := newScanner(&field, tag, d.backend)
 		scanners[ii] = s
 		values[ii] = s
 	}

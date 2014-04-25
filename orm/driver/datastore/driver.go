@@ -3,7 +3,6 @@
 package datastore
 
 import (
-	"database/sql"
 	"fmt"
 	"reflect"
 	"strings"
@@ -262,10 +261,6 @@ func (d *Driver) Tags() []string {
 	return []string{"datastore"}
 }
 
-func (d *Driver) DB() *sql.DB {
-	return nil
-}
-
 func (d *Driver) SetLogger(logger *log.Logger) {
 	d.logger = logger
 }
@@ -304,6 +299,10 @@ func (d *Driver) primaryKey(f *driver.Fields, data interface{}) reflect.Value {
 
 func (d *Driver) HasFunc(fname string, retType reflect.Type) bool {
 	return false
+}
+
+func (d *Driver) Connection() interface{} {
+	return d.c
 }
 
 func fieldByIndex(val reflect.Value, indexes []int) reflect.Value {

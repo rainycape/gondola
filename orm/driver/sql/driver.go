@@ -867,6 +867,10 @@ func (d *Driver) HasFunc(fname string, retType reflect.Type) bool {
 	return err == nil && fn != ""
 }
 
+func (d *Driver) Connection() interface{} {
+	return d.db.sqlDb
+}
+
 func NewDriver(b Backend, url *config.URL) (*Driver, error) {
 	conn, err := sql.Open(b.Name(), url.ValueAndQuery())
 	if err != nil {

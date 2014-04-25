@@ -14,4 +14,5 @@ type Conn interface {
 	Update(m Model, q query.Q, data interface{}) (Result, error)
 	Upsert(m Model, q query.Q, data interface{}) (Result, error)
 	Delete(m Model, q query.Q) (Result, error)
+	Connection() interface{}
 }

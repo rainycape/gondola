@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"bytes"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -12,7 +11,6 @@ import (
 	"gnd.la/config"
 	"gnd.la/log"
 	"gnd.la/orm/driver"
-	ormsql "gnd.la/orm/driver/sql"
 	"gnd.la/orm/query"
 	"gnd.la/util/types"
 )
@@ -46,8 +44,7 @@ type Orm struct {
 	tags         string
 	typeRegistry typeRegistry
 	// these fields are non-nil iff the ORM driver uses database/sql
-	db        *sql.DB
-	sqlDriver *ormsql.Driver
+	db *sql.DB
 }
 
 // Table returns a Query object initialized with the given table.
@@ -536,29 +533,6 @@ func (o *Orm) SqlDB() *sql.DB {
 	return o.db
 }
 
-// SqlQuery performs the given query on the database/sql backend and
-// returns and iter with the results. If the underlying connection is
-// not using database/sql, the returned Iter will have no results and
-// will report the error ErrNoSql. Note that the SELECT <fields> part
-// of the query will be prepended by the ORM, so your query should not
-// include it.
-func (o *Orm) SqlQuery(t *Table, query string, args ...interface{}) *Iter {
-	if o.db == nil {
-		return &Iter{err: ErrNoSql}
-	}
-	var buf bytes.Buffer
-	if err := o.sqlDriver.SelectStmt(nil, true, t.model, &buf, &args); err != nil {
-		return &Iter{err: err}
-	}
-	buf.WriteByte(' ')
-	buf.WriteString(query)
-	rows, err := o.db.Query(buf.String(), args...)
-	return &Iter{
-		Iter: ormsql.NewIter(t.model, o.driver, rows, err),
-		q:    &Query{model: t.model},
-	}
-}
-
 // Logger returns the logger for this ORM. By default, it's
 // nil.
 func (o *Orm) Logger() *log.Logger {
@@ -685,9 +659,8 @@ func New(url *config.URL) (*Orm, error) {
 		tags:         tags,
 		typeRegistry: typeRegistry,
 	}
-	if sqlDriver, ok := drv.(*ormsql.Driver); ok {
-		o.sqlDriver = sqlDriver
-		o.db = sqlDriver.DB()
+	if db, ok := drv.Connection().(*sql.DB); ok {
+		o.db = db
 	}
 	return o, nil
 }

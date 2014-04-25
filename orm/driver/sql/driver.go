@@ -19,7 +19,6 @@ import (
 	"gnd.la/orm/query"
 	"gnd.la/util/generic"
 	"gnd.la/util/structs"
-	"gnd.la/util/types"
 )
 
 var (
@@ -553,10 +552,6 @@ func (d *Driver) makeTable(m driver.Model) (*Table, error) {
 			field.AddConstraint(ConstraintUnique)
 		}
 		if tag.Has("auto_increment") {
-			typ := ftypes[ii]
-			if types.Kind(typ.Kind()) != types.Int {
-				return nil, fmt.Errorf("can't auto increment %s.%s: SQL drivers only support auto_increment on integer types", fields.Type, qnames[ii])
-			}
 			field.AddOption(OptionAutoIncrement)
 		}
 		if ref := fields.References[qnames[ii]]; ref != nil {

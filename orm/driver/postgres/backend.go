@@ -73,7 +73,7 @@ func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field
 
 func (b *Backend) Insert(db sql.DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
 	fields := m.Fields()
-	if fields.IntegerAutoincrementPk {
+	if fields.AutoincrementPk {
 		q := query + " RETURNING " + fields.MNames[fields.PrimaryKey]
 		var id int64
 		err := db.QueryRow(q, args...).Scan(&id)

@@ -158,7 +158,7 @@ func (o *Orm) insert(m *model, obj interface{}) (Result, error) {
 	var pkName string
 	var pkVal reflect.Value
 	f := m.fields
-	if f.IntegerAutoincrementPk {
+	if f.AutoincrementPk {
 		pkName, pkVal = o.primaryKey(f, obj)
 		if pkVal.Int() == 0 && !pkVal.CanSet() {
 			typ := reflect.TypeOf(obj)

@@ -18,6 +18,7 @@ import (
 	"gnd.la/signal"
 	"gnd.la/util/stringutil"
 	"gnd.la/util/structs"
+	"gnd.la/util/types"
 )
 
 type nameRegistry map[string]*model
@@ -287,7 +288,6 @@ func (o *Orm) fields(table string, s *structs.Struct) (*driver.Fields, map[strin
 		// XXX: Check if this quoting is enough
 		fields.QuotedNames = append(fields.QuotedNames, fmt.Sprintf("\"%s\".\"%s\"", table, s.MNames[ii]))
 		t := s.Types[ii]
-		k := t.Kind()
 		ftag := s.Tags[ii]
 		// Check encoded types
 		if cn := ftag.CodecName(); cn != "" {
@@ -298,9 +298,9 @@ func (o *Orm) fields(table string, s *structs.Struct) (*driver.Fields, map[strin
 				return nil, nil, fmt.Errorf("can't find codec %q. Perhaps you missed an import?", cn)
 			}
 		} else {
-			switch k {
+			switch t.Kind() {
 			case reflect.Array, reflect.Chan, reflect.Func, reflect.Interface, reflect.Map:
-				return nil, nil, fmt.Errorf("field %q in struct %v has invalid type %v", v, t, k)
+				return nil, nil, fmt.Errorf("field %q in struct %s has invalid type %s", v, s.Type, t)
 			}
 		}
 		if pn := ftag.PipeName(); pn != "" {
@@ -322,9 +322,12 @@ func (o *Orm) fields(table string, s *structs.Struct) (*driver.Fields, map[strin
 				return nil, nil, fmt.Errorf("duplicate primary_key in struct %v (%s and %s)", s.Type, s.QNames[fields.PrimaryKey], v)
 			}
 			fields.PrimaryKey = ii
-			if ftag.Has("auto_increment") && (k == reflect.Int || k == reflect.Int8 || k == reflect.Int16 || k == reflect.Int32 || k == reflect.Int64) {
-				fields.IntegerAutoincrementPk = true
+		}
+		if ftag.Has("auto_increment") {
+			if k := types.Kind(t.Kind()); k != types.Int && k != types.Uint {
+				return nil, nil, fmt.Errorf("auto_increment field %q in struct %s must be of integer type (signed or unsigned", v, s.Type)
 			}
+			fields.AutoincrementPk = fields.PrimaryKey == ii
 		}
 		if ref := ftag.Value("references"); ref != "" {
 			m := referencesRe.FindStringSubmatch(ref)

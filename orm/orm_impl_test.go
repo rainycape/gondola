@@ -188,8 +188,11 @@ func testBadAutoincrement(t *testing.T, o *Orm) {
 		t.Log("skipping bad auto increment test")
 		return
 	}
-	o.mustRegister((*BadAutoIncrement)(nil), nil)
-	if err := o.Initialize(); err == nil {
+	_, err := o.Register((*BadAutoIncrement)(nil), nil)
+	if err == nil {
+		err = o.Initialize()
+	}
+	if err == nil {
 		t.Error("expecing an error when using BadAutoIncrement")
 	}
 }

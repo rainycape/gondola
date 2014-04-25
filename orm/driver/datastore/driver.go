@@ -82,7 +82,7 @@ func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error)
 			return nil, err
 		}
 	}
-	if fields.IntegerAutoincrementPk && pkVal != nil {
+	if fields.AutoincrementPk && pkVal != nil {
 		pkVal.SetInt(int64(id))
 	}
 	key := datastore.NewKey(d.c, name, "", id, parent)

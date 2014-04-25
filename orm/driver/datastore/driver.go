@@ -24,7 +24,7 @@ type Driver struct {
 	logger *log.Logger
 }
 
-func (d *Driver) MakeTables(ms []driver.Model) error {
+func (d *Driver) Initialize(ms []driver.Model) error {
 	// No need to create tables in the datastore. Instead,
 	// check that the models can be stored.
 	return nil
@@ -300,6 +300,10 @@ func (d *Driver) Capabilities() driver.Capability {
 
 func (d *Driver) primaryKey(f *driver.Fields, data interface{}) reflect.Value {
 	return fieldByIndex(reflect.ValueOf(data), f.Indexes[f.PrimaryKey])
+}
+
+func (d *Driver) HasFunc(fname string, retType reflect.Type) bool {
+	return false
 }
 
 func fieldByIndex(val reflect.Value, indexes []int) reflect.Value {

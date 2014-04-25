@@ -2,16 +2,20 @@ package mysql
 
 import (
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
+
 	"gnd.la/config"
 	"gnd.la/encoding/codec"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/driver/sql"
+	"gnd.la/orm/index"
 	"gnd.la/util/structs"
 	"gnd.la/util/types"
-	"reflect"
-	"strconv"
-	"time"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 const placeholders = "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?"
@@ -33,6 +37,40 @@ func (b *Backend) Name() string {
 
 func (b *Backend) Tag() string {
 	return b.Name()
+}
+
+func (b *Backend) Capabilities() driver.Capability {
+	return driver.CAP_NONE
+}
+
+func (b *Backend) DefaultValues() string {
+	return "() VALUES()"
+}
+
+func (b *Backend) Inspect(db sql.DB, m driver.Model) (*sql.Table, error) {
+	var database string
+	if err := db.QueryRow("SELECT DATABASE() FROM DUAL").Scan(&database); err != nil {
+		return nil, err
+	}
+	return b.SqlBackend.Inspect(db, m, database)
+}
+
+func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, error) {
+	def, err := b.SqlBackend.DefineField(db, m, table, field)
+	if err != nil {
+		return "", err
+	}
+	return strings.Replace(def, "AUTOINCREMENT", "AUTO_INCREMENT", -1), nil
+}
+
+func (b *Backend) HasIndex(db sql.DB, m driver.Model, idx *index.Index, name string) (bool, error) {
+	rows, err := db.Query("SHOW INDEX FROM ? WHERE Key_name = ?", m.Table(), name)
+	if err != nil {
+		return false, err
+	}
+	has := rows.Next()
+	rows.Close()
+	return has, nil
 }
 
 func (b *Backend) FieldType(typ reflect.Type, t *structs.Tag) (string, error) {
@@ -67,9 +105,9 @@ func (b *Backend) FieldType(typ reflect.Type, t *structs.Tag) (string, error) {
 	case reflect.Float64:
 		ft = "DOUBLE"
 	case reflect.String:
-		if ml, ok := t.IntValue("max_length"); ok {
+		if ml, ok := t.MaxLength(); ok {
 			ft = fmt.Sprintf("VARCHAR (%d)", ml)
-		} else if fl, ok := t.IntValue("length"); ok {
+		} else if fl, ok := t.Length(); ok {
 			ft = fmt.Sprintf("CHAR (%d)", fl)
 		} else {
 			ft = "TEXT"
@@ -89,28 +127,6 @@ func (b *Backend) FieldType(typ reflect.Type, t *structs.Tag) (string, error) {
 		return ft, nil
 	}
 	return "", fmt.Errorf("can't map field type %v to a database type", typ)
-}
-
-func (b *Backend) FieldOptions(typ reflect.Type, t *structs.Tag) ([]string, error) {
-	var opts []string
-	if t.Has("notnull") {
-		opts = append(opts, "NOT NULL")
-	}
-	if t.Has("primary_key") {
-		opts = append(opts, "PRIMARY KEY")
-	} else if t.Has("unique") {
-		opts = append(opts, "UNIQUE")
-	}
-	if t.Has("auto_increment") {
-		opts = append(opts, "AUTO_INCREMENT")
-	}
-	if def := t.Value("default"); def != "" {
-		if typ.Kind() == reflect.String {
-			def = "\"" + def + "\""
-		}
-		opts = append(opts, fmt.Sprintf("DEFAULT %s", def))
-	}
-	return opts, nil
 }
 
 func (b *Backend) Transforms() []reflect.Type {

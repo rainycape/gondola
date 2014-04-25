@@ -25,4 +25,8 @@ const (
 	CAP_COMPOSITE_PK
 	// Can have non-PK unique fields, enforce by the backend.
 	CAP_UNIQUE
+	// Can have database level defaults.
+	CAP_DEFAULTS
+	// Can have database level defaults for TEXT fields (unbounded strings).
+	CAP_DEFAULTS_TEXT
 )

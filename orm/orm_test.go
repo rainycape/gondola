@@ -10,6 +10,10 @@ func TestAutoIncrement(t *testing.T) {
 	runTest(t, testAutoIncrement)
 }
 
+func TestBadAutoincrement(t *testing.T) {
+	runTest(t, testBadAutoincrement)
+}
+
 func TestTime(t *testing.T) {
 	runTest(t, testTime)
 }
@@ -67,6 +71,10 @@ func TestLoadSaveMethods(t *testing.T) {
 
 func TestLoadSaveMethodsErrors(t *testing.T) {
 	runTest(t, testLoadSaveMethodsErrors)
+}
+
+func TestDefaults(t *testing.T) {
+	runTest(t, testDefaults)
 }
 
 func BenchmarkLoadSaveMethods(b *testing.B) {

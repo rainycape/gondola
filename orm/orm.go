@@ -5,14 +5,16 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
+
 	"gnd.la/app/profile"
 	"gnd.la/config"
 	"gnd.la/log"
 	"gnd.la/orm/driver"
 	ormsql "gnd.la/orm/driver/sql"
 	"gnd.la/orm/query"
-	"reflect"
-	"strings"
+	"gnd.la/util/types"
 )
 
 var (
@@ -153,6 +155,9 @@ func (o *Orm) MustInsertInto(t *Table, obj interface{}) Result {
 }
 
 func (o *Orm) insert(m *model, obj interface{}) (Result, error) {
+	if profile.On {
+		defer profile.Startf(orm, "insert").End()
+	}
 	var pkName string
 	var pkVal reflect.Value
 	f := m.fields
@@ -163,8 +168,29 @@ func (o *Orm) insert(m *model, obj interface{}) (Result, error) {
 			return nil, fmt.Errorf("can't set primary key field %q. Please, insert a %v rather than a %v", pkName, reflect.PtrTo(typ), typ)
 		}
 	}
-	if profile.On {
-		defer profile.Startf(orm, "insert").End()
+	if f.Defaults != nil {
+		val := reflect.ValueOf(obj)
+		for k, v := range f.Defaults {
+			indexes := f.Indexes[k]
+			fval := o.fieldByIndexCreating(val, indexes)
+			isTrue, _ := types.IsTrueVal(fval)
+			if !isTrue {
+				if !fval.CanSet() {
+					// Need to copy to alter the fields
+					pval := reflect.New(val.Type())
+					pval.Elem().Set(val)
+					obj = pval.Interface()
+					val = pval
+					fval = o.fieldByIndexCreating(val, indexes)
+				}
+				if v.Kind() == reflect.Func {
+					out := v.Call(nil)
+					fval.Set(out[0])
+				} else {
+					fval.Set(v)
+				}
+			}
+		}
 	}
 	res, err := o.conn.Insert(m, obj)
 	if err == nil && pkVal.IsValid() && pkVal.Int() == 0 {
@@ -587,9 +613,22 @@ func (o *Orm) models(objs []interface{}, q query.Q, sort []driver.Sort, jt JoinT
 
 func (o *Orm) fieldByIndex(val reflect.Value, indexes []int) reflect.Value {
 	for _, v := range indexes {
-		if val.Type().Kind() == reflect.Ptr {
+		if val.Kind() == reflect.Ptr {
 			if val.IsNil() {
 				return reflect.Value{}
+			}
+			val = val.Elem()
+		}
+		val = val.Field(v)
+	}
+	return val
+}
+
+func (o *Orm) fieldByIndexCreating(val reflect.Value, indexes []int) reflect.Value {
+	for _, v := range indexes {
+		if val.Kind() == reflect.Ptr {
+			if val.IsNil() {
+				val.Set(reflect.New(val.Type().Elem()))
 			}
 			val = val.Elem()
 		}

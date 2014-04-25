@@ -1,6 +1,8 @@
 package driver
 
 import (
+	"reflect"
+
 	"gnd.la/config"
 )
 
@@ -12,7 +14,7 @@ type Opener func(url *config.URL) (Driver, error)
 
 type Driver interface {
 	Conn
-	MakeTables(m []Model) error
+	Initialize(m []Model) error
 	Begin() (Tx, error)
 	Transaction(f func(Driver) error) error
 	Close() error
@@ -22,6 +24,7 @@ type Driver interface {
 	// The first non-empty tag is used.
 	Tags() []string
 	Capabilities() Capability
+	HasFunc(fname string, retType reflect.Type) bool
 }
 
 func Register(name string, opener Opener) {

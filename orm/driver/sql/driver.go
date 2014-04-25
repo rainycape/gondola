@@ -4,6 +4,10 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
+
 	"gnd.la/app/profile"
 	"gnd.la/config"
 	"gnd.la/encoding/codec"
@@ -13,9 +17,9 @@ import (
 	"gnd.la/orm/index"
 	"gnd.la/orm/operation"
 	"gnd.la/orm/query"
-	"reflect"
-	"strconv"
-	"strings"
+	"gnd.la/util/generic"
+	"gnd.la/util/structs"
+	"gnd.la/util/types"
 )
 
 var (
@@ -30,57 +34,107 @@ type Driver struct {
 	transforms map[reflect.Type]struct{}
 }
 
-func (d *Driver) MakeTables(ms []driver.Model) error {
+func (d *Driver) Initialize(ms []driver.Model) error {
 	// Create tables
 	for _, v := range ms {
-		tableFields, err := d.tableFields(v)
+		existingTbl, err := d.backend.Inspect(d.db, v)
 		if err != nil {
 			return err
 		}
-		if len(tableFields) == 0 {
-			log.Debugf("Skipping collection %s (model %v) because it has no fields", v.Table, v)
-			continue
+		tbl, err := d.makeTable(v)
+		if err != nil {
+			return err
 		}
-		fields := v.Fields()
-		if cpk := fields.CompositePrimaryKey; len(cpk) > 0 {
-			var pkFields []string
-			qnames := v.Fields().MNames
-			for _, f := range cpk {
-				pkFields = append(pkFields, fmt.Sprintf("\"%s\"", qnames[f]))
+		if existingTbl != nil {
+			err = d.mergeTable(v, existingTbl, tbl)
+		} else {
+			if len(tbl.Fields) == 0 {
+				log.Debugf("Skipping collection %s (model %v) because it has no fields", v.Table, v)
+				continue
 			}
-			tableFields = append(tableFields, fmt.Sprintf("PRIMARY KEY(%s)", strings.Join(pkFields, ",")))
+			// Table does not exists, create it
+			err = d.createTable(v, tbl)
 		}
-		for k, v := range fields.References {
-			fk, _, err := fields.Map(k)
-			if err != nil {
-				return err
-			}
-			tk, _, err := v.Model.Fields().Map(v.Field)
-			if err != nil {
-				return err
-			}
-			tableFields = append(tableFields, fmt.Sprintf("FOREIGN KEY(\"%s\") REFERENCES \"%s\"(\"%s\")", fk, v.Model.Table(), tk))
-		}
-		sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS \"%s\" (\n%s\n);", v.Table(), strings.Join(tableFields, ",\n"))
-		_, err = d.db.Exec(sql)
 		if err != nil {
 			return err
 		}
 	}
 	// Create indexes
 	for _, v := range ms {
-		for _, idx := range v.Indexes() {
-			name, err := d.indexName(v, idx)
-			if err != nil {
-				return err
-			}
-			err = d.backend.Index(d.db, v, idx, name)
-			if err != nil {
-				return err
-			}
+		if err := d.createIndexes(v); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (d *Driver) createIndexes(m driver.Model) error {
+	for _, idx := range m.Indexes() {
+		name, err := d.indexName(m, idx)
+		if err != nil {
+			return err
+		}
+		if err := d.createIndex(m, idx, name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *Driver) createIndex(m driver.Model, idx *index.Index, name string) error {
+	has, err := d.backend.HasIndex(d.db, m, idx, name)
+	if err != nil {
+		return err
+	}
+	if has {
+		return nil
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("CREATE ")
+	if idx.Unique {
+		buf.WriteString("UNIQUE ")
+	}
+	buf.WriteString("INDEX IF NOT EXISTS ")
+	buf.WriteString(name)
+	buf.WriteString(" ON \"")
+	buf.WriteString(m.Table())
+	buf.WriteString("\" (")
+	fields := m.Fields()
+	for _, v := range idx.Fields {
+		name, _, err := fields.Map(v)
+		if err != nil {
+			return err
+		}
+		buf.WriteString(name)
+		if DescField(idx, v) {
+			buf.WriteString(" DESC")
+		}
+		buf.WriteByte(',')
+	}
+	buf.Truncate(buf.Len() - 1)
+	buf.WriteString(")")
+	_, err = d.db.Exec(buf.String())
+	return err
+}
+
+func (d *Driver) indexName(m driver.Model, idx *index.Index) (string, error) {
+	if len(idx.Fields) == 0 {
+		return "", fmt.Errorf("index on %v has no fields", m.Type())
+	}
+	var buf bytes.Buffer
+	buf.WriteString(m.Table())
+	for _, v := range idx.Fields {
+		dbName, _, err := m.Map(v)
+		if err != nil {
+			return "", err
+		}
+		buf.WriteByte('_')
+		// dbName is quoted and includes the table name
+		// extract the unquoted field name.
+		buf.WriteString(unquote(dbName))
+	}
+	return buf.String(), nil
 }
 
 func (d *Driver) Query(m driver.Model, q query.Q, sort []driver.Sort, limit int, offset int) driver.Iter {
@@ -128,17 +182,23 @@ func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error)
 	buf.WriteByte('"')
 	buf.WriteString(m.Table())
 	buf.WriteByte('"')
-	buf.WriteString(" (")
-	for _, v := range fields {
-		buf.WriteByte('"')
-		buf.WriteString(v)
-		buf.WriteByte('"')
-		buf.WriteByte(',')
+	count := len(fields)
+	if count > 0 {
+		buf.WriteString(" (")
+		for _, v := range fields {
+			buf.WriteByte('"')
+			buf.WriteString(v)
+			buf.WriteByte('"')
+			buf.WriteByte(',')
+		}
+		buf.Truncate(buf.Len() - 1)
+		buf.WriteString(") VALUES (")
+		buf.WriteString(d.backend.Placeholders(count))
+		buf.WriteByte(')')
+	} else {
+		buf.WriteByte(' ')
+		buf.WriteString(d.backend.DefaultValues())
 	}
-	buf.Truncate(buf.Len() - 1)
-	buf.WriteString(") VALUES (")
-	buf.WriteString(d.backend.Placeholders(len(fields)))
-	buf.WriteByte(')')
 	return d.backend.Insert(d.db, m, buf.String(), values...)
 }
 
@@ -277,7 +337,11 @@ func (d *Driver) debugq(sql string, args []interface{}) {
 		}
 	}
 	if d.logger != nil {
-		d.logger.Debugf("SQL: %s with arguments %v", sql, args)
+		if len(args) > 0 {
+			d.logger.Debugf("SQL: %s with arguments %v", sql, args)
+		} else {
+			d.logger.Debugf("SQL: %s", sql)
+		}
 	}
 }
 
@@ -426,26 +490,138 @@ func (d *Driver) outValues(m driver.Model, out interface{}) (reflect.Value, *dri
 	return val, fields, values, scanners, nil
 }
 
-func (d *Driver) tableFields(m driver.Model) ([]string, error) {
+func (d *Driver) isPrimaryKey(fields *driver.Fields, idx int, tag *structs.Tag) bool {
+	if tag.Has("primary_key") {
+		return true
+	}
+	for _, v := range fields.CompositePrimaryKey {
+		if v == idx {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *Driver) makeTable(m driver.Model) (*Table, error) {
 	fields := m.Fields()
 	names := fields.MNames
-	types := fields.Types
+	qnames := fields.QNames
+	ftypes := fields.Types
 	tags := fields.Tags
-	dbFields := make([]string, len(names))
+	dbFields := make([]*Field, len(names))
 	for ii, v := range names {
-		typ := types[ii]
+		typ := ftypes[ii]
 		tag := tags[ii]
 		ft, err := d.backend.FieldType(typ, tag)
 		if err != nil {
 			return nil, err
 		}
-		opts, err := d.backend.FieldOptions(typ, tag)
-		if err != nil {
-			return nil, err
+		def := tag.Value("default")
+		if fields.HasDefault(ii) {
+			// Handled by the ORM
+			def = ""
 		}
-		dbFields[ii] = fmt.Sprintf("\"%s\" %s %s", v, ft, strings.Join(opts, " "))
+		if def != "" {
+			if driver.IsFunc(def) {
+				fname, _ := driver.SplitFuncArgs(def)
+				fn, err := d.backend.Func(fname, ftypes[ii])
+				if err != nil {
+					if err == ErrFuncNotSupported {
+						err = fmt.Errorf("backend %s does not support function %s", d.backend.Name(), tag.Value("default"))
+					}
+					return nil, err
+				}
+				def = fn
+			} else {
+				def = driver.UnescapeDefault(def)
+				if typ.Kind() == reflect.String {
+					def = d.db.QuoteString(def)
+				}
+			}
+		}
+		field := &Field{
+			Name:    v,
+			Type:    ft,
+			Default: def,
+		}
+		if tag.Has("notnull") {
+			field.AddConstraint(ConstraintNotNull)
+		}
+		if d.isPrimaryKey(fields, ii, tag) {
+			field.AddConstraint(ConstraintPrimaryKey)
+		} else if tag.Has("unique") {
+			field.AddConstraint(ConstraintUnique)
+		}
+		if tag.Has("auto_increment") {
+			typ := ftypes[ii]
+			if types.Kind(typ.Kind()) != types.Int {
+				return nil, fmt.Errorf("can't auto increment %s.%s: SQL drivers only support auto_increment on integer types", fields.Type, qnames[ii])
+			}
+			field.AddOption(OptionAutoIncrement)
+		}
+		if ref := fields.References[qnames[ii]]; ref != nil {
+			fk, _, err := ref.Model.Fields().Map(ref.Field)
+			if err != nil {
+				return nil, err
+			}
+			field.Constraints = append(field.Constraints, &Constraint{
+				Type:       ConstraintForeignKey,
+				References: MakeReference(ref.Model.Table(), fk),
+			})
+		}
+		dbFields[ii] = field
 	}
-	return dbFields, nil
+	return &Table{Fields: dbFields}, nil
+}
+
+func (d *Driver) definePks(m driver.Model, table *Table) (string, error) {
+	pks := table.PrimaryKeys()
+	if len(pks) < 2 {
+		return "", nil
+	}
+	pkFields := generic.Map(pks, strconv.Quote).([]string)
+	return fmt.Sprintf("PRIMARY KEY(%s)", strings.Join(pkFields, ", ")), nil
+}
+
+func (d *Driver) defineFks(m driver.Model, table *Table) ([]string, error) {
+	var fks []string
+	for _, v := range table.Fields {
+		if ref := v.Constraint(ConstraintForeignKey); ref != nil {
+			fks = append(fks, fmt.Sprintf("FOREIGN KEY(%s) REFERENCES %s(%s)", strconv.Quote(v.Name),
+				strconv.Quote(ref.References.Table()), strconv.Quote(ref.References.Field())))
+		}
+	}
+	return fks, nil
+}
+
+func (d *Driver) createTable(m driver.Model, table *Table) error {
+	var lines []string
+	for _, v := range table.Fields {
+		def, err := d.backend.DefineField(d.db, m, table, v)
+		if err != nil {
+			return err
+		}
+		lines = append(lines, def)
+	}
+	pk, err := d.definePks(m, table)
+	if err != nil {
+		return err
+	}
+	if pk != "" {
+		lines = append(lines, pk)
+	}
+	fks, err := d.defineFks(m, table)
+	if err != nil {
+		return err
+	}
+	lines = append(lines, fks...)
+	sql := fmt.Sprintf("\nCREATE TABLE %s (\n\t%s\n)", strconv.Quote(m.Table()), strings.Join(lines, ",\n\t"))
+	_, err = d.db.Exec(sql)
+	return err
+}
+
+func (d *Driver) mergeTable(m driver.Model, prev *Table, table *Table) error {
+	return nil
 }
 
 func (d *Driver) where(m driver.Model, q query.Q, begin int) (string, []interface{}, error) {
@@ -538,25 +714,6 @@ func (d *Driver) conditions(m driver.Model, q []query.Q, sep string, params *[]i
 		clauses[ii] = c
 	}
 	return fmt.Sprintf("(%s)", strings.Join(clauses, sep)), nil
-}
-
-func (d *Driver) indexName(m driver.Model, idx *index.Index) (string, error) {
-	if len(idx.Fields) == 0 {
-		return "", fmt.Errorf("index on %v has no fields", m.Type())
-	}
-	var buf bytes.Buffer
-	buf.WriteString(m.Table())
-	for _, v := range idx.Fields {
-		dbName, _, err := m.Map(v)
-		if err != nil {
-			return "", err
-		}
-		buf.WriteByte('_')
-		// dbName is quoted and includes the table name
-		// extract the unquoted field name.
-		buf.WriteString(unquote(dbName))
-	}
-	return buf.String(), nil
 }
 
 func (d *Driver) SelectStmt(fields []string, quote bool, m driver.Model, buf *bytes.Buffer, params *[]interface{}) error {
@@ -699,7 +856,15 @@ func (d *Driver) Transaction(f func(driver.Driver) error) error {
 }
 
 func (d *Driver) Capabilities() driver.Capability {
-	return driver.CAP_JOIN | driver.CAP_TRANSACTION | driver.CAP_BEGIN | driver.CAP_AUTO_ID | driver.CAP_AUTO_INCREMENT | driver.CAP_PK | driver.CAP_COMPOSITE_PK | driver.CAP_UNIQUE
+	return driver.CAP_JOIN | driver.CAP_TRANSACTION | driver.CAP_BEGIN |
+		driver.CAP_AUTO_ID | driver.CAP_AUTO_INCREMENT | driver.CAP_PK |
+		driver.CAP_COMPOSITE_PK | driver.CAP_UNIQUE | driver.CAP_DEFAULTS |
+		d.backend.Capabilities()
+}
+
+func (d *Driver) HasFunc(fname string, retType reflect.Type) bool {
+	fn, err := d.backend.Func(fname, retType)
+	return err == nil && fn != ""
 }
 
 func NewDriver(b Backend, url *config.URL) (*Driver, error) {

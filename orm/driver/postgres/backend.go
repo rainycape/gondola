@@ -3,17 +3,19 @@ package postgres
 import (
 	"bytes"
 	"fmt"
-	_ "github.com/lib/pq"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
+
 	"gnd.la/config"
 	"gnd.la/encoding/codec"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/driver/sql"
 	"gnd.la/orm/index"
 	"gnd.la/util/structs"
-	"reflect"
-	"strconv"
-	"strings"
-	"time"
+
+	_ "github.com/lib/pq"
 )
 
 const placeholders = "$1 ,$2 ,$3 ,$4 ,$5 ,$6 ,$7 ,$8 ,$9 ,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32"
@@ -49,6 +51,26 @@ func (b *Backend) Placeholders(n int) string {
 	return p[:4*n-1]
 }
 
+func (b *Backend) Func(fname string, retType reflect.Type) (string, error) {
+	if fname == "now" && retType.PkgPath() == "time" && retType.Name() == "Time" {
+		return "(statement_timestamp() at time zone 'utc')", nil
+	}
+	return b.SqlBackend.Func(fname, retType)
+}
+
+func (b *Backend) Inspect(db sql.DB, m driver.Model) (*sql.Table, error) {
+	return b.SqlBackend.Inspect(db, m, "public")
+}
+
+func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, error) {
+	def, err := b.SqlBackend.DefineField(db, m, table, field)
+	if err != nil {
+		return "", err
+	}
+	// AUTO INCREMENT in pgsql is provided via SERIAL type
+	return strings.Replace(def, " AUTOINCREMENT", "", -1), nil
+}
+
 func (b *Backend) Insert(db sql.DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
 	fields := m.Fields()
 	if fields.IntegerAutoincrementPk {
@@ -65,39 +87,10 @@ func (b *Backend) Insert(db sql.DB, m driver.Model, query string, args ...interf
 	return db.Exec(query, args...)
 }
 
-func (b *Backend) Index(db sql.DB, m driver.Model, idx *index.Index, name string) error {
-	// First, check if the index exists
-	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM pg_class WHERE relname = $1", name).Scan(&count)
-	if err == nil && count == 1 {
-		return nil
-	}
-	var buf bytes.Buffer
-	buf.WriteString("CREATE ")
-	if idx.Unique {
-		buf.WriteString("UNIQUE ")
-	}
-	buf.WriteString("INDEX ")
-	buf.WriteString(name)
-	buf.WriteString(" ON \"")
-	buf.WriteString(m.Table())
-	buf.WriteString("\" (")
-	fields := m.Fields()
-	for _, v := range idx.Fields {
-		name, _, err := fields.Map(v)
-		if err != nil {
-			return err
-		}
-		buf.WriteString(name)
-		if sql.DescField(idx, v) {
-			buf.WriteString(" DESC")
-		}
-		buf.WriteByte(',')
-	}
-	buf.Truncate(buf.Len() - 1)
-	buf.WriteString(")")
-	_, err = db.Exec(buf.String())
-	return err
+func (b *Backend) HasIndex(db sql.DB, m driver.Model, idx *index.Index, name string) (bool, error) {
+	var exists int
+	err := db.QueryRow("SELECT 1 FROM pg_class WHERE relname = $1 AND relkind = 'i'", name).Scan(&exists)
+	return exists != 0, err
 }
 
 func (b *Backend) FieldType(typ reflect.Type, t *structs.Tag) (string, error) {
@@ -128,9 +121,9 @@ func (b *Backend) FieldType(typ reflect.Type, t *structs.Tag) (string, error) {
 		} else if t.Has("inet") {
 			ft = "INET"
 		} else {
-			if ml, ok := t.IntValue("max_length"); ok {
+			if ml, ok := t.MaxLength(); ok {
 				ft = fmt.Sprintf("VARCHAR (%d)", ml)
-			} else if fl, ok := t.IntValue("length"); ok {
+			} else if fl, ok := t.Length(); ok {
 				ft = fmt.Sprintf("CHAR (%d)", fl)
 			} else {
 				ft = "TEXT"
@@ -166,25 +159,6 @@ func (b *Backend) FieldType(typ reflect.Type, t *structs.Tag) (string, error) {
 		return ft, nil
 	}
 	return "", fmt.Errorf("can't map field type %v to a database type", typ)
-}
-
-func (b *Backend) FieldOptions(typ reflect.Type, t *structs.Tag) ([]string, error) {
-	var opts []string
-	if t.Has("notnull") {
-		opts = append(opts, "NOT NULL")
-	}
-	if t.Has("primary_key") {
-		opts = append(opts, "PRIMARY KEY")
-	} else if t.Has("unique") {
-		opts = append(opts, "UNIQUE")
-	}
-	if def := t.Value("default"); def != "" {
-		if typ.Kind() == reflect.String {
-			def = "\"" + def + "\""
-		}
-		opts = append(opts, fmt.Sprintf("DEFAULT %s", def))
-	}
-	return opts, nil
 }
 
 func (b *Backend) Transforms() []reflect.Type {

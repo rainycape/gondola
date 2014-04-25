@@ -2,14 +2,17 @@ package sqlite
 
 import (
 	"fmt"
-	_ "github.com/mattn/go-sqlite3"
+	"reflect"
+	"time"
+
 	"gnd.la/config"
 	"gnd.la/encoding/codec"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/driver/sql"
+	"gnd.la/orm/index"
 	"gnd.la/util/structs"
-	"reflect"
-	"time"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var (
@@ -30,6 +33,66 @@ func (b *Backend) Name() string {
 
 func (b *Backend) Tag() string {
 	return "sqlite"
+}
+
+func (b *Backend) Func(fname string, retType reflect.Type) (string, error) {
+	if fname == "now" && retType.PkgPath() == "time" && retType.Name() == "Time" {
+		return "(strftime('%s', 'now'))", nil
+	}
+	return b.SqlBackend.Func(fname, retType)
+}
+
+func (b *Backend) Inspect(db sql.DB, m driver.Model) (*sql.Table, error) {
+	name := db.QuoteString(m.Table())
+	rows, err := db.Query(fmt.Sprintf("PRAGMA table_info(%s)", name))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var fields []*sql.Field
+	for rows.Next() {
+		var cid int
+		var f sql.Field
+		var notnull int
+		var def *string
+		var pk int
+		if err := rows.Scan(&cid, &f.Name, &f.Type, &notnull, &def, &pk); err != nil {
+			return nil, err
+		}
+		if notnull != 0 {
+			f.AddConstraint(sql.ConstraintNotNull)
+		}
+		if def != nil {
+			f.Default = *def
+		}
+		if pk != 0 {
+			f.AddConstraint(sql.ConstraintPrimaryKey)
+		}
+		fields = append(fields, &f)
+	}
+	if len(fields) > 0 {
+		return &sql.Table{Fields: fields}, nil
+	}
+	return nil, nil
+}
+
+func (b *Backend) HasIndex(db sql.DB, m driver.Model, idx *index.Index, name string) (bool, error) {
+	rows, err := db.Query("PRAGMA index_info(?)", name)
+	if err != nil {
+		return false, err
+	}
+	has := rows.Next()
+	rows.Close()
+	return has, nil
+}
+
+func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, error) {
+	if field.HasOption(sql.OptionAutoIncrement) {
+		if field.Constraint(sql.ConstraintPrimaryKey) == nil {
+			return "", fmt.Errorf("%s can only auto increment the primary key", b.Name())
+		}
+	}
+	return b.SqlBackend.DefineField(db, m, table, field)
 }
 
 func (b *Backend) FieldType(typ reflect.Type, t *structs.Tag) (string, error) {
@@ -57,31 +120,6 @@ func (b *Backend) FieldType(typ reflect.Type, t *structs.Tag) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("can't map field type %v to a database type", typ)
-}
-
-func (b *Backend) FieldOptions(typ reflect.Type, t *structs.Tag) ([]string, error) {
-	var opts []string
-	if t.Has("notnull") {
-		opts = append(opts, "NOT NULL")
-	}
-	if t.Has("primary_key") {
-		opts = append(opts, "PRIMARY KEY")
-	} else if t.Has("unique") {
-		opts = append(opts, "UNIQUE")
-	}
-	if t.Has("auto_increment") {
-		if !t.Has("primary_key") {
-			return nil, fmt.Errorf("%s can only auto increment the primary key", b.Name())
-		}
-		opts = append(opts, "AUTOINCREMENT")
-	}
-	if def := t.Value("default"); def != "" {
-		if typ.Kind() == reflect.String {
-			def = "'" + def + "'"
-		}
-		opts = append(opts, fmt.Sprintf("DEFAULT %s", def))
-	}
-	return opts, nil
 }
 
 func (b *Backend) Transforms() []reflect.Type {

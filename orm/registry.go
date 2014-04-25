@@ -2,20 +2,22 @@ package orm
 
 import (
 	"fmt"
-	"gnd.la/encoding/codec"
-	"gnd.la/encoding/pipe"
-	"gnd.la/log"
-	"gnd.la/orm/driver"
-	"gnd.la/orm/query"
-	"gnd.la/signal"
-	"gnd.la/util/stringutil"
-	"gnd.la/util/structs"
 	"reflect"
 	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"gnd.la/encoding/codec"
+	"gnd.la/encoding/pipe"
+	"gnd.la/form/input"
+	"gnd.la/log"
+	"gnd.la/orm/driver"
+	"gnd.la/orm/query"
+	"gnd.la/signal"
+	"gnd.la/util/stringutil"
+	"gnd.la/util/structs"
 )
 
 type nameRegistry map[string]*model
@@ -267,7 +269,7 @@ func (o *Orm) Initialize() error {
 	// Sort models to the ones with FKs are created after
 	// the models they reference
 	sort.Sort(sortModels(models))
-	return o.driver.MakeTables(models)
+	return o.driver.Initialize(models)
 }
 
 func (o *Orm) fields(table string, s *structs.Struct) (*driver.Fields, map[string]*reference, error) {
@@ -310,10 +312,10 @@ func (o *Orm) fields(table string, s *structs.Struct) (*driver.Fields, map[strin
 				return nil, nil, fmt.Errorf("can't find ORM pipe %q. Perhaps you missed an import?", pn)
 			}
 		}
-		fields.OmitEmpty = append(fields.OmitEmpty, ftag.Has("omitempty") || (ftag.Has("auto_increment") && !ftag.Has("notomitempty")))
 		// Struct has flattened types, but we need to original type
-		// to determine if it should be nullempty by default
+		// to determine if it should be nullempty or omitempty by default
 		field := s.Type.FieldByIndex(s.Indexes[ii])
+		fields.OmitEmpty = append(fields.OmitEmpty, ftag.Has("omitempty") || (defaultsToOmitEmpty(field.Type, ftag) && !ftag.Has("notomitempty")))
 		fields.NullEmpty = append(fields.NullEmpty, ftag.Has("nullempty") || (defaultsToNullEmpty(field.Type, ftag) && !ftag.Has("notnullempty")))
 		if ftag.Has("primary_key") {
 			if fields.PrimaryKey >= 0 {
@@ -335,7 +337,75 @@ func (o *Orm) fields(table string, s *structs.Struct) (*driver.Fields, map[strin
 			references[v] = &reference{model: m[1], field: m[3]}
 		}
 	}
+	if err := o.setFieldsDefaults(fields); err != nil {
+		return nil, nil, err
+	}
 	return fields, references, nil
+}
+
+func (o *Orm) setFieldsDefaults(f *driver.Fields) error {
+	defaults := make(map[int]reflect.Value)
+	for ii, v := range f.Tags {
+		def := v.Value("default")
+		if def == "" {
+			continue
+		}
+		if driver.IsFunc(def) {
+			// Currently we only support two hardcoded functions, now() and today()
+			fname, _ := driver.SplitFuncArgs(def)
+			fn, ok := ormFuncs[fname]
+			if !ok {
+				return fmt.Errorf("unknown orm function %s()", fname)
+			}
+			retType := fn.Type().Out(0)
+			if retType != f.Types[ii] {
+				return fmt.Errorf("type mismatch: orm function %s() returns %s, but field %s in %s is of type %s", fname, retType, f.QNames[ii], f.Type, f.Types[ii])
+			}
+			if o.driver.Capabilities()&driver.CAP_DEFAULTS == 0 || !o.driver.HasFunc(fname, retType) {
+				defaults[ii] = fn
+			}
+		} else {
+			// Raw value, only to be stored in defaults if the driver
+			// does not support CAP_DEFAULTS or it's a TEXT value and
+			// the driver lacks CAP_DEFAULTS_TEXT
+			caps := o.driver.Capabilities()
+			if caps&driver.CAP_DEFAULTS != 0 && (caps&driver.CAP_DEFAULTS_TEXT != 0 || !isText(f, ii)) {
+				continue
+			}
+			// Try to parse it
+			ftyp := f.Types[ii]
+			indirs := 0
+			for ftyp.Kind() == reflect.Ptr {
+				indirs++
+				ftyp = ftyp.Elem()
+			}
+			val := reflect.New(ftyp)
+			if err := input.Parse(def, val.Interface()); err != nil {
+				return fmt.Errorf("invalid default value %q for field %s of type %s in %s: %s", def, f.QNames[ii], f.Types[ii], f.Type, err)
+			}
+			if indirs == 0 {
+				defaults[ii] = val.Elem()
+			} else {
+				// Pointer, need to allocate a new value each time
+				typ := f.Types[ii].Elem()
+				defVal := val.Elem()
+				f := func() reflect.Value {
+					v := reflect.New(typ).Elem()
+					for v.Kind() == reflect.Ptr {
+						v.Set(reflect.New(v.Type().Elem()))
+						v = v.Elem()
+					}
+					v.Set(defVal)
+					return v
+				}
+				defaults[ii] = reflect.ValueOf(f)
+			}
+		}
+	}
+	if len(defaults) > 0 {
+		f.Defaults = defaults
+	}
+	return nil
 }
 
 func (o *Orm) dtags() []string {
@@ -402,6 +472,10 @@ func defaultsToNullEmpty(typ reflect.Type, t *structs.Tag) bool {
 	return false
 }
 
+func defaultsToOmitEmpty(typ reflect.Type, t *structs.Tag) bool {
+	return t.Has("auto_increment") || t.Has("default")
+}
+
 // Returns the default table name for a type
 func defaultTableName(typ reflect.Type) string {
 	n := typ.Name()
@@ -416,6 +490,15 @@ func typeName(typ reflect.Type) string {
 		return p + "." + typ.Name()
 	}
 	return typ.Name()
+}
+
+func isText(f *driver.Fields, idx int) bool {
+	if f.Types[idx].Kind() == reflect.String {
+		maxLen, _ := f.Tags[idx].MaxLength()
+		fixLen, _ := f.Tags[idx].Length()
+		return maxLen == 0 && fixLen == 0
+	}
+	return false
 }
 
 func init() {

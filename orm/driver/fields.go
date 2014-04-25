@@ -1,6 +1,8 @@
 package driver
 
 import (
+	"reflect"
+
 	"gnd.la/util/structs"
 )
 
@@ -29,6 +31,10 @@ type Fields struct {
 	// Other models referenced by this model. The key
 	// is the field name in this model.
 	References map[string]*Reference
+	// Default values. Key is field index, value is the default
+	// which might be a reflect.Func with no arguments and one
+	// return value or simply a value assignable to the field.
+	Defaults map[int]reflect.Value
 }
 
 func (f *Fields) IsSubfield(field, parent []int) bool {
@@ -41,4 +47,9 @@ func (f *Fields) IsSubfield(field, parent []int) bool {
 		}
 	}
 	return true
+}
+
+func (f *Fields) HasDefault(idx int) bool {
+	_, ok := f.Defaults[idx]
+	return ok
 }

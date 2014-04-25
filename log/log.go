@@ -190,13 +190,17 @@ func (l *Logger) write(level LLevel, calldepth int, v ...interface{}) {
 }
 
 func (l *Logger) writef(level LLevel, calldepth int, format string, v ...interface{}) {
-	s := fmt.Sprintf(format, v...)
-	l.write(level, calldepth+1, s)
+	if level >= l.level {
+		s := fmt.Sprintf(format, v...)
+		l.write(level, calldepth+1, s)
+	}
 }
 
 func (l *Logger) writeln(level LLevel, calldepth int, v ...interface{}) {
-	s := fmt.Sprintln(v...)
-	l.write(level, calldepth+1, s)
+	if level >= l.level {
+		s := fmt.Sprintln(v...)
+		l.write(level, calldepth+1, s)
+	}
 }
 
 func (l *Logger) Logf(level LLevel, format string, v ...interface{}) {

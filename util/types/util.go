@@ -4,6 +4,11 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"time"
+)
+
+var (
+	timeType = reflect.TypeOf(time.Time{})
 )
 
 // ToString transforms the given value into
@@ -168,7 +173,10 @@ func IsTrueVal(val reflect.Value) (truth, ok bool) {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		truth = val.Uint() != 0
 	case reflect.Struct:
-		truth = true // Struct values are always true.
+		if val.Type() == timeType {
+			return !val.Interface().(time.Time).IsZero(), true
+		}
+		truth = true // Non-time struct values are always true.
 	default:
 		return
 	}

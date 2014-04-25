@@ -41,7 +41,7 @@ func TestMysql(t *testing.T) {
 	o := newOrm(t, "mysql://gotest:gotest@/test", true)
 	db := o.SqlDB()
 	if _, err := db.Exec("DROP DATABASE IF EXISTS gotest"); err != nil {
-		t.Skip("cannot connect to mysql database, skipping test: %s", err)
+		t.Skipf("cannot connect to mysql database, skipping test: %s", err)
 	}
 	if _, err := db.Exec("CREATE DATABASE gotest"); err != nil {
 		t.Fatal(err)

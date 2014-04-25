@@ -71,8 +71,8 @@ func Map(in interface{}, f interface{}) interface{} {
 // Reduce applies f cumulatively to the elements in the first argument.
 // The second argument is used as the initial value and should usually be
 // the neutral element for the binary operation represented by f (e.g.
-// 0 for addition, 1 for multiplication, etc...
-// Given a slice of type T, the following conditions must be satisfied:
+// 0 for addition, 1 for multiplication, etc...).
+// Given a slice of type []T, the following conditions must be satisfied:
 //
 //  f -> func(T, T) T
 //  start -> assignable to T

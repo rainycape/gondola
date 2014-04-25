@@ -136,6 +136,13 @@ func runTest(t *testing.T, f func(*testing.T, *Orm)) {
 	f(t, o)
 }
 
+func runBenchmark(b *testing.B, f func(*testing.B, *Orm)) {
+	name, o := newTmpOrm(b)
+	defer o.Close()
+	defer os.Remove(name)
+	f(b, o)
+}
+
 func testAutoIncrement(t *testing.T, o *Orm) {
 	if o.Driver().Capabilities()&driver.CAP_AUTO_ID == 0 {
 		t.Log("skipping auto increment test")

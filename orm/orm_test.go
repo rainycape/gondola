@@ -82,3 +82,52 @@ func BenchmarkLoadSaveMethods(b *testing.B) {
 		m.Load(obj)
 	}
 }
+
+func benchmarkInsert(b *testing.B, o *Orm) {
+	o.mustRegister((*Outer)(nil), &Options{
+		Table:   "outer_bench_insert",
+		Default: true,
+	})
+	o.mustInitialize()
+	obj := &Outer{
+		Key:   "Gondola",
+		Inner: &Inner{A: 4, B: 2},
+	}
+	b.ResetTimer()
+	for ii := 0; ii < b.N; ii++ {
+		obj.Id = 0
+		if _, err := o.Insert(obj); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkInsert(b *testing.B) {
+	runBenchmark(b, benchmarkInsert)
+}
+
+func benchmarkOne(b *testing.B, o *Orm) {
+	o.mustRegister((*Outer)(nil), &Options{
+		Table:   "outer_bench_one",
+		Default: true,
+	})
+	o.mustInitialize()
+	obj := &Outer{
+		Key:   "Gondola",
+		Inner: &Inner{A: 4, B: 2},
+	}
+	if _, err := o.Insert(obj); err != nil {
+		b.Fatal(err)
+	}
+	q := Eq("Id", obj.Id)
+	b.ResetTimer()
+	for ii := 0; ii < b.N; ii++ {
+		if _, err := o.One(q, obj); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkOne(b *testing.B) {
+	runBenchmark(b, benchmarkOne)
+}

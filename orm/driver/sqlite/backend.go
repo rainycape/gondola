@@ -156,7 +156,13 @@ func (b *Backend) TransformOutValue(val reflect.Value) (interface{}, error) {
 }
 
 func sqliteOpener(url *config.URL) (driver.Driver, error) {
-	return sql.NewDriver(sqliteBackend, url)
+	drv, err := sql.NewDriver(sqliteBackend, url)
+	if err == nil {
+		if _, err := drv.DB().Exec("PRAGMA foreign_keys = on"); err != nil {
+			return nil, err
+		}
+	}
+	return drv, err
 }
 
 func init() {

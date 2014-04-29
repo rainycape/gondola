@@ -222,4 +222,8 @@ func testReferences(t *testing.T, o *Orm) {
 	}
 	testCount(t, count, -1, "timestamp Id=1 with spawned reference")
 	testIterErr(t, iter)
+	// Violate the FK
+	if _, err := o.Save(&Event{Timestamp: 1337}); err == nil {
+		t.Error("expecting an error when violating FK")
+	}
 }

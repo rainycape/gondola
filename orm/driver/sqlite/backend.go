@@ -45,7 +45,7 @@ func (b *Backend) Func(fname string, retType reflect.Type) (string, error) {
 	return b.SqlBackend.Func(fname, retType)
 }
 
-func (b *Backend) Inspect(db sql.DB, m driver.Model) (*sql.Table, error) {
+func (b *Backend) Inspect(db *sql.DB, m driver.Model) (*sql.Table, error) {
 	name := db.QuoteString(m.Table())
 	rows, err := db.Query(fmt.Sprintf("PRAGMA table_info(%s)", name))
 	if err != nil {
@@ -102,7 +102,7 @@ func (b *Backend) Inspect(db sql.DB, m driver.Model) (*sql.Table, error) {
 	return nil, nil
 }
 
-func (b *Backend) HasIndex(db sql.DB, m driver.Model, idx *index.Index, name string) (bool, error) {
+func (b *Backend) HasIndex(db *sql.DB, m driver.Model, idx *index.Index, name string) (bool, error) {
 	rows, err := db.Query("PRAGMA index_info(?)", name)
 	if err != nil {
 		return false, err
@@ -112,7 +112,7 @@ func (b *Backend) HasIndex(db sql.DB, m driver.Model, idx *index.Index, name str
 	return has, nil
 }
 
-func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, []string, error) {
+func (b *Backend) DefineField(db *sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, []string, error) {
 	if field.HasOption(sql.OptionAutoIncrement) {
 		if field.Constraint(sql.ConstraintPrimaryKey) == nil {
 			return "", nil, fmt.Errorf("%s can only auto increment the primary key", b.Name())
@@ -121,7 +121,7 @@ func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field
 	return b.SqlBackend.DefineField(db, m, table, field)
 }
 
-func (b *Backend) AddFields(db sql.DB, m driver.Model, prevTable *sql.Table, newTable *sql.Table, fields []*sql.Field) error {
+func (b *Backend) AddFields(db *sql.DB, m driver.Model, prevTable *sql.Table, newTable *sql.Table, fields []*sql.Field) error {
 	rewrite := false
 	for _, v := range fields {
 		if !b.canAddField(v) {

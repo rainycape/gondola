@@ -29,6 +29,7 @@ func (o *sqliteOpener) Open(t T) (*Orm, interface{}) {
 	f.Close()
 	orm := newOrm(t, "sqlite://"+f.Name(), true)
 	orm.SqlDB().Exec("PRAGMA journal_mode = WAL")
+	orm.SqlDB().Exec("PRAGMA foreign_keys = on")
 	return orm, f.Name()
 }
 

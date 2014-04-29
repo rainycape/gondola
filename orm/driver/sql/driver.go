@@ -25,8 +25,7 @@ var (
 )
 
 type Driver struct {
-	db         *db
-	conn       DB
+	db         *DB
 	logger     *log.Logger
 	backend    Backend
 	transforms map[reflect.Type]struct{}
@@ -316,12 +315,8 @@ func (d *Driver) Tags() []string {
 	return []string{d.backend.Tag(), "sql"}
 }
 
-func (d *Driver) DB() *sql.DB {
-	return d.db.sqlDb
-}
-
-func (d *Driver) DBBackend() Backend {
-	return d.backend
+func (d *Driver) DB() *DB {
+	return d.db
 }
 
 func (d *Driver) SetLogger(logger *log.Logger) {
@@ -818,36 +813,22 @@ func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, 
 }
 
 func (d *Driver) Begin() (driver.Tx, error) {
-	tx, err := d.db.sqlDb.Begin()
+	tx, err := d.db.Begin()
 	if err != nil {
 		return nil, err
 	}
-	driver := &Driver{
-		logger:     d.logger,
-		backend:    d.backend,
-		transforms: d.transforms,
-	}
-	driver.db = &db{
-		sqlDb:  d.db.sqlDb,
-		tx:     tx,
-		db:     tx,
-		driver: driver,
-	}
-	return driver, nil
+	drv := *d
+	drv.db = tx
+	tx.driver = &drv
+	return &drv, nil
 }
 
 func (d *Driver) Commit() error {
-	if d.db.tx == nil {
-		return driver.ErrNotInTransaction
-	}
-	return d.db.tx.Commit()
+	return d.db.Commit()
 }
 
 func (d *Driver) Rollback() error {
-	if d.db.tx == nil {
-		return driver.ErrNotInTransaction
-	}
-	return d.db.tx.Rollback()
+	return d.db.Rollback()
 }
 
 func (d *Driver) Transaction(f func(driver.Driver) error) error {
@@ -867,7 +848,7 @@ func (d *Driver) HasFunc(fname string, retType reflect.Type) bool {
 }
 
 func (d *Driver) Connection() interface{} {
-	return d.db.sqlDb
+	return d.db
 }
 
 func NewDriver(b Backend, url *config.URL) (*Driver, error) {
@@ -890,7 +871,7 @@ func NewDriver(b Backend, url *config.URL) (*Driver, error) {
 		}
 	}
 	driver := &Driver{backend: b, transforms: transforms}
-	driver.db = &db{sqlDb: conn, db: conn, driver: driver}
+	driver.db = &DB{sqlDb: conn, conn: conn, driver: driver, replacesPlaceholders: b.Placeholder(0) != "?"}
 	return driver, nil
 }
 

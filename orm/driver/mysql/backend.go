@@ -47,7 +47,7 @@ func (b *Backend) DefaultValues() string {
 	return "() VALUES()"
 }
 
-func (b *Backend) Inspect(db sql.DB, m driver.Model) (*sql.Table, error) {
+func (b *Backend) Inspect(db *sql.DB, m driver.Model) (*sql.Table, error) {
 	var database string
 	if err := db.QueryRow("SELECT DATABASE() FROM DUAL").Scan(&database); err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (b *Backend) Inspect(db sql.DB, m driver.Model) (*sql.Table, error) {
 	return b.SqlBackend.Inspect(db, m, database)
 }
 
-func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, []string, error) {
+func (b *Backend) DefineField(db *sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, []string, error) {
 	def, cons, err := b.SqlBackend.DefineField(db, m, table, field)
 	if err != nil {
 		return "", nil, err
@@ -73,7 +73,7 @@ func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field
 	return strings.Replace(def, "AUTOINCREMENT", "AUTO_INCREMENT", -1), cons, nil
 }
 
-func (b *Backend) AlterField(db sql.DB, m driver.Model, table *sql.Table, oldField *sql.Field, newField *sql.Field) error {
+func (b *Backend) AlterField(db *sql.DB, m driver.Model, table *sql.Table, oldField *sql.Field, newField *sql.Field) error {
 	fsql, cons, err := newField.SQL(db, m, table)
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func (b *Backend) AlterField(db sql.DB, m driver.Model, table *sql.Table, oldFie
 	return err
 }
 
-func (b *Backend) HasIndex(db sql.DB, m driver.Model, idx *index.Index, name string) (bool, error) {
+func (b *Backend) HasIndex(db *sql.DB, m driver.Model, idx *index.Index, name string) (bool, error) {
 	rows, err := db.Query("SHOW INDEX FROM ? WHERE Key_name = ?", m.Table(), name)
 	if err != nil {
 		return false, err

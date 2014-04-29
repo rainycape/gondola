@@ -38,21 +38,21 @@ type Backend interface {
 	DefaultValues() string
 	// Inspect returns the table as it exists in the database for the current model. If
 	// the table does not exist, the Backend is expected to return (nil, nil).
-	Inspect(DB, driver.Model) (*Table, error)
+	Inspect(*DB, driver.Model) (*Table, error)
 	// HasIndex returns wheter an index exists using the provided model, index and name.
-	HasIndex(DB, driver.Model, *index.Index, string) (bool, error)
+	HasIndex(*DB, driver.Model, *index.Index, string) (bool, error)
 	// DefineField returns the complete field definition as a string, including name, type, options...
 	// Field constraints are returned in the secon argument, each constraint should be an item in the
 	// returned slice.
-	DefineField(DB, driver.Model, *Table, *Field) (string, []string, error)
+	DefineField(*DB, driver.Model, *Table, *Field) (string, []string, error)
 	// AddFields adds the given field to the table for the given model. prevTable is the result
 	// of Inspect() on the previous table, while newTable is generated from the model definition.
-	AddFields(db DB, m driver.Model, prevTable *Table, newTable *Table, fields []*Field) error
+	AddFields(db *DB, m driver.Model, prevTable *Table, newTable *Table, fields []*Field) error
 	// Alter field changes oldField to newField, potentially including the name.
-	AlterField(db DB, m driver.Model, table *Table, oldField *Field, newField *Field) error
+	AlterField(db *DB, m driver.Model, table *Table, oldField *Field, newField *Field) error
 	// Insert performs an insert on the given database for the given model fields.
 	// Most drivers should just return db.Exec(query, args...).
-	Insert(DB, driver.Model, string, ...interface{}) (driver.Result, error)
+	Insert(*DB, driver.Model, string, ...interface{}) (driver.Result, error)
 	// Returns the db type of the given field (e.g. INTEGER)
 	FieldType(reflect.Type, *structs.Tag) (string, error)
 	// Types that need to be transformed (e.g. sqlite transforms time.Time and bool to integer)
@@ -110,7 +110,7 @@ func (b *SqlBackend) DefaultValues() string {
 	return "DEFAULT VALUES"
 }
 
-func (b *SqlBackend) Inspect(db DB, m driver.Model, schema string) (*Table, error) {
+func (b *SqlBackend) Inspect(db *DB, m driver.Model, schema string) (*Table, error) {
 	var val int
 	name := db.QuoteString(m.Table())
 	s := db.QuoteString(schema)
@@ -210,7 +210,7 @@ func (b *SqlBackend) Inspect(db DB, m driver.Model, schema string) (*Table, erro
 	return &Table{Fields: fields}, nil
 }
 
-func (b *SqlBackend) DefineField(db DB, m driver.Model, table *Table, f *Field) (string, []string, error) {
+func (b *SqlBackend) DefineField(db *DB, m driver.Model, table *Table, f *Field) (string, []string, error) {
 	s := fmt.Sprintf("%s %s", db.QuoteIdentifier(f.Name), f.Type)
 	if f.Constraint(ConstraintPrimaryKey) != nil && len(table.PrimaryKeys()) == 1 {
 		s += " PRIMARY KEY"
@@ -234,7 +234,7 @@ func (b *SqlBackend) DefineField(db DB, m driver.Model, table *Table, f *Field) 
 	return s, nil, nil
 }
 
-func (b *SqlBackend) AddFields(db DB, m driver.Model, prevTable *Table, newTable *Table, fields []*Field) error {
+func (b *SqlBackend) AddFields(db *DB, m driver.Model, prevTable *Table, newTable *Table, fields []*Field) error {
 	modelFields := m.Fields()
 	tableName := db.QuoteIdentifier(m.Table())
 	for _, v := range fields {
@@ -269,7 +269,7 @@ func (b *SqlBackend) AddFields(db DB, m driver.Model, prevTable *Table, newTable
 				return err
 			}
 			if v.Constraint(ConstraintNotNull) != nil {
-				if err := dbBackend(db).AlterField(db, m, newTable, field, v); err != nil {
+				if err := db.Backend().AlterField(db, m, newTable, field, v); err != nil {
 					return err
 				}
 			}
@@ -283,11 +283,11 @@ func (b *SqlBackend) AddFields(db DB, m driver.Model, prevTable *Table, newTable
 	return nil
 }
 
-func (b *SqlBackend) AlterField(db DB, m driver.Model, table *Table, oldField *Field, newField *Field) error {
-	return fmt.Errorf("SQL backend %s can't ALTER fields", dbBackend(db).Name())
+func (b *SqlBackend) AlterField(db *DB, m driver.Model, table *Table, oldField *Field, newField *Field) error {
+	return fmt.Errorf("SQL backend %s can't ALTER fields", db.Backend().Name())
 }
 
-func (b *SqlBackend) Insert(db DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
+func (b *SqlBackend) Insert(db *DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
 	return db.Exec(query, args...)
 }
 
@@ -340,13 +340,4 @@ func (b *SqlBackend) ScanTime(val *time.Time, goVal *reflect.Value, t *structs.T
 
 func (b *SqlBackend) TransformOutValue(val reflect.Value) (interface{}, error) {
 	return val.Interface(), nil
-}
-
-func dbBackend(d DB) Backend {
-	// This allows the SqlBackend to call back
-	// to specific Backend implementations, since
-	// the call is dispatched at runtime via the Backend
-	// interface rather than at compile time using the
-	// concrete type implementation.
-	return d.(*db).driver.backend
 }

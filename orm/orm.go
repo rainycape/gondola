@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"reflect"
@@ -11,6 +10,7 @@ import (
 	"gnd.la/config"
 	"gnd.la/log"
 	"gnd.la/orm/driver"
+	"gnd.la/orm/driver/sql"
 	"gnd.la/orm/query"
 	"gnd.la/util/types"
 )
@@ -528,7 +528,11 @@ func (o *Orm) Driver() driver.Driver {
 
 // SqlDB returns the underlying database connection iff the
 // ORM driver is using database/sql. Otherwise, it
-// returns nil.
+// returns nil. Note that the returned value isn't of type
+// database/sql.DB, but gnd.la/orm/driver/sql.DB, which is
+// a small compatibility wrapper around the former. See the
+// gnd.la/orm/driver/sql.DB documentation for further
+// information.
 func (o *Orm) SqlDB() *sql.DB {
 	return o.db
 }

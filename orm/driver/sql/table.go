@@ -79,8 +79,8 @@ func (f *Field) Constraint(ct ConstraintType) *Constraint {
 	return nil
 }
 
-func (f *Field) SQL(db DB, m driver.Model, table *Table) (string, []string, error) {
-	return dbBackend(db).DefineField(db, m, table, f)
+func (f *Field) SQL(db *DB, m driver.Model, table *Table) (string, []string, error) {
+	return db.Backend().DefineField(db, m, table, f)
 }
 
 func (f *Field) Copy() *Field {
@@ -126,7 +126,7 @@ func (t *Table) PrimaryKeys() []string {
 	return keys
 }
 
-func (t *Table) definePks(db DB, m driver.Model) (string, error) {
+func (t *Table) definePks(db *DB, m driver.Model) (string, error) {
 	pks := t.PrimaryKeys()
 	if len(pks) < 2 {
 		return "", nil
@@ -135,7 +135,7 @@ func (t *Table) definePks(db DB, m driver.Model) (string, error) {
 	return fmt.Sprintf("PRIMARY KEY(%s)", strings.Join(pkFields, ", ")), nil
 }
 
-func (t *Table) SQL(db DB, b Backend, m driver.Model, name string) (string, error) {
+func (t *Table) SQL(db *DB, b Backend, m driver.Model, name string) (string, error) {
 	var lines []string
 	var constraints []string
 	for _, v := range t.Fields {

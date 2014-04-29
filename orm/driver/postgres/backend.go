@@ -58,11 +58,11 @@ func (b *Backend) Func(fname string, retType reflect.Type) (string, error) {
 	return b.SqlBackend.Func(fname, retType)
 }
 
-func (b *Backend) Inspect(db sql.DB, m driver.Model) (*sql.Table, error) {
+func (b *Backend) Inspect(db *sql.DB, m driver.Model) (*sql.Table, error) {
 	return b.SqlBackend.Inspect(db, m, "public")
 }
 
-func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, []string, error) {
+func (b *Backend) DefineField(db *sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, []string, error) {
 	def, con, err := b.SqlBackend.DefineField(db, m, table, field)
 	if err != nil {
 		return "", nil, err
@@ -71,7 +71,7 @@ func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field
 	return strings.Replace(def, " AUTOINCREMENT", "", -1), con, nil
 }
 
-func (b *Backend) Insert(db sql.DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
+func (b *Backend) Insert(db *sql.DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {
 	fields := m.Fields()
 	if fields.AutoincrementPk {
 		q := query + " RETURNING " + fields.MNames[fields.PrimaryKey]
@@ -87,7 +87,7 @@ func (b *Backend) Insert(db sql.DB, m driver.Model, query string, args ...interf
 	return db.Exec(query, args...)
 }
 
-func (b *Backend) HasIndex(db sql.DB, m driver.Model, idx *index.Index, name string) (bool, error) {
+func (b *Backend) HasIndex(db *sql.DB, m driver.Model, idx *index.Index, name string) (bool, error) {
 	var exists int
 	err := db.QueryRow("SELECT 1 FROM pg_class WHERE relname = $1 AND relkind = 'i'", name).Scan(&exists)
 	return exists != 0, err

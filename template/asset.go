@@ -15,9 +15,9 @@ func executeAsset(t *Template, p *Template, vars VarMap, m *assets.Manager, asse
 	name := asset.TemplateName()
 	log.Debugf("executing asset template %s (from %s)", name, t.name)
 	tmpl := New(m.Loader(), nil)
-	tmpl.Funcs(t.funcMap)
+	tmpl.Funcs(t.funcMap.asFuncMap())
 	if p != nil {
-		tmpl.Funcs(p.funcMap)
+		tmpl.Funcs(p.funcMap.asFuncMap())
 	}
 	if err := tmpl.Parse(name); err != nil {
 		return "", err
@@ -32,7 +32,7 @@ func executeAsset(t *Template, p *Template, vars VarMap, m *assets.Manager, asse
 		}
 	}
 	var buf bytes.Buffer
-	if err := tmpl.ExecuteVars(&buf, nil, vars); err != nil {
+	if err := tmpl.ExecuteContext(&buf, nil, nil, vars); err != nil {
 		return "", err
 	}
 	ext := path.Ext(name)

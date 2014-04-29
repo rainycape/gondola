@@ -43,6 +43,7 @@ const (
 	opJMPT
 	opMARK
 	opNEXT
+	opCONTEXT
 	opDOT
 	opPRINT
 	opPUSHDOT
@@ -208,6 +209,7 @@ type state struct {
 	scratch   []interface{}   // used for calling variadic functions with ...interface{}
 	res       []reflect.Value // used for storing return values in fast paths
 	resPtr    *reflect.Value
+	context   reflect.Value
 }
 
 func newState(p *program, w *bytes.Buffer) *state {
@@ -347,7 +349,7 @@ func (s *state) varValue(name string) (reflect.Value, error) {
 }
 
 // call fn, remove its args from the stack and push the result
-func (s *state) call(fn reflect.Value, name string, args int, fp fastPath) error {
+func (s *state) call(fn reflect.Value, name string, args int, traits funcTrait, fp fastPath) error {
 	pos := len(s.stack) - args
 	in := s.stack[pos : pos+args]
 	ftyp := fn.Type()
@@ -357,10 +359,21 @@ func (s *state) call(fn reflect.Value, name string, args int, fp fastPath) error
 	if isVariadic {
 		last--
 		if args < last {
+			// Show the number of passed arguments without the context
+			// in the error, otherwise it can be confusing for the user.
+			if traits&funcTraitContext != 0 {
+				last--
+				args--
+			}
 			return fmt.Errorf("function %q requires at least %d arguments, %d given", name, last, args)
 		}
 	} else {
 		if args != numIn {
+			// See comment in the previous if traits...
+			if traits&funcTraitContext != 0 {
+				numIn--
+				args--
+			}
 			return fmt.Errorf("function %q requires exactly %d arguments, %d given", name, numIn, args)
 		}
 	}
@@ -391,6 +404,9 @@ func (s *state) call(fn reflect.Value, name string, args int, fp fastPath) error
 			if reflect.PtrTo(vtyp).AssignableTo(ityp) && v.CanAddr() {
 				in[ii] = v.Addr()
 				continue
+			}
+			if ii == 0 && traits&funcTraitContext != 0 {
+				return fmt.Errorf("context function %q requires a context of type %s, not %s", name, ityp, vtyp)
 			}
 			return fmt.Errorf("can't call %q with %s as argument %d, need %s", name, vtyp, ii+1, ityp)
 		}
@@ -496,7 +512,7 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 						// the dot or the result of the last field lookup, so
 						// we have to remove it.
 						s.stack = s.stack[:p]
-						if err := s.call(fn, name, args, nil); err != nil {
+						if err := s.call(fn, name, args, 0, nil); err != nil {
 							return err
 						}
 						// s.call already puts the result in the stack
@@ -534,7 +550,7 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 			args, i := decodeVal(v.val)
 			// function existence is checked at compile time
 			fn := s.p.funcs[i]
-			if err := s.call(fn.val, fn.name, args, fn.fp); err != nil {
+			if err := s.call(fn.val, fn.name, args, fn.traits, fn.fp); err != nil {
 				return s.formatErr(pc, tmpl, err)
 			}
 		case opVAR:
@@ -544,6 +560,8 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 				return s.formatErr(pc, tmpl, err)
 			}
 			s.stack = append(s.stack, v)
+		case opCONTEXT:
+			s.stack = append(s.stack, s.context)
 		case opDOT:
 			s.stack = append(s.stack, dot)
 		case opITER:
@@ -580,7 +598,7 @@ func (s *state) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 		case opUNSETVAR:
 			name := s.p.strings[int(v.val)]
 			if err := s.unsetVar(name); err != nil {
-				return err
+				return s.formatErr(pc, tmpl, err)
 			}
 		case opTEMPLATE:
 			n, t := decodeVal(v.val)
@@ -644,9 +662,14 @@ type fn struct {
 	variadic bool
 	numIn    int
 	fp       fastPath
+	traits   funcTrait
 }
 
-func newFn(v reflect.Value, name string) *fn {
+func newFn(info *funcInfo, name string) *fn {
+	v := reflect.ValueOf(info.f)
+	if v.Kind() != reflect.Func {
+		panic(fmt.Errorf("template function %q is not a function, it's %s", name, v.Type))
+	}
 	typ := v.Type()
 	variadic := typ.IsVariadic()
 	numIn := typ.NumIn()
@@ -656,6 +679,7 @@ func newFn(v reflect.Value, name string) *fn {
 		variadic: variadic,
 		numIn:    numIn,
 		fp:       newFastPath(v),
+		traits:   info.traits,
 	}
 }
 
@@ -855,15 +879,13 @@ func (p *program) addString(s string) valType {
 	return valType(len(p.strings) - 1)
 }
 
-func (p *program) addFunc(f interface{}, name string) valType {
+func (p *program) addFunc(info *funcInfo, name string) valType {
 	for ii, v := range p.funcs {
 		if v.name == name {
 			return valType(ii)
 		}
 	}
-	// TODO: Check it's really a reflect.Func
-	val := reflect.ValueOf(f)
-	p.funcs = append(p.funcs, newFn(val, name))
+	p.funcs = append(p.funcs, newFn(info, name))
 	return valType(len(p.funcs) - 1)
 }
 
@@ -1146,14 +1168,16 @@ func (p *program) walk(n parse.Node) error {
 			break
 		}
 		// check for the stable function first
-		fn := p.tmpl.funcMap["#"+name]
-		if fn == nil {
-			fn = p.tmpl.funcMap[name]
-		}
-		if fn == nil {
+		info := p.tmpl.funcMap[name]
+		if info == nil {
 			return fmt.Errorf("undefined function %q", name)
 		}
-		p.inst(opFUNC, encodeVal(p.s.argc(), p.addFunc(fn, name)))
+		argc := p.s.argc()
+		if info.traits&funcTraitContext != 0 {
+			p.inst(opCONTEXT, 0)
+			argc++
+		}
+		p.inst(opFUNC, encodeVal(argc, p.addFunc(info, name)))
 	case *parse.IfNode:
 		if err := p.walkBranch(parse.NodeIf, &x.BranchNode); err != nil {
 			return err
@@ -1262,7 +1286,13 @@ func (p *program) fnIsPure(idx int) bool {
 	if fn == nil {
 		return false
 	}
-	return htmlEscapeFuncs[fn.name] != nil || p.tmpl.funcMap["#"+fn.name] != nil
+	if htmlEscapeFuncs[fn.name] != nil {
+		return true
+	}
+	if info := p.tmpl.funcMap[fn.name]; info != nil {
+		return info.traits&funcTraitPure != 0
+	}
+	return false
 }
 
 // scratchIsPure returns if the scratch does not
@@ -1329,8 +1359,9 @@ func (p *program) stitch() {
 	p.stitchTree(p.tmpl.root)
 }
 
-func (p *program) execute(w *bytes.Buffer, name string, data interface{}, vars VarMap) error {
+func (p *program) execute(w *bytes.Buffer, name string, data interface{}, context interface{}, vars VarMap) error {
 	s := newState(p, w)
+	s.context = reflect.ValueOf(context)
 	s.pushVar("Vars", reflect.ValueOf(vars))
 	err := s.execute(name, "", reflect.ValueOf(data))
 	putState(s)

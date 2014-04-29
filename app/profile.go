@@ -76,11 +76,13 @@ func profileInfoHandler(ctx *Context) {
 		info.Remaining -= v.Total()
 	}
 	t := newInternalTemplate(ctx.app)
-	if err := t.Parse("profile_info.html"); err != nil {
+	if err := t.parse("profile_info.html", nil); err != nil {
 		panic(err)
 	}
-	if err := t.tmpl.Compile(); err != nil {
+	if err := t.prepare(); err != nil {
 		panic(err)
 	}
-	t.tmpl.MustExecute(ctx, info)
+	if err := t.Execute(ctx, info); err != nil {
+		panic(err)
+	}
 }

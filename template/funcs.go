@@ -294,7 +294,7 @@ func toHtml(s string) template.HTML {
 	return template.HTML(strings.Replace(html.Escape(s), "\n", "<br>", -1))
 }
 
-var templateFuncs = FuncMap{
+var templateFuncs = makeFuncMap(FuncMap{
 	"#eq":        eq,
 	"#neq":       neq,
 	"#lt":        lt,
@@ -341,4 +341,4 @@ var templateFuncs = FuncMap{
 
 	// Pseudo-functions which act as custom tags
 	"extend": nop,
-}
+})

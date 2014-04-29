@@ -6,13 +6,15 @@ import (
 
 func monitorHandler(ctx *Context) {
 	t := newInternalTemplate(ctx.app)
-	if err := t.Parse("monitor.html"); err != nil {
+	if err := t.parse("monitor.html", nil); err != nil {
 		panic(err)
 	}
-	if err := t.tmpl.Compile(); err != nil {
+	if err := t.prepare(); err != nil {
 		panic(err)
 	}
-	t.tmpl.MustExecute(ctx, nil)
+	if err := t.Execute(ctx, nil); err != nil {
+		panic(err)
+	}
 }
 
 func monitorAPIHandler(ctx *Context) {

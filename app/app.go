@@ -214,7 +214,7 @@ type App struct {
 	assetsManager      *assets.Manager
 	templatesLoader    loaders.Loader
 	templatesMutex     sync.RWMutex
-	templatesCache     map[string]Template
+	templatesCache     map[string]*Template
 	templateProcessors []TemplateProcessor
 	namespace          *namespace
 	hooks              []*template.Hook
@@ -543,41 +543,38 @@ func (app *App) AddHook(hook *template.Hook) {
 // LoadTemplate loads a template using the template
 // loader and the asset manager assocciated with
 // this app
-func (app *App) LoadTemplate(name string) (Template, error) {
+func (app *App) LoadTemplate(name string) (*Template, error) {
 	app.templatesMutex.RLock()
 	tmpl := app.templatesCache[name]
 	app.templatesMutex.RUnlock()
 	if tmpl == nil {
+		var err error
 		log.Debugf("Loading root template %s", name)
 		if profile.On {
 			defer profile.Startf("template-load", name).End()
 		}
-		t, err := app.loadTemplate(app.templatesLoader, app.assetsManager, name)
+		tmpl, err = app.loadTemplate(app.templatesLoader, app.assetsManager, name)
 		if err != nil {
 			return nil, err
 		}
 		funcs := make(template.FuncMap)
 		for _, v := range app.included {
-			funcs[v.assetFuncName()] = v.assetFunc(t.tmpl)
+			funcs[v.assetFuncName()] = v.assetFunc(tmpl.tmpl)
 		}
-		t.tmpl.Funcs(funcs)
+		tmpl.tmpl.Funcs(funcs)
 		for _, v := range app.hooks {
-			if err := t.tmpl.Hook(v); err != nil {
+			if err := tmpl.tmpl.Hook(v); err != nil {
 				return nil, fmt.Errorf("error hooking %q: %s", v.Template.Root(), err)
 			}
 		}
 		if profile.On {
 			if profileHook != nil {
-				t.tmpl.Hook(profileHook)
+				tmpl.tmpl.Hook(profileHook)
 			}
 		}
-		if err := t.rewriteTranslationFuncs(); err != nil {
+		if err := tmpl.prepare(); err != nil {
 			return nil, err
 		}
-		if err := t.prepare(); err != nil {
-			return nil, err
-		}
-		tmpl = t
 		if !app.TemplateDebug {
 			app.templatesMutex.Lock()
 			app.templatesCache[name] = tmpl
@@ -587,7 +584,7 @@ func (app *App) LoadTemplate(name string) (Template, error) {
 	return tmpl, nil
 }
 
-func (app *App) loadTemplate(loader loaders.Loader, manager *assets.Manager, name string) (*tmpl, error) {
+func (app *App) loadTemplate(loader loaders.Loader, manager *assets.Manager, name string) (*Template, error) {
 	t := newTemplate(app, loader, manager)
 	var vars map[string]interface{}
 	if app.namespace != nil {
@@ -596,7 +593,7 @@ func (app *App) loadTemplate(loader loaders.Loader, manager *assets.Manager, nam
 			return nil, err
 		}
 	}
-	err := t.ParseVars(name, vars)
+	err := t.parse(name, vars)
 	if err != nil {
 		return nil, err
 	}
@@ -650,7 +647,7 @@ func (app *App) rewriteAssets(t *template.Template, included *includedApp) error
 	return nil
 }
 
-func (app *App) loadContainerTemplate(included *includedApp) (*tmpl, string, error) {
+func (app *App) loadContainerTemplate(included *includedApp) (*Template, string, error) {
 	container, err := app.loadTemplate(app.templatesLoader, app.assetsManager, included.container)
 	if err != nil {
 		return nil, "", err
@@ -690,7 +687,7 @@ func (app *App) loadContainerTemplate(included *includedApp) (*tmpl, string, err
 	return container, name, nil
 }
 
-func (app *App) chainTemplate(t *tmpl, included *includedApp) (*tmpl, error) {
+func (app *App) chainTemplate(t *Template, included *includedApp) (*Template, error) {
 	log.Debugf("chaining template %s", t.tmpl.Name())
 	container, name, err := app.loadContainerTemplate(included)
 	if err != nil {
@@ -1055,7 +1052,7 @@ func (app *App) logError(ctx *Context, err interface{}) {
 
 func (app *App) errorPage(ctx *Context, elapsed time.Duration, skip int, stackSkip int, req string, err interface{}) {
 	t := newInternalTemplate(app)
-	if terr := t.Parse("panic.html"); terr != nil {
+	if terr := t.parse("panic.html", nil); terr != nil {
 		panic(terr)
 	}
 	if terr := t.prepare(); terr != nil {
@@ -1073,7 +1070,9 @@ func (app *App) errorPage(ctx *Context, elapsed time.Duration, skip int, stackSk
 		"Request":  req,
 		"Started":  strconv.FormatInt(app.started.Unix(), 10),
 	}
-	t.tmpl.MustExecute(ctx, data)
+	if err := t.Execute(ctx, data); err != nil {
+		panic(err)
+	}
 }
 
 // ServeHTTP is called from the net/http system. You shouldn't need
@@ -1393,7 +1392,7 @@ func New() *App {
 		EncryptionKey:   defaultEncryptionKey,
 		DefaultLanguage: defaultLanguage,
 		appendSlash:     true,
-		templatesCache:  make(map[string]Template),
+		templatesCache:  make(map[string]*Template),
 		contextPool:     make(chan *Context, poolSize),
 	}
 	// Used to automatically reload the page on panics when the server

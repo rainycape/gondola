@@ -7,14 +7,6 @@ import (
 	"gnd.la/net/mail"
 )
 
-func (c *Context) mailTemplate(template string) (*linkedTemplate, error) {
-	t, err := c.app.LoadTemplate(template)
-	if err != nil {
-		return nil, err
-	}
-	return &linkedTemplate{tmpl: t.(*tmpl), ctx: c}, nil
-}
-
 // SendMail is a shorthand function for sending an email from a template.
 // If the loaded gnd.la/template.Template.ContentType() returns a string
 // containing "html", the gnd.la/net/mail.Message HTMLBody field is set, other
@@ -24,7 +16,7 @@ func (c *Context) mailTemplate(template string) (*linkedTemplate, error) {
 // Note: mail.Send does not work on App Engine, users must always use this function instead.
 func (c *Context) SendMail(template string, data interface{}, msg *mail.Message) error {
 	if template != "" {
-		t, err := c.mailTemplate(template)
+		t, err := c.app.LoadTemplate(template)
 		if err != nil {
 			return err
 		}
@@ -32,10 +24,10 @@ func (c *Context) SendMail(template string, data interface{}, msg *mail.Message)
 			msg = &mail.Message{}
 		}
 		var buf bytes.Buffer
-		if err := t.Execute(&buf, data); err != nil {
+		if err := t.ExecuteTo(&buf, c, data); err != nil {
 			return err
 		}
-		if strings.Contains(t.tmpl.tmpl.ContentType(), "/html") {
+		if strings.Contains(t.tmpl.ContentType(), "/html") {
 			msg.HTMLBody = buf.String()
 		} else {
 			msg.TextBody = buf.String()

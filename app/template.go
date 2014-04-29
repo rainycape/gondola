@@ -2,70 +2,56 @@ package app
 
 import (
 	"errors"
-	"fmt"
+	"io"
+	"os"
+
 	"gnd.la/app/profile"
 	"gnd.la/internal/templateutil"
 	"gnd.la/loaders"
 	"gnd.la/template"
 	"gnd.la/template/assets"
-	"io"
-	"net/http"
-	"os"
-	"text/template/parse"
 )
 
 var (
-	reservedVariables     = []string{"Ctx", "Request", "App", "Apps"}
+	reservedVariables     = []string{"Ctx", "App", "Apps"}
 	internalAssetsManager = assets.NewManager(appAssets, assetsPrefix)
 	profileHook           *template.Hook
-	errNoLoadedTemplate   = errors.New("this template was not loaded from App.LoadTemplate now NewTemplate")
-)
+	errNoLoadedTemplate   = errors.New("this template was not loaded from App.LoadTemplate nor NewTemplate")
 
-type Template interface {
-	Template() *template.Template
-	Execute(w io.Writer, data interface{}) error
-	ExecuteTemplate(w io.Writer, name string, data interface{}) error
-	ExecuteVars(w io.Writer, data interface{}, vars map[string]interface{}) error
-	ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars map[string]interface{}) error
-}
+	templateFuncs = template.FuncMap{
+		"!t":   template_t,
+		"!tn":  template_tn,
+		"!tc":  template_tc,
+		"!tnc": template_tnc,
+		"app":  nop,
+		templateutil.BeginTranslatableBlock: nop,
+		templateutil.EndTranslatableBlock:   nop,
+	}
+)
 
 type TemplateProcessor func(*template.Template) (*template.Template, error)
 
-type tmpl struct {
+// Template is a thin wrapper around gnd.la/template.Template, which
+// simplifies execution, provides extra functions, like URL
+// reversing and translations, and always passes the current *Context
+// as the template Context.
+//
+// When executing these templates, at least the @Ctx variable is always passed
+// to the template, representing the current *app.Context.
+// To define additional variables, use App.AddTemplateVars.
+//
+// Most of the time, users should not use this type directly, but rather
+// Context.Execute and Context.MustExecute.
+//
+// To write the result of the template to an arbitraty io.Writer rather
+// than to a *Context, load the template using App.LoadTemplate and then
+// use Template.ExecuteTo.
+type Template struct {
 	tmpl *template.Template
 	app  *App
 }
 
-func (t *tmpl) reverse(name string, args ...interface{}) (string, error) {
-	if t.app != nil {
-		return t.app.reverse(name, args)
-	}
-	return "", fmt.Errorf("can't reverse %s because the app is not available", name)
-}
-
-func newTemplate(app *App, loader loaders.Loader, manager *assets.Manager) *tmpl {
-	t := &tmpl{}
-	t.app = app
-	t.tmpl = template.New(loader, manager)
-	t.tmpl.Debug = app.TemplateDebug
-	t.tmpl.Funcs(template.FuncMap{
-		"#reverse": t.reverse,
-		"t":        nop,
-		"tn":       nop,
-		"tc":       nop,
-		"tnc":      nop,
-		"app":      nop,
-		templateutil.BeginTranslatableBlock: nop,
-		templateutil.EndTranslatableBlock:   nop,
-	})
-	return t
-}
-
-func newInternalTemplate(app *App) *tmpl {
-	return newTemplate(app, appAssets, internalAssetsManager)
-}
-
-func (t *tmpl) ParseVars(file string, vars template.VarMap) error {
+func (t *Template) parse(file string, vars template.VarMap) error {
 	if vars != nil {
 		for _, k := range reservedVariables {
 			vars[k] = nil
@@ -74,21 +60,41 @@ func (t *tmpl) ParseVars(file string, vars template.VarMap) error {
 	return t.tmpl.ParseVars(file, vars)
 }
 
-func (t *tmpl) Parse(file string) error {
-	return t.ParseVars(file, nil)
-}
-
-func (t *tmpl) execute(w io.Writer, name string, data interface{}, vars template.VarMap) error {
-	ctx, _ := w.(*Context)
-	return t.executeContext(ctx, w, name, data, vars)
-}
-
-func (t *tmpl) executeContext(ctx *Context, w io.Writer, name string, data interface{}, vars template.VarMap) error {
-	// TODO: Don't ignore received vars
-	var request *http.Request
-	if ctx != nil {
-		request = ctx.R
+func (t *Template) rewriteTranslationFuncs() error {
+	for _, tr := range t.tmpl.Trees() {
+		if err := templateutil.ReplaceTranslatableBlocks(tr, "t"); err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+func (t *Template) prepare() error {
+	if err := t.rewriteTranslationFuncs(); err != nil {
+		return err
+	}
+	if err := t.tmpl.Compile(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// reverse is passed as a template function without context, to allow
+// calling reverse from asset templates
+func (t *Template) reverse(name string, args ...interface{}) (string, error) {
+	return t.app.reverse(name, args)
+}
+
+// Execute executes the template, writing its result to the given
+// *Context. Note that Template uses an intermediate buffer, so
+// nothing will be written to the *Context in case of error.
+func (t *Template) Execute(ctx *Context, data interface{}) error {
+	return t.ExecuteTo(ctx, ctx, data)
+}
+
+// ExecuteTo works like Execute, but allows writing the template result
+// to an arbitraty io.Writer rather than the current *Context.
+func (t *Template) ExecuteTo(w io.Writer, ctx *Context, data interface{}) error {
 	var tvars map[string]interface{}
 	var err error
 	if t.app.namespace != nil {
@@ -100,78 +106,34 @@ func (t *tmpl) executeContext(ctx *Context, w io.Writer, name string, data inter
 		tvars = make(map[string]interface{})
 	}
 	tvars["Ctx"] = ctx
-	tvars["Request"] = request
-	if name == "" {
-		name = t.tmpl.Root()
-	}
-	return t.tmpl.ExecuteTemplateVars(w, name, data, tvars)
+	return t.tmpl.ExecuteContext(w, data, ctx, tvars)
 }
 
-func (t *tmpl) Template() *template.Template {
-	return t.tmpl
+func template_t(ctx *Context, str string) string {
+	return ctx.T(str)
 }
 
-func (t *tmpl) Execute(w io.Writer, data interface{}) error {
-	return t.execute(w, "", data, nil)
+func template_tn(ctx *Context, singular string, plural string, n int) string {
+	return ctx.Tn(singular, plural, n)
 }
 
-func (t *tmpl) ExecuteTemplate(w io.Writer, name string, data interface{}) error {
-	return t.execute(w, name, data, nil)
+func template_tc(ctx *Context, context string, str string) string {
+	return ctx.Tc(context, str)
 }
 
-func (t *tmpl) ExecuteVars(w io.Writer, data interface{}, vars map[string]interface{}) error {
-	return t.execute(w, "", data, vars)
+func template_tnc(ctx *Context, context string, singular string, plural string, n int) string {
+	return ctx.Tnc(context, singular, plural, n)
 }
 
-func (t *tmpl) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars map[string]interface{}) error {
-	return t.execute(w, name, data, vars)
+func newTemplate(app *App, loader loaders.Loader, manager *assets.Manager) *Template {
+	t := &Template{tmpl: template.New(loader, manager), app: app}
+	t.tmpl.Debug = app.TemplateDebug
+	t.tmpl.Funcs(templateFuncs).Funcs(template.FuncMap{"#reverse": t.reverse})
+	return t
 }
 
-func (t *tmpl) replaceNode(n, p parse.Node, fname string) error {
-	nn := &parse.VariableNode{
-		NodeType: parse.NodeVariable,
-		Pos:      n.Position(),
-		Ident:    []string{"$Vars", "Ctx", fname},
-	}
-	return templateutil.ReplaceNode(n, p, nn)
-}
-
-func (t *tmpl) rewriteTranslationFuncs() error {
-	for _, tr := range t.tmpl.Trees() {
-		if err := templateutil.ReplaceTranslatableBlocks(tr, "t"); err != nil {
-			return err
-		}
-		var err error
-		templateutil.WalkTree(tr, func(n, p parse.Node) {
-			if err != nil {
-				return
-			}
-			if n.Type() == parse.NodeIdentifier {
-				id := n.(*parse.IdentifierNode)
-				switch id.Ident {
-				case "t":
-					err = t.replaceNode(n, p, "T")
-				case "tn":
-					err = t.replaceNode(n, p, "Tn")
-				case "tc":
-					err = t.replaceNode(n, p, "Tc")
-				case "tnc":
-					err = t.replaceNode(n, p, "Tnc")
-				}
-			}
-		})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (t *tmpl) prepare() error {
-	if err := t.tmpl.Compile(); err != nil {
-		return err
-	}
-	return nil
+func newInternalTemplate(app *App) *Template {
+	return newTemplate(app, appAssets, internalAssetsManager)
 }
 
 // LoadTemplate loads a template for the given *App, using the given
@@ -180,47 +142,15 @@ func (t *tmpl) prepare() error {
 // be used. The purpose of this function is allowing apps to load
 // templates from multiple sources. Note that, as opposed to App.LoadTemplate,
 // this function does not perform any caching.
-func LoadTemplate(app *App, loader loaders.Loader, manager *assets.Manager, name string) (Template, error) {
+func LoadTemplate(app *App, loader loaders.Loader, manager *assets.Manager, name string) (*Template, error) {
 	t, err := app.loadTemplate(loader, manager, name)
 	if err != nil {
-		return nil, err
-	}
-	if err := t.rewriteTranslationFuncs(); err != nil {
 		return nil, err
 	}
 	if err := t.prepare(); err != nil {
 		return nil, err
 	}
 	return t, nil
-}
-
-// LinkedTemplate is the interface implemented by a template
-// which has been linked to a *Context. See LinkTemplate for
-// more information.
-type LinkedTemplate interface {
-	Execute(w io.Writer, data interface{}) error
-}
-
-type linkedTemplate struct {
-	tmpl *tmpl
-	ctx  *Context
-}
-
-func (t *linkedTemplate) Execute(w io.Writer, data interface{}) error {
-	return t.tmpl.executeContext(t.ctx, w, "", data, nil)
-}
-
-// LinkTemplate returns a new Template linked with the given *Context, which
-// can be used to write the result of its execution to any io.Writer, while
-// still having access to the *Context related functions
-// (reverse, translations,... etc). Note that the lifetime of the returned
-// Template is tied to the lifetime of the *Context.
-func LinkTemplate(ctx *Context, t Template) (LinkedTemplate, error) {
-	tm, ok := t.(*tmpl)
-	if !ok {
-		return nil, errNoLoadedTemplate
-	}
-	return &linkedTemplate{tmpl: tm, ctx: ctx}, nil
 }
 
 func nop() interface{} { return nil }
@@ -236,7 +166,7 @@ func init() {
 					return internalAssetsManager.URL(arg)
 				},
 			})
-			if err := t.Parse("profile.html"); err != nil {
+			if err := t.parse("profile.html", nil); err != nil {
 				panic(err)
 			}
 			profileHook = &template.Hook{Template: t.tmpl, Position: assets.Bottom}

@@ -41,16 +41,12 @@ func articleHandler(ctx *app.Context) {
 	}
 	dir, base := filepath.Split(article.Template)
 	loader := loaders.FSLoader(dir)
-	articleTemplate, err := app.LoadTemplate(ctx.App(), loader, nil, base)
-	if err != nil {
-		panic(err)
-	}
-	tmpl, err := app.LinkTemplate(ctx, articleTemplate)
+	tmpl, err := app.LoadTemplate(ctx.App(), loader, nil, base)
 	if err != nil {
 		panic(err)
 	}
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, nil); err != nil {
+	if err := tmpl.ExecuteTo(&buf, ctx, nil); err != nil {
 		panic(err)
 	}
 	body := buf.String()

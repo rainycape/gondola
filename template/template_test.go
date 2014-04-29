@@ -2,13 +2,15 @@ package template
 
 import (
 	"bytes"
-	"gnd.la/loaders"
-	"gnd.la/template/assets"
+	"fmt"
 	"html/template"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gnd.la/loaders"
+	"gnd.la/template/assets"
 )
 
 type templateTest struct {
@@ -137,7 +139,7 @@ func testCompiler(t *testing.T, tests []*templateTest, vars VarMap) {
 			continue
 		}
 		var buf bytes.Buffer
-		if err := tmpl.ExecuteVars(&buf, v.data, vars); err != nil {
+		if err := tmpl.ExecuteContext(&buf, v.data, nil, vars); err != nil {
 			t.Errorf("error executing %q: %s", v.tmpl, err)
 			continue
 		}
@@ -226,7 +228,7 @@ func benchmarkHTMLTemplate(b *testing.B, tests []*templateTest) {
 	templates := make([]*template.Template, len(tests))
 	for ii, v := range tests {
 		tmpl := template.New("template.html")
-		tmpl.Funcs(template.FuncMap(templateFuncs.asTemplateFuncs()))
+		tmpl.Funcs(template.FuncMap(templateFuncs.asTemplateFuncMap()))
 		_, err := tmpl.Parse(v.tmpl)
 		if err != nil {
 			b.Fatalf("can't parse %q: %s", v.tmpl, err)
@@ -274,7 +276,7 @@ func BenchmarkBigGo(b *testing.B) {
 	b.ReportAllocs()
 	tmpl := template.New("")
 	tmpl.Funcs(template.FuncMap{"t": func(s string) string { return s }})
-	tmpl.Funcs(template.FuncMap(templateFuncs.asTemplateFuncs()))
+	tmpl.Funcs(template.FuncMap(templateFuncs.asTemplateFuncMap()))
 	readFile := func(name string) string {
 		data, err := ioutil.ReadFile(filepath.Join("_testdata", name))
 		if err != nil {
@@ -309,6 +311,38 @@ func rangeTests() []*templateTest {
 		}
 	}
 	return tests
+}
+
+func TestContextFunc(t *testing.T) {
+	tmpl := parseNamedText(t, "context", "{{ f_interface }} - {{ f_int }}", map[string]interface{}{
+		"!f_interface": func(ctx interface{}) int { return ctx.(int) },
+		"!f_int":       func(ctx int) int { return ctx },
+	}, "text/plain")
+
+	ctx := 42
+	expected := fmt.Sprintf("%d - %d", ctx, ctx)
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteContext(&buf, nil, ctx, nil); err != nil {
+		t.Fatal(err)
+	}
+	if buf.String() != expected {
+		t.Errorf("expecting %q, got %q instead", expected, buf.String())
+	}
+}
+
+func TestBadContextFunc(t *testing.T) {
+	tmpl := parseNamedText(t, "context", "{{ f_float64 }}", map[string]interface{}{
+		"!f_float64": func(ctx float64) float64 { return ctx },
+	}, "text/plain")
+	err := tmpl.ExecuteContext(ioutil.Discard, nil, int(42), nil)
+	if err == nil {
+		t.Error("expecting an error when executing bad context function")
+	} else {
+		expected := `context:1:3: context function "f_float64" requires a context of type float64, not int`
+		if err.Error() != expected {
+			t.Errorf("expected error %q, got %q instead", expected, err.Error())
+		}
+	}
 }
 
 func BenchmarkRange(b *testing.B) {

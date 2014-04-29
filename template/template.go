@@ -29,32 +29,60 @@ import (
 
 type FuncMap map[string]interface{}
 
-func (f FuncMap) asTemplateFuncs() map[string]interface{} {
-	fns := make(map[string]interface{})
-	for k, v := range f {
-		if k != "" && k[0] == '#' {
-			k = k[1:]
+type funcTrait int
+
+const (
+	funcTraitPure = 1 << iota
+	funcTraitContext
+)
+
+type funcInfo struct {
+	f      interface{}
+	traits funcTrait
+}
+
+type funcMap map[string]*funcInfo
+
+func makeFuncMap(fns FuncMap) funcMap {
+	f := make(funcMap, len(fns))
+	for k, v := range fns {
+		info := &funcInfo{f: v}
+		for len(k) > 0 {
+			if k[0] == '!' {
+				k = k[1:]
+				info.traits |= funcTraitContext
+			} else if k[0] == '#' {
+				k = k[1:]
+				info.traits |= funcTraitPure
+			} else {
+				break
+			}
 		}
-		fns[k] = v
+		f[k] = info
+	}
+	return f
+}
+
+func (f funcMap) asFuncMap() FuncMap {
+	fns := make(FuncMap, len(f))
+	for k, v := range f {
+		if v.traits&funcTraitPure != 0 {
+			k = "#" + k
+		}
+		if v.traits&funcTraitContext != 0 {
+			k = "!" + k
+		}
+		fns[k] = v.f
 	}
 	return fns
 }
 
-func (f FuncMap) add(name string, value interface{}) {
-	if name != "" {
-		if name[0] == '#' {
-			// delete non-pure if exists
-			delete(f, name[1:])
-		} else {
-			// delete pure if exists
-			delete(f, "#"+name)
-		}
-		f[name] = value
+func (f funcMap) asTemplateFuncMap() itemplate.FuncMap {
+	fns := make(itemplate.FuncMap, len(f))
+	for k, v := range f {
+		fns[k] = v.f
 	}
-}
-
-func (f FuncMap) has(name string) bool {
-	return f[name] != nil || (name != "" && ((name[0] == '#' && f[name[1:]] != nil) || (name[0] != '#' && f["#"+name] != nil)))
+	return fns
 }
 
 type VarMap map[string]interface{}
@@ -136,7 +164,7 @@ type Template struct {
 	trees         map[string]*parse.Tree
 	texts         map[string]string
 	final         bool
-	funcMap       FuncMap
+	funcMap       funcMap
 	vars          VarMap
 	root          string
 	assetGroups   []*assets.Group
@@ -158,7 +186,7 @@ func (t *Template) init() {
 		bottomAssetsFuncName: nop,
 		"#" + AssetFuncName:  t.Asset,
 	}
-	t.Funcs(funcs).Funcs(templateFuncs)
+	t.Funcs(funcs).Funcs(templateFuncs.asFuncMap())
 }
 
 func (t *Template) rebuild() error {
@@ -242,10 +270,10 @@ func (t *Template) Hook(hook *Hook) error {
 	}
 	for k, v := range hook.Template.funcMap {
 		if t.funcMap == nil {
-			t.funcMap = make(FuncMap)
+			t.funcMap = make(funcMap)
 		}
-		if !t.funcMap.has(k) {
-			t.funcMap.add(k, v)
+		if t.funcMap[k] == nil {
+			t.funcMap[k] = v
 		}
 	}
 	t.hooks = append(t.hooks, hook)
@@ -761,9 +789,9 @@ func (t *Template) load(name string, included bool, from string) error {
 	s = templateutil.ReplaceVariableShorthands(s, '@', varsKey)
 	var fns map[string]interface{}
 	if t.funcMap != nil {
-		fns = t.funcMap.asTemplateFuncs()
+		fns = t.funcMap.asTemplateFuncMap()
 	}
-	treeMap, err := parse.Parse(name, s, leftDelim, rightDelim, templateFuncs.asTemplateFuncs(), fns)
+	treeMap, err := parse.Parse(name, s, leftDelim, rightDelim, templateFuncs.asTemplateFuncMap(), fns)
 	if err != nil {
 		return err
 	}
@@ -923,12 +951,13 @@ func (t *Template) addHtmlEscaping() {
 
 func (t *Template) Funcs(funcs FuncMap) *Template {
 	if t.funcMap == nil {
-		t.funcMap = make(FuncMap)
+		t.funcMap = make(funcMap)
 	}
-	for k, v := range funcs {
-		t.funcMap.add(k, v)
+	fns := makeFuncMap(funcs)
+	for k, v := range fns {
+		t.funcMap[k] = v
 	}
-	t.tmpl.Funcs(funcs.asTemplateFuncs())
+	t.tmpl.Funcs(fns.asTemplateFuncMap())
 	return t
 }
 
@@ -983,24 +1012,17 @@ func (t *Template) ContentType() string {
 	return t.contentType
 }
 
+// Execute is a shorthand for ExecuteContext(w, data, nil, nil).
 func (t *Template) Execute(w io.Writer, data interface{}) error {
-	return t.ExecuteTemplateVars(w, t.root, data, nil)
+	return t.ExecuteContext(w, data, nil, nil)
 }
 
-func (t *Template) ExecuteTemplate(w io.Writer, name string, data interface{}) error {
-	return t.ExecuteTemplateVars(w, name, data, nil)
-}
-
-func (t *Template) ExecuteVars(w io.Writer, data interface{}, vars VarMap) error {
-	return t.ExecuteTemplateVars(w, t.root, data, vars)
-}
-
-func (t *Template) ExecuteTemplateVars(w io.Writer, name string, data interface{}, vars VarMap) error {
+func (t *Template) ExecuteContext(w io.Writer, data interface{}, context interface{}, vars VarMap) error {
 	if profile.On {
-		profile.Startf("template-exec", "%s => %s", t.qname(t.name), name).AutoEnd()
+		profile.Startf("template-exec", "%s", t.qname(t.name)).AutoEnd()
 	}
 	buf := getBuffer()
-	err := t.prog.execute(buf, name, data, vars)
+	err := t.prog.execute(buf, t.root, data, context, vars)
 	if err != nil {
 		return err
 	}
@@ -1028,20 +1050,12 @@ func (t *Template) ExecuteTemplateVars(w io.Writer, name string, data interface{
 	return err
 }
 
-// MustExecute works like Execute, but panics if there's an error
-func (t *Template) MustExecute(w io.Writer, data interface{}) {
-	err := t.Execute(w, data)
-	if err != nil {
-		log.Fatalf("Error executing template: %s\n", err)
-	}
-}
-
 // AddFuncs registers new functions which will be available to
 // the templates. Please, note that you must register the functions
 // before compiling a template that uses them, otherwise the template
 // parser will return an error.
 func AddFuncs(f FuncMap) {
-	for k, v := range f {
+	for k, v := range makeFuncMap(f) {
 		templateFuncs[k] = v
 	}
 }

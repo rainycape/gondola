@@ -657,6 +657,7 @@ func testOrm(t *testing.T, o *Orm) {
 		testReferences,
 		testQueryAll,
 		testDefaults,
+		testMigrations,
 	}
 	for _, v := range tests {
 		v(t, o)

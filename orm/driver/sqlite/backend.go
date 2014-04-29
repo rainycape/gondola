@@ -3,6 +3,7 @@ package sqlite
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"gnd.la/config"
@@ -10,6 +11,8 @@ import (
 	"gnd.la/orm/driver"
 	"gnd.la/orm/driver/sql"
 	"gnd.la/orm/index"
+	"gnd.la/util/generic"
+	"gnd.la/util/stringutil"
 	"gnd.la/util/structs"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -49,6 +52,7 @@ func (b *Backend) Inspect(db sql.DB, m driver.Model) (*sql.Table, error) {
 		return nil, err
 	}
 	defer rows.Close()
+	fieldsByName := make(map[string]*sql.Field)
 	var fields []*sql.Field
 	for rows.Next() {
 		var cid int
@@ -59,6 +63,7 @@ func (b *Backend) Inspect(db sql.DB, m driver.Model) (*sql.Table, error) {
 		if err := rows.Scan(&cid, &f.Name, &f.Type, &notnull, &def, &pk); err != nil {
 			return nil, err
 		}
+		f.Type = strings.ToUpper(f.Type)
 		if notnull != 0 {
 			f.AddConstraint(sql.ConstraintNotNull)
 		}
@@ -69,6 +74,27 @@ func (b *Backend) Inspect(db sql.DB, m driver.Model) (*sql.Table, error) {
 			f.AddConstraint(sql.ConstraintPrimaryKey)
 		}
 		fields = append(fields, &f)
+		fieldsByName[f.Name] = &f
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows, err = db.Query(fmt.Sprintf("PRAGMA foreign_key_list(%s)", name))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, seq int
+		var table, from, to, onUpdate, onDelete, match string
+		if err := rows.Scan(&id, &seq, &table, &from, &to, &onUpdate, &onDelete, &match); err != nil {
+			return nil, err
+		}
+		field := fieldsByName[from]
+		field.Constraints = append(field.Constraints, &sql.Constraint{Type: sql.ConstraintForeignKey, References: sql.MakeReference(table, to)})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	if len(fields) > 0 {
 		return &sql.Table{Fields: fields}, nil
@@ -86,13 +112,56 @@ func (b *Backend) HasIndex(db sql.DB, m driver.Model, idx *index.Index, name str
 	return has, nil
 }
 
-func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, error) {
+func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, []string, error) {
 	if field.HasOption(sql.OptionAutoIncrement) {
 		if field.Constraint(sql.ConstraintPrimaryKey) == nil {
-			return "", fmt.Errorf("%s can only auto increment the primary key", b.Name())
+			return "", nil, fmt.Errorf("%s can only auto increment the primary key", b.Name())
 		}
 	}
 	return b.SqlBackend.DefineField(db, m, table, field)
+}
+
+func (b *Backend) AddFields(db sql.DB, m driver.Model, prevTable *sql.Table, newTable *sql.Table, fields []*sql.Field) error {
+	rewrite := false
+	for _, v := range fields {
+		if !b.canAddField(v) {
+			rewrite = true
+			break
+		}
+	}
+	if rewrite {
+		name := db.QuoteIdentifier(m.Table())
+		tmpName := fmt.Sprintf("%s_%s", m.Table(), stringutil.Random(8))
+		quotedTmpName := db.QuoteIdentifier(tmpName)
+		createSql, err := newTable.SQL(db, b, m, tmpName)
+		if err != nil {
+			return err
+		}
+		if _, err := db.Exec(createSql); err != nil {
+			return err
+		}
+		fieldNames := generic.Map(prevTable.Fields, func(f *sql.Field) string { return f.Name }).([]string)
+		// The previous table might have fields that we're not part
+		// of the new table.
+		fieldSet := make(map[string]bool)
+		for _, v := range newTable.Fields {
+			fieldSet[v.Name] = true
+		}
+		fieldNames = generic.Filter(fieldNames, func(n string) bool { return fieldSet[n] }).([]string)
+		sqlFields := strings.Join(generic.Map(fieldNames, db.QuoteIdentifier).([]string), ", ")
+		copySql := fmt.Sprintf("INSERT INTO %s (%s) SELECT %s FROM %s", quotedTmpName, sqlFields, sqlFields, name)
+		if _, err := db.Exec(copySql); err != nil {
+			return err
+		}
+		if _, err := db.Exec(fmt.Sprintf("DROP TABLE %s", name)); err != nil {
+			return err
+		}
+		if _, err := db.Exec(fmt.Sprintf("ALTER TABLE %s RENAME TO %s", quotedTmpName, name)); err != nil {
+			return err
+		}
+		return nil
+	}
+	return b.SqlBackend.AddFields(db, m, prevTable, newTable, fields)
 }
 
 func (b *Backend) FieldType(typ reflect.Type, t *structs.Tag) (string, error) {
@@ -153,6 +222,13 @@ func (b *Backend) TransformOutValue(val reflect.Value) (interface{}, error) {
 		return 0, nil
 	}
 	return nil, fmt.Errorf("can't transform type %v", val.Type())
+}
+
+func (b *Backend) canAddField(f *sql.Field) bool {
+	// These are a supeset of the actual resctrictions, for
+	// simplicity. See https://www.sqlite.org/lang_altertable.html
+	// for more details.
+	return f.Constraint(sql.ConstraintPrimaryKey) != nil && f.Constraint(sql.ConstraintUnique) == nil && f.Default == ""
 }
 
 func sqliteOpener(url *config.URL) (driver.Driver, error) {

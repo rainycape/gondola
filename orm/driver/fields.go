@@ -53,3 +53,15 @@ func (f *Fields) HasDefault(idx int) bool {
 	_, ok := f.Defaults[idx]
 	return ok
 }
+
+func (f *Fields) DefaultValue(idx int) interface{} {
+	if f.HasDefault(idx) {
+		val := f.Defaults[idx]
+		if val.Kind() == reflect.Func {
+			res := val.Call(nil)
+			return res[0].Interface()
+		}
+		return val.Interface()
+	}
+	return nil
+}

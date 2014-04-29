@@ -17,7 +17,6 @@ import (
 	"gnd.la/orm/index"
 	"gnd.la/orm/operation"
 	"gnd.la/orm/query"
-	"gnd.la/util/generic"
 	"gnd.la/util/structs"
 )
 
@@ -36,11 +35,11 @@ type Driver struct {
 func (d *Driver) Initialize(ms []driver.Model) error {
 	// Create tables
 	for _, v := range ms {
-		existingTbl, err := d.backend.Inspect(d.db, v)
+		tbl, err := d.makeTable(v)
 		if err != nil {
 			return err
 		}
-		tbl, err := d.makeTable(v)
+		existingTbl, err := d.backend.Inspect(d.db, v)
 		if err != nil {
 			return err
 		}
@@ -569,53 +568,58 @@ func (d *Driver) makeTable(m driver.Model) (*Table, error) {
 	return &Table{Fields: dbFields}, nil
 }
 
-func (d *Driver) definePks(m driver.Model, table *Table) (string, error) {
-	pks := table.PrimaryKeys()
-	if len(pks) < 2 {
-		return "", nil
-	}
-	pkFields := generic.Map(pks, strconv.Quote).([]string)
-	return fmt.Sprintf("PRIMARY KEY(%s)", strings.Join(pkFields, ", ")), nil
-}
-
-func (d *Driver) defineFks(m driver.Model, table *Table) ([]string, error) {
-	var fks []string
-	for _, v := range table.Fields {
-		if ref := v.Constraint(ConstraintForeignKey); ref != nil {
-			fks = append(fks, fmt.Sprintf("FOREIGN KEY(%s) REFERENCES %s(%s)", strconv.Quote(v.Name),
-				strconv.Quote(ref.References.Table()), strconv.Quote(ref.References.Field())))
-		}
-	}
-	return fks, nil
-}
-
 func (d *Driver) createTable(m driver.Model, table *Table) error {
-	var lines []string
-	for _, v := range table.Fields {
-		def, err := d.backend.DefineField(d.db, m, table, v)
-		if err != nil {
-			return err
-		}
-		lines = append(lines, def)
-	}
-	pk, err := d.definePks(m, table)
+	sql, err := table.SQL(d.db, d.backend, m, m.Table())
 	if err != nil {
 		return err
 	}
-	if pk != "" {
-		lines = append(lines, pk)
-	}
-	fks, err := d.defineFks(m, table)
-	if err != nil {
-		return err
-	}
-	lines = append(lines, fks...)
-	sql := fmt.Sprintf("\nCREATE TABLE %s (\n\t%s\n)", strconv.Quote(m.Table()), strings.Join(lines, ",\n\t"))
 	_, err = d.db.Exec(sql)
 	return err
 }
 
-func (d *Driver) mergeTable(m driver.Model, prev *Table, table *Table) error {
+func (d *Driver) mergeTable(m driver.Model, prevTable *Table, newTable *Table) error {
+	existing := make(map[string]*Field)
+	for _, v := range prevTable.Fields {
+		existing[v.Name] = v
+	}
+	var missing []*Field
+	for _, v := range newTable.Fields {
+		prev := existing[v.Name]
+		if prev == nil {
+			// Check if we can add the field
+			if v.Constraint(ConstraintNotNull) != nil && !fieldHasDefault(m, v) {
+				return fmt.Errorf("can't add NOT NULL field %q to table %q without a default value", v.Name, m.Table())
+			}
+			if v.Constraint(ConstraintPrimaryKey) != nil {
+				return fmt.Errorf("can't add PRIMARY KEY field %q to table %q", v.Name, m.Table())
+			}
+			missing = append(missing, v)
+		} else {
+			if prev.Type != v.Type {
+				// Check the Kind
+				k1, len1 := TypeKind(prev.Type)
+				k2, len2 := TypeKind(v.Type)
+				if k1 == k2 {
+					// Check lengths
+					if len1 != len2 {
+					}
+					continue
+				}
+				// Check if we can transform the kind
+				fields := m.Fields()
+				idx := fields.MNameMap[v.Name]
+				modelName := fields.QNames[idx]
+				modelType := fields.Types[idx]
+				return fmt.Errorf("field %q on table %q is of type %s which is not compatible with the model field %q of type %s (%s)",
+					v.Name, m.Table(), prev.Type, modelName, v.Type, modelType)
+			}
+		}
+	}
+	if len(missing) > 0 {
+		if err := d.backend.AddFields(d.db, m, prevTable, newTable, missing); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -894,4 +898,13 @@ func NewDriver(b Backend, url *config.URL) (*Driver, error) {
 func unquote(s string) string {
 	p := strings.Index(s, ".")
 	return s[p+2 : len(s)-1]
+}
+
+func fieldHasDefault(m driver.Model, f *Field) bool {
+	if f.Default != "" {
+		return true
+	}
+	fields := m.Fields()
+	idx := fields.MNameMap[f.Name]
+	return fields.HasDefault(idx)
 }

@@ -62,13 +62,13 @@ func (b *Backend) Inspect(db sql.DB, m driver.Model) (*sql.Table, error) {
 	return b.SqlBackend.Inspect(db, m, "public")
 }
 
-func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, error) {
-	def, err := b.SqlBackend.DefineField(db, m, table, field)
+func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, []string, error) {
+	def, con, err := b.SqlBackend.DefineField(db, m, table, field)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	// AUTO INCREMENT in pgsql is provided via SERIAL type
-	return strings.Replace(def, " AUTOINCREMENT", "", -1), nil
+	return strings.Replace(def, " AUTOINCREMENT", "", -1), con, nil
 }
 
 func (b *Backend) Insert(db sql.DB, m driver.Model, query string, args ...interface{}) (driver.Result, error) {

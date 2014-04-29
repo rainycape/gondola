@@ -55,12 +55,39 @@ func (b *Backend) Inspect(db sql.DB, m driver.Model) (*sql.Table, error) {
 	return b.SqlBackend.Inspect(db, m, database)
 }
 
-func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, error) {
-	def, err := b.SqlBackend.DefineField(db, m, table, field)
+func (b *Backend) DefineField(db sql.DB, m driver.Model, table *sql.Table, field *sql.Field) (string, []string, error) {
+	def, cons, err := b.SqlBackend.DefineField(db, m, table, field)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return strings.Replace(def, "AUTOINCREMENT", "AUTO_INCREMENT", -1), nil
+	if ref := field.Constraint(sql.ConstraintForeignKey); ref != nil {
+		if pos := strings.Index(def, " REFERENCES"); pos >= 0 {
+			def = def[:pos]
+		}
+		refTable := ref.References.Table()
+		refField := ref.References.Field()
+		fkName := db.QuoteIdentifier(fmt.Sprintf("%s_%s_%s_%s", m.Table(), field.Name, refTable, refField))
+		cons = append(cons, fmt.Sprintf("FOREIGN KEY %s(%s) REFERENCES %s(%s)", fkName, db.QuoteIdentifier(field.Name),
+			db.QuoteIdentifier(refTable), db.QuoteIdentifier(refField)))
+	}
+	return strings.Replace(def, "AUTOINCREMENT", "AUTO_INCREMENT", -1), cons, nil
+}
+
+func (b *Backend) AlterField(db sql.DB, m driver.Model, table *sql.Table, oldField *sql.Field, newField *sql.Field) error {
+	fsql, cons, err := newField.SQL(db, m, table)
+	if err != nil {
+		return err
+	}
+	tableName := db.QuoteIdentifier(m.Table())
+	if _, err = db.Exec(fmt.Sprintf("ALTER TABLE %s CHANGE COLUMN %s %s", tableName, db.QuoteIdentifier(oldField.Name), fsql)); err != nil {
+		return err
+	}
+	for _, c := range cons {
+		if _, err = db.Exec(fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s", tableName, c)); err != nil {
+			return err
+		}
+	}
+	return err
 }
 
 func (b *Backend) HasIndex(db sql.DB, m driver.Model, idx *index.Index, name string) (bool, error) {

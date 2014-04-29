@@ -39,17 +39,25 @@ type db struct {
 	driver *Driver
 }
 
+func (d *db) replacePlaceholders(query string) string {
+	// TODO: Replace ? placeholders with appropriate ones
+	return query
+}
+
 func (d *db) Exec(query string, args ...interface{}) (sql.Result, error) {
+	query = d.replacePlaceholders(query)
 	d.driver.debugq(query, args)
 	return d.db.Exec(query, args...)
 }
 
 func (d *db) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	query = d.replacePlaceholders(query)
 	d.driver.debugq(query, args)
 	return d.db.Query(query, args...)
 }
 
 func (d *db) QueryRow(query string, args ...interface{}) *sql.Row {
+	query = d.replacePlaceholders(query)
 	d.driver.debugq(query, args)
 	return d.db.QueryRow(query, args...)
 }

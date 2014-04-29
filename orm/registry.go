@@ -132,7 +132,7 @@ func (o *Orm) registerLocked(t interface{}, opts *Options) (*Table, error) {
 	if opts != nil {
 		if len(opts.PrimaryKey) > 0 {
 			if fields.PrimaryKey >= 0 {
-				return nil, fmt.Errorf("duplicate primary key in model %q. tags define %q as PK, optsions define %v",
+				return nil, fmt.Errorf("duplicate primary key in model %q. tags define %q as PK, Options define %v",
 					name, fields.QNames[fields.PrimaryKey], opts.PrimaryKey)
 			}
 			fields.CompositePrimaryKey = make([]int, len(opts.PrimaryKey))
@@ -412,7 +412,11 @@ func (o *Orm) setFieldsDefaults(f *driver.Fields) error {
 }
 
 func (o *Orm) dtags() []string {
-	return append(o.driver.Tags(), "orm")
+	tags := o.driver.Tags()
+	allTags := make([]string, len(tags)+1)
+	copy(allTags, tags)
+	allTags[len(tags)] = "orm"
+	return allTags
 }
 
 func (o *Orm) model(obj interface{}) (*model, error) {

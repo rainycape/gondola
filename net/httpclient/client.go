@@ -60,8 +60,9 @@ func (c *Client) UserAgent() string {
 }
 
 // SetUserAgent sets the default user agent.
-func (c *Client) SetUserAgent(ua string) {
+func (c *Client) SetUserAgent(ua string) *Client {
 	c.transport.SetUserAgent(ua)
+	return c
 }
 
 // Deadline returns the Deadline for this transport.
@@ -76,8 +77,9 @@ func (c *Client) Deadline() time.Duration {
 
 // SetDeadline sets the deadline for requests sent by this client.
 // Setting it to 0 disables timeouts.
-func (c *Client) SetDeadline(deadline time.Duration) {
+func (c *Client) SetDeadline(deadline time.Duration) *Client {
 	c.transport.SetDeadline(deadline)
+	return c
 }
 
 // HTTPClient returns the *http.Client used by this Client.

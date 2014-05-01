@@ -53,6 +53,17 @@ func (r *Response) URL() *url.URL {
 	return r.Request.URL
 }
 
+// Cookie returns the value for the first Cookie with the given
+// name, or the empty string if no such cookie exists.
+func (r *Response) Cookie(name string) string {
+	for _, v := range r.Cookies() {
+		if v.Name == name {
+			return v.Value
+		}
+	}
+	return ""
+}
+
 func (r *Response) String() string {
 	return fmt.Sprintf("%T from %s (status code %d)", r, r.Request.URL, r.StatusCode)
 }

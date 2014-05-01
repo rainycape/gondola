@@ -6,7 +6,15 @@ import (
 	"testing"
 )
 
-var echo = "http://term.ie/oauth/example/echo_api.php"
+const (
+	baseServer = "http://oauthbin.appspot.com"
+)
+
+var (
+	requestToken = baseServer + "/v1/request-token"
+	accessToken  = baseServer + "/v1/access-token"
+	echo         = baseServer + "/v1/echo"
+)
 
 // These tests use the testing oAuth server
 // documented at http://term.ie/oauth/example/
@@ -15,8 +23,8 @@ func testOAuth(t *testing.T, method string, values url.Values) {
 	c := &Consumer{
 		Key:             "key",
 		Secret:          "secret",
-		RequestTokenURL: "http://term.ie/oauth/example/request_token.php",
-		AccessTokenURL:  "http://term.ie/oauth/example/access_token.php",
+		RequestTokenURL: requestToken,
+		AccessTokenURL:  accessToken,
 		CallbackURL:     "oob",
 	}
 	_, rt, err := c.Authorization()

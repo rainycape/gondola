@@ -1,13 +1,14 @@
 package reddit
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
+	"net/url"
 	"strings"
+	"sync"
 	"time"
+
+	"gnd.la/net/httpclient"
 )
 
 const (
@@ -18,10 +19,112 @@ const (
 var (
 	ErrNoSuchStory       = errors.New("Story with the given ID not found")
 	ErrInvalidDataFormat = errors.New("Invalid data format")
-	UserAgent            string
-	lastRequest          = time.Time{}
-	client               = &http.Client{}
 )
+
+var lastRequest struct {
+	sync.RWMutex
+	time time.Time
+}
+
+type App struct {
+	Client     *httpclient.Client
+	httpClient *httpclient.Client
+}
+
+func (a *App) Clone(ctx httpclient.Context) *App {
+	ac := *a
+	ac.Client = ac.Client.Clone(ctx)
+	return &ac
+}
+
+func (a *App) client() *httpclient.Client {
+	if a.Client != nil {
+		return a.client()
+	}
+	if a.httpClient == nil {
+		a.httpClient = httpclient.New(nil)
+	}
+	return a.httpClient
+}
+
+func (a *App) Story(id36 string) (*Story, error) {
+	stories, err := a.Stories([]string{id36})
+	if err != nil {
+		return nil, err
+	}
+	if len(stories) == 0 {
+		return nil, ErrNoSuchStory
+	}
+	return stories[0], nil
+}
+
+func (a *App) Stories(ids36 []string) ([]*Story, error) {
+	var stories []*Story
+	for len(ids36) > 0 {
+		count := maxChunkSize
+		if count > len(ids36) {
+			count = len(ids36)
+		}
+		ids := make([]string, count)
+		for ii := 0; ii < count; ii++ {
+			id := fmt.Sprintf("t3_%s", ids36[ii])
+			ids = append(ids, id)
+		}
+		ids36 = ids36[count:]
+		url := fmt.Sprintf("http://www.reddit.com/by_id/%s/.json", strings.Join(ids, ","))
+		resp, err := a.get(url, nil)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Close()
+		listing, err := decodeListing(resp)
+		if err != nil {
+			return nil, err
+		}
+		stories = append(stories, listing.Stories...)
+	}
+	return stories, nil
+}
+
+func (a *App) Subreddit(name string, source string, p *Parameter, after string, before string) (*Listing, error) {
+	urlStr := fmt.Sprintf("http://www.reddit.com/r/%s/%s.json", name, source)
+	values := make(url.Values)
+	if p != nil && p.isValid(source) {
+		for k, v := range p.values {
+			values.Add(k, v)
+		}
+	}
+	if after != "" {
+		values.Add("after", after)
+	}
+	if before != "" {
+		values.Add("before", before)
+	}
+	resp, err := a.get(urlStr, values)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Close()
+	listing, err := decodeListing(resp)
+	if err != nil {
+		return nil, err
+	}
+	return listing, nil
+}
+
+func (a *App) get(urlStr string, values url.Values) (*httpclient.Response, error) {
+	now := time.Now()
+	lastRequest.RLock()
+	since := now.Sub(lastRequest.time)
+	lastRequest.RUnlock()
+	if delta := minTimeBetweenQueries - since; delta > 0 {
+		time.Sleep(delta)
+	}
+	lastRequest.Lock()
+	lastRequest.time = now
+	lastRequest.Unlock()
+	return a.client().GetForm(urlStr, values)
+}
 
 func decodeStory(value interface{}) (*Story, error) {
 	v, ok := value.(map[string]interface{})
@@ -86,10 +189,9 @@ func decodeStory(value interface{}) (*Story, error) {
 	}, nil
 }
 
-func decodeListing(r io.Reader) (*Listing, error) {
-	decoder := json.NewDecoder(r)
+func decodeListing(resp *httpclient.Response) (*Listing, error) {
 	var value map[string]interface{}
-	err := decoder.Decode(&value)
+	err := resp.JSONDecode(&value)
 	if err != nil {
 		return nil, err
 	}
@@ -112,96 +214,4 @@ func decodeListing(r io.Reader) (*Listing, error) {
 	return &Listing{
 		Stories: stories,
 	}, nil
-}
-
-func get(urlStr string, parameters map[string]string) (*http.Response, error) {
-	if parameters != nil {
-		var values []string
-		for k, v := range parameters {
-			values = append(values, fmt.Sprintf("%s=%s", k, v))
-		}
-		queryString := strings.Join(values, "&")
-		urlStr = fmt.Sprintf("%s?%s", urlStr, queryString)
-	}
-	req, err := http.NewRequest("GET", urlStr, nil)
-	if err != nil {
-		return nil, err
-	}
-	if UserAgent != "" {
-		req.Header.Add("User-Agent", UserAgent)
-	}
-	t := time.Now()
-	sub := t.Sub(lastRequest)
-	if sub < 0 {
-		sub = 0
-	}
-	delta := 2*time.Second - sub
-	if delta > 0 {
-		time.Sleep(delta)
-	}
-	lastRequest = t
-	return client.Do(req)
-}
-
-func FetchStories(ids36 []string) ([]*Story, error) {
-	var stories []*Story
-	for len(ids36) > 0 {
-		count := maxChunkSize
-		if count > len(ids36) {
-			count = len(ids36)
-		}
-		ids := make([]string, count)
-		for ii := 0; ii < count; ii++ {
-			id := fmt.Sprintf("t3_%s", ids36[ii])
-			ids = append(ids, id)
-		}
-		ids36 = ids36[count:]
-		url := fmt.Sprintf("http://www.reddit.com/by_id/%s/.json", strings.Join(ids, ","))
-		resp, err := http.Get(url)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
-		listing, err := decodeListing(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		stories = append(stories, listing.Stories...)
-	}
-	return stories, nil
-}
-
-func FetchStory(id36 string) (*Story, error) {
-	stories, err := FetchStories([]string{id36})
-	if err != nil {
-		return nil, err
-	}
-	if len(stories) == 0 {
-		return nil, ErrNoSuchStory
-	}
-	return stories[0], nil
-}
-
-func FetchSubreddit(name string, source string, p *Parameter, after string, before string) (*Listing, error) {
-	urlStr := fmt.Sprintf("http://www.reddit.com/r/%s/%s.json", name, source)
-	parameters := make(map[string]string)
-	if p != nil && p.isValid(source) {
-		parameters = p.values
-	}
-	if after != "" {
-		parameters["after"] = after
-	}
-	if before != "" {
-		parameters["before"] = before
-	}
-	resp, err := get(urlStr, parameters)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	listing, err := decodeListing(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	return listing, nil
 }

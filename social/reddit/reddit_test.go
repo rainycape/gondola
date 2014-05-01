@@ -5,25 +5,25 @@ import (
 )
 
 func TestTitle(t *testing.T) {
-	story, err := FetchStory("10tyhf")
+	app := &App{}
+	story, err := app.Story("10tyhf")
 	if err != nil {
-		t.Errorf("Error fetching story: %v\n", err)
-		return
+		t.Fatalf("error fetching story: %v\n", err)
 	}
 	title := "I am a multimillionaire AMAA"
 	if story.Title != title {
-		t.Errorf("Invalid story title, expected %v, got %v\n", title, story.Title)
+		t.Errorf("invalid story title, expected %v, got %v\n", title, story.Title)
 	}
 }
 
 func TestUrl(t *testing.T) {
-	story, err := FetchStory("10u32l")
+	app := &App{}
+	story, err := app.Story("10u32l")
 	if err != nil {
-		t.Errorf("Error fetching story: %v\n", err)
-		return
+		t.Fatalf("error fetching story: %v\n", err)
 	}
 	url := "http://i.imgur.com/94vHu.png"
 	if story.URL != url {
-		t.Errorf("Invalid story url, expected %v, got %v\n", url, story.URL)
+		t.Errorf("invalid story url, expected %v, got %v\n", url, story.URL)
 	}
 }

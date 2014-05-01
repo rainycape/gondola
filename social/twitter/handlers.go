@@ -18,12 +18,13 @@ func AuthHandler(twApp *App, handler Handler) app.Handler {
 	return func(ctx *app.Context) {
 		token := ctx.FormValue("oauth_token")
 		verifier := ctx.FormValue("oauth_verifier")
+		cloned := twApp.Clone(ctx)
 		if token != "" && verifier != "" {
-			at, err := twApp.Exchange(token, verifier)
+			at, err := cloned.Exchange(token, verifier)
 			if err != nil {
 				panic(err)
 			}
-			user, err := twApp.Verify(at)
+			user, err := cloned.Verify(at)
 			if err != nil {
 				panic(err)
 			}
@@ -33,7 +34,7 @@ func AuthHandler(twApp *App, handler Handler) app.Handler {
 			handler(ctx, nil, nil)
 		} else {
 			callback := ctx.URL().String()
-			auth, err := twApp.Authenticate(callback)
+			auth, err := cloned.Authenticate(callback)
 			if err != nil {
 				panic(err)
 			}

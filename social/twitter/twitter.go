@@ -6,7 +6,7 @@ import (
 	"net/url"
 
 	"gnd.la/net/httpclient"
-	"gnd.la/util/oauth"
+	"gnd.la/net/oauth"
 	"gnd.la/util/stringutil"
 )
 

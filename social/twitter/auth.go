@@ -2,8 +2,9 @@ package twitter
 
 import (
 	"fmt"
-	"gnd.la/util/oauth"
 	"sync"
+
+	"gnd.la/net/oauth"
 )
 
 var pendingTokens struct {

@@ -22,7 +22,7 @@ type Context interface {
 }
 
 type Client struct {
-	transport Transport
+	transport *transport
 	c         *http.Client
 }
 
@@ -32,7 +32,7 @@ type Client struct {
 // but will fail when running on App Engine, so it's advisable to always
 // pass an *app.Context to this function, for portability.
 func New(ctx Context) *Client {
-	tr := NewTransport(ctx)
+	tr := newTransport(ctx)
 	client := &Client{
 		transport: tr,
 		c:         &http.Client{Transport: tr},
@@ -40,6 +40,17 @@ func New(ctx Context) *Client {
 	client.SetUserAgent(DefaultUserAgent)
 	client.SetDeadline(DefaultDeadline)
 	return client
+}
+
+func (c *Client) Clone(ctx Context) *Client {
+	if c == nil || c.transport == nil {
+		return New(ctx)
+	}
+	tr := c.transport.clone(ctx)
+	return &Client{
+		transport: tr,
+		c:         &http.Client{Transport: tr},
+	}
 }
 
 // UserAgent returns the default user agent sent by requests

@@ -36,6 +36,10 @@ type Transport interface {
 
 // NewTransport returns a new Transport for the given Context.
 func NewTransport(ctx Context) Transport {
+	return newTransport(ctx)
+}
+
+func newTransport(ctx Context) *transport {
 	tr := &transport{}
 	rt := newRoundTripper(ctx, tr)
 	tr.transport = rt
@@ -46,6 +50,12 @@ type transport struct {
 	userAgent string
 	deadline  time.Duration
 	transport http.RoundTripper
+}
+
+func (t *transport) clone(ctx Context) *transport {
+	tc := *t
+	tc.transport = newRoundTripper(ctx, &tc)
+	return &tc
 }
 
 func (t *transport) UserAgent() string {

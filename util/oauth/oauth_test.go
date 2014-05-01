@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"net/url"
+	"reflect"
 	"testing"
 )
 
@@ -53,8 +54,12 @@ func testOAuth(t *testing.T, method string, values url.Values) {
 			t.Errorf("expected empty response, got %q", s)
 		}
 	} else {
-		if e := values.Encode(); e != s {
-			t.Errorf("expected %q got %q", e, s)
+		rec, err := url.ParseQuery(s)
+		if err != nil {
+			t.Error("error parsing received values: %s", err)
+		}
+		if !reflect.DeepEqual(values, rec) {
+			t.Errorf("expecting values %v, got %v instead", values, rec)
 		}
 	}
 }
@@ -73,4 +78,12 @@ func TestPost(t *testing.T) {
 
 func TestUnicode(t *testing.T) {
 	testOAuth(t, "POST", url.Values{"alberto": []string{"garcía"}})
+}
+
+func TestProblematicChars(t *testing.T) {
+	values := make(url.Values)
+	values.Add("a", "=")
+	values.Add("b", "+/*")
+	values.Add("c", "~")
+	testOAuth(t, "GET", values)
 }

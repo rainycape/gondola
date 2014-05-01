@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gnd.la/net/httpclient"
 )
 
 type Consumer struct {
@@ -18,6 +20,29 @@ type Consumer struct {
 	AccessTokenURL   string
 	AuthorizationURL string
 	CallbackURL      string
+	Client           *httpclient.Client
+	httpClient       *httpclient.Client
+}
+
+func (c *Consumer) client() *httpclient.Client {
+	if c.Client != nil {
+		c.preventRedirects(c.Client)
+		return c.Client
+	}
+	if c.httpClient == nil {
+		c.httpClient = httpclient.New(nil)
+		c.preventRedirects(c.httpClient)
+	}
+	return c.httpClient
+}
+
+func (c *Consumer) preventRedirects(client *httpclient.Client) {
+	if client != nil {
+		httpClient := client.HTTPClient()
+		if httpClient.CheckRedirect == nil {
+			httpClient.CheckRedirect = preventRedirect
+		}
+	}
 }
 
 func (c *Consumer) defaultParameters() url.Values {
@@ -51,6 +76,13 @@ func (c *Consumer) headers(method string, url string, values url.Values, secret 
 	}
 }
 
+func (c *Consumer) Clone(ctx httpclient.Context) *Consumer {
+	cp := *c
+	cp.Client = cp.Client.Clone(ctx)
+	cp.preventRedirects(cp.Client)
+	return &cp
+}
+
 // Authorization requests a Request Token and returns the URL the user should
 // visit to authorize it as well as the token, which needs to be used later
 // for exchanging it for an Access Token.
@@ -58,7 +90,7 @@ func (c *Consumer) Authorization() (string, *Token, error) {
 	values := c.defaultParameters()
 	values.Add("oauth_callback", c.CallbackURL)
 	headers := c.headers("POST", c.RequestTokenURL, values, "")
-	resp, err := sendReq("POST", c.RequestTokenURL, headers, values)
+	resp, err := c.sendReq("POST", c.RequestTokenURL, headers, values)
 	if err != nil {
 		return "", nil, err
 	}
@@ -80,7 +112,7 @@ func (c *Consumer) Exchange(token *Token, verifier string) (*Token, error) {
 		p.Add("oauth_verifier", verifier)
 	}
 	headers := c.headers("POST", c.AccessTokenURL, p, token.Secret)
-	resp, err := sendReq("POST", c.AccessTokenURL, headers, nil)
+	resp, err := c.sendReq("POST", c.AccessTokenURL, headers, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -91,13 +123,13 @@ func (c *Consumer) Exchange(token *Token, verifier string) (*Token, error) {
 // signed with the consumer and the given token (if any). The url parameter
 // can't contain a query string. All url parameters should be passed using
 // the values parameter.
-func (c *Consumer) Get(url string, values url.Values, token *Token) (*http.Response, error) {
+func (c *Consumer) Get(url string, values url.Values, token *Token) (*httpclient.Response, error) {
 	return c.SendRequest("GET", url, values, token)
 }
 
 // Post performs a POST request to the given URL with the given values and
 // signed with the given token (if any).
-func (c *Consumer) Post(url string, values url.Values, token *Token) (*http.Response, error) {
+func (c *Consumer) Post(url string, values url.Values, token *Token) (*httpclient.Response, error) {
 	return c.SendRequest("POST", url, values, token)
 }
 
@@ -108,9 +140,9 @@ func (c *Consumer) Request(method string, url string, values url.Values, token *
 	for k, v := range values {
 		vals[k] = append(vals[k], v...)
 	}
-	vals.Add("oauth_token", token.Key)
 	var secret string
 	if token != nil {
+		vals.Add("oauth_token", token.Key)
 		secret = token.Secret
 	}
 	headers := c.headers(method, url, vals, secret)
@@ -119,10 +151,10 @@ func (c *Consumer) Request(method string, url string, values url.Values, token *
 
 // SendRequest works like Requests, but it also sends the request and
 // returns an *http.Response.
-func (c *Consumer) SendRequest(method string, url string, values url.Values, token *Token) (*http.Response, error) {
+func (c *Consumer) SendRequest(method string, url string, values url.Values, token *Token) (*httpclient.Response, error) {
 	r, err := c.Request(method, url, values, token)
 	if err != nil {
 		return nil, err
 	}
-	return client.Do(r)
+	return c.client().Do(r)
 }

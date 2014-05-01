@@ -1,7 +1,6 @@
 package oauth
 
 import (
-	"io/ioutil"
 	"net/url"
 	"testing"
 )
@@ -42,8 +41,8 @@ func testOAuth(t *testing.T, method string, values url.Values) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
+	defer resp.Close()
+	data, err := resp.ReadAll()
 	if err != nil {
 		t.Fatal(err)
 	}

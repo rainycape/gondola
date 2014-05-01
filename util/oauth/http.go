@@ -5,11 +5,12 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"gnd.la/net/httpclient"
 )
 
 var (
 	NoRedirectAllowedError = errors.New("redirects not allowed with oAuth")
-	client                 = &http.Client{CheckRedirect: preventRedirect}
 )
 
 func preventRedirect(req *http.Request, via []*http.Request) error {
@@ -46,10 +47,10 @@ func req(method, url string, headers map[string]string, values url.Values) (*htt
 	return req, nil
 }
 
-func sendReq(method, url string, headers map[string]string, values url.Values) (*http.Response, error) {
+func (c *Consumer) sendReq(method, url string, headers map[string]string, values url.Values) (*httpclient.Response, error) {
 	r, err := req(method, url, headers, values)
 	if err != nil {
 		return nil, err
 	}
-	return client.Do(r)
+	return c.client().Do(r)
 }

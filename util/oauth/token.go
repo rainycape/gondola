@@ -2,9 +2,9 @@ package oauth
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"net/url"
+
+	"gnd.la/net/httpclient"
 )
 
 type Token struct {
@@ -12,14 +12,14 @@ type Token struct {
 	Secret string
 }
 
-func parseToken(resp *http.Response) (*Token, error) {
-	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
+func parseToken(resp *httpclient.Response) (*Token, error) {
+	defer resp.Close()
+	b, err := resp.ReadAll()
 	if err != nil {
 		return nil, err
 	}
 	s := string(b)
-	if resp.StatusCode != http.StatusOK {
+	if !resp.IsOK() {
 		return nil, fmt.Errorf("oAuth service returned non-200 status code %d: %s", resp.StatusCode, s)
 	}
 	values, err := url.ParseQuery(s)

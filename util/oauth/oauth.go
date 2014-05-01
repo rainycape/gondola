@@ -1,11 +1,6 @@
 package oauth
 
 import (
-	"crypto/hmac"
-	"crypto/sha1"
-	"encoding/base64"
-	"fmt"
-	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -36,17 +31,8 @@ func (c *Consumer) defaultParameters() url.Values {
 }
 
 func (c *Consumer) sign(method string, url string, values url.Values, secret string) string {
-	base := fmt.Sprintf("%s&%s&%s", method, encode(url), encodePlusEncoded(values.Encode()))
-	key := encode(c.Secret) + "&" + encode(secret)
-	return c.digest(key, base)
-}
-
-// digest generates a HMAC-SHA1 signature with the given key and data.
-func (c *Consumer) digest(key string, data string) string {
-	h := hmac.New(sha1.New, []byte(key))
-	// TODO: Check for errors here?
-	io.WriteString(h, data)
-	return base64.StdEncoding.EncodeToString(h.Sum(nil))
+	base := Base(method, url, values)
+	return Sign(base, c.Secret, secret)
 }
 
 func (c *Consumer) headers(method string, url string, values url.Values, secret string) map[string]string {

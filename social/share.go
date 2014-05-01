@@ -2,16 +2,15 @@ package social
 
 import (
 	"bytes"
+	"fmt"
+
+	"gnd.la/app"
 	"gnd.la/social/facebook"
 	"gnd.la/social/pinterest"
 	"gnd.la/social/twitter"
 )
 
-import (
-	"fmt"
-)
-
-func Share(s Service, item *Item, config interface{}) (interface{}, error) {
+func Share(ctx *app.Context, s Service, item *Item, config interface{}) (interface{}, error) {
 	if err := validateConfig(s, config); err != nil {
 		return nil, err
 	}
@@ -28,7 +27,7 @@ func Share(s Service, item *Item, config interface{}) (interface{}, error) {
 			buf.WriteByte(' ')
 			buf.WriteString(v.String())
 		}
-		tweet, err := conf.App.Update(buf.String(), conf.Token, &twitter.TweetOptions{Truncate: true})
+		tweet, err := conf.App.Clone(ctx).Update(buf.String(), conf.Token, &twitter.TweetOptions{Truncate: true})
 		return tweet, err
 	case Facebook:
 		conf := config.(*FacebookConfig)
@@ -46,10 +45,10 @@ func Share(s Service, item *Item, config interface{}) (interface{}, error) {
 		if len(item.Images) > 0 {
 			parameters["picture"] = item.Images[0].String()
 		}
-		return facebook.GraphPost(path, parameters, conf.AccessToken)
+		return conf.App.Clone(ctx).Post(path, parameters, conf.AccessToken)
 	case Pinterest:
 		conf := config.(*PinterestConfig)
-		sess, err := pinterest.SignIn(conf.Account)
+		sess, err := conf.Account.Clone(ctx).SignIn()
 		if err != nil {
 			return nil, err
 		}
@@ -109,6 +108,9 @@ func validateConfig(s Service, config interface{}) error {
 		conf, ok := config.(*FacebookConfig)
 		if !ok {
 			return fmt.Errorf("%s config must be *FacebookConfig, it's %T", s, config)
+		}
+		if conf.App == nil {
+			conf.App = &facebook.App{}
 		}
 		if conf.AccessToken == "" {
 			return fmt.Errorf("facebook access_token can't be empty")

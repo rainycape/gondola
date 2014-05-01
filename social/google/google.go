@@ -3,11 +3,12 @@ package google
 import (
 	"encoding/json"
 	"errors"
-	"gnd.la/util/stringutil"
-	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"gnd.la/net/httpclient"
+	"gnd.la/util/stringutil"
 )
 
 const (
@@ -24,8 +25,26 @@ var (
 )
 
 type App struct {
-	Key    string
-	Secret string
+	Key        string
+	Secret     string
+	Client     *httpclient.Client
+	httpClient *httpclient.Client
+}
+
+func (a *App) Clone(ctx httpclient.Context) *App {
+	ac := *a
+	ac.Client = ac.Client.Clone(ctx)
+	return &ac
+}
+
+func (a *App) client() *httpclient.Client {
+	if a.Client != nil {
+		return a.client()
+	}
+	if a.httpClient == nil {
+		a.httpClient = httpclient.New(nil)
+	}
+	return a.httpClient
 }
 
 type Token struct {
@@ -71,7 +90,7 @@ func (a *App) Exchange(code string, redirect string) (*Token, error) {
 	values.Add("client_secret", a.Secret)
 	values.Add("redirect_uri", redirect)
 	values.Add("grant_type", "authorization_code")
-	resp, err := http.PostForm(tokenURL, values)
+	resp, err := a.client().PostForm(tokenURL, values)
 	if err != nil {
 		return nil, err
 	}
@@ -84,16 +103,16 @@ func (a *App) Refresh(refresh string) (*Token, error) {
 	values.Add("client_id", a.Key)
 	values.Add("client_secret", a.Secret)
 	values.Add("grant_type", "refresh_token")
-	resp, err := http.PostForm(tokenURL, values)
+	resp, err := a.client().PostForm(tokenURL, values)
 	if err != nil {
 		return nil, err
 	}
 	return decodeToken(resp, refresh)
 }
 
-func decodeToken(resp *http.Response, refresh string) (*Token, error) {
+func decodeToken(resp *httpclient.Response, refresh string) (*Token, error) {
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if !resp.IsOK() {
 		return nil, googleError(resp.Body, resp.StatusCode)
 	}
 	dec := json.NewDecoder(resp.Body)

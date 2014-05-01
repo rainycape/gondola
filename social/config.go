@@ -1,11 +1,13 @@
 package social
 
 import (
+	"gnd.la/social/facebook"
 	"gnd.la/social/pinterest"
 	"gnd.la/social/twitter"
 )
 
 type FacebookConfig struct {
+	App         *facebook.App
 	AccessToken string
 }
 

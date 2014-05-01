@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/url"
 )
 
@@ -94,15 +93,15 @@ func decodeValues(v interface{}) []*Value {
 	return nil
 }
 
-func GetPerson(id string, accessToken string) (*Person, error) {
+func (a *App) Person(id string, accessToken string) (*Person, error) {
 	values := url.Values{"access_token": []string{accessToken}}
 	p := fmt.Sprintf("https://www.googleapis.com/plus/v1/people/%s?%s", id, values.Encode())
-	resp, err := http.Get(p)
+	resp, err := a.client().Get(p)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	defer resp.Close()
+	if !resp.IsOK() {
 		return nil, googleError(resp.Body, resp.StatusCode)
 	}
 	var person *Person

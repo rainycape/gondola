@@ -2,12 +2,16 @@ package facebook
 
 import (
 	"fmt"
+
+	"gnd.la/net/httpclient"
 	"gnd.la/util/stringutil"
 )
 
 type App struct {
-	Id     string
-	Secret string
+	Id         string
+	Secret     string
+	Client     *httpclient.Client
+	httpClient *httpclient.Client
 }
 
 func (a *App) Parse(s string) error {
@@ -25,4 +29,20 @@ func (a *App) Parse(s string) error {
 		return fmt.Errorf("invalid number of fields: %d", len(fields))
 	}
 	return nil
+}
+
+func (a *App) Clone(ctx httpclient.Context) *App {
+	ac := *a
+	ac.Client = ac.Client.Clone(ctx)
+	return &ac
+}
+
+func (a *App) client() *httpclient.Client {
+	if a.Client != nil {
+		return a.client()
+	}
+	if a.httpClient == nil {
+		a.httpClient = httpclient.New(nil)
+	}
+	return a.httpClient
 }

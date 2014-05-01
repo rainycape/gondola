@@ -12,12 +12,12 @@ var (
 	errInvalidResponse = errors.New("invalid JSON response")
 )
 
-type LinkStats struct {
+type Stats struct {
 	Normalized string
 	Count      int
 }
 
-func GetLinkStats(url string) (*LinkStats, error) {
+func (a *App) stats(url string) (*Stats, error) {
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
 		url = "http://" + url
 	}
@@ -35,11 +35,11 @@ func GetLinkStats(url string) (*LinkStats, error) {
 	    "key":"p",
 	    "apiVersion":"v1"
 	}]`, url)
-	resp, err := Client.Post(rpc, "application/json", strings.NewReader(body))
+	resp, err := a.client().Post(rpc, "application/json", strings.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Close()
 	var res []map[string]interface{}
 	dec := json.NewDecoder(resp.Body)
 	if err := dec.Decode(&res); err != nil {
@@ -68,7 +68,7 @@ func GetLinkStats(url string) (*LinkStats, error) {
 	if !ok {
 		return nil, errInvalidResponse
 	}
-	return &LinkStats{
+	return &Stats{
 		Normalized: normalized,
 		Count:      int(count),
 	}, nil
@@ -76,16 +76,16 @@ func GetLinkStats(url string) (*LinkStats, error) {
 
 type result struct {
 	url   string
-	stats *LinkStats
+	stats *Stats
 	err   error
 }
 
-func GetLinksStats(urls []string) (map[string]*LinkStats, error) {
+func (a *App) Stats(urls []string) (map[string]*Stats, error) {
 	count := len(urls)
 	ch := make(chan *result, count)
 	for _, v := range urls {
 		go func(u string) {
-			stats, err := GetLinkStats(u)
+			stats, err := a.stats(u)
 			ch <- &result{
 				url:   u,
 				stats: stats,
@@ -93,7 +93,7 @@ func GetLinksStats(urls []string) (map[string]*LinkStats, error) {
 			}
 		}(v)
 	}
-	results := make(map[string]*LinkStats, count)
+	results := make(map[string]*Stats, count)
 	var err error
 	for ii := 0; ii < len(urls); ii++ {
 		res := <-ch

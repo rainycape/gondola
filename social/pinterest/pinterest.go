@@ -2,14 +2,17 @@ package pinterest
 
 import (
 	"bytes"
-	"code.google.com/p/go.net/html"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gnd.la/util/stringutil"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"code.google.com/p/go.net/html"
+
+	"gnd.la/net/httpclient"
+	"gnd.la/util/stringutil"
 )
 
 var (
@@ -23,40 +26,23 @@ var (
 )
 
 type Account struct {
-	Username string
-	Password string
+	Username   string
+	Password   string
+	Client     *httpclient.Client
+	httpClient *httpclient.Client
 }
 
-func (a *Account) Parse(raw string) error {
-	fields, err := stringutil.SplitFieldsOptions(raw, ":", &stringutil.SplitOptions{ExactCount: 2})
-	if err != nil {
-		return err
+func (a *Account) client() *httpclient.Client {
+	if a.Client != nil {
+		return a.client()
 	}
-	a.Username = fields[0]
-	a.Password = fields[1]
-	return nil
+	if a.httpClient == nil {
+		a.httpClient = httpclient.New(nil)
+	}
+	return a.httpClient
 }
 
-type Session struct {
-	Id      string
-	Csrf    string
-	Version string
-	Account *Account
-}
-
-type Board struct {
-	Id   string
-	Name string
-}
-
-type Pin struct {
-	Id          string
-	Link        string
-	Image       string
-	Description string
-}
-
-func request(session *Session, u string, method string, ref string, data map[string]interface{}) (*http.Response, error) {
+func (a *Account) request(session *Session, u string, method string, ref string, data map[string]interface{}) (*httpclient.Response, error) {
 	var form *url.Values
 	if data != nil {
 		if session != nil && session.Version != "" {
@@ -126,69 +112,17 @@ func request(session *Session, u string, method string, ref string, data map[str
 			Value: "1",
 		})
 	}
-	client := &http.Client{}
-	return client.Do(req)
+	return a.client().Do(req)
 }
 
-func getCookie(resp *http.Response, name string) string {
-	for _, v := range resp.Cookies() {
-		if v.Name == name {
-			return v.Value
-		}
-	}
-	return ""
-}
-
-func parseJson(resp *http.Response) (map[string]interface{}, error) {
-	dec := json.NewDecoder(resp.Body)
-	var m map[string]interface{}
-	if err := dec.Decode(&m); err != nil {
-		return nil, err
-	}
-	if rresp, ok := m["resource_response"].(map[string]interface{}); ok {
-		if err, ok := rresp["error"].(map[string]interface{}); ok {
-			msg, _ := err["message"].(string)
-			if msg == "" {
-				msg, _ = err["code"].(string)
-			}
-			return nil, errors.New(msg)
-		}
-	}
-	return m, nil
-}
-
-func nodeAttr(n *html.Node, key string) string {
-	for _, v := range n.Attr {
-		if v.Key == key {
-			return v.Val
-		}
-	}
-	return ""
-}
-
-func nodeText(n *html.Node) string {
-	var buf bytes.Buffer
-	_nodeText(n, &buf)
-	return buf.String()
-}
-
-func _nodeText(n *html.Node, b *bytes.Buffer) {
-	if n.Type == html.TextNode {
-		b.WriteString(n.Data)
-	}
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		_nodeText(c, b)
-	}
-}
-
-func getSession() (*Session, error) {
-	resp, err := request(nil, "https://www.pinterest.com", "GET", "", nil)
+func (a *Account) getSession() (*Session, error) {
+	resp, err := a.request(nil, "https://www.pinterest.com", "GET", "", nil)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	sess := getCookie(resp, sessionCookieName)
-	csrf := getCookie(resp, csrfCookieName)
+	defer resp.Close()
+	sess := resp.Cookie(sessionCookieName)
+	csrf := resp.Cookie(csrfCookieName)
 	if sess == "" || csrf == "" {
 		return nil, errNoCookie
 	}
@@ -199,28 +133,51 @@ func getSession() (*Session, error) {
 	}, nil
 }
 
-func SignIn(account *Account) (*Session, error) {
-	sess, err := getSession()
+func (a *Account) Clone(ctx httpclient.Context) *Account {
+	ac := *a
+	ac.Client = ac.Client.Clone(ctx)
+	return &ac
+}
+
+func (a *Account) Parse(raw string) error {
+	fields, err := stringutil.SplitFieldsOptions(raw, ":", &stringutil.SplitOptions{ExactCount: 2})
+	if err != nil {
+		return err
+	}
+	a.Username = fields[0]
+	a.Password = fields[1]
+	return nil
+}
+
+func (a *Account) SignIn() (*Session, error) {
+	sess, err := a.getSession()
 	if err != nil {
 		return nil, err
 	}
-	resp, err := request(sess, signinUrl, "POST", "https://www.pinterest.com", map[string]interface{}{
+	resp, err := a.request(sess, signinUrl, "POST", "https://www.pinterest.com", map[string]interface{}{
 		"options": map[string]interface{}{
-			"username_or_email": account.Username,
-			"password":          account.Password,
+			"username_or_email": a.Username,
+			"password":          a.Password,
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Close()
 	_, err = parseJson(resp)
 	if err != nil {
 		return nil, err
 	}
-	sess.Account = account
-	sess.Id = getCookie(resp, sessionCookieName)
+	sess.Account = a
+	sess.Id = resp.Cookie(sessionCookieName)
 	return sess, nil
+}
+
+type Session struct {
+	Id      string
+	Csrf    string
+	Version string
+	Account *Account
 }
 
 func (s *Session) Boards() ([]*Board, error) {
@@ -232,11 +189,11 @@ func (s *Session) Boards() ([]*Board, error) {
 			"append":  false,
 		},
 	}
-	resp, err := request(s, noopUrl, "GET", "", data)
+	resp, err := s.Account.request(s, noopUrl, "GET", "", data)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Close()
 	m, err := parseJson(resp)
 	if err != nil {
 		return nil, err
@@ -284,7 +241,7 @@ func (s *Session) Post(board *Board, pin *Pin) (*Pin, error) {
 	}
 	host := url.QueryEscape(fmt.Sprintf("%s://%s", u.Scheme, u.Host))
 	ref := fmt.Sprintf("http://www.pinterest.com/pin/find/?url=%s", host)
-	resp, err := request(s, createPinUrl, "POST", ref, map[string]interface{}{
+	resp, err := s.Account.request(s, createPinUrl, "POST", ref, map[string]interface{}{
 		"options": map[string]interface{}{
 			"link":           pin.Link,
 			"is_video":       nil,
@@ -315,4 +272,57 @@ func (s *Session) Post(board *Board, pin *Pin) (*Pin, error) {
 		}
 	}
 	return nil, errUnexpectedResponse
+}
+
+type Board struct {
+	Id   string
+	Name string
+}
+
+type Pin struct {
+	Id          string
+	Link        string
+	Image       string
+	Description string
+}
+
+func parseJson(resp *httpclient.Response) (map[string]interface{}, error) {
+	var m map[string]interface{}
+	if err := resp.JSONDecode(&m); err != nil {
+		return nil, err
+	}
+	if rresp, ok := m["resource_response"].(map[string]interface{}); ok {
+		if err, ok := rresp["error"].(map[string]interface{}); ok {
+			msg, _ := err["message"].(string)
+			if msg == "" {
+				msg, _ = err["code"].(string)
+			}
+			return nil, errors.New(msg)
+		}
+	}
+	return m, nil
+}
+
+func nodeAttr(n *html.Node, key string) string {
+	for _, v := range n.Attr {
+		if v.Key == key {
+			return v.Val
+		}
+	}
+	return ""
+}
+
+func nodeText(n *html.Node) string {
+	var buf bytes.Buffer
+	_nodeText(n, &buf)
+	return buf.String()
+}
+
+func _nodeText(n *html.Node, b *bytes.Buffer) {
+	if n.Type == html.TextNode {
+		b.WriteString(n.Data)
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		_nodeText(c, b)
+	}
 }

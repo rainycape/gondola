@@ -1,13 +1,13 @@
 package twitter
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+
+	"gnd.la/net/httpclient"
 	"gnd.la/util/oauth"
 	"gnd.la/util/stringutil"
-	"net/http"
-	"net/url"
 )
 
 const (
@@ -40,8 +40,26 @@ func parse(raw string, key, secret *string) error {
 // consumer key and secret. To register an application
 // go to https://dev.twitter.com
 type App struct {
-	Key    string
-	Secret string
+	Key        string
+	Secret     string
+	Client     *httpclient.Client
+	httpClient *httpclient.Client
+}
+
+func (a *App) Clone(ctx httpclient.Context) *App {
+	ac := *a
+	ac.Client = ac.Client.Clone(ctx)
+	return &ac
+}
+
+func (a *App) client() *httpclient.Client {
+	if a.Client != nil {
+		return a.client()
+	}
+	if a.httpClient == nil {
+		a.httpClient = httpclient.New(nil)
+	}
+	return a.httpClient
 }
 
 // Parse parses the app credentials from its string representation.
@@ -90,6 +108,7 @@ func newConsumer(app *App) *oauth.Consumer {
 		AccessTokenURL:   ACCESS_TOKEN_URL,
 		AuthorizationURL: AUTHORIZATION_URL,
 		CallbackURL:      "oob",
+		Client:           app.client(),
 	}
 }
 
@@ -120,13 +139,12 @@ type twitterErrors struct {
 	Errors []twitterError
 }
 
-func parseTwitterResponse(resp *http.Response, out interface{}) error {
-	if resp.StatusCode != http.StatusOK {
+func parseTwitterResponse(resp *httpclient.Response, out interface{}) error {
+	if resp.IsOK() {
 		var message string
 		var code int
 		var errs twitterErrors
-		dec := json.NewDecoder(resp.Body)
-		if dec.Decode(&errs) == nil && len(errs.Errors) > 0 {
+		if resp.JSONDecode(&errs) == nil && len(errs.Errors) > 0 {
 			message = errs.Errors[0].Message
 			code = errs.Errors[0].Code
 		}
@@ -136,8 +154,7 @@ func parseTwitterResponse(resp *http.Response, out interface{}) error {
 			StatusCode: resp.StatusCode,
 		}
 	}
-	dec := json.NewDecoder(resp.Body)
-	if err := dec.Decode(out); err != nil {
+	if err := resp.JSONDecode(out); err != nil {
 		return err
 	}
 	return nil

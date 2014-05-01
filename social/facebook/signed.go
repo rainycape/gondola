@@ -20,7 +20,7 @@ func decodeBase64(s string) ([]byte, error) {
 	return base64.URLEncoding.DecodeString(s)
 }
 
-func ParseSignedRequest(app *App, req string) (map[string]interface{}, error) {
+func (app *App) ParseSignedRequest(req string) (map[string]interface{}, error) {
 	fields := strings.SplitN(req, ".", 2)
 	if len(fields) != 2 {
 		return nil, fmt.Errorf("signed request must have 2 fields, not %d", len(fields))

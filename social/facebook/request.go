@@ -3,9 +3,10 @@ package facebook
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
+
+	"gnd.la/net/httpclient"
 )
 
 func graphUrl(path string, secure bool) string {
@@ -22,11 +23,11 @@ func graphUrl(path string, secure bool) string {
 	return fmt.Sprintf("%v://graph.facebook.com%v%v", proto, separator, path)
 }
 
-func graphRead(resp *http.Response, err error) (map[string]interface{}, error) {
+func graphRead(resp *httpclient.Response, err error) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Close()
 	if responseHasError(resp) {
 		return nil, decodeResponseError(resp)
 	}
@@ -39,7 +40,7 @@ func graphRead(resp *http.Response, err error) (map[string]interface{}, error) {
 	return m, nil
 }
 
-func GraphGet(path string, parameters map[string]string, accessToken string) (map[string]interface{}, error) {
+func (app *App) Get(path string, parameters map[string]string, accessToken string) (map[string]interface{}, error) {
 	secure := false
 	v := url.Values{}
 	for k1, v1 := range parameters {
@@ -53,11 +54,11 @@ func GraphGet(path string, parameters map[string]string, accessToken string) (ma
 	if len(v) > 0 {
 		requestUrl += fmt.Sprintf("?%v", v.Encode())
 	}
-	resp, err := http.Get(requestUrl)
+	resp, err := app.client().Get(requestUrl)
 	return graphRead(resp, err)
 }
 
-func GraphPost(path string, parameters map[string]string, accessToken string) (map[string]interface{}, error) {
+func (app *App) Post(path string, parameters map[string]string, accessToken string) (map[string]interface{}, error) {
 	secure := false
 	v := url.Values{}
 	for k1, v1 := range parameters {
@@ -68,6 +69,6 @@ func GraphPost(path string, parameters map[string]string, accessToken string) (m
 		v.Add("access_token", accessToken)
 	}
 	requestUrl := graphUrl(path, secure)
-	resp, err := http.PostForm(requestUrl, v)
+	resp, err := app.client().PostForm(requestUrl, v)
 	return graphRead(resp, err)
 }

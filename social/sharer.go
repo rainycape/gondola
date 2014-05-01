@@ -37,7 +37,7 @@ func (s *Sharer) share(ctx *app.Context) {
 			return
 		}
 		if item != nil {
-			result, err := Share(s.service, item, s.config)
+			result, err := Share(ctx, s.service, item, s.config)
 			if err != nil {
 				log.Errorf("error sharing on %s: %s", s.service, err)
 			}

@@ -1,8 +1,10 @@
 package sql
 
 import (
-	"gnd.la/orm/index"
+	"bytes"
 	"reflect"
+
+	"gnd.la/orm/index"
 )
 
 func isNil(v interface{}) bool {
@@ -22,4 +24,8 @@ func DescField(idx *index.Index, field string) bool {
 		}
 	}
 	return false
+}
+
+func buftos(buf *bytes.Buffer) string {
+	return bstos(buf.Bytes())
 }

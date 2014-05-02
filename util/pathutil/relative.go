@@ -18,16 +18,17 @@ var (
 // Relative("foo") returns /home/fiam/example/foo
 // Relative("foo/bar") returns /home/fiam/example/foo/bar
 // Relative("/foo/bar") returns /home/fiam/example/foo/bar.
-// Note that when running tests (from e.g. go test), this function
-// will return the path relative to the current directory rather
-// than the binary. This is done in order to allow functions which
-// use relative paths to work while being tested, since go test puts
-// the test binary in a temporary directory, but runs it in the
-// package directory.
+// Note that when running tests (from e.g. go test) or go run
+// (e.g. go run myfile.go), this function will return the path relative
+// to the current directory rather than the binary. This is done in
+// order to allow functions which use relative paths to work under
+// those circumstances, since go puts the binaries in a temporary
+// directory when using go test or go run, but runs them from the
+// current directory.
 func Relative(name string) string {
 	var full string
 	rel := filepath.FromSlash(name)
-	if internal.InTest() || internal.InAppEngine() {
+	if internal.InTest() || internal.InAppEngine() || internal.IsGoRun() {
 		cwd, _ := os.Getwd()
 		full = filepath.Join(cwd, rel)
 	} else {

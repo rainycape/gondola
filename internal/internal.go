@@ -11,6 +11,7 @@ import (
 
 var (
 	inTest      bool
+	goRun       bool
 	inAppEngine bool
 )
 
@@ -18,6 +19,12 @@ var (
 // from go test.
 func InTest() bool {
 	return inTest
+}
+
+// IsGoRun returns true iff called when running
+// from go run.
+func IsGoRun() bool {
+	return goRun
 }
 
 func InAppEngine() bool {
@@ -49,4 +56,5 @@ func AppEngineAppHost() string {
 
 func init() {
 	inTest = strings.Contains(os.Args[0], string(filepath.Separator)+"_test"+string(filepath.Separator))
+	goRun = strings.Contains(os.Args[0], "_obj"+string(filepath.Separator)+"exe")
 }

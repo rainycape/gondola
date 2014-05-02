@@ -46,6 +46,7 @@ func TestUserAgent(t *testing.T) {
 	testUserAgent(t, c, httpclient.DefaultUserAgent)
 	c.SetUserAgent(ua)
 	testUserAgent(t, c, ua)
+	testUserAgent(t, c.Clone(nil), ua)
 }
 
 func decodeArgs(resp *httpclient.Response) (map[string]string, error) {
@@ -181,5 +182,9 @@ func TestProxy(t *testing.T) {
 	testUserAgent(t, c, httpclient.DefaultUserAgent)
 	if count != 1 {
 		t.Errorf("expecting 1 proxy request, got %d instead", count)
+	}
+	testUserAgent(t, c.Clone(nil), httpclient.DefaultUserAgent)
+	if count != 2 {
+		t.Errorf("expecting 2 proxy request, got %d instead", count)
 	}
 }

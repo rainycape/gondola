@@ -68,6 +68,10 @@ func TestDefaults(t *testing.T) {
 	runTest(t, testDefaults)
 }
 
+func TestSaveUnchanged(t *testing.T) {
+	runTest(t, testSaveUnchanged)
+}
+
 func BenchmarkLoadSaveMethods(b *testing.B) {
 	runBenchmark(b, benchmarkLoadSaveMethods)
 }

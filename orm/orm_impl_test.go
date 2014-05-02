@@ -634,6 +634,20 @@ func testDefaults(t *testing.T, o *Orm) {
 	}
 }
 
+func testSaveUnchanged(t *testing.T, o *Orm) {
+	o.mustRegister((*AutoIncrement)(nil), nil)
+	o.mustInitialize()
+	obj := &AutoIncrement{Id: 12345, Value: "gondola"}
+	if _, err := o.Save(obj); err != nil {
+		t.Error(err)
+	}
+	// Second save should do an UPDATE, not an INSERT
+	// even if the data hasn't changed.
+	if _, err := o.Save(obj); err != nil {
+		t.Error(err)
+	}
+}
+
 func runAllTests(t *testing.T, o opener) {
 	orm, data := o.Open(t)
 	defer o.Close(data)
@@ -658,6 +672,7 @@ func testOrm(t *testing.T, o *Orm) {
 		testQueryAll,
 		testDefaults,
 		testMigrations,
+		testSaveUnchanged,
 	}
 	for _, v := range tests {
 		v(t, o)

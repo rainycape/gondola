@@ -12,6 +12,7 @@ import (
 	"gnd.la/app/profile"
 	"gnd.la/blobstore"
 	"gnd.la/encoding/codec"
+	"gnd.la/internal/pool"
 	"gnd.la/internal/runtimeutil"
 	"gnd.la/internal/templateutil"
 	"gnd.la/loaders"
@@ -230,7 +231,7 @@ type App struct {
 	parent    *App
 	childInfo *includedApp
 
-	contextPool chan *Context
+	contextPool *pool.Pool
 }
 
 // Handle is a shorthand for HandleOptions, passing nil as the Options.
@@ -1151,10 +1152,10 @@ func (app *App) matchHandler(path string, ctx *Context) Handler {
 // context pool when possible.
 func (app *App) newContext(w http.ResponseWriter, r *http.Request) *Context {
 	var ctx *Context
-	select {
-	case ctx = <-app.contextPool:
+	if x := app.contextPool.Get(); x != nil {
+		ctx = x.(*Context)
 		ctx.reset()
-	default:
+	} else {
 		p := &regexpProvider{}
 		ctx = &Context{app: app, provider: p, reProvider: p, started: time.Now()}
 	}
@@ -1212,10 +1213,7 @@ func (app *App) CloseContext(ctx *Context) {
 // in the pool for reusing it.
 func (app *App) closeContext(ctx *Context) {
 	app.CloseContext(ctx)
-	select {
-	case app.contextPool <- ctx:
-	default:
-	}
+	app.contextPool.Put(ctx)
 }
 
 func (app *App) importAssets(included *includedApp) error {
@@ -1393,7 +1391,7 @@ func New() *App {
 		DefaultLanguage: defaultLanguage,
 		appendSlash:     true,
 		templatesCache:  make(map[string]*Template),
-		contextPool:     make(chan *Context, poolSize),
+		contextPool:     pool.New(0),
 	}
 	// Used to automatically reload the page on panics when the server
 	// is restarted.

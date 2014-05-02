@@ -173,11 +173,11 @@ func (b *Backend) ScanByteSlice(val []byte, goVal *reflect.Value, t *structs.Tag
 		goVal.SetInt(v)
 		return nil
 	case types.Uint:
-		v, err := strconv.ParseInt(string(val), 10, 64)
+		v, err := strconv.ParseUint(string(val), 10, 64)
 		if err != nil {
 			return err
 		}
-		goVal.SetInt(v)
+		goVal.SetUint(v)
 		return nil
 	}
 	return b.SqlBackend.ScanByteSlice(val, goVal, t)

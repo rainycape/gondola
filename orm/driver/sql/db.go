@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"database/sql"
 	"errors"
+	"hash/crc32"
 	"strings"
+	"sync"
 
 	"gnd.la/orm/driver"
 )
@@ -28,6 +30,11 @@ type queryExecutor interface {
 	Executor
 }
 
+type cacheEntry struct {
+	sql  string
+	stmt *sql.Stmt
+}
+
 type DB struct {
 	// database/sql.DB
 	sqlDb *sql.DB
@@ -39,6 +46,8 @@ type DB struct {
 	conn                 queryExecutor
 	driver               *Driver
 	replacesPlaceholders bool
+	mu                   sync.RWMutex
+	cache                map[uint32]cacheEntry
 }
 
 func (d *DB) replacePlaceholders(query string) string {
@@ -77,6 +86,11 @@ func (d *DB) Exec(query string, args ...interface{}) (sql.Result, error) {
 		query = d.replacePlaceholders(query)
 	}
 	d.driver.debugq(query, args)
+	if len(args) > 0 {
+		if stmt := d.preparedStmt(query); stmt != nil {
+			return stmt.Exec(args...)
+		}
+	}
 	return d.conn.Exec(query, args...)
 }
 
@@ -85,6 +99,11 @@ func (d *DB) Query(query string, args ...interface{}) (*sql.Rows, error) {
 		query = d.replacePlaceholders(query)
 	}
 	d.driver.debugq(query, args)
+	if len(args) > 0 {
+		if stmt := d.preparedStmt(query); stmt != nil {
+			return stmt.Query(args...)
+		}
+	}
 	return d.conn.Query(query, args...)
 }
 
@@ -94,6 +113,11 @@ func (d *DB) QueryRow(query string, args ...interface{}) *sql.Row {
 	}
 	query = d.replacePlaceholders(query)
 	d.driver.debugq(query, args)
+	if len(args) > 0 {
+		if stmt := d.preparedStmt(query); stmt != nil {
+			return stmt.QueryRow(args...)
+		}
+	}
 	return d.conn.QueryRow(query, args...)
 }
 
@@ -154,6 +178,34 @@ func (d *DB) quoteWith(s string, q byte) string {
 		escaped = strings.Replace(s, qu, "\\"+qu, -1)
 	}
 	return qu + escaped + qu
+}
+
+func (d *DB) preparedStmt(s string) *sql.Stmt {
+	key := crc32.ChecksumIEEE(stobs(s))
+	d.mu.RLock()
+	cached, ok := d.cache[key]
+	d.mu.RUnlock()
+	if ok && cached.sql == s {
+		if d.tx != nil {
+			return d.tx.Stmt(cached.stmt)
+		}
+		return cached.stmt
+	}
+	stmt, _ := d.sqlDb.Prepare(s)
+	if stmt == nil {
+		// Let the non-prepared method report the error
+		return nil
+	}
+	d.mu.Lock()
+	if d.cache == nil {
+		d.cache = make(map[uint32]cacheEntry)
+	}
+	d.cache[key] = cacheEntry{sql: s, stmt: stmt}
+	d.mu.Unlock()
+	if d.tx != nil {
+		return d.tx.Stmt(stmt)
+	}
+	return stmt
 }
 
 func (d *DB) DB() *sql.DB {

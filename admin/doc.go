@@ -21,25 +21,25 @@
 //
 // If you're using gnd.la/app.App.ListenAndServe or gnd.la/app.App.MustListenAndServe,
 // then you don't need to do anything else, since those functions will check if
-// an administrative command was provided, perform it and exit.
-// Alternatively, you can also call admin.Perform with a gnd.la/app.App
+// an administrative command was provided, run it and exit.
+// Alternatively, you can also call admin.Execute with a gnd.la/app.App
 // instance manually if you're not using the functions previously mentioned
 // or, if for some reason, you want to check for administrative commands
-// before. e.g.
+// sooner. e.g.
 //
 //  func main() {
 //	// Set up ORM, config etc...
 //	a := app.New()
 //	// Set up context processors and finalizers, etc... on m
-//	// Now check if there's an admin command and perform it
-//	if !admin.Perform(a) {
+//	// Now check if there's an admin command and run it
+//	if !admin.Execute(a) {
 //	    // No admin command supplied. Set up your handlers and
 //	    // start listening.
 //	    something := anExpensiveCalculationWhichTakesALotOfTime()
 //	    a.Handle("^/hello/$", HelloHandler)
 //	    a.MustListenAndServe(-1)
 //	}
-//	// Admin command was performed. Now just exit.
+//	// Admin command was executed. Now just exit.
 //  }
 //
 // Administrative commands might use the context methods ParamValue() to access flags

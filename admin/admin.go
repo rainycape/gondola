@@ -18,8 +18,8 @@ import (
 )
 
 var (
-	commands  = map[string]*command{}
-	performed = false
+	commands = map[string]*command{}
+	executed = false
 )
 
 type command struct {
@@ -115,7 +115,7 @@ func usageErrors(s string) {
 	panic(err)
 }
 
-func performCommand(name string, cmd *command, args []string, a *app.App) (err error) {
+func executeCommand(name string, cmd *command, args []string, a *app.App) (err error) {
 	// Parse command flags
 	set := flag.NewFlagSet(name, flag.ContinueOnError)
 	set.Usage = func() {
@@ -177,15 +177,15 @@ func performCommand(name string, cmd *command, args []string, a *app.App) (err e
 	return
 }
 
-// Perform tries to perform an administrative command
+// Execute tries to run an administrative command
 // reading the parameters from the command line. It returs
-// true if a command was performed and false if it wasn't.
+// true if a command was executed and false if it wasn't.
 // Note that most users won't need to call this function
 // directly, since gndl.la/app.App will automatically call
-// it before listening (and exit after performing the command
+// it before listening (and exit after executing the command
 // if it was provided).
-func Perform(a *app.App) bool {
-	performed = true
+func Execute(a *app.App) bool {
+	executed = true
 	if !flag.Parsed() {
 		flag.Parse()
 	}
@@ -194,7 +194,7 @@ func Perform(a *app.App) bool {
 		cmd := strings.ToLower(args[0])
 		for k, v := range commands {
 			if cmd == k {
-				if err := performCommand(k, v, args[1:], a); err != nil {
+				if err := executeCommand(k, v, args[1:], a); err != nil {
 					fmt.Fprintf(os.Stderr, "error running command %s: %s\n", cmd, err)
 					if _, ok := err.(usageError); ok {
 						commandHelp(cmd, -1, os.Stderr)
@@ -207,8 +207,8 @@ func Perform(a *app.App) bool {
 	return false
 }
 
-func perform(name string, obj interface{}) {
-	if performed {
+func execute(name string, obj interface{}) {
+	if executed {
 		return
 	}
 	var a *app.App
@@ -220,7 +220,7 @@ func perform(name string, obj interface{}) {
 	default:
 		panic("unreachable")
 	}
-	if Perform(a) {
+	if Execute(a) {
 		os.Exit(0)
 	}
 }
@@ -313,5 +313,5 @@ func init() {
 	MustRegister(help, &Options{
 		Help: "Show available commands with their respective help.",
 	})
-	signal.Listen(app.WILL_PREPARE, perform)
+	signal.Listen(app.WILL_PREPARE, execute)
 }

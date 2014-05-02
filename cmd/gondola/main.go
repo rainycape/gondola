@@ -16,7 +16,7 @@ func main() {
 	a := app.New()
 	admin.Remove("cat-file")
 	admin.Remove("make-assets")
-	if !admin.Perform(a) {
+	if !admin.Execute(a) {
 		flag.Usage()
 	}
 }

@@ -201,6 +201,7 @@ func mysqlOpener(url *config.URL) (driver.Driver, error) {
 	url.Query["sql_mode"] = "ANSI"
 	url.Query["parseTime"] = "true"
 	url.Query["loc"] = "UTC"
+	url.Query["clientFoundRows"] = "true"
 	return sql.NewDriver(mysqlBackend, url)
 }
 

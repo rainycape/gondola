@@ -47,9 +47,7 @@ type Context struct {
 	hasTranslations bool
 	background      bool
 	wg              *sync.WaitGroup
-	// Left to users, to store data in their custom
-	// context types.
-	Data interface{}
+	values          map[string]interface{}
 }
 
 func (c *Context) reset() {
@@ -63,7 +61,7 @@ func (c *Context) reset() {
 	c.user = nil
 	c.translations = nil
 	c.hasTranslations = false
-	c.Data = nil
+	c.values = nil
 }
 
 // Count returns the number of elements captured
@@ -543,6 +541,25 @@ func (c *Context) Wait() {
 	if c.wg != nil {
 		c.wg.Wait()
 	}
+}
+
+// Get returns the value for the given key, previously stored
+// with Set.
+func (c *Context) Get(key string) interface{} {
+	return c.values[key]
+}
+
+// Set stores an arbitraty value associated with the given
+// key.
+//
+// Note that any keys used internally by Gondola will
+// have the __gondola prefix, so users should not use keys
+// starting with that string.
+func (c *Context) Set(key string, value interface{}) {
+	if c.values == nil {
+		c.values = make(map[string]interface{})
+	}
+	c.values[key] = value
 }
 
 // Intercept http.ResponseWriter calls to find response

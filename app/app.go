@@ -1313,8 +1313,12 @@ func (app *App) Get(key string) interface{} {
 }
 
 // Set stores an arbitraty value associated with the given
-// key. THis is mainly used for reusable apps which require
+// key. This is mainly used for reusable apps which require
 // storing some global state related to the app.
+//
+// Note that any keys used internally by Gondola will
+// have the __gondola prefix, so users should not use keys
+// starting with that string.
 func (app *App) Set(key string, value interface{}) {
 	if app.values == nil {
 		app.values = make(map[string]interface{})

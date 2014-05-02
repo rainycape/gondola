@@ -23,25 +23,25 @@ func (r *roundTripper) SetProxy(proxy Proxy) {
 func newRoundTripper(ctx Context, tr *transport) http.RoundTripper {
 	return &roundTripper{http.Transport{
 		Dial: func(network, addr string) (net.Conn, error) {
-			deadline := tr.deadline
-			if deadline == 0 {
+			timeout := tr.timeout
+			if timeout == 0 {
 				return net.Dial(network, addr)
 			}
 			start := time.Now()
-			conn, err := net.DialTimeout(network, addr, deadline)
+			conn, err := net.DialTimeout(network, addr, timeout)
 			if err != nil {
 				return nil, err
 			}
-			conn.SetDeadline(start.Add(deadline))
+			conn.SetDeadline(start.Add(timeout))
 			return conn, nil
 		},
 	}}
 }
 
-func (t *transport) Deadline() time.Duration {
-	return t.deadline
+func (t *transport) Timeout() time.Duration {
+	return t.timeout
 }
 
-func (t *transport) SetDeadline(deadline time.Duration) {
-	t.deadline = deadline
+func (t *transport) SetTimeout(timeout time.Duration) {
+	t.timeout = timeout
 }

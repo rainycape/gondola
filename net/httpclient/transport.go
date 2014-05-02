@@ -9,15 +9,15 @@ import (
 // Transport is the interface used as a transport by *Client.
 type Transport interface {
 	http.RoundTripper
-	// Deadline returns the Deadline for this transport.
-	// The deadline represents the maximum total time for
+	// Timeout returns the timeout for this transport.
+	// The timeout represents the maximum total time for
 	// the request, including DNS resolution, connection
 	// establishment and the time spent reading the response
 	// body.
-	Deadline() time.Duration
-	// SetDeadline sets the Transport deadline. Setting it
+	Timeout() time.Duration
+	// SetTimeout sets the Transport's timeout. Setting it
 	// to 0 disables timeouts.
-	SetDeadline(time.Duration)
+	SetTimeout(time.Duration)
 	// UserAgent returns the default user agent sent by requests
 	// without an User-Agent header set.
 	UserAgent() string
@@ -59,7 +59,7 @@ func newTransport(ctx Context) *transport {
 
 type transport struct {
 	userAgent string
-	deadline  time.Duration
+	timeout   time.Duration
 	transport http.RoundTripper
 }
 

@@ -40,15 +40,15 @@ func newRoundTripper(ctx Context, tr *transport) http.RoundTripper {
 	return &urlfetch.Transport{Context: c}
 }
 
-func (t *transport) Deadline() time.Duration {
+func (t *transport) Timeout() time.Duration {
 	if tr, ok := t.transport.(*urlfetch.Transport); ok {
 		return tr.Deadline
 	}
 	return 0
 }
 
-func (t *transport) SetDeadline(deadline time.Duration) {
+func (t *transport) SetTimeout(timeout time.Duration) {
 	if tr, ok := t.transport.(*urlfetch.Transport); ok {
-		tr.Deadline = deadline
+		tr.Deadline = timeout
 	}
 }

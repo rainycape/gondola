@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	// DefaultDeadline is the default deadline for Transport instances.
-	DefaultDeadline = 60 * time.Second
+	// DefaultTimeout is the default timeout for Transport instances.
+	DefaultTimeout = 30 * time.Second
 	// DefaultUserAgent is the default user agent for Transport instances.
 	DefaultUserAgent = "Mozilla/5.0 (compatible; Gondola/1.0; +http://www.gondolaweb.com)"
 )
@@ -38,7 +38,7 @@ func New(ctx Context) *Client {
 		c:         &http.Client{Transport: tr},
 	}
 	client.SetUserAgent(DefaultUserAgent)
-	client.SetDeadline(DefaultDeadline)
+	client.SetTimeout(DefaultTimeout)
 	return client
 }
 
@@ -69,20 +69,19 @@ func (c *Client) SetUserAgent(ua string) *Client {
 	return c
 }
 
-// Deadline returns the Deadline for this transport.
-// The deadline represents the maximum total time for
+// Timeout returns the timeout for this transport.
+// The timeout represents the maximum total time for
 // the request, including DNS resolution, connection
 // establishment and the time spent reading the response
-// body. Client initializes this value to DefaultDeadline.
-// See SetDeadline for further details.
-func (c *Client) Deadline() time.Duration {
-	return c.transport.Deadline()
+// body. Client initializes this value to DefaultTimeout.
+func (c *Client) Timeout() time.Duration {
+	return c.transport.Timeout()
 }
 
-// SetDeadline sets the deadline for requests sent by this client.
+// SetTimeout sets the timeout for requests sent by this client.
 // Setting it to 0 disables timeouts.
-func (c *Client) SetDeadline(deadline time.Duration) *Client {
-	c.transport.SetDeadline(deadline)
+func (c *Client) SetTimeout(timeout time.Duration) *Client {
+	c.transport.SetTimeout(timeout)
 	return c
 }
 

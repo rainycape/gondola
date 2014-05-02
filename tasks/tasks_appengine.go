@@ -42,7 +42,7 @@ func gondolaRunTasksHandler(ctx *app.Context) {
 }
 
 func init() {
-	signal.Register(app.WILL_PREPARE, func(_ string, obj interface{}) {
+	signal.Listen(app.WILL_PREPARE, func(_ string, obj interface{}) {
 		a := obj.(*app.App)
 		a.Handle("/gondola-run-tasks", gondolaRunTasksHandler)
 	})

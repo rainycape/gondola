@@ -17,29 +17,29 @@ type Token struct {
 	val *reflect.Value
 }
 
-// Register adds a new listener for the given signal name. The
+// Listen adds a new listener for the given signal name. The
 // second argument must be a function which accepts either:
 //
 // - no paremeters
 // - 1 parameter, which must be of type string
 // - 2 parameters, the first one must be string and the second one, interface{}
 //
-// If the function does not match the required constraints, Register
+// If the function does not match the required constraints, Listen
 // will panic.
 //
 // The function will be called whenever the signal is emitted. The
 // returned value is the token, which is required to unregister this
 // listener. If you don't need to unregister it, you can safely ignore
 // the first returned value.
-func Register(name string, f interface{}) *Token {
-	tok, err := register(name, f)
+func Listen(name string, f interface{}) *Token {
+	tok, err := listen(name, f)
 	if err != nil {
 		panic(err)
 	}
 	return tok
 }
 
-func register(name string, f interface{}) (*Token, error) {
+func listen(name string, f interface{}) (*Token, error) {
 	if name == "" {
 		return nil, errors.New("signal name can't be empty")
 	}
@@ -51,12 +51,12 @@ func register(name string, f interface{}) (*Token, error) {
 	return &Token{&val}, nil
 }
 
-// Unregister removes a listener, previously registered using Register. The
+// Stop removes a listener, previously registered using Listen. The
 // first argument indicates the signal name. If it's empty, the listener will
 // be removed for all the signal. The second argument is the token returned by
-// Register(). If it's empty, all the listeners for the given signals will be
+// Listen(). If it's empty, all the listeners for the given signals will be
 // removed.
-func Unregister(name string, t *Token) {
+func Stop(name string, t *Token) {
 	if name == "" {
 		for k := range signals {
 			removeToken(signals, k, t)

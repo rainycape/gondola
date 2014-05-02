@@ -313,5 +313,5 @@ func init() {
 	MustRegister(help, &Options{
 		Help: "Show available commands with their respective help.",
 	})
-	signal.Register(app.WILL_PREPARE, perform)
+	signal.Listen(app.WILL_PREPARE, perform)
 }

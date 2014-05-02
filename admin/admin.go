@@ -274,8 +274,7 @@ func commandsHelp(w io.Writer) {
 	var cmds []string
 	maxLen := 0
 	for k, _ := range commands {
-		if k[0] == '_' {
-			// Hidden command
+		if commandIsHidden(k) {
 			continue
 		}
 		if l := len(k); l > maxLen {
@@ -307,6 +306,10 @@ func help(ctx *app.Context) {
 		fmt.Fprintf(os.Stderr, "Administrative commands:\n")
 		commandsHelp(os.Stderr)
 	}
+}
+
+func commandIsHidden(name string) bool {
+	return name == "" || name[0] == '_'
 }
 
 func init() {

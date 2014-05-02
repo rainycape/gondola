@@ -18,9 +18,10 @@ func init() {
 		sort.Strings(cmds)
 		fmt.Fprintf(os.Stderr, "\nAvailable administrative commands:\n")
 		for _, v := range cmds {
-			if v != "help" {
-				fmt.Fprintf(os.Stderr, "  %s\n", v)
+			if v == "help" || commandIsHidden(v) {
+				continue
 			}
+			fmt.Fprintf(os.Stderr, "  %s\n", v)
 		}
 		fmt.Fprintf(os.Stderr, "\nType %s help for details.\n", os.Args[0])
 	}

@@ -10,6 +10,7 @@ import (
 	"gnd.la/orm/index"
 	"gnd.la/util/generic"
 	"gnd.la/util/structs"
+	"gnd.la/util/types"
 )
 
 // Backend is the interface implemented by drivers
@@ -300,6 +301,10 @@ func (b *SqlBackend) Transforms() []reflect.Type {
 // own Scan* methods as required.
 
 func (b *SqlBackend) ScanInt(val int64, goVal *reflect.Value, t *structs.Tag) error {
+	if types.Kind(goVal.Kind()) == types.Uint {
+		goVal.SetUint(uint64(val))
+		return nil
+	}
 	goVal.SetInt(val)
 	return nil
 }

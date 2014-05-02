@@ -2,6 +2,7 @@ package httpclient
 
 import (
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -32,6 +33,16 @@ type Transport interface {
 	// http.RoundTripper which adds some functionality while providing
 	// composition with another http.RoundTripper.
 	SetUnderlying(http.RoundTripper)
+}
+
+// Proxy is a function type which returns the proxy URL for the given
+// request.
+type Proxy func(*http.Request) (*url.URL, error)
+
+type proxyRoundTripper interface {
+	http.RoundTripper
+	Proxy() Proxy
+	SetProxy(proxy Proxy)
 }
 
 // NewTransport returns a new Transport for the given Context.

@@ -47,10 +47,14 @@ func (c *Client) Clone(ctx Context) *Client {
 		return New(ctx)
 	}
 	tr := c.transport.clone(ctx)
-	return &Client{
+	cp := &Client{
 		transport: tr,
 		c:         &http.Client{Transport: tr},
 	}
+	if proxy := c.Proxy(); proxy != nil {
+		cp.SetProxy(proxy)
+	}
+	return cp
 }
 
 // UserAgent returns the default user agent sent by requests
@@ -141,6 +145,34 @@ func (c *Client) Do(req *http.Request) (*Response, error) {
 // It's basically a shorthand for c.Transport().RoundTrip(req).
 func (c *Client) Trip(req *http.Request) (*Response, error) {
 	return makeResponse(c.transport.RoundTrip(req))
+}
+
+// Proxy returns the Proxy function for this client, if any. Note that
+// if SupportsProxy() returns false, this function will always return
+// nil.
+func (c *Client) Proxy() Proxy {
+	if pr, ok := c.transport.Underlying().(proxyRoundTripper); ok {
+		return pr.Proxy()
+	}
+	return nil
+}
+
+// SetProxy sets the Proxy function for this client. Setting it to nil
+// disables any previously set proxy function. Note that if SupportsProxy()
+// returns false, this function is a no-op.
+func (c *Client) SetProxy(proxy Proxy) *Client {
+	if pr, ok := c.transport.Underlying().(proxyRoundTripper); ok {
+		pr.SetProxy(proxy)
+	}
+	return c
+}
+
+// SupportsProxy returns if the current runtime environement supports
+// setting a proxy. Currently, this is false on App Engine and true
+// otherwise.
+func (c *Client) SupportsProxy() bool {
+	_, ok := c.transport.Underlying().(proxyRoundTripper)
+	return ok
 }
 
 // Iter returns an iterator for the given *http.Request. See Iter for

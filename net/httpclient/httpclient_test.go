@@ -8,12 +8,17 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"gnd.la/net/httpclient"
 	"gnd.la/util/urlutil"
+
+	"github.com/elazarl/goproxy"
 )
 
-const httpBin = "http://httpbin.org"
+const (
+	httpBin = "http://httpbin.org"
+)
 
 func testUserAgent(t *testing.T, c *httpclient.Client, exp string) {
 	ep := urlutil.MustJoin(httpBin, "/user-agent")
@@ -150,5 +155,31 @@ func TestRedirect(t *testing.T) {
 			}
 			break
 		}
+	}
+}
+
+func TestProxy(t *testing.T) {
+	c := httpclient.New(nil)
+	if !c.SupportsProxy() {
+		t.Skipf("current run environment does not support support proxies")
+	}
+	const addr = "127.0.0.1:12345"
+	proxy := goproxy.NewProxyHttpServer()
+	count := 0
+	proxy.OnRequest().DoFunc(
+		func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+			count++
+			return r, nil
+		})
+	go func() {
+		http.ListenAndServe(addr, proxy)
+	}()
+	time.Sleep(time.Millisecond)
+	c.SetProxy(func(_ *http.Request) (*url.URL, error) {
+		return url.Parse("http://" + addr)
+	})
+	testUserAgent(t, c, httpclient.DefaultUserAgent)
+	if count != 1 {
+		t.Errorf("expecting 1 proxy request, got %d instead", count)
 	}
 }

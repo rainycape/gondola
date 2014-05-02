@@ -8,8 +8,20 @@ import (
 	"time"
 )
 
+type roundTripper struct {
+	http.Transport
+}
+
+func (r *roundTripper) Proxy() Proxy {
+	return r.Transport.Proxy
+}
+
+func (r *roundTripper) SetProxy(proxy Proxy) {
+	r.Transport.Proxy = proxy
+}
+
 func newRoundTripper(ctx Context, tr *transport) http.RoundTripper {
-	return &http.Transport{
+	return &roundTripper{http.Transport{
 		Dial: func(network, addr string) (net.Conn, error) {
 			deadline := tr.deadline
 			if deadline == 0 {
@@ -23,7 +35,7 @@ func newRoundTripper(ctx Context, tr *transport) http.RoundTripper {
 			conn.SetDeadline(start.Add(deadline))
 			return conn, nil
 		},
-	}
+	}}
 }
 
 func (t *transport) Deadline() time.Duration {

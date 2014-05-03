@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"gnd.la/util/urlutil"
+	"gnd.la/net/urlutil"
 )
 
 // Iter allows iterating over a chain of redirects until

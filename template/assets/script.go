@@ -3,8 +3,8 @@ package assets
 import (
 	"fmt"
 	"gnd.la/log"
+	"gnd.la/net/urlutil"
 	"gnd.la/util/hashutil"
-	"gnd.la/util/urlutil"
 	"io"
 	"net/http"
 	"net/url"

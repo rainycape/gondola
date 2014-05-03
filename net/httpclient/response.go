@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"gnd.la/util/urlutil"
+	"gnd.la/net/urlutil"
 )
 
 // Response is a thin wrapper around *http.Response,

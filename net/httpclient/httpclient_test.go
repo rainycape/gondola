@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"gnd.la/net/httpclient"
-	"gnd.la/util/urlutil"
+	"gnd.la/net/urlutil"
 
 	"github.com/elazarl/goproxy"
 )

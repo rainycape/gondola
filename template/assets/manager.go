@@ -2,8 +2,8 @@ package assets
 
 import (
 	"gnd.la/loaders"
+	"gnd.la/net/urlutil"
 	"gnd.la/util/hashutil"
-	"gnd.la/util/urlutil"
 	"io"
 	"io/ioutil"
 	"net/url"

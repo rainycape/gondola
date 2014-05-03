@@ -73,6 +73,16 @@ func flagParameterName(name string) string {
 	return stringutil.CamelCaseToLower(name, "-")
 }
 
+func hasProvidedConfig() bool {
+	var ret bool
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "config" {
+			ret = true
+		}
+	})
+	return ret
+}
+
 func parseValue(v reflect.Value, raw string) error {
 	switch v.Type().Kind() {
 	case reflect.Bool:
@@ -432,7 +442,9 @@ func Parse(config interface{}) error {
 	/* Read config file first */
 	if fn := Filename(); fn != "" {
 		if err := parseFile(fn, fields); err != nil {
-			return err
+			if hasProvidedConfig() || !os.IsNotExist(err) {
+				return err
+			}
 		}
 	}
 	/* Command line overrides config file */

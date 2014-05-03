@@ -43,6 +43,9 @@ const (
 	// WILL_LISTEN is emitted just before a *gnd.la/app.App will
 	// start listening. The object is the App.
 	WILL_LISTEN = "gnd.la/app.will-listen"
+	// DID_LISTEN is emitted after a *gnd.la/app.App starts
+	// listening. The object is the App.
+	DID_LISTEN = "gnd.la/app.did-listen"
 	// WILL_PREPARE is emitted at the beginning of App.Prepare.
 	// The object is the App.
 	WILL_PREPARE = "gnd.la/app.will-prepare"
@@ -833,7 +836,14 @@ func (app *App) ListenAndServe() error {
 			app.Logger.Infof("Listening on port %d", app.Port)
 		}
 	}
-	return http.ListenAndServe(app.address+":"+strconv.Itoa(app.Port), app)
+	var err error
+	time.AfterFunc(500*time.Millisecond, func() {
+		if err == nil {
+			signal.Emit(DID_LISTEN, app)
+		}
+	})
+	err = http.ListenAndServe(app.address+":"+strconv.Itoa(app.Port), app)
+	return err
 }
 
 // MustListenAndServe works like ListenAndServe, but panics if

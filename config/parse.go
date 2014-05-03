@@ -295,7 +295,18 @@ func copyFlagValues(fields fieldMap, values varMap) error {
 			value := *(values[name].(*string))
 			val.SetString(value)
 		default:
-			return fmt.Errorf("invalid type in config %q (field %q)", val.Type().Name(), k)
+			if parser, ok := val.Interface().(input.Parser); ok {
+				if val.Kind() == reflect.Ptr && !val.Elem().IsValid() {
+					val.Set(reflect.New(val.Type().Elem()))
+					parser = val.Interface().(input.Parser)
+				}
+				value := *(values[name].(*string))
+				if err := parser.Parse(value); err != nil {
+					return err
+				}
+				break
+			}
+			return fmt.Errorf("invalid type in config %s (field %q)", val.Type(), k)
 		}
 	}
 	return nil

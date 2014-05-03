@@ -1346,6 +1346,20 @@ func (app *App) Clone() *App {
 // to call it to set the App up without making it listen on
 // a port.
 func (app *App) Prepare() error {
+	// Initialize the ORM first, so admin commands
+	// run with the ORM ready to be used.
+	// Use defaultDatabase directly, since when running
+	// on GAE with the datastore, app.Orm will return an
+	// error.
+	var err error
+	if defaultDatabase != nil {
+		if o, _ := orm.New(defaultDatabase); o != nil {
+			err = o.Initialize()
+		}
+	}
+	if err != nil {
+		return err
+	}
 	signal.Emit(WILL_PREPARE, app)
 	if app.Secret != "" && len(app.Secret) < 32 && os.Getenv("GONDOLA_ALLOW_SHORT_SECRET") == "" {
 		if os.Getenv("GONDOLA_IS_DEV_SERVER") != "" {
@@ -1368,10 +1382,6 @@ func (app *App) Prepare() error {
 		child.languageHandler = app.languageHandler
 		child.userFunc = app.userFunc
 		child.Logger = app.Logger
-	}
-	var err error
-	if o, _ := app.Orm(); o != nil {
-		err = o.Initialize()
 	}
 	if err == nil {
 		signal.Emit(DID_PREPARE, app)

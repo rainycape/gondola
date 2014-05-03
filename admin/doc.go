@@ -35,7 +35,7 @@
 //	if !admin.Perform(a) {
 //	    // No admin command supplied. Set up your handlers and
 //	    // start listening.
-//	    something := anExpensiveCalculationWhichTakesForever()
+//	    something := anExpensiveCalculationWhichTakesALotOfTime()
 //	    a.Handle("^/hello/$", HelloHandler)
 //	    a.MustListenAndServe(-1)
 //	}

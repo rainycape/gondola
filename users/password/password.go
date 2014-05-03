@@ -28,10 +28,6 @@ var (
 	// ErrInvalidHex means the encoded password value is not properly
 	// encoded as hexadecimal.
 	ErrInvalidHex = errors.New("hashed password is not properly encoded")
-	// Rounds is the number of PBKDF2 rounds used when creating a new password.
-	// Altering this number won't break already generated and stored passwords,
-	// since they store the number of rounds they were created with.
-	Rounds = 4096
 )
 
 const (
@@ -39,6 +35,10 @@ const (
 	// or verify a password longer than this will cause an error. This
 	// is a measure against DoS attacks.
 	MaxPasswordLength = 8192
+	// DefaultRounds is the number of PBKDF2 rounds used when creating a new password.
+	// Altering this number won't break already generated and stored passwords,
+	// since they store the number of rounds they were created with.
+	DefaultRounds = 4096
 )
 
 // Password represents an encoded password, which can be stored
@@ -144,20 +144,46 @@ func (p Password) Matches(plain string) bool {
 	return p.Check(plain) == nil
 }
 
-// New returns a new Password hashed using the default hash
-// (at this time, sha256).
+// New returns a new Password hashed using DefaultHash with
+// DefaultRounds. Most users would want to use this function
+// to create a Password from a plaintext string. For advanced
+// uses, see NewOptions.
 func New(plain string) Password {
-	return NewHashed(plain, DEFAULT_HASH)
+	return NewOptions(plain, nil)
 }
 
-// NewHashed returns a password hashed with the given hash. If
-// the hash is not available or not valid, it will panic.
-func NewHashed(plain string, hash Hash) Password {
+// Options specify the Password options when creating one
+// from its plaintext.
+type Options struct {
+	// The Hash to use for hashing the Password. If this
+	// field is zero, DefaultHash is used.
+	Hash Hash
+	// Rounds is the number of PBKDF2 iterations used
+	// for the password. If this field is <= 0, DefaultRounds
+	// is used instead.
+	Rounds int
+}
+
+// NewOptions returns a password hashed with the given hash
+// and rounds. If the hash is not available or not valid,
+// it will panic. If Hash or Rounds are not provided,
+// DefaultHash and DefaultRounds, respectivelly, are used.
+func NewOptions(plain string, opts *Options) Password {
 	if len(plain) > MaxPasswordLength {
 		return Password("")
+	}
+	hash := DefaultHash
+	rounds := DefaultRounds
+	if opts != nil {
+		if opts.Hash != Hash(0) {
+			hash = opts.Hash
+		}
+		if opts.Rounds > 0 {
+			rounds = opts.Rounds
+		}
 	}
 	// Use the same number of bits for the salt and the hash, since
 	// it provides the maximum possible security.
 	salt := stringutil.Random(hash.Size())
-	return Password(fmt.Sprintf("%s:%d:%s:%s", hash.Name(), Rounds, salt, hash.Hash(salt, plain, Rounds)))
+	return Password(fmt.Sprintf("%s:%d:%s:%s", hash.Name(), rounds, salt, hash.Hash(salt, plain, rounds)))
 }

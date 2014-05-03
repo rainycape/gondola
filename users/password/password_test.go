@@ -7,7 +7,7 @@ import (
 func TestPassword(t *testing.T) {
 	pw := "gondola"
 	for _, v := range []Hash{SHA1, SHA224, SHA256, SHA384, SHA512} {
-		p := NewHashed(pw, v)
+		p := NewOptions(pw, &Options{Hash: v})
 		t.Logf("Password %q was encoded using %s as %q", pw, v.Name(), p.String())
 		if err := p.Check(pw); err != nil {
 			t.Errorf("Error verifying password %q using %s: %s", pw, v.Name(), err)

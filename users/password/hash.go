@@ -25,8 +25,8 @@ const (
 	SHA384 = Hash(crypto.SHA384)
 	// SHA512 hash - 512 bits
 	SHA512 = Hash(crypto.SHA512)
-	// DEFAULT_HASH is the hash used by default, currently SHA256.
-	DEFAULT_HASH = SHA256
+	// DefaultHash is the hash used by default, currently SHA256.
+	DefaultHash = SHA256
 )
 
 // Name returns the name of the hash.

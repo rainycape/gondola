@@ -15,11 +15,17 @@ import (
 type Hash uint
 
 const (
-	SHA1         = Hash(crypto.SHA1)
-	SHA224       = Hash(crypto.SHA224)
-	SHA256       = Hash(crypto.SHA256)
-	SHA384       = Hash(crypto.SHA384)
-	SHA512       = Hash(crypto.SHA512)
+	// SHA1 hash - 160 bits
+	SHA1 = Hash(crypto.SHA1)
+	// SHA224 hash - 224 bits
+	SHA224 = Hash(crypto.SHA224)
+	// SHA256 hash - 256 bits
+	SHA256 = Hash(crypto.SHA256)
+	// SHA384 hash - 384 bits
+	SHA384 = Hash(crypto.SHA384)
+	// SHA512 hash - 512 bits
+	SHA512 = Hash(crypto.SHA512)
+	// DEFAULT_HASH is the hash used by default, currently SHA256.
 	DEFAULT_HASH = SHA256
 )
 
@@ -50,10 +56,16 @@ func (h Hash) Size() int {
 	return crypto.Hash(h).Size()
 }
 
+// Hash returns the result of hashing the given salt and plaintext with
+// the given number of rounds. The result is the hash as a []byte. See also
+// Hash.Hash.
 func (h Hash) RawHash(salt string, plain string, rounds int) []byte {
 	return pbkdf2.Key([]byte(plain), []byte(salt), rounds, h.Size(), h.New)
 }
 
+// Hash returns the result of hashing the given salt and plaintext with
+// the given number of rounds. The result is a hex encoded string. See also
+// Hash.RawHash.
 func (h Hash) Hash(salt string, plain string, rounds int) string {
 	raw := h.RawHash(salt, plain, rounds)
 	return hex.EncodeToString(raw)

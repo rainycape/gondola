@@ -11,15 +11,33 @@ import (
 )
 
 var (
-	ErrNoMatch             = errors.New("password does not match")
-	ErrInvalidFieldCount   = errors.New("encoded password does not have 4 fields")
-	ErrInvalidRoundCount   = errors.New("invalid number of rounds")
-	ErrInvalidSaltLength   = errors.New("salt does not have the same length as the hash output")
+	// ErrNoMatch means the password provided in Check() does not match the stored one.
+	ErrNoMatch = errors.New("password does not match")
+	// ErrInvalidFieldCount means the password does not have the required
+	// number of fields.
+	ErrInvalidFieldCount = errors.New("encoded password does not have 4 fields")
+	// ErrInvalidRoundCount means the number of rounds stored in the password
+	// is not a positive integer.
+	ErrInvalidRoundCount = errors.New("invalid number of rounds")
+	// ErrInvalidSaltLength means the salt stored with the password does
+	// not match the password's hash key size.
+	ErrInvalidSaltLength = errors.New("salt does not have the same length as the hash output")
+	// ErrInvalidHashedLength the hash output stored in the password does
+	// no match the password's hash output size.
 	ErrInvalidHashedLength = errors.New("hashed password does not have the same length as the hash output")
-	ErrInvalidHex          = errors.New("hashed password is not properly encoded")
-	// Number of PBKDF2 rounds
-	Rounds int = 4096
-	// Trying to create or verify a password longer than this will cause an error
+	// ErrInvalidHex means the encoded password value is not properly
+	// encoded as hexadecimal.
+	ErrInvalidHex = errors.New("hashed password is not properly encoded")
+	// Rounds is the number of PBKDF2 rounds used when creating a new password.
+	// Altering this number won't break already generated and stored passwords,
+	// since they store the number of rounds they were created with.
+	Rounds = 4096
+)
+
+const (
+	// MaxPasswordLength is the maximum password length. Trying to create
+	// or verify a password longer than this will cause an error. This
+	// is a measure against DoS attacks.
 	MaxPasswordLength = 8192
 )
 

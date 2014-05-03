@@ -3,7 +3,7 @@ package driver
 import (
 	"encoding/binary"
 	"gnd.la/config"
-	"gnd.la/util/hashutil"
+	"gnd.la/crypto/hashutil"
 	"gnd.la/util/pathutil"
 	"io/ioutil"
 	"os"

@@ -2,7 +2,7 @@ package layer
 
 import (
 	"gnd.la/app"
-	"gnd.la/util/hashutil"
+	"gnd.la/crypto/hashutil"
 	"net/http"
 )
 

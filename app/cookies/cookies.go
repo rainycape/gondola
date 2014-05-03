@@ -11,9 +11,9 @@ package cookies
 
 import (
 	"errors"
+	"gnd.la/crypto/cryptoutil"
 	"gnd.la/encoding/base64"
 	"gnd.la/encoding/codec"
-	"gnd.la/util/cryptoutil"
 	"net/http"
 	"time"
 )

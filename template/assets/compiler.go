@@ -3,8 +3,8 @@ package assets
 import (
 	"bytes"
 	"fmt"
+	"gnd.la/crypto/hashutil"
 	"gnd.la/log"
-	"gnd.la/util/hashutil"
 	"io"
 	"path"
 	"strings"

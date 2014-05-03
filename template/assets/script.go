@@ -2,9 +2,9 @@ package assets
 
 import (
 	"fmt"
+	"gnd.la/crypto/hashutil"
 	"gnd.la/log"
 	"gnd.la/net/urlutil"
-	"gnd.la/util/hashutil"
 	"io"
 	"net/http"
 	"net/url"

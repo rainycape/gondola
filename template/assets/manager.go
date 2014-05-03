@@ -1,9 +1,9 @@
 package assets
 
 import (
+	"gnd.la/crypto/hashutil"
 	"gnd.la/loaders"
 	"gnd.la/net/urlutil"
-	"gnd.la/util/hashutil"
 	"io"
 	"io/ioutil"
 	"net/url"

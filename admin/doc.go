@@ -19,7 +19,7 @@
 // page for information on each field or, alternatively, check the
 // example down this page.
 //
-// If you're using gnd.la/app.App.ListenAndServe or gnd.la/tasks.Schedule,
+// If you're using gnd.la/app.App.ListenAndServe or gnd.la/app.App.MustListenAndServe,
 // then you don't need to do anything else, since those functions will check if
 // an administrative command was provided, perform it and exit.
 // Alternatively, you can also call admin.Perform with a gnd.la/app.App

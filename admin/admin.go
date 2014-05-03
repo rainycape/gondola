@@ -314,5 +314,4 @@ func init() {
 		Help: "Show available commands with their respective help.",
 	})
 	signal.Register(app.WILL_PREPARE, perform)
-	signal.Register(tasks.WILL_SCHEDULE, perform)
 }

@@ -6,19 +6,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"reflect"
+	"sync"
+	"time"
+
 	"gnd.la/app"
 	"gnd.la/internal/runtimeutil"
 	"gnd.la/log"
 	"gnd.la/signal"
-	"reflect"
-	"sync"
-	"time"
-)
-
-const (
-	// WILL_SCHEDULE is emitted just before scheduling a task.
-	// The object is a *gnd.la/tasks.Task
-	WILL_SCHEDULE = "gnd.la/tasks.will-schedule"
 )
 
 var running struct {
@@ -31,6 +26,11 @@ var registered struct {
 	tasks map[string]*Task
 }
 
+var onListenTasks struct {
+	sync.RWMutex
+	tasks []*Task
+}
+
 // Task represent a scheduled task.
 type Task struct {
 	App      *app.App
@@ -38,21 +38,27 @@ type Task struct {
 	Interval time.Duration
 	Options  *Options
 	ticker   *time.Ticker
+	stop     chan struct{}
+	stopped  chan struct{}
 }
 
 // Stop de-schedules the task. After stopping the task, it
 // won't be started again but if it's currently running, it will
 // be completed.
 func (t *Task) Stop() {
-	if t.ticker != nil {
-		t.ticker.Stop()
-		t.ticker = nil
+	if t.stop != nil {
+		t.stop <- struct{}{}
+		<-t.stopped
+		close(t.stopped)
+		t.stopped = nil
 	}
 }
 
 func (t *Task) Resume(now bool) {
 	t.Stop()
 	t.ticker = time.NewTicker(t.Interval)
+	t.stop = make(chan struct{}, 1)
+	t.stopped = make(chan struct{}, 1)
 	go t.execute(now)
 }
 
@@ -81,13 +87,24 @@ func (t *Task) execute(now bool) {
 	if now {
 		t.executeTask()
 	}
-	for _ = range t.ticker.C {
-		t.executeTask()
+	for {
+		c := t.ticker.C
+		select {
+		case <-c:
+			t.executeTask()
+		case <-t.stop:
+			close(t.stop)
+			t.stop = nil
+			t.ticker.Stop()
+			t.ticker = nil
+			t.stopped <- struct{}{}
+			return
+		}
 	}
 }
 
 func (t *Task) executeTask() {
-	if _, err := executeTask(t); err != nil {
+	if err := startTask(t); err != nil {
 		log.Error(err)
 	}
 }
@@ -156,12 +173,10 @@ func canRunTask(task *Task) error {
 	return nil
 }
 
-func executeTask(task *Task) (ran bool, err error) {
+func executeTask(ctx *app.Context, task *Task) (ran bool, err error) {
 	if err = canRunTask(task); err != nil {
 		return
 	}
-	ctx := task.App.NewContext(contextProvider(0))
-	defer task.App.CloseContext(ctx)
 	started := time.Now()
 	log.Debugf("Starting task %s at %v", task.Name(), started)
 	ran = true
@@ -191,15 +206,22 @@ func Register(m *app.App, task app.Handler, opts *Options) *Task {
 
 // Schedule registers and schedules a task to be run at the given
 // interval. If interval is 0, the task is only registered, but not
-// scheduled. The now argument indicates if the task should also run
-// right now (in a goroutine) rather than waiting until interval for
-// the first run. Schedule returns a Task instance, which might be
-// used to stop, resume or delete a it.
-func Schedule(m *app.App, task app.Handler, opts *Options, interval time.Duration, now bool) *Task {
+// scheduled. The onListen argument indicates if the task should also run
+// (in its own goroutine) as soon as the app starts listening rather than
+// waiting until interval for the first run. Note that on App Engine, the task
+// will be started when the first cron request comes in (these are usually scheduled
+// to run once a minute).
+//
+// Schedule returns a Task instance, which might be used to stop, resume or delete a it.
+func Schedule(m *app.App, task app.Handler, opts *Options, interval time.Duration, onListen bool) *Task {
 	t := Register(m, task, opts)
 	t.Interval = interval
-	signal.Emit(WILL_SCHEDULE, t)
-	go t.Resume(now)
+	go t.Resume(false)
+	if onListen {
+		onListenTasks.Lock()
+		onListenTasks.tasks = append(onListenTasks.tasks, t)
+		onListenTasks.Unlock()
+	}
 	return t
 }
 
@@ -209,20 +231,20 @@ func Schedule(m *app.App, task app.Handler, opts *Options, interval time.Duratio
 // with MaxInstances = 2 and there are already 2 instances running).
 // The first return argument indicates if the task was executed, while
 // the second includes any errors which happened while running the task.
-func Run(name string) (bool, error) {
+func Run(ctx *app.Context, name string) (bool, error) {
 	registered.RLock()
 	task := registered.tasks[name]
 	registered.RUnlock()
 	if task == nil {
 		return false, fmt.Errorf("there's no task registered with the name %q", name)
 	}
-	return executeTask(task)
+	return executeTask(ctx, task)
 }
 
 // RunHandler starts the given task identifier by it's handler. The same
 // restrictions in Run() apply to this function.
 // Return values are the same as Run().
-func RunHandler(handler app.Handler) (bool, error) {
+func RunHandler(ctx *app.Context, handler app.Handler) (bool, error) {
 	var task *Task
 	p := reflect.ValueOf(handler).Pointer()
 	registered.RLock()
@@ -236,13 +258,33 @@ func RunHandler(handler app.Handler) (bool, error) {
 	if task == nil {
 		return false, fmt.Errorf("there's no task registered with the handler %s", runtimeutil.FuncName(handler))
 	}
-	return executeTask(task)
+	return executeTask(ctx, task)
 }
 
 // Execute runs the given handler in a task context. If the handler fails
 // with a panic, it will be returned in the error return value.
-func Execute(a *app.App, handler app.Handler) error {
-	t := &Task{App: a, Handler: handler}
-	_, err := executeTask(t)
+func Execute(ctx *app.Context, handler app.Handler) error {
+	t := &Task{App: ctx.App(), Handler: handler}
+	_, err := executeTask(ctx, t)
 	return err
+}
+
+func init() {
+	// Admin commands are executed on WILL_PREPARE so we
+	// won't reach this point if there's an admin command
+	// provided in the cmdline.
+	signal.Register(app.DID_PREPARE, func(_ string, obj interface{}) {
+		a := obj.(*app.App)
+		onListenTasks.Lock()
+		var pending []*Task
+		for _, v := range onListenTasks.tasks {
+			if v.App == a {
+				startTask(v)
+			} else {
+				pending = append(pending, v)
+			}
+		}
+		onListenTasks.tasks = pending
+		onListenTasks.Unlock()
+	})
 }

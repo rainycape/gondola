@@ -9,7 +9,6 @@ import (
 	"gnd.la/form/input"
 	"gnd.la/i18n/table"
 	"gnd.la/net/urlutil"
-	"gnd.la/users"
 	"net"
 	"net/http"
 	"net/url"
@@ -42,7 +41,7 @@ type Context struct {
 	statusCode      int
 	started         time.Time
 	cookies         *cookies.Cookies
-	user            users.User
+	user            User
 	translations    *table.Table
 	hasTranslations bool
 	background      bool

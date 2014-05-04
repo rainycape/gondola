@@ -157,7 +157,12 @@ func (t *Table) SQL(db *DB, b Backend, m driver.Model, name string) (string, err
 	if name == "" {
 		name = m.Table()
 	}
-	sql := fmt.Sprintf("\nCREATE TABLE %s (\n\t%s\n)", db.QuoteIdentifier(name), strings.Join(lines, ",\n\t"))
+	// Use IF NOT EXISTS, since the DB user might not have
+	// the privileges to inspect the database but still
+	// be allowed to read and write from the tables (e.g.
+	// Postgres only allows superusers and the owner to
+	// inspect the database).
+	sql := fmt.Sprintf("\nCREATE TABLE IF NOT EXISTS %s (\n\t%s\n)", db.QuoteIdentifier(name), strings.Join(lines, ",\n\t"))
 	return sql, nil
 }
 

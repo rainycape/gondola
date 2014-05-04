@@ -6,6 +6,12 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"gnd.la/app/profile"
+)
+
+const (
+	profileName = "http"
 )
 
 var (
@@ -98,12 +104,18 @@ func (c *Client) Transport() Transport {
 // Get is a wrapper around http.Client.Get, returning a Response rather than an
 // http.Response. See http.Client.Get for further details.
 func (c *Client) Get(url string) (*Response, error) {
+	if profile.On && profile.Profiling() {
+		defer profile.Start(profileName).Note("GET", url).End()
+	}
 	return makeResponse(c.c.Get(url))
 }
 
 // Head is a wrapper around http.Client.Head, returning a Response rather than an
 // http.Response. See http.Client.Head for further details.
 func (c *Client) Head(url string) (*Response, error) {
+	if profile.On && profile.Profiling() {
+		defer profile.Start(profileName).Note("HEAD", url).End()
+	}
 	return makeResponse(c.c.Head(url))
 }
 
@@ -124,6 +136,9 @@ func (c *Client) GetForm(url string, data url.Values) (*Response, error) {
 // Post is a wrapper around http.Client.Post, returning a Response rather than an
 // http.Response. See http.Client.Post for further details.
 func (c *Client) Post(url string, bodyType string, body io.Reader) (*Response, error) {
+	if profile.On && profile.Profiling() {
+		defer profile.Start(profileName).Note("POST", url).End()
+	}
 	return makeResponse(c.c.Post(url, bodyType, body))
 }
 
@@ -136,6 +151,9 @@ func (c *Client) PostForm(url string, data url.Values) (*Response, error) {
 // Do is a wrapper around http.Client.Do, returning a Response rather than an
 // http.Response. See http.Client.Do for further details.
 func (c *Client) Do(req *http.Request) (*Response, error) {
+	if profile.On && profile.Profiling() {
+		defer profile.Start(profileName).Note(req.Method, req.URL.String()).End()
+	}
 	return makeResponse(c.c.Do(req))
 }
 
@@ -143,6 +161,9 @@ func (c *Client) Do(req *http.Request) (*Response, error) {
 // any redirects, and returns the first response, which might be a redirect.
 // It's basically a shorthand for c.Transport().RoundTrip(req).
 func (c *Client) Trip(req *http.Request) (*Response, error) {
+	if profile.On && profile.Profiling() {
+		defer profile.Start(profileName).Note("TRIP-"+req.Method, req.URL.String()).End()
+	}
 	return makeResponse(c.transport.RoundTrip(req))
 }
 

@@ -552,7 +552,7 @@ func (app *App) LoadTemplate(name string) (*Template, error) {
 	if tmpl == nil {
 		var err error
 		log.Debugf("Loading root template %s", name)
-		if profile.On {
+		if profile.On && profile.Profiling() {
 			defer profile.Startf("template-load", name).End()
 		}
 		tmpl, err = app.loadTemplate(app.templatesLoader, app.assetsManager, name)
@@ -1087,10 +1087,11 @@ func (app *App) errorPage(ctx *Context, elapsed time.Duration, skip int, stackSk
 // ServeHTTP is called from the net/http system. You shouldn't need
 // to call this function
 func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if profile.On {
+	ctx := app.newContext(w, r)
+	if profile.On && shouldProfile(ctx) {
+		profile.Begin()
 		defer profile.End()
 	}
-	ctx := app.newContext(w, r)
 	defer app.closeContext(ctx)
 	defer app.recover(ctx)
 	if app.runProcessors(ctx) {

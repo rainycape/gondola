@@ -569,14 +569,9 @@ func (c *Context) WriteHeader(code int) {
 		code = -c.statusCode
 	}
 	c.statusCode = code
-	if profile.On {
-		// do this before checking, to avoid
-		// counting the time for checking the
-		// header in the profiling data
+	if profile.On && profile.Profiling() {
 		header := profileHeader(c)
-		if shouldProfile(c) {
-			c.Header().Set(profile.HeaderName, header)
-		}
+		c.Header().Set(profile.HeaderName, header)
 	}
 	c.ResponseWriter.WriteHeader(code)
 }

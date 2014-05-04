@@ -119,7 +119,7 @@ func (q *Query) Exists() (bool, error) {
 	if err := q.ensureTable("Exists"); err != nil {
 		return false, err
 	}
-	if profile.On {
+	if profile.On && profile.Profiling() {
 		defer profile.Startf(orm, "exists").End()
 	}
 	return q.orm.driver.Exists(q.model, q.q)
@@ -190,7 +190,7 @@ func (q *Query) Count() (uint64, error) {
 	if err := q.ensureTable("Count"); err != nil {
 		return 0, err
 	}
-	if profile.On {
+	if profile.On && profile.Profiling() {
 		defer profile.Startf(orm, "count").End()
 	}
 	return q.orm.driver.Count(q.model, q.q, q.limit, q.offset)
@@ -227,7 +227,7 @@ func (q *Query) iter(limit int) *Iter {
 }
 
 func (q *Query) exec(limit int) driver.Iter {
-	if profile.On {
+	if profile.On && profile.Profiling() {
 		defer profile.Startf(orm, "query").End()
 	}
 	return q.orm.conn.Query(q.model, q.q, q.sort, limit, q.offset)

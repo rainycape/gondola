@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"compress/flate"
 	"encoding/json"
-	"gnd.la/app/profile"
-	"gnd.la/crypto/cryptoutil"
-	"gnd.la/encoding/base64"
 	"strconv"
 	"strings"
 	"time"
+
+	"gnd.la/app/profile"
+	"gnd.la/crypto/cryptoutil"
+	"gnd.la/encoding/base64"
 )
 
 type profileInfo struct {
@@ -32,10 +33,10 @@ func profileHeader(ctx *Context) string {
 }
 
 func shouldProfile(ctx *Context) bool {
+	if inDevServer {
+		return true
+	}
 	if req := ctx.R.Header.Get(profile.HeaderName); req != "" {
-		if inDevServer {
-			return true
-		}
 		if req == "true" {
 			ctx.Header().Add(profile.HeaderName, "auth")
 			return false

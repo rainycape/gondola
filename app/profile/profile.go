@@ -4,13 +4,17 @@ package profile
 
 import (
 	"fmt"
-	"gnd.la/log"
 	"sync"
 	"time"
+
+	"gnd.la/log"
 )
 
 const On = true
 
+// Ev represents an ongoing timed event.
+// Use Start or Startf to start a timed
+// event.
 type Ev struct {
 	name    string
 	started time.Time
@@ -19,14 +23,19 @@ type Ev struct {
 	notes   []string
 }
 
+// Note adds a note regarding this timed event (e.g. the
+// SQL query that was executed, the URL that was fetched, etc...).
 func (e *Ev) Note(format string, args ...interface{}) {
 	e.notes = append(e.notes, fmt.Sprintf(format, args...))
 }
 
+// End ends the timed event.
 func (e *Ev) End() {
 	e.ended = time.Now()
 }
 
+// AutoEnd causes the timed event to be ended when
+// the request is served.
 func (e *Ev) AutoEnd() {
 	e.autoend = true
 }
@@ -57,15 +66,47 @@ func currentEvent() *Ev {
 	return nil
 }
 
+// Begin enables profiling for the current goroutine.
+// This function is idempotent. Any goroutine which
+// calls Begin must also call End to avoid leaking
+// resources.
+func Begin() {
+	gid := goroutineId()
+	contexts.Lock()
+	if _, ok := contexts.data[gid]; !ok {
+		contexts.data[gid] = &context{}
+	}
+	contexts.Unlock()
+}
+
+// End removes any profiling data for this goroutine. It must
+// called before the goroutine ends for each goroutine which
+// called Begin().
+func End() {
+	contexts.Lock()
+	delete(contexts.data, goroutineId())
+	contexts.Unlock()
+}
+
+// Profiling returns wheter profiling has been enabled for
+// this goroutine.
+func Profiling() bool {
+	contexts.RLock()
+	_, ok := contexts.data[goroutineId()]
+	contexts.RUnlock()
+	return ok
+}
+
+// Start starts a timed event. Use Ev.End to terminate the
+// event or Ev.AutoEnd to finish it when the request finishes
+// processing. Note that if profiling is not enabled for the current
+// goroutine, this function does nothing and returns an empty event.
 func Start(name string) *Ev {
 	contexts.RLock()
 	ctx := contexts.data[goroutineId()]
 	contexts.RUnlock()
 	if ctx == nil {
-		ctx = &context{}
-		contexts.Lock()
-		contexts.data[goroutineId()] = ctx
-		contexts.Unlock()
+		return &Ev{}
 	}
 	ev := &Ev{name: name, started: time.Now()}
 	ctx.Lock()
@@ -74,16 +115,22 @@ func Start(name string) *Ev {
 	return ev
 }
 
+// Startf is a shorthand function for calling Start and then
+// Ev.Note on the resulting Ev.
 func Startf(name string, format string, args ...interface{}) *Ev {
 	e := Start(name)
 	e.Note(format, args...)
 	return e
 }
 
+// HasEvent returns true iff there's current an ongoing
+// timed event for the current goroutine.
 func HasEvent() bool {
 	return currentEvent() != nil
 }
 
+// Note adds a note to the current Ev, as started by Start
+// or Startf.
 func Note(format string, args ...interface{}) {
 	ev := currentEvent()
 	if ev == nil {
@@ -93,24 +140,29 @@ func Note(format string, args ...interface{}) {
 	}
 }
 
-func End() {
-	contexts.Lock()
-	delete(contexts.data, goroutineId())
-	contexts.Unlock()
-}
-
+// Profile is a shorthand function for calling Start(),
+// executing f and the calling Ev.End() on the resulting
+// Ev.
 func Profile(f func(), name string) {
 	ev := Start(name)
 	f()
 	ev.End()
 }
 
+// Profilef is a shorthand function for calling Startf(),
+// executing f and the calling Ev.End() on the resulting
+// Ev.
 func Profilef(f func(), name string, format string, args ...interface{}) {
 	ev := Startf(name, format, args...)
 	f()
 	ev.End()
 }
 
+// Timings returns the available timings for the current
+// goroutine. Note that calling Timings will end any events
+// which have been set to automatically end (with Ev.AutoEnd)
+// so this function should only be called at the end of the
+// request lifecycle.
 func Timings() []*Timing {
 	var timings map[string]*Timing
 	contexts.RLock()

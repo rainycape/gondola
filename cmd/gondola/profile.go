@@ -186,28 +186,31 @@ func pad(s string, width int) string {
 	return s
 }
 
-func formatNotes(notes []string, width int) []string {
+func formatNotes(notes []*profile.Note, width int) []string {
 	if len(notes) == 0 {
 		return []string{""}
 	}
 	var output []string
 	for _, v := range notes {
-		if len(v) <= width {
-			output = append(output, v)
-			continue
-		}
-		rem := v
-		for {
-			if len(rem) <= width {
-				output = append(output, rem)
-				break
+		text := fmt.Sprintf("%s | %s", v.Title, v.Text)
+		for _, line := range strings.Split(text, "\n") {
+			if len(line) <= width {
+				output = append(output, line)
+				continue
 			}
-			cur := rem[:width]
-			if p := strings.LastIndexAny(cur, " ,."); p > width/2 {
-				cur = cur[:p+1]
+			rem := line
+			for {
+				if len(rem) <= width {
+					output = append(output, rem)
+					break
+				}
+				cur := rem[:width]
+				if p := strings.LastIndexAny(cur, " ,."); p > width/2 {
+					cur = cur[:p+1]
+				}
+				output = append(output, cur)
+				rem = rem[len(cur):]
 			}
-			output = append(output, cur)
-			rem = rem[len(cur):]
 		}
 	}
 	return output

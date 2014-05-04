@@ -16,6 +16,8 @@ import (
 // Backend is the interface implemented by drivers
 // for database/sql orm backends
 type Backend interface {
+	// Check performs any required sanity checks on the connection.
+	Check(*DB) error
 	// Name passsed to database/sql.Open
 	Name() string
 	// Tag returns the struct tag read by this backend
@@ -77,6 +79,10 @@ type Backend interface {
 const placeholders = "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?"
 
 type SqlBackend struct {
+}
+
+func (b *SqlBackend) Check(_ *DB) error {
+	return nil
 }
 
 func (b *SqlBackend) Capabilities() driver.Capability {

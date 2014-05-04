@@ -31,6 +31,13 @@ type Driver struct {
 	transforms map[reflect.Type]struct{}
 }
 
+func (d *Driver) Check() error {
+	if err := d.db.sqlDb.Ping(); err != nil {
+		return err
+	}
+	return d.backend.Check(d.db)
+}
+
 func (d *Driver) Initialize(ms []driver.Model) error {
 	// Create tables
 	for _, v := range ms {

@@ -653,6 +653,9 @@ func New(url *config.URL) (*Orm, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error opening ORM driver %q: %s", name, err)
 	}
+	if err := drv.Check(); err != nil {
+		return nil, err
+	}
 	tags := strings.Join(drv.Tags(), "-")
 	globalRegistry.RLock()
 	typeRegistry := globalRegistry.types[tags].clone()

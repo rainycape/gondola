@@ -14,6 +14,7 @@ type Opener func(url *config.URL) (Driver, error)
 
 type Driver interface {
 	Conn
+	Check() error
 	Initialize(m []Model) error
 	Begin() (Tx, error)
 	Transaction(f func(Driver) error) error

@@ -13,8 +13,9 @@ func (t *Timed) Notef(title string, format string, args ...interface{}) *Timed {
 func (t *Timed) End()                                                          {}
 func (t *Timed) AutoEnd()                                                      {}
 
+func ID() int                                                                          { return -1 }
 func Begin()                                                                           {}
-func End()                                                                             {}
+func End(_ int)                                                                        {}
 func Profiling() bool                                                                  { return false }
 func Start(name string) *Timed                                                         { return ev }
 func Startf(name string, title string, format string, args ...interface{}) *Timed      { return ev }

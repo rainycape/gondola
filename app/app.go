@@ -1090,7 +1090,7 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := app.newContext(w, r)
 	if profile.On && shouldProfile(ctx) {
 		profile.Begin()
-		defer profile.End()
+		defer profile.End(0)
 	}
 	defer app.closeContext(ctx)
 	defer app.recover(ctx)

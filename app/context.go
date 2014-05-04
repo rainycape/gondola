@@ -507,9 +507,9 @@ func (c *Context) finalize(wg *sync.WaitGroup) {
 // suitable for using after the request has been serviced
 // (id est, in goroutines spawned from the Handler which
 // might outlast the Handler's lifetime). Additionaly, Go also
-// handles error recovering from the spawned goroutine. The initial
-// Context can also wait for all background contexts to finish
-// by calling Wait().
+// handles error recovering and profiling in the spawned
+// goroutine. The initial Context can also wait for all
+// background contexts to finish by calling Wait().
 //
 // In the following example, the handler finishes and returns the
 // executed template while CrunchData is still potentially running.
@@ -527,7 +527,15 @@ func (c *Context) Go(f func(*Context)) {
 	}
 	c.wg.Add(1)
 	bg := c.backgroundContext()
+	var id int
+	if profile.On {
+		id = profile.ID()
+	}
 	go func() {
+		if profile.On {
+			profile.Begin()
+			defer profile.End(id)
+		}
 		defer bg.finalize(c.wg)
 		f(bg)
 	}()

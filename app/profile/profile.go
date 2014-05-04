@@ -73,6 +73,11 @@ func currentEvent() *Timed {
 	return nil
 }
 
+// ID returns the profiling ID for the current goroutine.
+func ID() int {
+	return int(goroutineId())
+}
+
 // Begin enables profiling for the current goroutine.
 // This function is idempotent. Any goroutine which
 // calls Begin must also call End to avoid leaking
@@ -88,10 +93,28 @@ func Begin() {
 
 // End removes any profiling data for this goroutine. It must
 // called before the goroutine ends for each goroutine which
-// called Begin().
-func End() {
+// called Begin(). If parent is non-zero, the events in the
+// ending goroutine are added to the goroutine with the given ID.
+func End(parent int) {
+	gid := goroutineId()
 	contexts.Lock()
-	delete(contexts.data, goroutineId())
+	if parent > 0 {
+		cur := contexts.data[gid]
+		if cur != nil {
+			p := contexts.data[int32(parent)]
+			if p != nil {
+				// We're assumming well behaved clients, which
+				// won't call End() with arguments creating cycles,
+				// so there should be no risk of deadlock here.
+				p.Lock()
+				cur.Lock()
+				p.events = append(p.events, cur.events...)
+				cur.Unlock()
+				p.Unlock()
+			}
+		}
+	}
+	delete(contexts.data, gid)
 	contexts.Unlock()
 }
 
@@ -148,8 +171,8 @@ func Notef(title string, format string, args ...interface{}) {
 }
 
 // Profile is a shorthand function for calling Start(),
-// executing f and the calling Ev.End() on the resulting
-// Ev.
+// executing f and the calling Timed.End() on the resulting
+// Timed.
 func Profile(f func(), name string) {
 	ev := Start(name)
 	f()
@@ -157,8 +180,8 @@ func Profile(f func(), name string) {
 }
 
 // Profilef is a shorthand function for calling Startf(),
-// executing f and the calling Ev.End() on the resulting
-// Ev.
+// executing f and the calling Timed.End() on the resulting
+// Timed.
 func Profilef(f func(), title string, name string, format string, args ...interface{}) {
 	ev := Startf(name, title, format, args...)
 	f()
@@ -167,7 +190,7 @@ func Profilef(f func(), title string, name string, format string, args ...interf
 
 // Timings returns the available timings for the current
 // goroutine. Note that calling Timings will end any events
-// which have been set to automatically end (with Ev.AutoEnd)
+// which have been set to automatically end (with Timed.AutoEnd)
 // so this function should only be called at the end of the
 // request lifecycle.
 func Timings() []*Timing {

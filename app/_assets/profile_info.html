@@ -25,8 +25,24 @@
         word-wrap: break-word;
         max-width: 100%;
       }
+      tr.gondola-info {
+        width: 100%;
+      }
       pre.gondola-info {
         white-space: pre-wrap;
+      }
+      .gondola-event-list {
+        background: none;
+      }
+      .event-title {
+          font-weight: bold;
+          vertical-align: top;
+          padding-right: 10px;
+          padding-top: 9.5px;
+      }
+      .ellapsed span {
+          display: inline-block;
+          padding-top: 9.5px;
       }
       #gondola-profile-button {
         display: none !important;
@@ -56,11 +72,16 @@
         <table class="table table-striped">
           {{ range .Events }}
             <tr>
-              <td>{{ .Elapsed }}</td>
+              <td class="ellapsed"><span>{{ .Elapsed }}</span></td>
               <td class="gondola-info">
-                {{ range .Notes }}
-                  <pre class="gondola-info">{{ join (split . ",") ", " }}</pre>
-                {{ end }}
+                <table class="gondola-event-list">
+                  {{ range .Notes }}
+                    <tr>
+                      <td class="event-title">{{ .Title }}</td>
+                      <td><pre class="gondola-info">{{ join (split .Text ",") ", " }}</pre></td>
+                    </tr>
+                  {{ end }}
+                </table>
               </td>
             </tr>
           {{ end }}

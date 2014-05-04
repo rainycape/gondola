@@ -12,37 +12,44 @@ import (
 
 const On = true
 
-// Ev represents an ongoing timed event.
+// Timed represents an ongoing timed event.
 // Use Start or Startf to start a timed
 // event.
-type Ev struct {
+type Timed struct {
 	name    string
 	started time.Time
 	ended   time.Time
 	autoend bool
-	notes   []string
+	notes   []*Note
 }
 
 // Note adds a note regarding this timed event (e.g. the
 // SQL query that was executed, the URL that was fetched, etc...).
-func (e *Ev) Note(format string, args ...interface{}) {
-	e.notes = append(e.notes, fmt.Sprintf(format, args...))
+func (t *Timed) Note(title string, text string) *Timed {
+	t.notes = append(t.notes, &Note{Title: title, Text: text})
+	return t
+}
+
+// Notef works like Note(), but accepts a format string.
+func (t *Timed) Notef(title string, format string, args ...interface{}) *Timed {
+	t.notes = append(t.notes, &Note{Title: title, Text: fmt.Sprintf(format, args...)})
+	return t
 }
 
 // End ends the timed event.
-func (e *Ev) End() {
-	e.ended = time.Now()
+func (t *Timed) End() {
+	t.ended = time.Now()
 }
 
 // AutoEnd causes the timed event to be ended when
-// the request is served.
-func (e *Ev) AutoEnd() {
+// the timings are requested.
+func (e *Timed) AutoEnd() {
 	e.autoend = true
 }
 
 type context struct {
 	sync.Mutex
-	events []*Ev
+	events []*Timed
 }
 
 var contexts struct {
@@ -52,7 +59,7 @@ var contexts struct {
 
 func goroutineId() int32
 
-func currentEvent() *Ev {
+func currentEvent() *Timed {
 	contexts.RLock()
 	ctx := contexts.data[goroutineId()]
 	contexts.RUnlock()
@@ -97,18 +104,18 @@ func Profiling() bool {
 	return ok
 }
 
-// Start starts a timed event. Use Ev.End to terminate the
-// event or Ev.AutoEnd to finish it when the request finishes
+// Start starts a timed event. Use Timed.End to terminate the
+// event or Timed.AutoEnd to finish it when the request finishes
 // processing. Note that if profiling is not enabled for the current
 // goroutine, this function does nothing and returns an empty event.
-func Start(name string) *Ev {
+func Start(name string) *Timed {
 	contexts.RLock()
 	ctx := contexts.data[goroutineId()]
 	contexts.RUnlock()
 	if ctx == nil {
-		return &Ev{}
+		return &Timed{}
 	}
-	ev := &Ev{name: name, started: time.Now()}
+	ev := &Timed{name: name, started: time.Now()}
 	ctx.Lock()
 	ctx.events = append(ctx.events, ev)
 	ctx.Unlock()
@@ -116,10 +123,10 @@ func Start(name string) *Ev {
 }
 
 // Startf is a shorthand function for calling Start and then
-// Ev.Note on the resulting Ev.
-func Startf(name string, format string, args ...interface{}) *Ev {
+// Timed.Notef on the resulting Ev.
+func Startf(name string, title string, format string, args ...interface{}) *Timed {
 	e := Start(name)
-	e.Note(format, args...)
+	e.Notef(title, format, args...)
 	return e
 }
 
@@ -129,15 +136,15 @@ func HasEvent() bool {
 	return currentEvent() != nil
 }
 
-// Note adds a note to the current Ev, as started by Start
+// Notef adds a note to the current Timed, as started by Start
 // or Startf.
-func Note(format string, args ...interface{}) {
+func Notef(title string, format string, args ...interface{}) {
 	ev := currentEvent()
 	if ev == nil {
 		log.Warningln("can't note, no ongoing event")
-	} else {
-		ev.Note(format, args...)
+		return
 	}
+	ev.Notef(title, format, args...)
 }
 
 // Profile is a shorthand function for calling Start(),
@@ -152,8 +159,8 @@ func Profile(f func(), name string) {
 // Profilef is a shorthand function for calling Startf(),
 // executing f and the calling Ev.End() on the resulting
 // Ev.
-func Profilef(f func(), name string, format string, args ...interface{}) {
-	ev := Startf(name, format, args...)
+func Profilef(f func(), title string, name string, format string, args ...interface{}) {
+	ev := Startf(name, title, format, args...)
 	f()
 	ev.End()
 }

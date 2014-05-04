@@ -334,7 +334,7 @@ func (d *Driver) SetLogger(logger *log.Logger) {
 func (d *Driver) debugq(sql string, args []interface{}) {
 	if profile.On && profile.Profiling() {
 		if profile.HasEvent() {
-			profile.Note("SQL: %s, args %v", sql, args)
+			profile.Notef("SQL", "%s, args %v", sql, args)
 			if strings.HasPrefix(sql, "SELECT") {
 				rows, _ := d.db.sqlDb.Query("EXPLAIN "+sql, args...)
 				if rows != nil {
@@ -349,7 +349,7 @@ func (d *Driver) debugq(sql string, args []interface{}) {
 					}
 					rows.Close()
 					if len(explain) > 0 {
-						profile.Note("%s", strings.Join(explain, "\n"))
+						profile.Notef("EXPLAIN", "%s", strings.Join(explain, "\n"))
 					}
 				}
 			}

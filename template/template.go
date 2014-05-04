@@ -1018,8 +1018,13 @@ func (t *Template) Execute(w io.Writer, data interface{}) error {
 }
 
 func (t *Template) ExecuteContext(w io.Writer, data interface{}, context interface{}, vars VarMap) error {
-	if profile.On {
-		profile.Startf("template-exec", "%s", t.qname(t.name)).AutoEnd()
+	if profile.On && profile.Profiling() {
+		ev := profile.Start("template").Note("exec", t.qname(t.name))
+		defer ev.End()
+		// If the template is the final rendered template which includes
+		// the profiling data, it must be ended when the timings are fetched.
+		// Other templates, like asset templates, are ended by the deferred call.
+		ev.AutoEnd()
 	}
 	buf := getBuffer()
 	err := t.prog.execute(buf, t.root, data, context, vars)

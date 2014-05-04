@@ -553,7 +553,7 @@ func (app *App) LoadTemplate(name string) (*Template, error) {
 		var err error
 		log.Debugf("Loading root template %s", name)
 		if profile.On && profile.Profiling() {
-			defer profile.Startf("template-load", name).End()
+			defer profile.Start("template").Note("load", name).End()
 		}
 		tmpl, err = app.loadTemplate(app.templatesLoader, app.assetsManager, name)
 		if err != nil {

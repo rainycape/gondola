@@ -4,21 +4,22 @@ package profile
 
 const On = false
 
-var ev = &Ev{}
+var ev = &Timed{}
 
-type Ev struct{}
+type Timed struct{}
 
-func (e *Ev) Note(format string, args ...interface{}) {}
-func (e *Ev) End()                                    {}
-func (e *Ev) AutoEnd()                                {}
+func (t *Timed) Note(title string, text string) *Timed                         { return t }
+func (t *Timed) Notef(title string, format string, args ...interface{}) *Timed { return t }
+func (t *Timed) End()                                                          {}
+func (t *Timed) AutoEnd()                                                      {}
 
-func Begin()                                                             {}
-func End()                                                               {}
-func Profiling() bool                                                    { return false }
-func Start(name string) *Ev                                              { return ev }
-func Startf(name string, format string, args ...interface{}) *Ev         { return ev }
-func HasEvent() bool                                                     { return false }
-func Note(format string, args ...interface{})                            {}
-func Profile(f func(), name string)                                      { f() }
-func Profilef(f func(), name string, format string, args ...interface{}) { f() }
-func Timings() []*Timing                                                 { return nil }
+func Begin()                                                                           {}
+func End()                                                                             {}
+func Profiling() bool                                                                  { return false }
+func Start(name string) *Timed                                                         { return ev }
+func Startf(name string, title string, format string, args ...interface{}) *Timed      { return ev }
+func HasEvent() bool                                                                   { return false }
+func Notef(title string, format string, args ...interface{})                           {}
+func Profile(f func(), name string)                                                    { f() }
+func Profilef(f func(), title string, name string, format string, args ...interface{}) { f() }
+func Timings() []*Timing                                                               { return nil }

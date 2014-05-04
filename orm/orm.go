@@ -153,7 +153,7 @@ func (o *Orm) MustInsertInto(t *Table, obj interface{}) Result {
 
 func (o *Orm) insert(m *model, obj interface{}) (Result, error) {
 	if profile.On && profile.Profiling() {
-		defer profile.Startf(orm, "insert").End()
+		defer profile.Start(orm).Note("insert", m.name).End()
 	}
 	var pkName string
 	var pkVal reflect.Value
@@ -227,7 +227,7 @@ func (o *Orm) MustUpdate(q query.Q, obj interface{}) Result {
 
 func (o *Orm) update(m *model, q query.Q, obj interface{}) (Result, error) {
 	if profile.On && profile.Profiling() {
-		defer profile.Startf(orm, "update").End()
+		defer profile.Start(orm).Note("update", m.name).End()
 	}
 	return o.conn.Update(m, q, obj)
 }
@@ -247,7 +247,7 @@ func (o *Orm) Upsert(q query.Q, obj interface{}) (Result, error) {
 	}
 	if o.driver.Upserts() {
 		if profile.On && profile.Profiling() {
-			defer profile.Startf(orm, "upsert").End()
+			defer profile.Start(orm).Note("upsert", "").End()
 		}
 		return o.conn.Upsert(m, q, obj)
 	}
@@ -324,7 +324,7 @@ func (o *Orm) MustSaveInto(t *Table, obj interface{}) Result {
 
 func (o *Orm) save(m *model, obj interface{}) (Result, error) {
 	if profile.On && profile.Profiling() {
-		defer profile.Startf(orm, "save").End()
+		defer profile.Start(orm).Note("save", m.name).End()
 	}
 	var res Result
 	var err error
@@ -423,7 +423,7 @@ func (o *Orm) deleteByPk(m *model, obj interface{}) error {
 
 func (o *Orm) delete(m *model, q query.Q) (Result, error) {
 	if profile.On && profile.Profiling() {
-		defer profile.Startf(orm, "delete").End()
+		defer profile.Start(orm).Note("delete", m.name).End()
 	}
 	return o.conn.Delete(m, q)
 }

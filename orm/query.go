@@ -120,7 +120,7 @@ func (q *Query) Exists() (bool, error) {
 		return false, err
 	}
 	if profile.On && profile.Profiling() {
-		defer profile.Startf(orm, "exists").End()
+		defer profile.Start(orm).Note("exists", q.model.String()).End()
 	}
 	return q.orm.driver.Exists(q.model, q.q)
 }
@@ -191,7 +191,7 @@ func (q *Query) Count() (uint64, error) {
 		return 0, err
 	}
 	if profile.On && profile.Profiling() {
-		defer profile.Startf(orm, "count").End()
+		defer profile.Start(orm).Note("count", q.model.String()).End()
 	}
 	return q.orm.driver.Count(q.model, q.q, q.limit, q.offset)
 }
@@ -228,7 +228,7 @@ func (q *Query) iter(limit int) *Iter {
 
 func (q *Query) exec(limit int) driver.Iter {
 	if profile.On && profile.Profiling() {
-		defer profile.Startf(orm, "query").End()
+		defer profile.Start(orm).Note("query", q.model.String()).End()
 	}
 	return q.orm.conn.Query(q.model, q.q, q.sort, limit, q.offset)
 }

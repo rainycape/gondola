@@ -13,12 +13,18 @@ const (
 	Salt = "gnd.la/app/profile.salt"
 )
 
+// Note represents a note added to an event.
+type Note struct {
+	Title string
+	Text  string
+}
+
 // Event represents a finished event when its timing information
 // and any notes it might have attached.
 type Event struct {
 	Started time.Time `json:"s"`
 	Ended   time.Time `json:"e"`
-	Notes   []string  `json:"n"`
+	Notes   []*Note   `json:"n"`
 }
 
 // Ellapsed returns the time the event took.

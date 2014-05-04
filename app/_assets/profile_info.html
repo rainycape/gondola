@@ -1,6 +1,3 @@
-{{/*
-  bootstrap|nojs: 3.0.2
-*/}}
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -9,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="">
     <meta name="author" content="">
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
     <title>Profiling Information</title>
     <script type="text/javascript">
       function toggleTable(el) {
@@ -26,6 +24,9 @@
       .gondola-info {
         word-wrap: break-word;
         max-width: 100%;
+      }
+      pre.gondola-info {
+        white-space: pre-wrap;
       }
       #gondola-profile-button {
         display: none !important;
@@ -58,7 +59,7 @@
               <td>{{ .Elapsed }}</td>
               <td class="gondola-info">
                 {{ range .Notes }}
-                  <p class="gondola-info">{{ join (split . ",") ", " }}</p>
+                  <pre class="gondola-info">{{ join (split . ",") ", " }}</pre>
                 {{ end }}
               </td>
             </tr>

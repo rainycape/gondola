@@ -1226,6 +1226,7 @@ func (app *App) importAssets(included *includedApp) error {
 		if err != nil {
 			return err
 		}
+		log.Debugf("will import assets %v from app %s", res, included.app.name)
 		renames := make(map[string]string)
 		for _, v := range res {
 			src, _, err := am.Load(v)
@@ -1237,6 +1238,7 @@ func (app *App) importAssets(included *includedApp) error {
 			nonExt := v[:len(v)-len(path.Ext(v))]
 			dest := path.Join(prefix, nonExt+".gen."+sum+path.Ext(v))
 			renames[v] = dest
+			log.Debugf("importing asset %q as %q", v, dest)
 			if f, _, _ := m.Load(dest); f != nil {
 				f.Close()
 				continue

@@ -1346,17 +1346,16 @@ func (app *App) Clone() *App {
 func (app *App) Prepare() error {
 	// Initialize the ORM first, so admin commands
 	// run with the ORM ready to be used.
-	// Use defaultDatabase directly, since when running
+	// Use openOrm() directly, since when running
 	// on GAE with the datastore, app.Orm will return an
 	// error.
 	var err error
-	if defaultDatabase != nil {
-		if o, _ := orm.New(defaultDatabase); o != nil {
-			err = o.Initialize()
+	if o, _ := app.openOrm(); o != nil {
+		err = o.Initialize()
+		o.Close()
+		if err != nil {
+			return err
 		}
-	}
-	if err != nil {
-		return err
 	}
 	signal.Emit(WILL_PREPARE, app)
 	if app.Secret != "" && len(app.Secret) < 32 && os.Getenv("GONDOLA_ALLOW_SHORT_SECRET") == "" {

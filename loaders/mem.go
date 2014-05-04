@@ -17,9 +17,9 @@ func (m *memLoader) Load(name string) (ReadSeekCloser, time.Time, error) {
 	return m.loader.Load(name)
 }
 
-// MemLoader wraps another loading, causing
+// MemLoader wraps another loader, causing
 // the created files to be stored in memory.
-// Is usually used with FSLoader, to avoid
+// It's usually used with FSLoader, to avoid
 // creating temporary files.
 func MemLoader(loader Loader) Loader {
 	return &memLoader{mapLoader{}, loader}

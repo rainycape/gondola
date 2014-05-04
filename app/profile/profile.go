@@ -1,5 +1,3 @@
-// +build profile
-
 package profile
 
 import (
@@ -10,7 +8,7 @@ import (
 	"gnd.la/log"
 )
 
-const On = true
+const On = profileIsOn
 
 // Timed represents an ongoing timed event.
 // Use Start or Startf to start a timed
@@ -57,8 +55,6 @@ var contexts struct {
 	data map[int32]*context
 }
 
-func goroutineId() int32
-
 func currentEvent() *Timed {
 	contexts.RLock()
 	ctx := contexts.data[goroutineId()]
@@ -84,11 +80,13 @@ func ID() int {
 // resources.
 func Begin() {
 	gid := goroutineId()
-	contexts.Lock()
-	if _, ok := contexts.data[gid]; !ok {
-		contexts.data[gid] = &context{}
+	if gid >= 0 {
+		contexts.Lock()
+		if _, ok := contexts.data[gid]; !ok {
+			contexts.data[gid] = &context{}
+		}
+		contexts.Unlock()
 	}
-	contexts.Unlock()
 }
 
 // End removes any profiling data for this goroutine. It must
@@ -228,8 +226,4 @@ func Timings() []*Timing {
 		ret = append(ret, v)
 	}
 	return ret
-}
-
-func init() {
-	contexts.data = make(map[int32]*context)
 }

@@ -39,7 +39,7 @@ func (a *App) Clone(ctx httpclient.Context) *App {
 
 func (a *App) client() *httpclient.Client {
 	if a.Client != nil {
-		return a.client()
+		return a.Client
 	}
 	if a.httpClient == nil {
 		a.httpClient = httpclient.New(nil)

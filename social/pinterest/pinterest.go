@@ -34,7 +34,7 @@ type Account struct {
 
 func (a *Account) client() *httpclient.Client {
 	if a.Client != nil {
-		return a.client()
+		return a.Client
 	}
 	if a.httpClient == nil {
 		a.httpClient = httpclient.New(nil)

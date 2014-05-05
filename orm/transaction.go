@@ -11,7 +11,7 @@ var (
 )
 
 type Tx struct {
-	*Orm
+	Orm
 	// Parent orm
 	o    *Orm
 	tx   driver.Tx

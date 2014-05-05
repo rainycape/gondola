@@ -446,16 +446,12 @@ func (o *Orm) Begin() (*Tx, error) {
 	if o.logger != nil {
 		o.logger.Debugf("Beginning transaction")
 	}
+	cpy := *o
+	cpy.conn = tx
 	return &Tx{
-		Orm: &Orm{
-			conn:   tx,
-			driver: o.driver,
-			logger: o.logger,
-			tags:   o.tags,
-			db:     o.db,
-		},
-		o:  o,
-		tx: tx,
+		Orm: cpy,
+		o:   o,
+		tx:  tx,
 	}, nil
 }
 
@@ -488,7 +484,7 @@ func (o *Orm) Transaction(f func(o *Orm) error) error {
 			return err
 		}
 		defer tx.Close()
-		if err := f(tx.Orm); err != nil {
+		if err := f(&tx.Orm); err != nil {
 			if err == Rollback {
 				err = tx.Rollback()
 			}

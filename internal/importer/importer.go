@@ -4,16 +4,18 @@
 package importer
 
 import (
+	"go/build"
+	"path/filepath"
+
 	"code.google.com/p/go.tools/go/gcimporter"
 	"code.google.com/p/go.tools/go/loader"
 	"code.google.com/p/go.tools/go/types"
-	"go/build"
-	"path/filepath"
 )
 
 type Importer struct {
-	imports map[string]*types.Package
-	conf    types.Config
+	imports             map[string]*types.Package
+	conf                types.Config
+	TypeCheckFuncBodies func(string) bool
 }
 
 func New() *Importer {
@@ -24,6 +26,13 @@ func New() *Importer {
 			Error:       errorHandler,
 		},
 	}
+}
+
+func (imp *Importer) typeCheckFuncBodies(pkg string) bool {
+	if imp.TypeCheckFuncBodies == nil {
+		return true
+	}
+	return imp.TypeCheckFuncBodies(pkg)
 }
 
 func (imp *Importer) Import(imports map[string]*types.Package, path string) (*types.Package, error) {
@@ -50,12 +59,9 @@ func (imp *Importer) Import(imports map[string]*types.Package, path string) (*ty
 	conf := imp.conf
 	conf.Import = imp.Import
 	loader := &loader.Config{
-		TypeChecker: conf,
-		TypeCheckFuncBodies: func(name string) bool {
-			// the parser fails to parse isatty
-			return name != "gnd.la/log"
-		},
-		Build: &build.Default,
+		TypeChecker:         conf,
+		TypeCheckFuncBodies: imp.typeCheckFuncBodies,
+		Build:               &build.Default,
 	}
 	name := path
 	if bpkg.Name == "main" {

@@ -134,7 +134,6 @@ type Project struct {
 	noDebug    bool
 	noCache    bool
 	profile    bool
-	verbose    bool
 	port       int
 	appPort    int
 	buildCmd   *exec.Cmd
@@ -244,7 +243,7 @@ func (p *Project) StartMonitoring() error {
 				}
 				if ev.Name == p.configPath {
 					if ev.IsModify() {
-						log.Debugf("Config file %s changed, restarting...", p.configPath)
+						log.Infof("Config file %s changed, restarting...", p.configPath)
 						if err := p.Stop(); err != nil {
 							log.Errorf("Error stopping %s: %s", p.Name(), err)
 							break
@@ -326,7 +325,7 @@ func (p *Project) startLocked() error {
 	p.started = time.Now().UTC()
 	p.port = randomFreePort()
 	cmd := p.ProjectCmd()
-	log.Debugf("Starting %s (%s)", p.Name(), cmdString(cmd))
+	log.Infof("Starting %s (%s)", p.Name(), cmdString(cmd))
 	p.cmd = cmd
 	err := cmd.Start()
 	go func() {
@@ -407,7 +406,7 @@ func (p *Project) Build() {
 	}
 	p.errors = nil
 	if !restarted {
-		log.Debugf("Building %s (%s)", p.Name(), cmdString(cmd))
+		log.Infof("Building %s (%s)", p.Name(), cmdString(cmd))
 	}
 	var buf bytes.Buffer
 	cmd.Stderr = &buf
@@ -593,6 +592,11 @@ func findConfig(dir string, name string) string {
 }
 
 func Dev(ctx *app.Context) {
+	var verbose bool
+	ctx.ParseParamValue("v", &verbose)
+	if !verbose {
+		log.SetLevel(log.LInfo)
+	}
 	var dir string
 	var configName string
 	var noBrowser bool
@@ -606,7 +610,7 @@ func Dev(ctx *app.Context) {
 	if configPath == "" {
 		log.Panicf("can't find configuration file %s in %s", configName, dir)
 	}
-	log.Debugf("Using config file %s", configPath)
+	log.Infof("Using config file %s", configPath)
 	p := NewProject(path, configPath)
 	ctx.ParseParamValue("port", &p.port)
 	ctx.ParseParamValue("tags", &p.tags)
@@ -615,14 +619,13 @@ func Dev(ctx *app.Context) {
 	ctx.ParseParamValue("no-cache", &p.noCache)
 	ctx.ParseParamValue("profile", &p.profile)
 	ctx.ParseParamValue("no-browser", &noBrowser)
-	ctx.ParseParamValue("v", &p.verbose)
 	clean(dir)
 	go p.Build()
 	eof := "C"
 	if runtime.GOOS == "windows" {
 		eof = "Z"
 	}
-	log.Debugf("Starting Gondola development server on port %d (press Control+%s to exit)", p.port, eof)
+	log.Infof("Starting Gondola development server on port %d (press Control+%s to exit)", p.port, eof)
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", p.port))
 	if err != nil {
 		log.Panic(err)

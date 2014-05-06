@@ -23,6 +23,10 @@ type Driver struct {
 	logger *log.Logger
 }
 
+func (d *Driver) Check() error {
+	return nil
+}
+
 func (d *Driver) Initialize(ms []driver.Model) error {
 	// No need to create tables in the datastore. Instead,
 	// check that the models can be stored.

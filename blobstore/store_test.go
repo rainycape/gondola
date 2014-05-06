@@ -166,7 +166,7 @@ func TestFileStoreMeta(t *testing.T) {
 
 func TestGridfs(t *testing.T) {
 	if !testPort(27017) {
-		t.Skip("mongodb is not running. mongodb memcache on localhost to run this test")
+		t.Skip("mongodb is not running. start mongodb on localhost to run this test")
 	}
 	testStore(t, nil, "gridfs://localhost/blobstore_test")
 }

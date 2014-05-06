@@ -4,6 +4,7 @@ import (
 	"fmt"
 	_ "gnd.la/blobstore/driver/file"
 	_ "gnd.la/blobstore/driver/gridfs"
+	_ "gnd.la/blobstore/driver/leveldb"
 	_ "gnd.la/blobstore/driver/s3"
 	"gnd.la/config"
 	"hash/adler32"
@@ -178,4 +179,14 @@ func TestS3(t *testing.T) {
 		t.Skipf("please, provide a file with a at %s s3 blobstore url to execute this test (e.g. \"s3://my-blobstore-test?access_key=akey&secret_key=some_secret\"", abs)
 	}
 	testStore(t, nil, strings.TrimSpace(string(b)))
+}
+
+func TestLevelDB(t *testing.T) {
+	dir, err := ioutil.TempDir("", "pool-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+	cfg := "leveldb://" + dir
+	testStore(t, &Meta{Foo: 5}, cfg)
 }

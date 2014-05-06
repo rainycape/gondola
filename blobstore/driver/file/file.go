@@ -112,6 +112,7 @@ func (f *fsIter) Next(id *string) bool {
 			return false
 		}
 		names, err := dir.Readdirnames(-1)
+		dir.Close()
 		if err != nil {
 			f.err = err
 			return false

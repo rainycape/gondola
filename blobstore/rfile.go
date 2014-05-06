@@ -74,9 +74,11 @@ func (r *RFile) GetMeta(meta interface{}) error {
 	return nil
 }
 
-// Verify checks the integrity of both the data and
-// the metadata in the file.
-func (r *RFile) Verify() error {
+// Check checks the integrity of both the data and
+// the metadata in the file. If this function returns
+// a non-nil error, the file should be considered
+// corrupted.
+func (r *RFile) Check() error {
 	if err := r.decodeMeta(); err != nil {
 		return err
 	}

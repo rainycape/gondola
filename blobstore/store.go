@@ -19,11 +19,29 @@ var (
 	}
 )
 
+// Iter iterates over all the files available in
+// the blobstore. Note that iteration order is
+// undefined.
+type Iter interface {
+	// Next returns true iff there iterator can fill
+	// the provided string pointer with the next
+	// file id. When the files have been returned,
+	// without any errors, Next() should return false
+	// and Err() should return nil. If the iteration
+	// stopped due to an error, Err() should return
+	// non-nil.
+	Next(id *string) bool
+	// Err() returns any error produced while
+	// iterating the files.
+	Err() error
+}
+
 // Store represents a connection to a blobstore. Use New()
 // to initialize a Store and Store.Close to close it.
 type Store struct {
-	drv driver.Driver
-	srv driver.Server
+	drv     driver.Driver
+	srv     driver.Server
+	drvName string
 }
 
 // New returns a new *Store using the given url as its configure
@@ -47,7 +65,8 @@ func New(url *config.URL) (*Store, error) {
 		return nil, fmt.Errorf("error opening blobstore driver %q: %s", url.Scheme, err)
 	}
 	s := &Store{
-		drv: drv,
+		drv:     drv,
+		drvName: url.Scheme,
 	}
 	if srv, ok := drv.(driver.Server); ok {
 		s.srv = srv
@@ -176,6 +195,16 @@ func (s *Store) Serve(w http.ResponseWriter, id string, rng *Range) error {
 		return err
 	}
 	return nil
+}
+
+// Iter returns an iterator which visits all the files
+// available in the blobstore. If the underlying driver
+// does not support iteration, an error will be returned.
+func (s *Store) Iter() (Iter, error) {
+	if iterable, ok := s.drv.(driver.Iterable); ok {
+		return iterable.Iter()
+	}
+	return nil, fmt.Errorf("driver %q does not support iteration", s.drvName)
 }
 
 // Close closes the connection to the blobstore.

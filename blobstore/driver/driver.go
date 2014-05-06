@@ -21,6 +21,19 @@ type Driver interface {
 	Close() error
 }
 
+// Iter is the same interface as gnd.la/blobstore.Iter. See its
+// documentation.
+type Iter interface {
+	Next(id *string) bool
+	Err() error
+}
+
+// Iterable is the interface implemented by drivers which can iteratet
+// over the files stored in them.
+type Iterable interface {
+	Iter() (Iter, error)
+}
+
 type Range interface {
 	IsValid() bool
 	Range() (*int64, *int64)

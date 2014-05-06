@@ -106,7 +106,7 @@ func testStore(t *testing.T, meta *Meta, cfg string) {
 				}
 			}
 		}
-		if err := f.Verify(); err != nil {
+		if err := f.Check(); err != nil {
 			t.Errorf("error checking file %v: %s", v, err)
 		}
 		b, err := f.ReadAll()

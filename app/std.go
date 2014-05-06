@@ -58,7 +58,7 @@ func (app *App) orm() (*Orm, error) {
 	return app.o, nil
 }
 
-func (app *App) blobstore() (*blobstore.Store, error) {
+func (app *App) blobstore() (*blobstore.Blobstore, error) {
 	if app.store == nil {
 		app.mu.Lock()
 		defer app.mu.Unlock()
@@ -105,7 +105,7 @@ func (c *Context) orm() *Orm {
 	return c.app.o
 }
 
-func (c *Context) blobstore() *blobstore.Store {
+func (c *Context) blobstore() *blobstore.Blobstore {
 	if c.app.store == nil {
 		_, err := c.app.Blobstore()
 		if err != nil {

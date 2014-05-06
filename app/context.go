@@ -371,7 +371,7 @@ func (c *Context) Cache() *Cache {
 
 // Blobstore is a shorthand for ctx.App().Blobstore(), but panics in
 // case of error instead of returning it.
-func (c *Context) Blobstore() *blobstore.Store {
+func (c *Context) Blobstore() *blobstore.Blobstore {
 	return c.blobstore()
 }
 

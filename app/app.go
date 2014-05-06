@@ -227,7 +227,7 @@ type App struct {
 	mu                 sync.Mutex
 	c                  *Cache
 	o                  *Orm
-	store              *blobstore.Store
+	store              *blobstore.Blobstore
 
 	// Used for included apps
 	included  []*includedApp
@@ -897,7 +897,7 @@ func (app *App) openOrm() (*orm.Orm, error) {
 // gnd.la/blobstore for further information on using the blobstore.
 // Note that this function does not work on App Engine. Use Context.Blobstore
 // instead.
-func (app *App) Blobstore() (*blobstore.Store, error) {
+func (app *App) Blobstore() (*blobstore.Blobstore, error) {
 	return app.blobstore()
 }
 

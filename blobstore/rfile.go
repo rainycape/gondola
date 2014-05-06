@@ -26,7 +26,7 @@ var (
 type RFile struct {
 	id           string
 	file         driver.RFile
-	store        *Store
+	store        *Blobstore
 	hasMeta      bool
 	metadataData []byte
 	metadataHash uint64

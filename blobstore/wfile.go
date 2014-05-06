@@ -14,7 +14,7 @@ type WFile struct {
 	meta       interface{}
 	dataHash   hash.Hash64
 	dataLength uint64
-	store      *Store
+	store      *Blobstore
 	closed     bool
 }
 

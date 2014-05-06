@@ -36,20 +36,20 @@ type Iter interface {
 	Err() error
 }
 
-// Store represents a connection to a blobstore. Use New()
-// to initialize a Store and Store.Close to close it.
-type Store struct {
+// Blobstore represents a connection to a blobstore. Use New()
+// to initialize a Blobsore and Blobstore.Close to close it.
+type Blobstore struct {
 	drv     driver.Driver
 	srv     driver.Server
 	drvName string
 }
 
-// New returns a new *Store using the given url as its configure
+// New returns a new *Blobstore using the given url as its configure
 // the URL scheme represents the driver used and the rest of the
 // values in the URL are driver dependent. Please, see the package
 // documentation for the available drivers and each driver sub-package
 // for driver-specific documentation.
-func New(url *config.URL) (*Store, error) {
+func New(url *config.URL) (*Blobstore, error) {
 	if url == nil {
 		return nil, fmt.Errorf("blobstore is not configured")
 	}
@@ -64,7 +64,7 @@ func New(url *config.URL) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error opening blobstore driver %q: %s", url.Scheme, err)
 	}
-	s := &Store{
+	s := &Blobstore{
 		drv:     drv,
 		drvName: url.Scheme,
 	}
@@ -77,13 +77,13 @@ func New(url *config.URL) (*Store, error) {
 // Create returns a new file for writing and sets its metadata
 // to meta (which might be nil). Note that the file should be
 // closed by calling WFile.Close.
-func (s *Store) Create() (*WFile, error) {
+func (s *Blobstore) Create() (*WFile, error) {
 	return s.CreateId(newId())
 }
 
 // CreateId works like Create, but uses the given id rather than generating
 // a new one. If a file with the same id already exists, it's overwritten.
-func (s *Store) CreateId(id string) (*WFile, error) {
+func (s *Blobstore) CreateId(id string) (*WFile, error) {
 	w, err := s.drv.Create(id)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (s *Store) CreateId(id string) (*WFile, error) {
 // Open opens the file with the given id for reading. Note that
 // the file should be closed by calling RFile.Close after you're
 // done with it.
-func (s *Store) Open(id string) (*RFile, error) {
+func (s *Blobstore) Open(id string) (*RFile, error) {
 	f, err := s.drv.Open(id)
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func (s *Store) Open(id string) (*RFile, error) {
 }
 
 // ReadAll is a shorthand for Open(f).ReadAll()
-func (s *Store) ReadAll(id string) (data []byte, err error) {
+func (s *Blobstore) ReadAll(id string) (data []byte, err error) {
 	f, err := s.Open(id)
 	if err != nil {
 		return nil, err
@@ -118,14 +118,14 @@ func (s *Store) ReadAll(id string) (data []byte, err error) {
 }
 
 // Store works like StoreId, but generates a new id for the file.
-func (s *Store) Store(b []byte, meta interface{}) (string, error) {
+func (s *Blobstore) Store(b []byte, meta interface{}) (string, error) {
 	return s.StoreId(newId(), b, meta)
 }
 
 // StoreId is a shorthand for storing the given data in b and the metadata
 // in meta with the given file id. If a file with the same id exists, it's
 // overwritten.
-func (s *Store) StoreId(id string, b []byte, meta interface{}) (string, error) {
+func (s *Blobstore) StoreId(id string, b []byte, meta interface{}) (string, error) {
 	f, err := s.CreateId(id)
 	if err != nil {
 		return "", err
@@ -143,13 +143,13 @@ func (s *Store) StoreId(id string, b []byte, meta interface{}) (string, error) {
 }
 
 // Remove deletes the file with the given id.
-func (s *Store) Remove(id string) error {
+func (s *Blobstore) Remove(id string) error {
 	s.drv.Remove(s.metaName(id))
 	return s.drv.Remove(id)
 }
 
 // Driver returns the underlying driver
-func (s *Store) Driver() driver.Driver {
+func (s *Blobstore) Driver() driver.Driver {
 	return s.drv
 }
 
@@ -157,7 +157,7 @@ func (s *Store) Driver() driver.Driver {
 // Some drivers might be able to serve the file directly from their backend. Otherwise,
 // the file will be read from the blobstore and written to w. The rng parameter might be
 // used for sending a partial response to the client.
-func (s *Store) Serve(w http.ResponseWriter, id string, rng *Range) error {
+func (s *Blobstore) Serve(w http.ResponseWriter, id string, rng *Range) error {
 	if s.srv != nil {
 		if ok, err := s.srv.Serve(w, id, rng); ok || err != nil {
 			return err
@@ -200,19 +200,19 @@ func (s *Store) Serve(w http.ResponseWriter, id string, rng *Range) error {
 // Iter returns an iterator which visits all the files
 // available in the blobstore. If the underlying driver
 // does not support iteration, an error will be returned.
-func (s *Store) Iter() (Iter, error) {
+func (s *Blobstore) Iter() (Iter, error) {
 	if iterable, ok := s.drv.(driver.Iterable); ok {
 		return iterable.Iter()
 	}
 	return nil, fmt.Errorf("driver %q does not support iteration", s.drvName)
 }
 
-// Close closes the connection to the blobstore.
-func (s *Store) Close() error {
+// Close closes the connection to the Blobstore.
+func (s *Blobstore) Close() error {
 	return s.drv.Close()
 }
 
-func (s *Store) metaName(id string) string {
+func (s *Blobstore) metaName(id string) string {
 	return id + ".meta"
 }
 

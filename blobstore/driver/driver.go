@@ -26,6 +26,7 @@ type Driver interface {
 type Iter interface {
 	Next(id *string) bool
 	Err() error
+	Close() error
 }
 
 // Iterable is the interface implemented by drivers which can iteratet

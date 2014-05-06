@@ -34,6 +34,9 @@ type Iter interface {
 	// Err() returns any error produced while
 	// iterating the files.
 	Err() error
+	// Close closes the iterator. It must be called in
+	// order to free its associated resources.
+	Close() error
 }
 
 // Blobstore represents a connection to a blobstore. Use New()

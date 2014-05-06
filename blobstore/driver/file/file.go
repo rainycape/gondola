@@ -134,6 +134,10 @@ func (f *fsIter) Err() error {
 	return f.err
 }
 
+func (f *fsIter) Close() error {
+	return nil
+}
+
 func init() {
 	driver.Register("file", fsOpener)
 }

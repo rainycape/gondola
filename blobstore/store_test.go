@@ -149,7 +149,7 @@ func TestFileStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//defer os.RemoveAll(dir)
+	defer os.RemoveAll(dir)
 	cfg := "file://" + dir
 	testStore(t, nil, cfg)
 }
@@ -159,7 +159,7 @@ func TestFileStoreMeta(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//defer os.RemoveAll(dir)
+	defer os.RemoveAll(dir)
 	cfg := "file://" + dir
 	testStore(t, &Meta{Foo: 5}, cfg)
 }

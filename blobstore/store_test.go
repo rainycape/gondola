@@ -1,19 +1,22 @@
 package blobstore
 
 import (
+	"crypto/rand"
 	"fmt"
-	_ "gnd.la/blobstore/driver/file"
-	_ "gnd.la/blobstore/driver/gridfs"
-	_ "gnd.la/blobstore/driver/leveldb"
-	_ "gnd.la/blobstore/driver/s3"
-	"gnd.la/config"
 	"hash/adler32"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	_ "gnd.la/blobstore/driver/file"
+	_ "gnd.la/blobstore/driver/gridfs"
+	_ "gnd.la/blobstore/driver/leveldb"
+	_ "gnd.la/blobstore/driver/s3"
+	"gnd.la/config"
 )
 
 const (
@@ -33,25 +36,26 @@ type Meta struct {
 	Foo int
 }
 
-func fileData(t *testing.T, file string, size int64) []byte {
-	f, err := os.Open(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
+func randData(size int) []byte {
 	b := make([]byte, size)
-	if _, err := f.Read(b); err != nil {
-		t.Fatal(err)
+	if _, err := io.ReadFull(rand.Reader, b); err != nil {
+		panic(err)
 	}
 	return b
 }
 
-func randData(t *testing.T, size int64) []byte {
-	return fileData(t, "/dev/urandom", size)
-}
+var linearIndex = 0
 
-func zeroData(t *testing.T, size int64) []byte {
-	return fileData(t, "/dev/zero", size)
+func linearData(size int) []byte {
+	b := make([]byte, size)
+	for ii := range b {
+		b[ii] = byte(linearIndex)
+	}
+	linearIndex++
+	if linearIndex == 5 {
+		linearIndex = 0
+	}
+	return b
 }
 
 func testStore(t *testing.T, meta *Meta, cfg string) {
@@ -70,9 +74,9 @@ func testStore(t *testing.T, meta *Meta, cfg string) {
 	for ii := 0; ii < 10; ii++ {
 		var r []byte
 		if ii%2 == 0 {
-			r = zeroData(t, dataSize)
+			r = linearData(dataSize)
 		} else {
-			r = randData(t, dataSize)
+			r = randData(dataSize)
 		}
 		id, err := store.Store(r, meta)
 		if err != nil {
@@ -189,4 +193,86 @@ func TestLevelDB(t *testing.T) {
 	defer os.RemoveAll(dir)
 	cfg := "leveldb://" + dir
 	testStore(t, &Meta{Foo: 5}, cfg)
+}
+
+func benchmarkDriver(b *testing.B, drv string, size int, f func(int) []byte) {
+	const count = 100
+	b.ReportAllocs()
+	b.SetBytes(int64(count * size))
+	dir, err := ioutil.TempDir("", "pool-benchmark")
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+	cfg := drv + "://" + dir
+	u, err := config.ParseURL(cfg)
+	if err != nil {
+		b.Fatal(err)
+	}
+	store, err := New(u)
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer store.Close()
+	b.ResetTimer()
+	for ii := 0; ii < b.N; ii++ {
+		ids := make([]string, 0, count)
+		for jj := 0; jj < count; jj++ {
+			id, err := store.Store(f(size), nil)
+			if err != nil {
+				b.Fatal(err)
+			}
+			ids = append(ids, id)
+		}
+		for _, v := range ids {
+			f, err := store.Open(v)
+			if err != nil {
+				b.Fatal(err)
+			}
+			if _, err := io.Copy(ioutil.Discard, f); err != nil {
+				b.Fatal(err)
+			}
+			f.Close()
+		}
+	}
+}
+
+func BenchmarkFile1MBRandom(b *testing.B) {
+	benchmarkDriver(b, "file", dataSize, randData)
+}
+func BenchmarkFile10MBRandom(b *testing.B) {
+	benchmarkDriver(b, "file", dataSize*10, randData)
+}
+func BenchmarkFile100MBRandom(b *testing.B) {
+	benchmarkDriver(b, "file", dataSize*100, randData)
+}
+
+func BenchmarkLevelDB1MBRandom(b *testing.B) {
+	benchmarkDriver(b, "leveldb", dataSize, randData)
+}
+func BenchmarkLevelDB10MBRandom(b *testing.B) {
+	benchmarkDriver(b, "leveldb", dataSize*10, randData)
+}
+func BenchmarkLevelDB100MBRandom(b *testing.B) {
+	benchmarkDriver(b, "leveldb", dataSize*100, randData)
+}
+
+func BenchmarkFile1MBLinear(b *testing.B) {
+	benchmarkDriver(b, "file", dataSize, linearData)
+}
+func BenchmarkFile10MBLinear(b *testing.B) {
+	benchmarkDriver(b, "file", dataSize*10, linearData)
+}
+func BenchmarkFile100MBLinear(b *testing.B) {
+	benchmarkDriver(b, "file", dataSize*100, linearData)
+}
+
+func BenchmarkLevelDB1MBLinear(b *testing.B) {
+	benchmarkDriver(b, "leveldb", dataSize, linearData)
+}
+func BenchmarkLevelDB10MBLinear(b *testing.B) {
+	benchmarkDriver(b, "leveldb", dataSize*10, linearData)
+}
+func BenchmarkLevelDB100MBLinear(b *testing.B) {
+	benchmarkDriver(b, "leveldb", dataSize*100, linearData)
 }

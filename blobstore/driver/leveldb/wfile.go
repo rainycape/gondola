@@ -2,9 +2,10 @@ package leveldb
 
 import (
 	"crypto/sha1"
-	"encoding/binary"
 
+	"gnd.la/encoding/binary"
 	"gnd.la/internal"
+	"gnd.la/internal/pool"
 )
 
 const (
@@ -13,6 +14,7 @@ const (
 
 var (
 	littleEndian = binary.LittleEndian
+	wfilesPool   = pool.New(0)
 )
 
 type wfile struct {
@@ -69,7 +71,9 @@ func (f *wfile) Close() error {
 			// 0 chunks indicates the data is inline
 			littleEndian.PutUint32(data, uint32(0))
 			copy(data[4:], f.buf)
-			return f.drv.files.Put(internal.StringToBytes(f.id), data, nil)
+			id := f.id
+			wfilesPool.Put(f)
+			return f.drv.files.Put(internal.StringToBytes(id), data, nil)
 		}
 		if err := f.writeChunk(); err != nil {
 			return err
@@ -86,9 +90,19 @@ func (f *wfile) Close() error {
 		n := copy(data[pos:], chunk)
 		pos += n
 	}
-	return f.drv.files.Put(internal.StringToBytes(f.id), data, nil)
+	id := f.id
+	wfilesPool.Put(f)
+	return f.drv.files.Put(internal.StringToBytes(id), data, nil)
 }
 
 func newWFile(drv *leveldbDriver, id string) *wfile {
+	if x := wfilesPool.Get(); x != nil {
+		w := x.(*wfile)
+		w.drv = drv
+		w.id = id
+		w.offset = 0
+		w.chunks = w.chunks[:0]
+		return w
+	}
 	return &wfile{drv: drv, id: id, buf: make([]byte, chunkSize)}
 }

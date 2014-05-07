@@ -38,6 +38,10 @@ func (d *leveldbDriver) Open(id string) (driver.RFile, error) {
 		return nil, err
 	}
 	count := int(littleEndian.Uint32(value))
+	if count == 0 {
+		// Data is inline
+		return &rfile{chunks: [][]byte{value[4:]}}, nil
+	}
 	pos := 4
 	chunks := make([][]byte, count)
 	for ii := 0; ii < count; ii++ {

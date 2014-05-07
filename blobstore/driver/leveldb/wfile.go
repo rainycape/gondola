@@ -60,6 +60,15 @@ func (f *wfile) Write(p []byte) (int, error) {
 
 func (f *wfile) Close() error {
 	if f.offset > 0 {
+		if len(f.chunks) == 0 {
+			// Store the file inline. Data is uint32 + f.offset
+			total := 4 + f.offset
+			data := make([]byte, total)
+			// 0 chunks indicates the data is inline
+			littleEndian.PutUint32(data, uint32(0))
+			copy(data[4:], f.buf)
+			return f.drv.files.Put([]byte(f.id), data, nil)
+		}
 		if err := f.writeChunk(); err != nil {
 			return err
 		}

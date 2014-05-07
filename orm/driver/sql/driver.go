@@ -12,6 +12,7 @@ import (
 	"gnd.la/config"
 	"gnd.la/encoding/codec"
 	"gnd.la/encoding/pipe"
+	"gnd.la/internal"
 	"gnd.la/log"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/index"
@@ -149,7 +150,7 @@ func (d *Driver) Query(m driver.Model, q query.Q, sort []driver.Sort, limit int,
 	if err != nil {
 		return &Iter{err: err}
 	}
-	rows, err := d.db.Query(bstos(query.Bytes()), params...)
+	rows, err := d.db.Query(internal.BytesToString(query.Bytes()), params...)
 	if err != nil {
 		return &Iter{err: err}
 	}

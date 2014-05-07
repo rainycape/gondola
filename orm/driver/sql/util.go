@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"reflect"
 
+	"gnd.la/internal"
 	"gnd.la/orm/index"
 )
 
@@ -27,5 +28,5 @@ func DescField(idx *index.Index, field string) bool {
 }
 
 func buftos(buf *bytes.Buffer) string {
-	return bstos(buf.Bytes())
+	return internal.BytesToString(buf.Bytes())
 }

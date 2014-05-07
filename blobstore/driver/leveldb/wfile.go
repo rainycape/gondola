@@ -3,6 +3,8 @@ package leveldb
 import (
 	"crypto/sha1"
 	"encoding/binary"
+
+	"gnd.la/internal"
 )
 
 const (
@@ -67,7 +69,7 @@ func (f *wfile) Close() error {
 			// 0 chunks indicates the data is inline
 			littleEndian.PutUint32(data, uint32(0))
 			copy(data[4:], f.buf)
-			return f.drv.files.Put([]byte(f.id), data, nil)
+			return f.drv.files.Put(internal.StringToBytes(f.id), data, nil)
 		}
 		if err := f.writeChunk(); err != nil {
 			return err
@@ -84,7 +86,7 @@ func (f *wfile) Close() error {
 		n := copy(data[pos:], chunk)
 		pos += n
 	}
-	return f.drv.files.Put([]byte(f.id), data, nil)
+	return f.drv.files.Put(internal.StringToBytes(f.id), data, nil)
 }
 
 func newWFile(drv *leveldbDriver, id string) *wfile {

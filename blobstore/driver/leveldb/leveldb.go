@@ -8,6 +8,7 @@ import (
 
 	"gnd.la/blobstore/driver"
 	"gnd.la/config"
+	"gnd.la/internal"
 	"gnd.la/util/pathutil"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -30,7 +31,7 @@ func (d *leveldbDriver) Create(id string) (driver.WFile, error) {
 }
 
 func (d *leveldbDriver) Open(id string) (driver.RFile, error) {
-	value, err := d.files.Get([]byte(id), nil)
+	value, err := d.files.Get(internal.StringToBytes(id), nil)
 	if err != nil {
 		if err == leveldb.ErrNotFound {
 			return nil, fmt.Errorf("file %s not found", id)

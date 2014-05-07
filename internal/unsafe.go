@@ -1,15 +1,15 @@
 // +build !appengine
 
-package sql
+package internal
 
 import (
 	"unsafe"
 )
 
-func stobs(s string) []byte {
+func StringToBytes(s string) []byte {
 	return *(*[]byte)(unsafe.Pointer(&s))
 }
 
-func bstos(b []byte) string {
+func BytesToString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
 }

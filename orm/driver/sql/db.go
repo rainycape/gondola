@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"gnd.la/internal"
 	"gnd.la/orm/driver"
 )
 
@@ -181,7 +182,7 @@ func (d *DB) quoteWith(s string, q byte) string {
 }
 
 func (d *DB) preparedStmt(s string) *sql.Stmt {
-	key := crc32.ChecksumIEEE(stobs(s))
+	key := crc32.ChecksumIEEE(internal.StringToBytes(s))
 	d.mu.RLock()
 	cached, ok := d.cache[key]
 	d.mu.RUnlock()

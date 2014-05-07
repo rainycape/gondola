@@ -279,7 +279,7 @@ func init() {
 		var pending []*Task
 		for _, v := range onListenTasks.tasks {
 			if v.App == a {
-				startTask(v)
+				go startTask(v)
 			} else {
 				pending = append(pending, v)
 			}

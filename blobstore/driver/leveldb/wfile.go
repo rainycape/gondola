@@ -29,9 +29,10 @@ type wfile struct {
 
 func (f *wfile) writeChunk() error {
 	data := f.buf[:f.offset]
-	hash := sha1.Sum(data)
+	h := sha1.Sum(data)
+	hash := h[:]
 	f.offset = 0
-	if ch, err := f.drv.chunks.Get(hash[:], checkChunkOptions); err == nil {
+	if ch, err := f.drv.chunks.Get(hash, checkChunkOptions); err == nil {
 		if !bytes.Equal(ch, data) {
 			return errors.New("hash collision")
 		}
@@ -40,14 +41,14 @@ func (f *wfile) writeChunk() error {
 		// an existing chunk with the same data. If there was an error
 		// reading the db, we'll get an error when putting the data
 		// a few lines later.
-		f.chunks = append(f.chunks, hash[:])
+		f.chunks = append(f.chunks, hash)
 		return nil
 	}
 	// Not found,  write it
-	if err := f.drv.chunks.Put(hash[:], data, nil); err != nil {
+	if err := f.drv.chunks.Put(hash, data, nil); err != nil {
 		return err
 	}
-	f.chunks = append(f.chunks, hash[:])
+	f.chunks = append(f.chunks, hash)
 	return nil
 }
 

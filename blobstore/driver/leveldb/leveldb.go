@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	syncOptions = &opt.WriteOptions{Sync: true}
+	syncOptions       = &opt.WriteOptions{Sync: true}
+	checkChunkOptions = &opt.ReadOptions{DontFillCache: true, Strict: opt.NoStrict}
 )
 
 type leveldbDriver struct {

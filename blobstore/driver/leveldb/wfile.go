@@ -31,7 +31,7 @@ func (f *wfile) writeChunk() error {
 	data := f.buf[:f.offset]
 	hash := sha1.Sum(data)
 	f.offset = 0
-	if ch, err := f.drv.chunks.Get(hash[:], nil); err == nil {
+	if ch, err := f.drv.chunks.Get(hash[:], checkChunkOptions); err == nil {
 		if !bytes.Equal(ch, data) {
 			return errors.New("hash collision")
 		}

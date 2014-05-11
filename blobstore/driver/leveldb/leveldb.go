@@ -87,13 +87,20 @@ func leveldbOpener(url *config.URL) (driver.Driver, error) {
 	if !filepath.IsAbs(value) {
 		value = pathutil.Relative(value)
 	}
+	opts := &opt.Options{}
+	if url.Fragment["nocompress"] != "" {
+		opts.Compression = opt.NoCompression
+	}
+	if url.Fragment["nocreate"] != "" {
+		opts.ErrorIfMissing = true
+	}
 	filesDir := filepath.Join(value, "files")
-	files, err := leveldb.OpenFile(filesDir, nil)
+	files, err := leveldb.OpenFile(filesDir, opts)
 	if err != nil {
 		return nil, err
 	}
 	chunksDir := filepath.Join(value, "chunks")
-	chunks, err := leveldb.OpenFile(chunksDir, nil)
+	chunks, err := leveldb.OpenFile(chunksDir, opts)
 	if err != nil {
 		return nil, err
 	}

@@ -1,7 +1,9 @@
 package leveldb
 
 import (
+	"bytes"
 	"crypto/sha1"
+	"errors"
 
 	"gnd.la/encoding/binary"
 	"gnd.la/internal"
@@ -29,7 +31,10 @@ func (f *wfile) writeChunk() error {
 	data := f.buf[:f.offset]
 	hash := sha1.Sum(data)
 	f.offset = 0
-	if _, err := f.drv.chunks.Get(hash[:], nil); err == nil {
+	if ch, err := f.drv.chunks.Get(hash[:], nil); err == nil {
+		if !bytes.Equal(ch, data) {
+			return errors.New("hash collision")
+		}
 		// Chunk already known. Ignore errors != nil here, since
 		// the worst thing that could happen could be overwriting
 		// an existing chunk with the same data. If there was an error

@@ -1,6 +1,7 @@
 package file
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -8,6 +9,7 @@ import (
 
 	"gnd.la/blobstore/driver"
 	"gnd.la/config"
+	"gnd.la/util/fileutil"
 	"gnd.la/util/pathutil"
 )
 
@@ -78,6 +80,9 @@ func fsOpener(url *config.URL) (driver.Driver, error) {
 		value = pathutil.Relative(value)
 	}
 	tmpDir := filepath.Join(value, "tmp")
+	if url.Fragment["nocreate"] != "" && !fileutil.DirExists(tmpDir) {
+		return nil, fmt.Errorf("no file based blobstore found at %s", tmpDir)
+	}
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return nil, err
 	}

@@ -1,17 +1,21 @@
 package leveldb
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"errors"
 
+	"gnd.la/blobstore/chunk"
+	"gnd.la/blobstore/chunk/fixed"
 	"gnd.la/encoding/binary"
 	"gnd.la/internal"
 	"gnd.la/internal/pool"
+
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 const (
-	chunkSize = 256 * 1024
+	chunkSize    = 256 * 1024    // 256 KiB
+	maxBatchSize = 4 * (1 << 20) // 4MiB
 )
 
 var (
@@ -20,20 +24,20 @@ var (
 )
 
 type wfile struct {
-	drv    *leveldbDriver
-	id     string
-	buf    []byte
-	chunks [][]byte
-	offset int
+	drv       *leveldbDriver
+	id        string
+	chunks    [][]byte
+	batch     *leveldb.Batch
+	batchSize int
+	chunk.Chunker
 }
 
-func (f *wfile) writeChunk() error {
-	data := f.buf[:f.offset]
+func (f *wfile) WriteChunk(data []byte) error {
 	h := sha1.Sum(data)
 	hash := h[:]
-	f.offset = 0
-	if ch, err := f.drv.chunks.Get(hash, checkChunkOptions); err == nil {
-		if !bytes.Equal(ch, data) {
+	f.chunks = append(f.chunks, hash)
+	if ch, err := f.drv.chunks.Get(hash, nil); err == nil {
+		if len(ch) != len(data) {
 			return errors.New("hash collision")
 		}
 		// Chunk already known. Ignore errors != nil here, since
@@ -41,49 +45,43 @@ func (f *wfile) writeChunk() error {
 		// an existing chunk with the same data. If there was an error
 		// reading the db, we'll get an error when putting the data
 		// a few lines later.
-		f.chunks = append(f.chunks, hash)
 		return nil
 	}
-	// Not found,  write it
-	if err := f.drv.chunks.Put(hash, data, nil); err != nil {
-		return err
+	// Not found, put it into the writing queue
+	f.batch.Put(hash, data)
+	f.batchSize += len(data)
+	if f.batchSize >= maxBatchSize {
+		return f.flushBatch()
 	}
-	f.chunks = append(f.chunks, hash)
 	return nil
 }
 
-func (f *wfile) Write(p []byte) (int, error) {
-	n := 0
-	for len(p) > 0 {
-		c := copy(f.buf[f.offset:], p)
-		f.offset += c
-		n += c
-		if f.offset == chunkSize {
-			if err := f.writeChunk(); err != nil {
-				return n, err
-			}
-		}
-		p = p[c:]
-	}
-	return n, nil
+func (f *wfile) flushBatch() error {
+	err := f.drv.chunks.Write(f.batch, nil)
+	f.batchSize = 0
+	f.batch.Reset()
+	return err
 }
 
 func (f *wfile) Close() error {
-	if f.offset > 0 {
+	if rem := f.Chunker.Remaining(); len(rem) > 0 {
 		if len(f.chunks) == 0 {
-			// Store the file inline. Data is uint32 + f.offset
-			total := 4 + f.offset
+			// Store the file inline. Data is uint32 + rem
+			total := 4 + len(rem)
 			data := make([]byte, total)
 			// 0 chunks indicates the data is inline
 			littleEndian.PutUint32(data, uint32(0))
-			copy(data[4:], f.buf)
+			copy(data[4:], rem)
 			id := f.id
 			wfilesPool.Put(f)
 			return f.drv.files.Put(internal.StringToBytes(id), data, nil)
 		}
-		if err := f.writeChunk(); err != nil {
+		if err := f.Chunker.Flush(); err != nil {
 			return err
 		}
+	}
+	if err := f.flushBatch(); err != nil {
+		return err
 	}
 	// Reserve n sha1 hashes + n uint32 + 1 uint32 (for the chunk count)
 	total := (len(f.chunks) * (sha1.Size + 4)) + 4
@@ -106,9 +104,11 @@ func newWFile(drv *leveldbDriver, id string) *wfile {
 		w := x.(*wfile)
 		w.drv = drv
 		w.id = id
-		w.offset = 0
 		w.chunks = w.chunks[:0]
+		w.Chunker.Reset()
 		return w
 	}
-	return &wfile{drv: drv, id: id, buf: make([]byte, chunkSize)}
+	w := &wfile{drv: drv, id: id, batch: new(leveldb.Batch)}
+	w.Chunker = fixed.New(w, chunkSize)
+	return w
 }

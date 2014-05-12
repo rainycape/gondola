@@ -66,7 +66,7 @@ func (r *RFile) Seek(offset int64, whence int) (int64, error) {
 // must be a pointer.
 func (r *RFile) GetMeta(meta interface{}) error {
 	if err := r.decodeMeta(); err != nil {
-		return err
+		return fmt.Errorf("error decoding metadata for file %s: %s", r.id, err)
 	}
 	if r.metadataData != nil {
 		return unmarshal(r.metadataData, meta)

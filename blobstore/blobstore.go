@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"strings"
 
 	"gnd.la/blobstore/driver"
 	"gnd.la/config"
@@ -17,6 +18,11 @@ var (
 		"gridfs": "gnd.la/blobstore/driver/gridfs",
 		"s3":     "gnd.la/blobstore/driver/s3",
 	}
+)
+
+const (
+	metaSuffix  = ".meta"
+	minIdLength = 8
 )
 
 // Iter iterates over all the files available in
@@ -87,6 +93,12 @@ func (s *Blobstore) Create() (*WFile, error) {
 // CreateId works like Create, but uses the given id rather than generating
 // a new one. If a file with the same id already exists, it's overwritten.
 func (s *Blobstore) CreateId(id string) (*WFile, error) {
+	if strings.HasSuffix(id, metaSuffix) {
+		return nil, fmt.Errorf("invalid id %s, can't end with .meta", id)
+	}
+	if len(id) < minIdLength {
+		return nil, fmt.Errorf("id is too short (%d characters), minimum length is %d", len(id), minIdLength)
+	}
 	w, err := s.drv.Create(id)
 	if err != nil {
 		return nil, err
@@ -216,7 +228,7 @@ func (s *Blobstore) Close() error {
 }
 
 func (s *Blobstore) metaName(id string) string {
-	return id + ".meta"
+	return id + metaSuffix
 }
 
 func isNil(v interface{}) bool {

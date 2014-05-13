@@ -29,7 +29,7 @@ type Iter interface {
 	Close() error
 }
 
-// Iterable is the interface implemented by drivers which can iteratet
+// Iterable is the interface implemented by drivers which can iterate
 // over the files stored in them.
 type Iterable interface {
 	Iter() (Iter, error)

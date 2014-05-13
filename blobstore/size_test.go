@@ -65,6 +65,9 @@ func storeBinaries(t *testing.T, store *Blobstore, prepend []byte) int {
 }
 
 func testSize(t *testing.T, drv string) {
+	if testing.Short() {
+		t.SkipNow()
+	}
 	dir, err := ioutil.TempDir("", "pool-benchmark")
 	if err != nil {
 		t.Fatal(err)

@@ -1,6 +1,7 @@
 package blobstore
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,10 @@ var (
 		"gridfs": "gnd.la/blobstore/driver/gridfs",
 		"s3":     "gnd.la/blobstore/driver/s3",
 	}
+
+	// ErrNotIterable indicates that the current blobstore driver
+	// does not support iteration.
+	ErrNotIterable = errors.New("the blobstore driver does not support iteration")
 )
 
 const (
@@ -214,12 +219,12 @@ func (s *Blobstore) Serve(w http.ResponseWriter, id string, rng *Range) error {
 
 // Iter returns an iterator which visits all the files
 // available in the blobstore. If the underlying driver
-// does not support iteration, an error will be returned.
+// does not support iteration, (nil, ErrNotIterable) will be returned.
 func (s *Blobstore) Iter() (Iter, error) {
 	if iterable, ok := s.drv.(driver.Iterable); ok {
 		return iterable.Iter()
 	}
-	return nil, fmt.Errorf("driver %q does not support iteration", s.drvName)
+	return nil, ErrNotIterable
 }
 
 // Close closes the connection to the Blobstore.

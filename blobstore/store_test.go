@@ -180,7 +180,7 @@ func TestS3(t *testing.T) {
 	b, err := ioutil.ReadFile("s3.txt")
 	if err != nil || !strings.HasPrefix(string(b), "s3://") {
 		abs, _ := filepath.Abs("s3.txt")
-		t.Skipf("please, provide a file with a at %s s3 blobstore url to execute this test (e.g. \"s3://my-blobstore-test?access_key=akey&secret_key=some_secret\"", abs)
+		t.Skipf("please, provide a file with an s3 blobstore url at %s to execute this test (e.g. \"s3://my-blobstore-test?access_key=akey&secret_key=some_secret\"", abs)
 	}
 	testStore(t, nil, strings.TrimSpace(string(b)))
 }

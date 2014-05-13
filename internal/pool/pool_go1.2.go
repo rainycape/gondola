@@ -15,7 +15,7 @@ type Pool struct {
 // ignored on Go >= 1.3.
 func New(size int) *Pool {
 	if size == 0 {
-		size = runtime.GOMAXPROCS(0)
+		size = runtime.GOMAXPROCS(0) * 2
 	}
 	return &Pool{ch: make(chan interface{}, size)}
 }

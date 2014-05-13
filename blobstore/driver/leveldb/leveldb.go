@@ -1,6 +1,7 @@
 package leveldb
 
 import (
+	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"gnd.la/util/pathutil"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
@@ -99,8 +101,10 @@ func leveldbOpener(url *config.URL) (driver.Driver, error) {
 	if err != nil {
 		return nil, err
 	}
+	copts := *opts
+	copts.Filter = filter.NewBloomFilter(8 * sha1.Size)
 	chunksDir := filepath.Join(value, "chunks")
-	chunks, err := leveldb.OpenFile(chunksDir, opts)
+	chunks, err := leveldb.OpenFile(chunksDir, &copts)
 	if err != nil {
 		return nil, err
 	}

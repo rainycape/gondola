@@ -16,6 +16,10 @@ import (
 	"sync"
 )
 
+const (
+	metadataKey = "meta"
+)
+
 // mgo recommends Copy'ing the initial
 // session instead of calling Dial
 // everytime
@@ -24,18 +28,43 @@ var connections struct {
 	sessions map[string]*mgo.Session
 }
 
+type rfile mgo.GridFile
+
+func (r *rfile) Seek(offset int64, whence int) (int64, error) {
+	return (*mgo.GridFile)(r).Seek(offset, whence)
+}
+
+func (r *rfile) Read(p []byte) (int, error) {
+	return (*mgo.GridFile)(r).Read(p)
+}
+
+func (r *rfile) Close() error {
+	return (*mgo.GridFile)(r).Close()
+}
+
+func (r *rfile) Metadata() ([]byte, error) {
+	out := make(map[string][]byte)
+	if err := (*mgo.GridFile)(r).GetMeta(&out); err != nil {
+		return nil, err
+	}
+	return out[metadataKey], nil
+}
+
 // gridfs Seek is broken for writing files, so
 // hide that method by wrapping it into a struct
-type wfile struct {
-	file *mgo.GridFile
+type wfile mgo.GridFile
+
+func (w *wfile) SetMetadata(b []byte) error {
+	(*mgo.GridFile)(w).SetMeta(bson.M{metadataKey: b})
+	return nil
 }
 
 func (w *wfile) Write(p []byte) (int, error) {
-	return w.file.Write(p)
+	return (*mgo.GridFile)(w).Write(p)
 }
 
 func (w *wfile) Close() error {
-	return w.file.Close()
+	return (*mgo.GridFile)(w).Close()
 }
 
 type gridfsDriver struct {
@@ -49,13 +78,12 @@ func (d *gridfsDriver) Create(id string) (driver.WFile, error) {
 		return nil, err
 	}
 	f.SetId(bson.ObjectIdHex(id))
-	return &wfile{
-		file: f,
-	}, nil
+	return (*wfile)(f), nil
 }
 
 func (d *gridfsDriver) Open(id string) (driver.RFile, error) {
-	return d.fs.OpenId(bson.ObjectIdHex(id))
+	r, err := d.fs.OpenId(bson.ObjectIdHex(id))
+	return (*rfile)(r), err
 }
 
 func (d *gridfsDriver) Remove(id string) error {

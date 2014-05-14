@@ -1,7 +1,9 @@
 package blobstore
 
 import (
+	"bytes"
 	"hash"
+	"io"
 
 	"gnd.la/blobstore/driver"
 )
@@ -40,7 +42,7 @@ func (w *WFile) SetMeta(meta interface{}) error {
 // might not be used again.
 func (w *WFile) Close() error {
 	if !w.closed {
-		if err := w.writeMeta(); err != nil {
+		if err := w.putMeta(); err != nil {
 			return err
 		}
 		return w.file.Close()
@@ -48,18 +50,39 @@ func (w *WFile) Close() error {
 	return nil
 }
 
-func (w *WFile) writeMeta() error {
+func (w *WFile) putMeta() error {
+	if !w.store.drvNoMeta {
+		var buf bytes.Buffer
+		if err := w.writeMeta(&buf); err != nil {
+			return err
+		}
+		err := w.file.SetMetadata(buf.Bytes())
+		if err == driver.ErrMetadataNotHandled {
+			// Driver does not support metadata. Update
+			// the blobstore and call putMeta() again.
+			w.store.drvNoMeta = true
+			return w.putMeta()
+		}
+		return err
+	}
+	// No meta supported by the driver, generate a .meta
+	// file.
 	f, err := w.store.drv.Create(w.store.metaName(w.id))
 	if err != nil {
 		return err
 	}
 	defer f.Close()
+	return w.writeMeta(f)
+}
+
+func (w *WFile) writeMeta(out io.Writer) error {
+	var err error
 	// Write version number
-	if err := bwrite(f, uint8(1)); err != nil {
+	if err = bwrite(out, uint8(1)); err != nil {
 		return err
 	}
 	// Write flags
-	if err := bwrite(f, uint64(0)); err != nil {
+	if err = bwrite(out, uint64(0)); err != nil {
 		return err
 	}
 	var metadata []byte
@@ -76,21 +99,21 @@ func (w *WFile) writeMeta() error {
 		metadataHash = h.Sum64()
 	}
 	// Metadata metadata
-	if err := bwrite(f, metadataLength); err != nil {
+	if err := bwrite(out, metadataLength); err != nil {
 		return err
 	}
-	if err := bwrite(f, metadataHash); err != nil {
+	if err := bwrite(out, metadataHash); err != nil {
 		return err
 	}
 	// Data metadata
-	if err := bwrite(f, w.dataLength); err != nil {
+	if err := bwrite(out, w.dataLength); err != nil {
 		return err
 	}
-	if err := bwrite(f, w.dataHash.Sum64()); err != nil {
+	if err := bwrite(out, w.dataHash.Sum64()); err != nil {
 		return err
 	}
 	if len(metadata) > 0 {
-		if _, err := f.Write(metadata); err != nil {
+		if _, err := out.Write(metadata); err != nil {
 			return err
 		}
 	}

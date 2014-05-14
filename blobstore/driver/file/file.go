@@ -18,6 +18,24 @@ type fsDriver struct {
 	tmpDir string
 }
 
+type rfile os.File
+
+func (r *rfile) Seek(offset int64, whence int) (int64, error) {
+	return (*os.File)(r).Seek(offset, whence)
+}
+
+func (r *rfile) Read(p []byte) (int, error) {
+	return (*os.File)(r).Read(p)
+}
+
+func (r *rfile) Close() error {
+	return (*os.File)(r).Close()
+}
+
+func (r *rfile) Metadata() ([]byte, error) {
+	return nil, driver.ErrMetadataNotHandled
+}
+
 func (f *fsDriver) tmp(id string) string {
 	return filepath.Join(f.tmpDir, id)
 }
@@ -46,7 +64,8 @@ func (f *fsDriver) Create(id string) (driver.WFile, error) {
 }
 
 func (f *fsDriver) Open(id string) (driver.RFile, error) {
-	return os.Open(f.path(id))
+	r, err := os.Open(f.path(id))
+	return (*rfile)(r), err
 }
 
 func (f *fsDriver) Remove(id string) error {

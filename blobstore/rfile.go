@@ -1,6 +1,7 @@
 package blobstore
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -119,43 +120,66 @@ func (r *RFile) Size() (uint64, error) {
 
 func (r *RFile) decodeMeta() error {
 	if !r.hasMeta {
-		f, err := r.store.drv.Open(r.store.metaName(r.id))
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		var version uint8
-		if err = bread(f, &version); err != nil {
-			return err
-		}
-		if version != 1 {
-			return fmt.Errorf("can't read metadata files with version %d", version)
-		}
-		// Skip over the flags for now
-		var flags uint64
-		if err = bread(f, &flags); err != nil {
-			return err
-		}
-		var metadataLength uint64
-		if err = bread(f, &metadataLength); err != nil {
-			return err
-		}
-		if err = bread(f, &r.metadataHash); err != nil {
-			return err
-		}
-		if err = bread(f, &r.dataLength); err != nil {
-			return err
-		}
-		if err = bread(f, &r.dataHash); err != nil {
-			return err
-		}
-		if metadataLength > 0 {
-			r.metadataData = make([]byte, int(metadataLength))
-			if _, err = io.ReadFull(f, r.metadataData); err != nil {
+		if !r.store.drvNoMeta {
+			meta, err := r.file.Metadata()
+			if err != nil {
+				if err == driver.ErrMetadataNotHandled {
+					// Driver does not support metadata
+					r.store.drvNoMeta = true
+					return r.decodeMeta()
+				}
+			}
+			if err := r.readMeta(bytes.NewReader(meta)); err != nil {
+				return err
+			}
+		} else {
+			// Driver does not support metadata
+			f, err := r.store.drv.Open(r.store.metaName(r.id))
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			if err := r.readMeta(f); err != nil {
 				return err
 			}
 		}
-		r.hasMeta = true
+	}
+	r.hasMeta = true
+	return nil
+}
+
+func (r *RFile) readMeta(f io.Reader) error {
+	var err error
+	var version uint8
+	if err = bread(f, &version); err != nil {
+		return err
+	}
+	if version != 1 {
+		return fmt.Errorf("can't read metadata files with version %d", version)
+	}
+	// Skip over the flags for now
+	var flags uint64
+	if err = bread(f, &flags); err != nil {
+		return err
+	}
+	var metadataLength uint64
+	if err = bread(f, &metadataLength); err != nil {
+		return err
+	}
+	if err = bread(f, &r.metadataHash); err != nil {
+		return err
+	}
+	if err = bread(f, &r.dataLength); err != nil {
+		return err
+	}
+	if err = bread(f, &r.dataHash); err != nil {
+		return err
+	}
+	if metadataLength > 0 {
+		r.metadataData = make([]byte, int(metadataLength))
+		if _, err = io.ReadFull(f, r.metadataData); err != nil {
+			return err
+		}
 	}
 	return nil
 }

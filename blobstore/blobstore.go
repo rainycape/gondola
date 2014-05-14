@@ -53,9 +53,10 @@ type Iter interface {
 // Blobstore represents a connection to a blobstore. Use New()
 // to initialize a Blobsore and Blobstore.Close to close it.
 type Blobstore struct {
-	drv     driver.Driver
-	srv     driver.Server
-	drvName string
+	drv       driver.Driver
+	srv       driver.Server
+	drvName   string
+	drvNoMeta bool
 }
 
 // New returns a new *Blobstore using the given url as its configure

@@ -7,9 +7,14 @@ import (
 )
 
 type rfile struct {
-	chunks [][]byte
-	chunk  int
-	pos    int
+	metadata []byte
+	chunks   [][]byte
+	chunk    int
+	pos      int
+}
+
+func (f *rfile) Metadata() ([]byte, error) {
+	return f.metadata, nil
 }
 
 func (f *rfile) Seek(offset int64, whence int) (int64, error) {

@@ -29,6 +29,10 @@ var buckets struct {
 
 type rfile bytes.Reader
 
+func (r *rfile) Metadata() ([]byte, error) {
+	return nil, driver.ErrMetadataNotHandled
+}
+
 func (r *rfile) Read(p []byte) (int, error) {
 	return (*bytes.Reader)(r).Read(p)
 }
@@ -45,6 +49,10 @@ type wfile struct {
 	id     string
 	bucket *s3.Bucket
 	buf    bytes.Buffer
+}
+
+func (w *wfile) SetMetadata(_ []byte) error {
+	return driver.ErrMetadataNotHandled
 }
 
 func (w *wfile) Write(p []byte) (int, error) {

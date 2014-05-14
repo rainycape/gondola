@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"gnd.la/blobstore/driver"
 	"gnd.la/config"
@@ -41,12 +40,17 @@ func (d *leveldbDriver) Open(id string) (driver.RFile, error) {
 		}
 		return nil, err
 	}
+	metaLen := int(littleEndian.Uint32(value))
+	value = value[4:]
+	metadata := value[:metaLen]
+	value = value[metaLen:]
 	count := int(littleEndian.Uint32(value))
+	value = value[4:]
 	if count == 0 {
 		// Data is inline
-		return &rfile{chunks: [][]byte{value[4:]}}, nil
+		return &rfile{metadata: metadata, chunks: [][]byte{value}}, nil
 	}
-	pos := 4
+	pos := 0
 	chunks := make([][]byte, count)
 	for ii := 0; ii < count; ii++ {
 		size := int(littleEndian.Uint32(value[pos:]))
@@ -62,7 +66,7 @@ func (d *leveldbDriver) Open(id string) (driver.RFile, error) {
 		chunks[ii] = chunk
 		pos += size
 	}
-	return &rfile{chunks: chunks}, nil
+	return &rfile{metadata: metadata, chunks: chunks}, nil
 }
 
 func (d *leveldbDriver) Remove(id string) error {
@@ -122,9 +126,6 @@ type leveldbIter struct {
 func (i *leveldbIter) Next(id *string) bool {
 	for i.iter.Next() {
 		key := string(i.iter.Key())
-		if strings.HasSuffix(key, ".meta") {
-			continue
-		}
 		if id != nil {
 			*id = key
 		}

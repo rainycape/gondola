@@ -3,11 +3,17 @@ package file
 import (
 	"os"
 	"path/filepath"
+
+	"gnd.la/blobstore/driver"
 )
 
 type wfile struct {
 	*os.File
 	path string
+}
+
+func (f *wfile) SetMetadata(_ []byte) error {
+	return driver.ErrMetadataNotHandled
 }
 
 func (f *wfile) Close() error {

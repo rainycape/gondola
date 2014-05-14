@@ -47,8 +47,9 @@ func (t *Timed) Ended() bool {
 
 // AutoEnd causes the timed event to be ended when
 // the timings are requested.
-func (e *Timed) AutoEnd() {
+func (e *Timed) AutoEnd() *Timed {
 	e.autoend = true
+	return e
 }
 
 type context struct {

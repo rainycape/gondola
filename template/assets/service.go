@@ -8,7 +8,7 @@ import (
 	"net/url"
 )
 
-// Reducer indicates the base URL for the reducer
+// Service indicates the base URL for the assets
 // service to use. POST calls will be made to:
 //
 //  Reducer + "css"
@@ -19,9 +19,9 @@ import (
 //
 // The code to reduce or compile will be sent in
 // the form parameter named "code".
-var Reducer = "http://reducer.gondolaweb.com/"
+var Service = "http://assets.gondolaweb.com/"
 
-func reducer(path string, w io.Writer, r io.Reader) (int, int, error) {
+func assetsService(path string, w io.Writer, r io.Reader) (int, int, error) {
 	code, err := ioutil.ReadAll(r)
 	if err != nil {
 		return 0, 0, err
@@ -29,7 +29,7 @@ func reducer(path string, w io.Writer, r io.Reader) (int, int, error) {
 	form := url.Values{
 		"code": []string{string(code)},
 	}
-	resp, err := http.PostForm(Reducer+path, form)
+	resp, err := http.PostForm(Service+path, form)
 	if err != nil {
 		return 0, 0, err
 	}

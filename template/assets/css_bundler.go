@@ -18,7 +18,7 @@ func (c *cssBundler) Bundle(w io.Writer, r io.Reader, opts Options) error {
 	if cleanCSSPath != "" {
 		return command(cleanCSSPath, []string{"--s0"}, w, r, opts)
 	}
-	p, n, err := reducer("css", w, r)
+	p, n, err := assetsService("css", w, r)
 	if err != nil {
 		return err
 	}

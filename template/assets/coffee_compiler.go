@@ -16,7 +16,7 @@ func (c *coffeeCompiler) Compile(w io.Writer, r io.Reader, opts Options) error {
 	if coffeePath != "" {
 		return command(coffeePath, []string{"-sc", "-"}, w, r, opts)
 	}
-	_, _, err := reducer("coffee", w, r)
+	_, _, err := assetsService("coffee", w, r)
 	return err
 }
 

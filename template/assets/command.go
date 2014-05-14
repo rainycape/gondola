@@ -8,10 +8,7 @@ import (
 )
 
 func command(path string, args []string, w io.Writer, r io.Reader, opts Options) error {
-	var cmdArgs []string
-	cmdArgs = append(cmdArgs, args...)
-	cmdArgs = append(cmdArgs, "-")
-	cmd := exec.Command(path, cmdArgs...)
+	cmd := exec.Command(path, args...)
 	cmd.Stdin = r
 	cmd.Stdout = w
 	var buf bytes.Buffer

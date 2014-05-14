@@ -14,7 +14,7 @@ type lessCompiler struct {
 
 func (c *lessCompiler) Compile(w io.Writer, r io.Reader, opts Options) error {
 	if lesscPath != "" {
-		return command(lesscPath, []string{"--no-color"}, w, r, opts)
+		return command(lesscPath, []string{"--no-color", "-"}, w, r, opts)
 	}
 	_, _, err := reducer("less", w, r)
 	return err

@@ -1,0 +1,54 @@
+.adsense-box {
+    width: 320px; height: 50px;
+    background: #fff;
+}
+
+@media(min-width: 500px) {
+    .adsense-box { width: 468px; height: 60px; }
+}
+@media(min-width: 800px) {
+    .adsense-box { width: 728px; height: 90px; }
+}
+
+.adsense-box .adsense-hide-button {
+    display: none;
+    position: absolute;
+    top: -16px;
+    left: 0;
+    z-index: 30000000;
+    padding: 0 4px;
+    height: 16px;
+    background: #000;
+    color: #fff;
+    font-size: 12px;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+}
+
+.adsense-responsive {
+  padding: 5px 0;
+  width: 100%;
+  z-index: 100000;
+}
+
+.adsense-responsive-fixed {
+  padding: 0;
+  position: fixed;
+  bottom: -1000px;
+}
+
+.adsense-responsive-fixed .adsense-hide-button {
+    display: block;
+}
+
+.adsense-box .adsense-hide-button .adsense-hidden {
+  display: none;
+}
+
+.adsense-box .adsense-out .adsense-hidden {
+  display: inline;
+}
+
+.adsense-box .adsense-out .adsense-shown {
+  display: none;
+}

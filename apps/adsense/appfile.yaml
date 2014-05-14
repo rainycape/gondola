@@ -1,0 +1,10 @@
+name: AdSense
+vars:
+    Publisher:
+
+assets: assets
+
+templates:
+    path: tmpl
+    hooks:
+        adsense.html: none

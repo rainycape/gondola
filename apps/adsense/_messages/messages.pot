@@ -1,0 +1,21 @@
+#: tmpl/adsense.html:18
+msgctxt "AdSense"
+msgid "Missing publisher ID, set adsense.Publisher to your publisher ID"
+msgstr ""
+
+#: tmpl/adsense.html:20
+msgctxt "AdSense"
+msgid ""
+"Missing slot ID, pass it as the template argument - e.g {{ template "
+"\"AdSense|Responsive\" \"123456\" }}"
+msgstr ""
+
+#: tmpl/adsense.html:8
+msgctxt "AdSense"
+msgid "hide"
+msgstr ""
+
+#: tmpl/adsense.html:8
+msgctxt "AdSense"
+msgid "show"
+msgstr ""

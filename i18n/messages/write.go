@@ -105,7 +105,7 @@ func writeSuffixLines(w io.Writer, prefix, suffix, str string) error {
 }
 
 func Write(w io.Writer, messages []*Message) error {
-	for _, m := range messages {
+	for ii, m := range messages {
 		if m.TranslatorComment != "" {
 			if err := writeLines(w, "# ", m.TranslatorComment); err != nil {
 				return err
@@ -175,8 +175,10 @@ func Write(w io.Writer, messages []*Message) error {
 				return err
 			}
 		}
-		if _, err := w.Write([]byte{'\n'}); err != nil {
-			return err
+		if ii != len(messages)-1 {
+			if _, err := w.Write([]byte{'\n'}); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

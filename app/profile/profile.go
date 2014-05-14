@@ -39,6 +39,12 @@ func (t *Timed) End() {
 	t.ended = time.Now()
 }
 
+// Ended returns wheter the timed event has
+// finished.
+func (t *Timed) Ended() bool {
+	return !t.ended.IsZero()
+}
+
 // AutoEnd causes the timed event to be ended when
 // the timings are requested.
 func (e *Timed) AutoEnd() {

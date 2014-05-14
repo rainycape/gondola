@@ -205,5 +205,8 @@ func makeResponse(r *http.Response, err error) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	if profile.On && profile.Profiling() {
+		r.Body = profile.ReadCloser(r.Body, profileName, r.Request.URL.String())
+	}
 	return &Response{Response: r}, nil
 }

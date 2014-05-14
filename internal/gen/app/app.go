@@ -146,6 +146,12 @@ func (app *App) Gen(release bool) error {
 			suffix := re.ReplaceAllString(k, "_")
 			name := fmt.Sprintf("tmpl_%s", suffix)
 			fmt.Fprintf(&buf, "%s := template.New(templatesLoader, manager)\n", name)
+			fmt.Fprintf(&buf, "%s.Funcs(map[string]interface{}{\n", name)
+			funcNames := []string{"t", "tn", "tc", "tnc", "reverse"}
+			for _, v := range funcNames {
+				fmt.Fprintf(&buf, "\"%s\": func(_ ...interface{}) interface{} { return nil },\n", v)
+			}
+			buf.WriteString("})\n")
 			fmt.Fprintf(&buf, "if err := %s.Parse(%q); err != nil {\npanic(err)\n}\n", name, k)
 			fmt.Fprintf(&buf, "App.AddHook(&template.Hook{Template: %s, Position: %s})\n", name, pos)
 		}

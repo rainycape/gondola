@@ -369,12 +369,14 @@ func (app *App) include(prefix string, child *App, containerTemplate string) err
 		app:       child,
 		container: containerTemplate,
 	}
-	// Check if the container is fine. Not completely sure if this
-	// is a good idea, since the panic will happen on start rather
-	// than on a request, but otherwise the error could go unnoticed
-	// until a handler from the included app is invoked.
-	if _, _, err := app.loadContainerTemplate(included); err != nil {
-		return err
+	if containerTemplate != "" {
+		// Check if the container is fine. Not completely sure if this
+		// is a good idea, since the panic will happen on start rather
+		// than on a request, but otherwise the error could go unnoticed
+		// until a handler from the included app is invoked.
+		if _, _, err := app.loadContainerTemplate(included); err != nil {
+			return err
+		}
 	}
 	child.childInfo = included
 	if child.assetsManager != nil {

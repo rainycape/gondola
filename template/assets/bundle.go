@@ -5,13 +5,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"gnd.la/log"
 	"hash/fnv"
 	"io"
 	"os"
 	"path"
 	"regexp"
 	"strings"
+
+	"gnd.la/log"
+	"gnd.la/util/formatutil"
 )
 
 var (
@@ -96,11 +98,20 @@ func Bundle(groups []*Group, opts Options) (*Asset, error) {
 		// Bundle to a buf first. We don't want to create
 		// the file if the bundling fails.
 		var buf bytes.Buffer
-		reader := strings.NewReader(strings.Join(code, "\n\n"))
+		allCode := strings.Join(code, "\n\n")
+		reader := strings.NewReader(allCode)
 		if err := bundler.Bundle(&buf, reader, opts); err != nil {
 			return nil, err
 		}
 		s := makeLinksCacheable(m, dir, buf.Bytes())
+		initial := len(allCode)
+		final := len(s)
+		var percent float64
+		if initial != 0 {
+			percent = float64(final) / float64(initial) * 100
+		}
+		log.Debugf("reduced size from %s to %s (%.2f%%)", formatutil.Size(uint64(initial)),
+			formatutil.Size(uint64(final)), percent)
 		w, err := m.Create(name, true)
 		if err == nil {
 			if _, err := io.Copy(w, strings.NewReader(s)); err != nil {

@@ -344,9 +344,12 @@ func (app *App) include(prefix string, child *App, containerTemplate string) err
 	if child.name == "" {
 		return fmt.Errorf("included app %v can't have an empty name", child)
 	}
+	if prefix == "" {
+		return fmt.Errorf("can't include app %s with empty prefix", child.name)
+	}
 	// prefix must start with / and end without /,
 	// fix it if it doesn't match
-	if prefix == "" || prefix[0] != '/' {
+	if prefix[0] != '/' {
 		prefix = "/" + prefix
 	}
 	for prefix[len(prefix)-1] == '/' {

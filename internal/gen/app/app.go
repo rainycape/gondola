@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const appFilename = "app.yaml"
+const appFilename = "appfile.yaml"
 
 type Templates struct {
 	Path  string            `yaml:"path"`

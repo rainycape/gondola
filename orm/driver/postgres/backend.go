@@ -90,6 +90,9 @@ func (b *Backend) Insert(db *sql.DB, m driver.Model, query string, args ...inter
 func (b *Backend) HasIndex(db *sql.DB, m driver.Model, idx *index.Index, name string) (bool, error) {
 	var exists int
 	err := db.QueryRow("SELECT 1 FROM pg_class WHERE relname = $1 AND relkind = 'i'", name).Scan(&exists)
+	if err == sql.ErrNoRows {
+		err = nil
+	}
 	return exists != 0, err
 }
 

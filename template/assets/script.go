@@ -63,7 +63,7 @@ func scriptFallback(m *Manager, script *Asset, fallback string) (*Asset, error) 
 		Name:     fallbackName,
 		Position: Bottom,
 		Type:     TypeOther,
-		HTML:     fmt.Sprintf("<script>%s || document.write('<script src=\"%s\"><\\/script>')</script>", fallback, m.URL(fallbackName)),
+		HTML:     fmt.Sprintf("<script>%s || document.write('<scr'+'ipt src=\"%s\"><\\/scr'+'ipt>')</script>", fallback, m.URL(fallbackName)),
 	}, nil
 }
 

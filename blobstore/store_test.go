@@ -1,11 +1,11 @@
 package blobstore
 
 import (
-	"crypto/rand"
 	"fmt"
 	"hash/adler32"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
@@ -38,8 +38,8 @@ type Meta struct {
 
 func randData(size int) []byte {
 	b := make([]byte, size)
-	if _, err := io.ReadFull(rand.Reader, b); err != nil {
-		panic(err)
+	for ii := 0; ii < len(b); ii += 50 {
+		b[ii] = byte(rand.Int31n(256))
 	}
 	return b
 }
@@ -52,7 +52,7 @@ func linearData(size int) []byte {
 		b[ii] = byte(linearIndex)
 	}
 	linearIndex++
-	if linearIndex == 5 {
+	if linearIndex == 50 {
 		linearIndex = 0
 	}
 	return b
@@ -195,10 +195,43 @@ func TestLevelDB(t *testing.T) {
 	testStore(t, &Meta{Foo: 5}, cfg)
 }
 
-func benchmarkDriver(b *testing.B, drv string, size int, f func(int) []byte) {
-	const count = 100
+const (
+	modeR  = 1 << 0
+	modeW  = 1 << 1
+	modeRW = modeR | modeW
+
+	opCount = 100
+)
+
+func benchmarkWrite(b *testing.B, bs *Blobstore, size int, f func(int) []byte) []string {
+	ids := make([]string, 0, opCount)
+	for ii := 0; ii < opCount; ii++ {
+		id, err := bs.Store(f(size), nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+func benchmarkRead(b *testing.B, bs *Blobstore, ids []string) {
+	for _, v := range ids {
+		f, err := bs.Open(v)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if _, err := io.Copy(ioutil.Discard, f); err != nil {
+			b.Fatal(err)
+		}
+		f.Close()
+	}
+}
+
+func benchmarkDriver(b *testing.B, drv string, size int, mode int, f func(int) []byte) {
 	b.ReportAllocs()
-	b.SetBytes(int64(count * size))
+	s := int64(opCount * size)
+	b.SetBytes(s)
 	dir, err := ioutil.TempDir("", "pool-benchmark")
 	if err != nil {
 		b.Fatal(err)
@@ -215,64 +248,22 @@ func benchmarkDriver(b *testing.B, drv string, size int, f func(int) []byte) {
 	}
 	defer store.Close()
 	b.ResetTimer()
-	for ii := 0; ii < b.N; ii++ {
-		ids := make([]string, 0, count)
-		for jj := 0; jj < count; jj++ {
-			id, err := store.Store(f(size), nil)
-			if err != nil {
-				b.Fatal(err)
-			}
-			ids = append(ids, id)
+	switch {
+	case mode&modeR != 0 && mode&modeW != 0:
+		b.SetBytes(s * 2)
+		for ii := 0; ii < b.N; ii++ {
+			ids := benchmarkWrite(b, store, size, f)
+			benchmarkRead(b, store, ids)
 		}
-		for _, v := range ids {
-			f, err := store.Open(v)
-			if err != nil {
-				b.Fatal(err)
-			}
-			if _, err := io.Copy(ioutil.Discard, f); err != nil {
-				b.Fatal(err)
-			}
-			f.Close()
+	case mode&modeW != 0:
+		for ii := 0; ii < b.N; ii++ {
+			benchmarkWrite(b, store, size, f)
+		}
+	case mode&modeR != 0:
+		ids := benchmarkWrite(b, store, size, f)
+		b.ResetTimer()
+		for ii := 0; ii < b.N; ii++ {
+			benchmarkRead(b, store, ids)
 		}
 	}
-}
-
-func BenchmarkFile1MBRandom(b *testing.B) {
-	benchmarkDriver(b, "file", dataSize, randData)
-}
-func BenchmarkFile10MBRandom(b *testing.B) {
-	benchmarkDriver(b, "file", dataSize*10, randData)
-}
-func BenchmarkFile100MBRandom(b *testing.B) {
-	benchmarkDriver(b, "file", dataSize*100, randData)
-}
-
-func BenchmarkLevelDB1MBRandom(b *testing.B) {
-	benchmarkDriver(b, "leveldb", dataSize, randData)
-}
-func BenchmarkLevelDB10MBRandom(b *testing.B) {
-	benchmarkDriver(b, "leveldb", dataSize*10, randData)
-}
-func BenchmarkLevelDB100MBRandom(b *testing.B) {
-	benchmarkDriver(b, "leveldb", dataSize*100, randData)
-}
-
-func BenchmarkFile1MBLinear(b *testing.B) {
-	benchmarkDriver(b, "file", dataSize, linearData)
-}
-func BenchmarkFile10MBLinear(b *testing.B) {
-	benchmarkDriver(b, "file", dataSize*10, linearData)
-}
-func BenchmarkFile100MBLinear(b *testing.B) {
-	benchmarkDriver(b, "file", dataSize*100, linearData)
-}
-
-func BenchmarkLevelDB1MBLinear(b *testing.B) {
-	benchmarkDriver(b, "leveldb", dataSize, linearData)
-}
-func BenchmarkLevelDB10MBLinear(b *testing.B) {
-	benchmarkDriver(b, "leveldb", dataSize*10, linearData)
-}
-func BenchmarkLevelDB100MBLinear(b *testing.B) {
-	benchmarkDriver(b, "leveldb", dataSize*100, linearData)
 }

@@ -242,16 +242,7 @@ func (p *Project) StartMonitoring() error {
 					break
 				}
 				if ev.Name == p.configPath {
-					if ev.IsModify() {
-						log.Infof("Config file %s changed, restarting...", p.configPath)
-						if err := p.Stop(); err != nil {
-							log.Errorf("Error stopping %s: %s", p.Name(), err)
-							break
-						}
-						if err := p.Start(); err != nil {
-							log.Panicf("Error starting %s: %s", p.Name(), err)
-						}
-					} else if ev.IsDelete() {
+					if ev.IsDelete() {
 						// It seems the Watcher stops watching a file
 						// if it receives a DELETE event for it. For some
 						// reason, some editors generate a DELETE event
@@ -261,6 +252,15 @@ func (p *Project) StartMonitoring() error {
 						// in case.
 						watcher.RemoveWatch(ev.Name)
 						watcher.Watch(ev.Name)
+					} else {
+						log.Infof("Config file %s changed, restarting...", p.configPath)
+						if err := p.Stop(); err != nil {
+							log.Errorf("Error stopping %s: %s", p.Name(), err)
+							break
+						}
+						if err := p.Start(); err != nil {
+							log.Panicf("Error starting %s: %s", p.Name(), err)
+						}
 					}
 					break
 				}

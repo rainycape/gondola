@@ -1,0 +1,177 @@
+#: tmpl/reset_password.txt:1
+msgid ""
+"\nHi,\n\nA password reset request for your account at %v was recently "
+"received.\nIf you didn't inititate this request, please ignore this "
+"email.\n\nTo set a new password, open the following link in your "
+"browser:\n\n%v\n\nRegards,\nThe %v Team\n"
+msgstr ""
+
+#: tmpl/sign-up-form.html:6
+msgid "Already have an account?"
+msgstr ""
+
+#: forms.go:21
+msgid "Confirm Password"
+msgstr ""
+
+#: tmpl/sign-in-form.html:41
+msgid "Create one"
+msgstr ""
+
+#: tmpl/sign-in-form.html:40
+msgid "Don't have an account?"
+msgstr ""
+
+#: tmpl/reset.html:12
+msgid "Done!"
+msgstr ""
+
+#: user.go:89
+msgid "Email"
+msgstr ""
+
+#: tmpl/forgot.html:1 tmpl/forgot.html:12 tmpl/sign-in-form.html:43
+msgid "Forgot your password?"
+msgstr ""
+
+#: forms.go:36
+msgid "I accept the Terms of Service and the Privacy Policy"
+msgstr ""
+
+#: tmpl/sign-up-form.html:5 tmpl/sign-up.html:4
+msgid "Join"
+msgstr ""
+
+#: tmpl/sign-up-form.html:2
+msgid "Join %s"
+msgstr ""
+
+#: forms.go:20 forms.go:54 user.go:91
+msgid "Password"
+msgstr ""
+
+#: tmpl/reset.html:6
+msgid "Request has expired"
+msgstr ""
+
+#: tmpl/reset.html:9
+msgid "Request is not valid"
+msgstr ""
+
+#: tmpl/reset.html:1
+msgid "Reset your password"
+msgstr ""
+
+#: tmpl/reset.html:19
+msgid "Set"
+msgstr ""
+
+#: tmpl/reset.html:15
+msgid "Set your new password"
+msgstr ""
+
+#: tmpl/sign-in-form.html:39 tmpl/sign-in.html:4 tmpl/sign-up-form.html:6
+msgid "Sign In"
+msgstr ""
+
+#: tmpl/sign-in-form.html:6 tmpl/sign-in-modal.html:10
+msgid "Sign In to %s"
+msgstr ""
+
+#: tmpl/sign-in-form.html:12 tmpl/sign-in-form.html:23 tmpl/sign-in-form.html:30
+msgid "Sign In with %s"
+msgstr ""
+
+#: tmpl/forgot.html:16
+msgid "Submit"
+msgstr ""
+
+#: tmpl/reset.html:7
+msgid "This password reset request has expired, please request a new one."
+msgstr ""
+
+#: tmpl/reset.html:10
+msgid ""
+"This password reset request is not valid. If you clicked the link from your "
+"email client, try copying and pasting it."
+msgstr ""
+
+#: user.go:87
+msgid "Username"
+msgstr ""
+
+#: forms.go:53 handlers.go:139
+msgid "Username or Email"
+msgstr ""
+
+#: tmpl/forgot.html:7
+msgid ""
+"We've sent an email to %v. Please, follow the instructions in it to reset "
+"your password."
+msgstr ""
+
+#: tmpl/forgot.html:9
+msgid ""
+"We've sent an email to the address registered to %v. Please, follow the "
+"instructions in it to reset your password."
+msgstr ""
+
+#: tmpl/forgot.html:13
+msgid "You'll receive an email with a link to set a new password"
+msgstr ""
+
+#: tmpl/reset.html:13
+msgid "Your password has been updated and you've been signed in."
+msgstr ""
+
+#: handlers.go:154
+msgid "address %q does not belong to any registered user"
+msgstr ""
+
+#: user.go:138
+msgid "email %q is already in use"
+msgstr ""
+
+#: tmpl/sign-in-form.html:41
+msgid "in seconds!"
+msgstr ""
+
+#: forms.go:15
+msgid "invalid password"
+msgstr ""
+
+#: funcs.go:14
+msgid "no such user"
+msgstr ""
+
+#: forms.go:27
+msgid "passwords don't match"
+msgstr ""
+
+#: forms.go:41
+msgid "please, accept the Terms of Service and the Privacy Policy"
+msgstr ""
+
+#: user.go:128
+msgid "this does not look like a valid email address"
+msgstr ""
+
+#: forms.go:14
+msgid "this user has no password"
+msgstr ""
+
+#: forms.go:16
+msgid "unknown username or email"
+msgstr ""
+
+#: handlers.go:156
+msgid "username %q does not belong to any registered user"
+msgstr ""
+
+#: handlers.go:159
+msgid "username %q does not have any registered emails"
+msgstr ""
+
+#: user.go:120
+msgid "username %q is already in use"
+msgstr ""

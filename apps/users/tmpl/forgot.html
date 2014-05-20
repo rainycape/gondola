@@ -1,0 +1,21 @@
+{{ define "Title" }}{{ t "Forgot your password?" }}{{ end }}
+<div class="row">
+  <div class="col-md-6 col-md-offset-3 col-sm-8 col-sm-offset-2 sign-up-form">
+    <div id="forgot-form">
+      {{ if .Sent }}
+        {{ if .IsEmail }}
+          <p>{{ printf (t "We've sent an email to %v. Please, follow the instructions in it to reset your password.") .User.Email }}</p>
+        {{ else }}
+          <p>{{ printf (t "We've sent an email to the address registered to %v. Please, follow the instructions in it to reset your password.") .User.Username }}</p>
+        {{ end }}
+      {{ else }}
+        <h4>{{ t "Forgot your password?" }}</h4>
+        <p>{{ t "You'll receive an email with a link to set a new password" }}</p>
+        <form method="post" action="{{ reverse @Forgot }}">
+          {{ .ForgotForm.Render }}
+          <button class="users-submit btn btn-primary">{{ t "Submit" }}</button>
+        </form>
+        {{ end }}
+    </div>
+  </div>
+</div>

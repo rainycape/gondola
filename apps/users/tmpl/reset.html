@@ -1,0 +1,24 @@
+{{ define "Title" }}{{ t "Reset your password" }}{{ end }}
+<div class="row">
+  <div class="col-md-6 col-md-offset-3 col-sm-8 col-sm-offset-2 sign-up-form">
+    <div id="reset-form">
+      {{ if .Expired }}
+        <h4>{{ t "Request has expired" }}</h4>
+        <p>{{ t "This password reset request has expired, please request a new one." }}</p>
+      {{ else if not .Valid }}
+        <h4>{{ t "Request is not valid" }}</h4>
+        <p>{{ t "This password reset request is not valid. If you clicked the link from your email client, try copying and pasting it." }}</p>
+      {{ else if .Done }}
+        <h4>{{ t "Done!" }}</h4>
+        <p>{{ t "Your password has been updated and you've been signed in." }}</p>
+      {{ else }}
+        <h4>{{ t "Set your new password" }}</h4>
+        <form method="post" action="{{ reverse @Reset }}">
+          <input name="p" type="hidden" value="{{ .Payload }}">
+          {{ .PasswordForm.Render }}
+          <button class="users-submit btn btn-primary">{{ t "Set" }}</button>
+        </form>
+        {{ end }}
+    </div>
+  </div>
+</div>

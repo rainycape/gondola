@@ -1,0 +1,5 @@
+{{/*
+  styles|bundable: users.less
+  scripts|bundable: (users.js)
+*/}}
+{{ with @User }}<script type="text/javascript">var ___user = {{.|json}};</script>{{ end }}

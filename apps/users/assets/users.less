@@ -1,0 +1,132 @@
+@fbcolor: #3b5998;
+@gcolor: #dd4b39;
+@twcolor: #33ccff;
+@button_radius: 4px;
+
+.rounded-corners (@radius: 5px) {
+  -webkit-border-radius: @radius;
+  -moz-border-radius: @radius;
+  border-radius: @radius;
+}
+
+.rounded-left-corners (@radius: 5px) {
+    -moz-border-radius-topleft: 5px;
+    -webkit-border-top-left-radius: 5px;
+    border-top-left-radius: 5px;
+    -moz-border-radius-bottomleft: 5px;
+    -webkit-border-bottom-left-radius: 5px;
+    border-bottom-left-radius: 5px;
+}
+
+.social-button (@color) {
+    .rounded-corners(@button_radius);
+    background: @color;
+    background: -webkit-linear-gradient(@color, darken(@color, 10%));
+    background: -ms-linear-gradient(@color, darken(@color, 10%));
+    background: linear-gradient(@color, darken(@color, 10%));
+    border: 1px solid darken(@color, 20%);
+}
+
+.social-icon (@color) {
+    // pre-compute the final color, so we avoid having an rgba color
+    // in the CSS.
+    background: fade(mix(@color, rgba(255, 255, 255, 0.15)), 100%);
+    border-right: 1px solid darken(@color, 10%);
+}
+
+.social-sign-in {
+    border-bottom: 1px solid #e5e5e5;
+    margin-bottom: 15px;
+    .facebook {
+        .social-button(@fbcolor);
+
+        .icon {
+            .social-icon(@fbcolor);
+        }
+    }
+    .google {
+        .social-button(@gcolor);
+
+        .icon {
+            .social-icon(@gcolor);
+        }
+    }
+    .twitter {
+        .social-button(@twcolor);
+
+        .icon {
+            .social-icon(@twcolor);
+        }
+    }
+    a {
+        &, &:visited, &:hover {
+            color: #fff;
+            font-weight: bold;
+            font-size: 16px;
+            padding: 10px 15px;
+            position: relative;
+            padding-left: 50px;
+            display: block;
+            width: 279px;
+            margin: 0 0 15px;
+        }
+
+        .icon {
+            .rounded-left-corners(@button_radius);
+            display: inline-block;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 40px;
+            height: 100%;
+            text-align: center;
+
+            i {
+                font-size: 30px;
+                height: 30px;
+                // height must match font-size in order
+                // for the vertical centering to work.
+                // See http://coding.smashingmagazine.com/2013/08/09/absolute-horizontal-vertical-centering-css/#Explanation
+                display: inline-block;
+                margin: auto;
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+            }
+        }
+    }
+}
+
+.sign-in .go {
+    position: relative;
+    top: -2px;
+}
+
+.sign-in-help {
+    display: block;
+    margin: 15px 0 5px 0;
+}
+
+#sign-in-modal {
+
+    .sign-in-title {
+        display: none;
+    }
+
+    .modal-dialog {
+        max-width: 380px;
+    }
+
+    .social-sign-in a {
+        width: 100%;
+    }
+}
+
+#users-forgot-link {
+    font-size: 12px;
+    text-align: right;
+    display: block;
+    font-weight: bold;
+}

@@ -1,0 +1,51 @@
+{{/*
+  include: sign-up-form.html, icons.html
+*/}}
+<div class="row sign-in">
+  <div class="col-md-12">
+    <h4 class="sign-in-title">{{ printf (t "Sign In to %s") @SiteName }}</h4>
+    {{ if .Social }}
+      <div class="social-sign-in">
+        {{ if .FacebookApp }}
+          <a class="facebook" href="{{ reverse @SignInFacebook }}{{ with .From }}?from={{ . }}{{ end }}">
+            <span class="icon">{{ template "SocialIcon" "facebook" }}</span>
+            {{ printf (t "Sign In with %s") "Facebook" }}
+          </a>
+        {{ end }}
+        {{ if .GoogleApp }}
+        <div><!-- gapi.signin.render works only on block elements -->
+          <a class="google" data-scope="{{ .GoogleScopes }}" data-clientid="{{ .GoogleApp.Key }}"
+            data-clientid="{{ .GoogleApp.Key }}" data-redirecturi="postmessage"
+            data-accesstype="offline" data-cookiepolicy="single_host_origin"
+            data-callback="__usersOnGoogleSignedIn"
+            href="{{ reverse @SignInGoogle }}{{ with .From }}?from={{ . }}{{ end }}">
+            <span class="icon">{{ template "SocialIcon" "google-plus" }}</span>
+            {{ printf (t "Sign In with %s") "Google" }}
+          </a>
+        </div>
+        {{ end }}
+        {{ if .TwitterApp }}
+          <a class="twitter" href="{{ reverse @SignInTwitter }}{{ with .From }}?from={{ . }}{{ end }}">
+            <span class="icon">{{ template "SocialIcon" "twitter" }}</span>
+            {{ printf (t "Sign In with %s") "Twitter" }}
+          </a>
+        {{ end }}
+      </div>
+    {{ end }}
+    <div class="sign-in-form">
+      <div id="sign-in-form">
+        <form method="post" data-js-action="{{ reverse @JSSignIn }}" action="{{ reverse @SignIn }}">
+          {{ .SignInForm.Render }}
+          <button class="users-submit btn btn-primary">{{ t "Sign In" }}</button>
+          <span class="sign-in-help">{{ t "Don't have an account?" }}
+            <a class="go go-sign-up btn btn-info btn-xs" href="{{ reverse @SignUp }}{{ with .From }}?from={{ . }}{{ end }}">{{ t "Create one" }}</a> {{ t "in seconds!" }}
+          </span>
+          <span id="users-forgot-link"><a href="{{ reverse @Forgot }}">{{ t "Forgot your password?" }}</a></span>
+        </form>
+      </div>
+      <div id="sign-up-form-wrapper" style="display:none">
+        {{ template "sign-up-form.html" . }}
+      </div>
+    </div>
+  </div>
+</div>

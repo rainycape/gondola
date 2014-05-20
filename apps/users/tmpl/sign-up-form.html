@@ -1,0 +1,8 @@
+<div id="sign-up-form">
+  <h4>{{ printf (t "Join %s") @SiteName }}</h4>
+  <form method="post" data-js-action="{{ reverse @JSSignUp }}" action="{{ reverse @SignUp }}">
+    {{ .SignUpForm.Render }}
+    <button class="users-submit btn btn-primary">{{ t "Join" }}</button>
+    <span class="sign-in-help">{{ t "Already have an account?" }} <a class="go go-sign-in btn btn-info btn-xs" href="{{ reverse @SignIn }}{{ with .From }}?from={{ . }}{{ end }}">{{ t "Sign In" }}</a></span>
+  </form>
+</div>

@@ -1,0 +1,221 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: 2014-03-31 07:59+0100\n"
+"Last-Translator: AGH <alberto@garciahierro.com>\n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 1.5.4\n"
+
+#: tmpl/reset_password.txt:1
+msgid ""
+"\n"
+"Hi,\n"
+"\n"
+"A password reset request for your account at %v was recently received.\n"
+"If you didn't inititate this request, please ignore this email.\n"
+"\n"
+"To set a new password, open the following link in your browser:\n"
+"\n"
+"%v\n"
+"\n"
+"Regards,\n"
+"The %v Team\n"
+msgstr ""
+"\n"
+"Hola,\n"
+"\n"
+"Recientemente se solicitó un cambio de contraseña para tu cuenta en %v.\n"
+"Si no iniciaste esta solicitud, por favor ignora este correo.\n"
+"\n"
+"Para configurar una nueva contraseña, abre el siguiente enlace en tu "
+"navegador:\n"
+"\n"
+"%v\n"
+"\n"
+"Saludos,\n"
+"El equipo %v\n"
+
+#: tmpl/sign-up-form.html:6
+msgid "Already have an account?"
+msgstr "¿Ya tienes cuenta?"
+
+#: forms.go:19
+msgid "Confirm Password"
+msgstr "Confirmar contraseña"
+
+#: tmpl/sign-in-form.html:41
+msgid "Create one"
+msgstr "¡Créate una"
+
+#: tmpl/sign-in-form.html:40
+msgid "Don't have an account?"
+msgstr "¿No tienes cuenta?"
+
+#: tmpl/reset.html:12
+msgid "Done!"
+msgstr "¡Listo!"
+
+#: user.go:25
+msgid "Email"
+msgstr "Email"
+
+#: tmpl/forgot.html:1 tmpl/forgot.html:12 tmpl/sign-in-form.html:43
+msgid "Forgot your password?"
+msgstr "¿Te olvidaste de tu contraseña?"
+
+#: forms.go:21
+msgid "I accept the Terms of Service and the Privacy Policy"
+msgstr "Acepto los términos de servicio y la política de privacidad"
+
+#: tmpl/sign-up-form.html:5 tmpl/sign-up.html:4
+msgid "Join"
+msgstr "Únete"
+
+#: tmpl/sign-up-form.html:2
+msgid "Join %s"
+msgstr "Únete a %s"
+
+#: forms.go:48 user.go:21
+msgid "Password"
+msgstr "Contraseña"
+
+#: tmpl/reset.html:6
+msgid "Request has expired"
+msgstr "La petición ha caducado"
+
+#: tmpl/reset.html:9
+msgid "Request is not valid"
+msgstr "La petición no es válida"
+
+#: handlers.go:190
+msgid "Reset your %s password"
+msgstr "Cambia tu contraseña"
+
+#: tmpl/reset.html:1
+msgid "Reset your password"
+msgstr "Cambia tu contraseña"
+
+#: tmpl/reset.html:19
+msgid "Set"
+msgstr "Guardar"
+
+#: tmpl/reset.html:15
+msgid "Set your new password"
+msgstr "Configura tu nueva contraseña"
+
+#: tmpl/sign-in-form.html:39 tmpl/sign-in.html:4 tmpl/sign-up-form.html:6
+msgid "Sign In"
+msgstr "Inicia sesión"
+
+#: tmpl/sign-in-form.html:6 tmpl/sign-in-modal.html:10
+msgid "Sign In to %s"
+msgstr "Conéctate a %s"
+
+#: tmpl/sign-in-form.html:12 tmpl/sign-in-form.html:23
+#: tmpl/sign-in-form.html:30
+msgid "Sign In with %s"
+msgstr "Conéctate con %s"
+
+#: tmpl/forgot.html:16
+msgid "Submit"
+msgstr "Enviar"
+
+#: tmpl/reset.html:7
+msgid "This password reset request has expired, please request a new one."
+msgstr ""
+"Esta petición para cambiar la contraseña ha caducado, por favor pide una "
+"nueva."
+
+#: tmpl/reset.html:10
+msgid ""
+"This password reset request is not valid. If you clicked the link from your "
+"email client, try copying and pasting it."
+msgstr ""
+"Esta petición para cambiar la contraseña no es válida. Si hiciste click en "
+"enlace desde tu cliente de correo, intenta copiar y pegar el enlace."
+
+#: user.go:20
+msgid "Username"
+msgstr "Nombre de usuario"
+
+#: forms.go:47 handlers.go:140
+msgid "Username or Email"
+msgstr "Usuario o Email"
+
+#: tmpl/forgot.html:7
+msgid ""
+"We've sent an email to %v. Please, follow the instructions in it to reset "
+"your password."
+msgstr ""
+"Hemos enviado un correo electrónico a %v. Por favor, sigue las instruciones "
+"que encontrarás en el mismo para cambiar tu contraseña."
+
+#: tmpl/forgot.html:9
+msgid ""
+"We've sent an email to the address registered to %v. Please, follow the "
+"instructions in it to reset your password."
+msgstr ""
+"Hemos enviado un correo electrónico a la dirección de %v. Por favor, sigue "
+"las instruciones que encontrarás en el mismo para cambiar tu contraseña."
+
+#: tmpl/forgot.html:13
+msgid "You'll receive an email with a link to set a new password"
+msgstr "Recibirás un correo con un enlace para configurar tu nueva contraseña"
+
+#: tmpl/reset.html:13
+msgid "Your password has been updated and you've been signed in."
+msgstr "Tu contraseña se ha actualizado y has iniciado sesión."
+
+#: handlers.go:155
+msgid "address %q does not belong to any registered user"
+msgstr "la dirección %q no pertenece a ningún usuario registrado"
+
+#: tmpl/sign-in-form.html:41
+msgid "in seconds!"
+msgstr "en sólo unos segundos!"
+
+#: forms.go:13
+msgid "invalid password"
+msgstr "la contraseña no es válida"
+
+#: funcs.go:13
+msgid "no such user"
+msgstr "no existe ese usuario"
+
+#: forms.go:26
+msgid "passwords don't match"
+msgstr "las contraseñas son distintas"
+
+#: forms.go:33
+msgid "please, accept the Terms of Service and the Privacy Policy"
+msgstr "por favor, acepta los términos de servicio y la política de privacidad"
+
+#: user.go:56
+msgid "this does not look like a valid email address"
+msgstr "la dirección de correo no parece válida"
+
+#: forms.go:12
+msgid "this user has no password"
+msgstr "este usuario no tiene contraseña"
+
+#: forms.go:14
+msgid "unknown username or email"
+msgstr "usuario o email desconocido"
+
+#: handlers.go:157
+msgid "username %q does not belong to any registered user"
+msgstr "el nombre de usuario %q no pertenece a ningún usuario registrado"
+
+#: handlers.go:160
+msgid "username %q does not have any registered emails"
+msgstr "el usuario %q no tiene ningún email registrado"
+
+#: user.go:48
+msgid "username %q is already in use"
+msgstr "el usuario %q no está disponible"

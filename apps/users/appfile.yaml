@@ -1,0 +1,45 @@
+name: Users
+handlers:
+    SignInHandler: ^/sign-in/$
+    SignInFacebookHandler: ^/sign-in/facebook/$
+    SignInGoogleHandler: ^/sign-in/google/$
+    SignInTwitterHandler: ^/sign-in/twitter/$
+    SignUpHandler: ^/sign-up/$
+    SignOutHandler: ^/sign-out/$
+    ForgotHandler: ^/forgot/$
+    ResetHandler: ^/reset/$
+    JSSignInHandler: ^/js/sign-in/$
+    JSSignInFacebookHandler: ^/js/sign-in/facebook/$
+    JSSignUpHandler: ^/js/sign-up/$
+    FacebookChannelHandler: ^/fb-channel/$
+    UserImageHandler: ^/image/(\w+)\.(\w{3})$
+
+vars:
+    SiteName:
+    FacebookApp:
+    FacebookPermissions:
+    GoogleApp:
+    TwitterApp:
+    JSSignInHandlerName: JSSignIn
+    JSSignInFacebookHandlerName: JSSignInFacebook
+    JSSignUpHandlerName: JSSignUp
+    ForgotHandlerName: Forgot
+    ResetHandlerName: Reset
+    SignInHandlerName: SignIn
+    SignInFacebookHandlerName: SignInFacebook
+    SignInGoogleHandlerName: SignInGoogle
+    SignInTwitterHandlerName: SignInTwitter
+    SignUpHandlerName: SignUp
+    SignOutHandlerName: SignOut
+    FacebookChannelHandlerName: FacebookChannel
+    Current: User
+
+assets: assets
+
+#translations:
+#    context: gnd.la/apps/users
+#
+templates:
+    path: tmpl
+    hooks:
+        users-hook.html: bottom

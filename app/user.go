@@ -1,9 +1,17 @@
 package app
 
+import (
+	"errors"
+)
+
 const (
 	// The name of the cookie used to store the user id.
 	// The cookie is signed using the gnd.la/app.App secret.
 	USER_COOKIE_NAME = "user"
+)
+
+var (
+	errNoUserFunc = errors.New("no UserFunc set in this App - use App.SetUserFunc() to configure one")
 )
 
 // User is the interface implemented by any struct
@@ -36,6 +44,9 @@ func (c *Context) User() User {
 // SignIn sets the cookie for signin in the given user. The default
 // cookie options for the App are used.
 func (c *Context) SignIn(user User) error {
+	if c.app.userFunc == nil {
+		return errNoUserFunc
+	}
 	err := c.Cookies().SetSecure(USER_COOKIE_NAME, user.Id())
 	if err != nil {
 		return err

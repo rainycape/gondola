@@ -655,7 +655,7 @@ func (d *Driver) where(buf *bytes.Buffer, m driver.Model, q query.Q, prevParamCo
 	var err error
 	if !isNil(q) {
 		buf.WriteString(" WHERE ")
-		err = d.condition(buf, &params, m, q, prevParamCount-1)
+		err = d.condition(buf, &params, m, q, prevParamCount)
 	}
 	return params, err
 }
@@ -731,8 +731,8 @@ func (d *Driver) clause(buf *bytes.Buffer, params *[]interface{}, m driver.Model
 			fmt.Fprintf(buf, format, dbName, fName)
 			return nil
 		}
-		*params = append(*params, f.Value)
 		fmt.Fprintf(buf, format, dbName, d.backend.Placeholder(len(*params)+begin))
+		*params = append(*params, f.Value)
 		return nil
 	}
 	fmt.Fprintf(buf, format, dbName)

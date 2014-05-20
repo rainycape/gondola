@@ -53,7 +53,7 @@ func (f *fsDriver) path(id string) string {
 
 func (f *fsDriver) Create(id string) (driver.WFile, error) {
 	tmp := filepath.Join(f.tmpDir, id)
-	fp, err := os.OpenFile(tmp, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0644)
+	fp, err := os.OpenFile(tmp, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		return nil, err
 	}

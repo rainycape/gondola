@@ -40,7 +40,7 @@ func (b *Backend) Tag() string {
 }
 
 func (b *Backend) Placeholder(n int) string {
-	return "$" + strconv.Itoa(n)
+	return "$" + strconv.Itoa(n+1)
 }
 
 func (b *Backend) Placeholders(n int) string {

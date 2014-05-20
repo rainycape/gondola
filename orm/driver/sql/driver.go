@@ -277,7 +277,7 @@ func (d *Driver) Update(m driver.Model, q query.Q, data interface{}) (driver.Res
 	for ii, v := range fields {
 		buf.WriteString(v)
 		buf.WriteByte('=')
-		buf.WriteString(d.backend.Placeholder(ii + 1))
+		buf.WriteString(d.backend.Placeholder(ii))
 		buf.WriteByte(',')
 	}
 	// remove last ,
@@ -645,12 +645,12 @@ func (d *Driver) mergeTable(m driver.Model, prevTable *Table, newTable *Table) e
 	return nil
 }
 
-func (d *Driver) where(buf *bytes.Buffer, m driver.Model, q query.Q, begin int) ([]interface{}, error) {
+func (d *Driver) where(buf *bytes.Buffer, m driver.Model, q query.Q, prevParamCount int) ([]interface{}, error) {
 	var params []interface{}
 	var err error
 	if !isNil(q) {
 		buf.WriteString(" WHERE ")
-		err = d.condition(buf, &params, m, q, begin)
+		err = d.condition(buf, &params, m, q, prevParamCount-1)
 	}
 	return params, err
 }
@@ -695,7 +695,7 @@ func (d *Driver) condition(buf *bytes.Buffer, params *[]interface{}, m driver.Mo
 		}
 		buf.WriteString(dbName)
 		buf.WriteString(" IN (")
-		jj := len(*params) + begin + 1
+		jj := len(*params) + begin
 		for ii := 0; ii < vLen; ii++ {
 			*params = append(*params, value.Index(ii).Interface())
 			buf.WriteString(d.backend.Placeholder(jj))

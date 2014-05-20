@@ -766,7 +766,7 @@ func (s *scratch) pushes() int {
 	pushes := 0
 	for _, v := range s.buf {
 		switch v.op {
-		case opSTRING, opDOT, opVAL, opVAR, opFUNC:
+		case opSTRING, opDOT, opVAL, opVAR, opFUNC, opCONTEXT:
 			pushes++
 		case opNEXT:
 			pushes += 2

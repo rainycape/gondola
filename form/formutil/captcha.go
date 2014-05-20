@@ -44,7 +44,7 @@ func (s *mathCaptcha) ValidateCaptchaResult() error {
 }
 
 func (s *mathCaptcha) FieldAddOns(ctx *app.Context, field *form.Field) []*form.AddOn {
-	if field.GoName == "CaptchaResult" {
+	if field.Name == "CaptchaResult" {
 		return []*form.AddOn{
 			&form.AddOn{
 				Node:     html.Text(fmt.Sprintf("%d+%d =", s.MathCaptchaA, s.MathCaptchaB)),

@@ -35,7 +35,7 @@ type reCaptcha struct {
 }
 
 func (r *reCaptcha) FieldAddOns(ctx *app.Context, field *form.Field) []*form.AddOn {
-	if field.GoName == "Recaptcha" {
+	if field.Name == "Recaptcha" {
 		style := &html.Node{
 			Tag:      "style",
 			Attrs:    html.Attrs{"type": "text/css"},

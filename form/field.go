@@ -10,7 +10,7 @@ import (
 type Field struct {
 	Type        Type
 	Name        string
-	GoName      string
+	HTMLName    string
 	Label       i18n.String
 	Placeholder i18n.String
 	Help        i18n.String
@@ -27,9 +27,9 @@ type Field struct {
 
 func (f *Field) String() string {
 	if f.err != nil {
-		return fmt.Sprintf("%s=%s - error %s", f.Name, f.Value(), f.err)
+		return fmt.Sprintf("%s=%s - error %s", f.HTMLName, f.Value(), f.err)
 	}
-	return fmt.Sprintf("%s=%s", f.Name, f.Value())
+	return fmt.Sprintf("%s=%s", f.HTMLName, f.Value())
 }
 
 func (f *Field) Id() string {

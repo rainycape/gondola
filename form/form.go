@@ -39,7 +39,7 @@ type Form struct {
 
 func (f *Form) validate() {
 	for _, v := range f.fields {
-		inp := f.ctx.FormValue(v.Name)
+		inp := f.ctx.FormValue(v.HTMLName)
 		label := v.Label.TranslatedString(f.ctx)
 		if f.NamelessErrors {
 			label = ""
@@ -49,7 +49,7 @@ func (f *Form) validate() {
 			f.invalid = true
 			continue
 		}
-		if err := structs.Validate(v.sval.Addr().Interface(), v.GoName, f.ctx); err != nil {
+		if err := structs.Validate(v.sval.Addr().Interface(), v.Name, f.ctx); err != nil {
 			v.err = i18n.TranslatedError(err, f.ctx)
 			f.invalid = true
 			continue
@@ -132,8 +132,8 @@ func (f *Form) makeField(name string) (*Field, error) {
 	}
 	field := &Field{
 		Type:        typ,
-		Name:        mangled,
-		GoName:      name,
+		Name:        name,
+		HTMLName:    mangled,
 		Label:       i18n.String(label),
 		Placeholder: i18n.String(tag.Value("placeholder")),
 		Help:        i18n.String(tag.Value("help")),
@@ -148,7 +148,7 @@ func (f *Form) makeField(name string) (*Field, error) {
 
 func (f *Form) lookupField(name string) (*Field, error) {
 	for _, v := range f.fields {
-		if v.GoName == name {
+		if v.Name == name {
 			return v, nil
 		}
 	}
@@ -207,7 +207,7 @@ func (f *Form) Fields() []*Field {
 func (f *Form) FieldNames() []string {
 	names := make([]string, len(f.fields))
 	for ii, v := range f.fields {
-		names[ii] = v.GoName
+		names[ii] = v.Name
 	}
 	return names
 }
@@ -315,7 +315,7 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 	case TEXTAREA:
 		attrs := html.Attrs{
 			"id":   field.Id(),
-			"name": field.Name,
+			"name": field.HTMLName,
 		}
 		if _, ok := field.Tag().IntValue("rows"); ok {
 			attrs["rows"] = field.Tag().Value("rows")
@@ -340,7 +340,7 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 			}
 			attrs := html.Attrs{
 				"id":   id,
-				"name": field.Name,
+				"name": field.HTMLName,
 				"type": "radio",
 			}
 			if v.Value != nil {
@@ -366,7 +366,7 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 	case SELECT:
 		attrs := html.Attrs{
 			"id":   field.Id(),
-			"name": field.Name,
+			"name": field.HTMLName,
 		}
 		if field.Tag().Has("multiple") {
 			attrs["multiple"] = "multiple"
@@ -442,7 +442,7 @@ func (f *Form) writeInput(buf *bytes.Buffer, itype string, field *Field) error {
 	attrs := html.Attrs{
 		"id":   field.Id(),
 		"type": itype,
-		"name": field.Name,
+		"name": field.HTMLName,
 	}
 	if err := f.prepareFieldAttributes(field, attrs, -1); err != nil {
 		return err
@@ -555,7 +555,7 @@ func (f *Form) RenderExcept(names ...string) (template.HTML, error) {
 	}
 	var fields []*Field
 	for _, v := range f.fields {
-		if !n[v.GoName] {
+		if !n[v.Name] {
 			fields = append(fields, v)
 		}
 	}

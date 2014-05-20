@@ -1,11 +1,13 @@
 package file
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"gnd.la/blobstore/driver"
 	"gnd.la/config"
@@ -65,6 +67,43 @@ func (f *fsDriver) Create(id string) (driver.WFile, error) {
 
 func (f *fsDriver) Open(id string) (driver.RFile, error) {
 	r, err := os.Open(f.path(id))
+	if err != nil {
+		return nil, err
+	}
+	// Check for the legacy format and perform the migration before
+	// returning this file.
+	// TODO: Eventually remove this code once all the data has been
+	// migrated, since we're the only users with a few terabytes of
+	// data in legacy format.
+	if !strings.HasSuffix(id, ".meta") {
+		metaPath := f.path(id + ".meta")
+		_, err := os.Stat(metaPath)
+		if err != nil {
+			// No metadata file, legacy format. Migrate the file to the
+			// new format now.
+			legacy, err := readLegacyFile(r)
+			r.Close()
+			if err != nil {
+				return nil, err
+			}
+			var buf bytes.Buffer
+			if err := legacy.writeMeta(&buf); err != nil {
+				return nil, err
+			}
+			// Let's hope the power doesn't go out between these two
+			// statements.
+
+			// Write meta file
+			if err := ioutil.WriteFile(metaPath, buf.Bytes(), 0644); err != nil {
+				return nil, err
+			}
+			if err := ioutil.WriteFile(f.path(id), legacy.data, 0644); err != nil {
+				return nil, err
+			}
+			// Call ourselves again
+			return f.Open(id)
+		}
+	}
 	return (*rfile)(r), err
 }
 

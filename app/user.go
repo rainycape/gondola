@@ -20,6 +20,8 @@ var (
 type User interface {
 	// Returns the numeric id of the user
 	Id() int64
+	// IsAdmin returns wheter the user is an administrator.
+	IsAdmin() bool
 }
 
 // UserFunc is called when getting the current signed

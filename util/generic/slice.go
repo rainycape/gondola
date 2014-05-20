@@ -1,6 +1,7 @@
 package generic
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -36,4 +37,25 @@ func Select(sl interface{}, key string) interface{} {
 		set(dst, ii, fn(e))
 	}
 	return out.Interface()
+}
+
+// Contains returns wheter the given slice or array contains
+// the given value. Given a slice of type []T, val must be
+// of type T. Otherwise, this function will panic.
+func Contains(iterable interface{}, val interface{}) bool {
+	itr := reflect.ValueOf(iterable)
+	if itr.Kind() != reflect.Slice && itr.Kind() != reflect.Array {
+		panic(fmt.Errorf("first argument to Contains must be slice or array, not %T", iterable))
+	}
+	v := reflect.ValueOf(val)
+	if itr.Type().Elem() != v.Type() {
+		panic(fmt.Errorf("second argument to Contains must be %s, not %s", itr.Type().Elem(), v.Type()))
+	}
+	vi := v.Interface()
+	for ii := 0; ii < itr.Len(); ii++ {
+		if reflect.DeepEqual(itr.Index(ii).Interface(), vi) {
+			return true
+		}
+	}
+	return false
 }

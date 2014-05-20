@@ -36,6 +36,19 @@ func TestSelectMethod(t *testing.T) {
 	}
 }
 
+func TestContains(t *testing.T) {
+	numbers := []int{1, 2, 3, 4, 5}
+	for _, v := range numbers {
+		if !Contains(numbers, v) {
+			t.Errorf("%v should contain %v", numbers, v)
+		}
+	}
+	no := numbers[len(numbers)-1] + 1000
+	if Contains(numbers, no) {
+		t.Errorf("%v should not contain %v", numbers, no)
+	}
+}
+
 func BenchmarkSelect(b *testing.B) {
 	b.ReportAllocs()
 	for ii := 0; ii < b.N; ii++ {

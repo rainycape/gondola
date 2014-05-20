@@ -212,6 +212,10 @@ func (f *Form) FieldNames() []string {
 	return names
 }
 
+func (f *Form) FieldByName(name string) (*Field, error) {
+	return f.lookupField(name)
+}
+
 func (f *Form) Renderer() Renderer {
 	return f.renderer
 }

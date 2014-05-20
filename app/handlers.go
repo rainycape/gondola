@@ -62,3 +62,37 @@ func SignOutHandler(ctx *Context) {
 		ctx.RedirectBack()
 	}
 }
+
+// DataHandler is a handler than returns the data as an interface{}
+// rather than sending it back to the client. A DataHandler can't be
+// added directly to an App, it must be wrapped with a function which
+// creates a Handler, like JSONHandler or ExecuteHandler.
+type DataHandler func(*Context) (interface{}, error)
+
+// JSONHandler returns a Handler which executes the given DataHandler
+// to obtain the data and, if it succeeds, serializes the data using
+// JSON and returns it back to the client.
+func JSONHandler(dataHandler DataHandler) Handler {
+	return func(ctx *Context) {
+		data, err := dataHandler(ctx)
+		if err != nil {
+			panic(err)
+		}
+		if _, err := ctx.WriteJSON(data); err != nil {
+			panic(err)
+		}
+	}
+}
+
+// ExecuteHandler returns a Handler which executes the given DataHandler
+// to obtain the data and, if it succeeds, executes the given template
+// passing it the obtained data.
+func ExecuteHandler(dataHandler DataHandler, template string) Handler {
+	return func(ctx *Context) {
+		data, err := dataHandler(ctx)
+		if err != nil {
+			panic(err)
+		}
+		ctx.MustExecute(template, data)
+	}
+}

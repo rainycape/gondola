@@ -7,5 +7,6 @@ import (
 )
 
 var (
-	ePIPE = syscall.EPIPE
+	ePIPE      = syscall.EPIPE
+	eCONNRESET = syscall.ECONNRESET
 )

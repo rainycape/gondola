@@ -86,7 +86,7 @@ func isIgnorable(err interface{}) bool {
 		if ne, ok := e.(*net.OpError); ok {
 			e = ne.Err
 		}
-		if e == ePIPE {
+		if e == ePIPE || e == eCONNRESET {
 			// Client closed the connection
 			return true
 		}

@@ -3,5 +3,6 @@
 package app
 
 var (
-	ePIPE error = nil
+	ePIPE      error = nil
+	eCONNRESET error = nil
 )

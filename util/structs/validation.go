@@ -3,6 +3,7 @@ package structs
 import (
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 // TODO: Make these functions work with nested fields and embedded structs
@@ -24,6 +25,9 @@ func ValidationFunction(obj interface{}, field string, args ...interface{}) (fn 
 	// Get pointer methods
 	if pval.CanAddr() {
 		pval = pval.Addr()
+	}
+	if p := strings.LastIndex(field, "."); p >= 0 {
+		field = field[p+1:]
 	}
 	fname := fmt.Sprintf("Validate%s", field)
 	f := pval.MethodByName(fname)

@@ -458,6 +458,9 @@ func (o *Orm) NameTable(name string) *Table {
 // TypeTable returns the Table for the given type, or
 // nil if there's no such table.
 func (o *Orm) TypeTable(typ reflect.Type) *Table {
+	for typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
 	model := o.typeRegistry[typ]
 	if model != nil {
 		return tableWithModel(model)

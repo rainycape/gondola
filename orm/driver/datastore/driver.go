@@ -97,7 +97,7 @@ func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error)
 	return &result{key: key, count: 1}, nil
 }
 
-func (d *Driver) Operate(m driver.Model, q query.Q, op *operation.Operation) (driver.Result, error) {
+func (d *Driver) Operate(m driver.Model, q query.Q, ops []*operation.Operation) (driver.Result, error) {
 	return nil, fmt.Errorf("datastore driver does not support Operate")
 }
 

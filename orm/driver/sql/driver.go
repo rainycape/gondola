@@ -214,44 +214,49 @@ func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error)
 	return res, err
 }
 
-func (d *Driver) Operate(m driver.Model, q query.Q, op *operation.Operation) (driver.Result, error) {
-	dbName, _, err := m.Map(op.Field)
-	if err != nil {
-		return nil, err
-	}
-	dbName = unquote(dbName)
+func (d *Driver) Operate(m driver.Model, q query.Q, ops []*operation.Operation) (driver.Result, error) {
 	buf := getBuffer()
 	buf.WriteString("UPDATE ")
 	buf.WriteByte('"')
 	buf.WriteString(m.Table())
 	buf.WriteByte('"')
 	buf.WriteString(" SET ")
-	buf.WriteString(dbName)
-	buf.WriteByte('=')
 	var params []interface{}
-	switch op.Operator {
-	case operation.OpAdd, operation.OpSub:
+	for ii, op := range ops {
+		if ii > 0 {
+			buf.WriteByte(',')
+		}
+		dbName, _, err := m.Map(op.Field)
+		if err != nil {
+			return nil, err
+		}
+		dbName = unquote(dbName)
 		buf.WriteString(dbName)
-		if op.Operator == operation.OpAdd {
-			buf.WriteByte('+')
-		} else {
-			buf.WriteByte('-')
-		}
-		buf.WriteString(d.backend.Placeholder(1))
-		params = append(params, op.Value)
-	case operation.OpSet:
-		if f, ok := op.Value.(operation.Field); ok {
-			fieldName, _, err := m.Map(string(f))
-			if err != nil {
-				return nil, err
+		buf.WriteByte('=')
+		switch op.Operator {
+		case operation.OpAdd, operation.OpSub:
+			buf.WriteString(dbName)
+			if op.Operator == operation.OpAdd {
+				buf.WriteByte('+')
+			} else {
+				buf.WriteByte('-')
 			}
-			buf.WriteString(unquote(fieldName))
-		} else {
-			buf.WriteString(d.backend.Placeholder(1))
+			buf.WriteString(d.backend.Placeholder(len(params)))
 			params = append(params, op.Value)
+		case operation.OpSet:
+			if f, ok := op.Value.(operation.Field); ok {
+				fieldName, _, err := m.Map(string(f))
+				if err != nil {
+					return nil, err
+				}
+				buf.WriteString(unquote(fieldName))
+			} else {
+				buf.WriteString(d.backend.Placeholder(len(params)))
+				params = append(params, op.Value)
+			}
+		default:
+			return nil, fmt.Errorf("operator %d is not supported", op.Operator)
 		}
-	default:
-		return nil, fmt.Errorf("operator %d is not supported", op.Operator)
 	}
 	qParams, err := d.where(buf, m, q, len(params))
 	if err != nil {

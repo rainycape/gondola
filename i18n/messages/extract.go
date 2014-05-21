@@ -223,9 +223,23 @@ func extractGoFunc(messages messageMap, fset *token.FileSet, f *ast.File, fn *Fu
 
 func extractGoType(messages messageMap, fset *token.FileSet, f *ast.File, typ string) error {
 	// for castings
-	tf := &Function{Name: typ}
-	if err := extractGoFunc(messages, fset, f, tf); err != nil {
+	calls, err := astutil.Calls(fset, f, typ)
+	if err != nil {
 		return err
+	}
+	for _, c := range calls {
+		if len(c.Args) > 0 {
+			lit, pos := astutil.StringLiteral(fset, c.Args[0])
+			if pos == nil {
+				p := fset.Position(c.Pos())
+				log.Debugf("Skipping cast to %s (%v) - not a literal", typ, p)
+				continue
+			}
+			comment := comments(fset, f, pos)
+			if err := messages.AddString(&astutil.String{Value: lit, Position: pos}, comment); err != nil {
+				return err
+			}
+		}
 	}
 	strings, err := astutil.Strings(fset, f, typ)
 	if err != nil {

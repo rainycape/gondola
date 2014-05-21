@@ -1,13 +1,31 @@
 package form
 
 import (
+	"fmt"
+
 	"gnd.la/app"
+	"gnd.la/i18n"
 )
 
 // Choice represents a choice in a select or radio field.
 type Choice struct {
-	Name  string
+	// Name must be either a string or an i18n.String
+	// or a fmt.Stringer.
+	// Other types will panic when rendering the form.
+	Name  interface{}
 	Value interface{}
+}
+
+func (c *Choice) TranslatedName(lang i18n.Languager) string {
+	switch x := c.Name.(type) {
+	case string:
+		return x
+	case i18n.String:
+		return x.TranslatedString(lang)
+	case fmt.Stringer:
+		return x.String()
+	}
+	panic(fmt.Errorf("choice %+v has invalid Name type %T", c, c.Name))
 }
 
 // ChoicesProvider is the interface implemented by types

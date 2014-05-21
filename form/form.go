@@ -332,7 +332,7 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 		for ii, v := range f.fieldChoices(field) {
 			var value interface{}
 			id := fmt.Sprintf("%s_%d", field.Id(), ii)
-			if err := f.writeLabel(buf, field, id, v.Name, false, ii); err != nil {
+			if err := f.writeLabel(buf, field, id, v.TranslatedName(f.ctx), false, ii); err != nil {
 				return err
 			}
 			if err := f.beginInput(buf, field, ii); err != nil {
@@ -356,7 +356,7 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 				return err
 			}
 			f.openTag(buf, "input", attrs)
-			if err := f.endLabel(buf, field, v.Name, ii); err != nil {
+			if err := f.endLabel(buf, field, v.TranslatedName(f.ctx), ii); err != nil {
 				return err
 			}
 			if err := f.endInput(buf, field, ii); err != nil {
@@ -391,7 +391,7 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 				return err
 			}
 			f.openTag(buf, "option", oattrs)
-			buf.WriteString(html.Escape(v.Name))
+			buf.WriteString(html.Escape(v.TranslatedName(f.ctx)))
 			f.closeTag(buf, "option")
 		}
 		f.closeTag(buf, "select")

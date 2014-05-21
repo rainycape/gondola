@@ -324,7 +324,7 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 			return err
 		}
 		f.openTag(buf, "textarea", attrs)
-		buf.WriteString(html.Escape(types.ToString(field.Value())))
+		buf.WriteString(toHTMLValue(field.Value()))
 		f.closeTag(buf, "textarea")
 	case CHECKBOX:
 		err = f.writeInput(buf, "checkbox", field)
@@ -344,7 +344,7 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 				"type": "radio",
 			}
 			if v.Value != nil {
-				attrs["value"] = html.Escape(types.ToString(v.Value))
+				attrs["value"] = toHTMLValue(v.Value)
 				value = v.Value
 			} else {
 				value = v.Name
@@ -379,7 +379,7 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 			var value interface{}
 			oattrs := html.Attrs{}
 			if v.Value != nil {
-				oattrs["value"] = html.Escape(types.ToString(v.Value))
+				oattrs["value"] = toHTMLValue(v.Value)
 				value = v.Value
 			} else {
 				value = v.Name
@@ -631,4 +631,25 @@ func fieldByIndex(v reflect.Value, indexes []int) reflect.Value {
 		}
 	}
 	return v
+}
+
+func toHTMLValue(val interface{}) string {
+	v := reflect.ValueOf(val)
+	if v.IsValid() {
+		for v.Kind() == reflect.Ptr {
+			v = v.Elem()
+		}
+		if v.IsValid() {
+			// Avoid enum types with a String() method to be represented
+			// as a string. Use their numeric representation.
+			k := types.Kind(v.Kind())
+			if k == types.Int {
+				return strconv.FormatInt(v.Int(), 10)
+			}
+			if k == types.Uint {
+				return strconv.FormatUint(v.Uint(), 10)
+			}
+		}
+	}
+	return html.Escape(types.ToString(val))
 }

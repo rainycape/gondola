@@ -44,6 +44,10 @@ func (f *Form) validate() {
 		if f.NamelessErrors {
 			label = ""
 		}
+		if v.Type.HasChoices() && inp == NotChosen {
+			v.err = i18n.Errorfc("form", "You must choose a value").Err(f.ctx)
+			continue
+		}
 		if err := input.InputNamed(label, inp, v.SettableValue(), v.Tag(), true); err != nil {
 			v.err = i18n.TranslatedError(err, f.ctx)
 			f.invalid = true

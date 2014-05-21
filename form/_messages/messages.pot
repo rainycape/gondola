@@ -1,0 +1,9 @@
+#: choices.go:23
+msgctxt "form"
+msgid "Please, choose"
+msgstr ""
+
+#: form.go:48
+msgctxt "form"
+msgid "You must choose a value"
+msgstr ""

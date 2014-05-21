@@ -7,6 +7,24 @@ import (
 	"gnd.la/i18n"
 )
 
+const (
+	notChosen = "___gondola_not_chosen"
+	// NotChosen is used to indicate that a value from
+	// a multiple choices input has not been chosen
+	// by the user. See also Choose.
+	NotChosen = notChosen
+)
+
+var (
+	// Choose creates a choice entry with the text
+	// "Please, choose" which generates an error when
+	// the user does not choose anything.
+	Choose = &Choice{
+		Name:  i18n.String("form|Please, choose"),
+		Value: NotChosen,
+	}
+)
+
 // Choice represents a choice in a select or radio field.
 type Choice struct {
 	// Name must be either a string or an i18n.String

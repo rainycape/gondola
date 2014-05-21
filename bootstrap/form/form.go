@@ -5,6 +5,18 @@ import (
 	"gnd.la/form"
 )
 
+const (
+	// NotChosen is an alias form form.NotChosen, to
+	// avoid importing both packages.
+	NotChosen = form.NotChosen
+)
+
+var (
+	// Choose is an alias form form.Choose, to
+	// avoid importing both packages.
+	Choose = form.Choose
+)
+
 type Form struct {
 	*form.Form
 }

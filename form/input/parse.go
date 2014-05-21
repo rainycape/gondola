@@ -10,6 +10,10 @@ import (
 	"strings"
 )
 
+var (
+	parserInterface = reflect.TypeOf((*Parser)(nil)).Elem()
+)
+
 // Parser is the interface implemented by types
 // that know how to parse themselves from a user
 // provided string.
@@ -40,6 +44,22 @@ func Parse(val string, arg interface{}) error {
 }
 
 func parse(val string, v reflect.Value) error {
+	var err error
+	p := v
+	// Get Pointer methods
+	if p.IsValid() && p.Kind() != reflect.Ptr && p.CanAddr() {
+		p = p.Addr()
+	}
+	if p.Type().Implements(parserInterface) {
+		err = p.Interface().(Parser).Parse(val)
+		if err == nil {
+			return nil
+		}
+		// Continue with the function, just in case we can
+		// still parse the value (e.g. an enum type which defines
+		// a Parse() function for accepting raw strings but val
+		// is actually a numeric value).
+	}
 	// If val is empty, set the value to zero
 	if val == "" {
 		v.Set(reflect.Zero(v.Type()))
@@ -56,6 +76,7 @@ func parse(val string, v reflect.Value) error {
 			return i18n.Errorf("invalid boolean value %q", val)
 		}
 		v.SetBool(res)
+		return nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		res, err := strconv.ParseInt(val, 0, 64)
 		if err != nil {
@@ -69,6 +90,7 @@ func parse(val string, v reflect.Value) error {
 			}
 		}
 		v.SetInt(res)
+		return nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		res, err := strconv.ParseUint(val, 0, 64)
 		if err != nil {
@@ -78,17 +100,22 @@ func parse(val string, v reflect.Value) error {
 			res = uint64(math.Pow(2, float64(8*v.Type().Size())) - 1)
 		}
 		v.SetUint(res)
+		return nil
 	case reflect.Float32, reflect.Float64:
 		res, err := strconv.ParseFloat(val, 64)
 		if err != nil {
 			return err
 		}
 		v.SetFloat(res)
+		return nil
 	case reflect.String:
 		v.SetString(val)
+		return nil
 	default:
-		return fmt.Errorf("Invalid argument type passed to Parse(): %s. Please, see the documentation for a list of the supported types.",
-			v.Type())
+		if err == nil {
+			err = fmt.Errorf("Invalid argument type passed to Parse(): %s. Please, see the documentation for a list of the supported types.",
+				v.Type())
+		}
 	}
-	return nil
+	return err
 }

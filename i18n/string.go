@@ -13,11 +13,40 @@ type TranslatableString interface {
 // String is an alias for string, but variables
 // or constants declared with the type String will
 // be extracted for translation.
+//
+// String declarations might include a context by using the |
+// character, which can be escaped by \.
+// e.g.
+//
+//  var foo = i18n.String("ctx|str")
+//
+// Declares a translatable string with context "ctx" and a
+// value of "str".
+//
+//  var bar = i18n.String("ctx\\|str")
+//
+// Declares a translatable string without context and with
+// the value "ctx|str".
+//
+// String declarations can also include a plural form by adding
+// another | separated field.
+//
+// var hasPlural = i18n.String("ctx|singular|plural")
 type String string
 
 // String returns the String as a plain string.
 func (s String) String() string {
 	return string(s)
+}
+
+// Context returns the translation context for the String, which
+// might be empty.
+func (s String) Context() string {
+	fields, _ := stringutil.SplitFields(string(s), "|")
+	if len(fields) > 1 {
+		return fields[0]
+	}
+	return ""
 }
 
 // TranslatedString returns the string translated into

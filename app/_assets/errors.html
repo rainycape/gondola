@@ -3,7 +3,6 @@
   include: reload.html
 */}}
 {{ define "title" }}Errors building {{ .Project.Name }}{{ end }}
-{{ define "body" }}
 <div class="header error">
   <h1>{{ .Count }} errors building {{ .Project.Name }}</h1>
 </div>
@@ -16,4 +15,3 @@
   </div>
 {{ end }}
 {{ template "reload.html" . }}
-{{ end }}

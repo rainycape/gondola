@@ -3,7 +3,6 @@
   include: reload.html
 */}}
 {{ define "title" }}Panic{{ end }}
-{{ define "body" }}
 <div class="header error">
   <h1>Panic{{ with .Subtitle }} <small>{{ . }}</small>{{ end }}</h1>
   <h3>{{ .Error | to_html }}</h3>
@@ -30,4 +29,3 @@
 {{ end }}
 <small>Note: This page is only generared in debug mode. When running in production mode, errors are reported to the administrator email.</small>
 {{ template "reload.html" . }}
-{{ end }}

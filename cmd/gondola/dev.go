@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -40,7 +41,13 @@ var (
 		".cpp",
 		".cxx",
 	}
+	noColorRegexp = regexp.MustCompile("\x1b\\[\\d+;\\d+m(.*?)\x1b\\[00m")
+	panicRe       = regexp.MustCompile("\npanic: (.+)")
 )
+
+func uncolor(s string) string {
+	return noColorRegexp.ReplaceAllString(s, "$1")
+}
 
 func isSource(filename string) bool {
 	ext := strings.ToLower(filepath.Ext(filename))
@@ -143,6 +150,10 @@ type Project struct {
 	proxied    map[net.Conn]struct{}
 	built      time.Time
 	started    time.Time
+	// runtime info
+	out      bytes.Buffer
+	runError error
+	exitCode int
 }
 
 func (p *Project) Name() string {
@@ -304,11 +315,12 @@ func (p *Project) ProjectCmd() *exec.Cmd {
 	}
 	cmd := exec.Command(name, args...)
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = io.MultiWriter(os.Stdout, &p.out)
+	cmd.Stderr = io.MultiWriter(os.Stderr, &p.out)
 	cmd.Dir = p.dir
 	cmd.Env = append(cmd.Env, os.Environ()...)
 	cmd.Env = append(cmd.Env, "GONDOLA_DEV_SERVER=1")
+	cmd.Env = append(cmd.Env, "GONDOLA_FORCE_TTY=1")
 	if p.profile {
 		cmd.Env = append(cmd.Env, "GONDOLA_NO_CACHE_LAYER=1")
 	}
@@ -327,15 +339,21 @@ func (p *Project) startLocked() error {
 	cmd := p.ProjectCmd()
 	log.Infof("Starting %s (%s)", p.Name(), cmdString(cmd))
 	p.cmd = cmd
+	p.out.Reset()
+	p.runError = nil
+	p.exitCode = 0
 	err := cmd.Start()
 	go func() {
-		cmd.Wait()
+		werr := cmd.Wait()
 		if cmd == p.cmd {
 			// Othewise the process was intentionally killed
-			if s := cmd.ProcessState; s != nil && !s.Success() {
-				log.Warningf("%s exited with code %d. Restarting...", p.Name(), exitStatus(s))
-				time.Sleep(500 * time.Millisecond)
-				go p.Start()
+			if s := cmd.ProcessState; s != nil {
+				exitCode := exitStatus(s)
+				p.Lock()
+				defer p.Unlock()
+				p.runError = werr
+				p.exitCode = exitCode
+				log.Warningf("%s exited with code %d", p.Name(), exitCode)
 			}
 		}
 	}()
@@ -489,14 +507,30 @@ func (p *Project) Build() {
 }
 
 func (p *Project) Handler(ctx *app.Context) {
-	data := map[string]interface{}{
-		"Project": p,
-		"Errors":  p.errors,
-		"Count":   len(p.errors),
-		"Built":   formatTime(p.built),
-		"Started": formatTime(p.started),
+	if len(p.errors) > 0 {
+		data := map[string]interface{}{
+			"Project": p,
+			"Errors":  p.errors,
+			"Count":   len(p.errors),
+			"Built":   formatTime(p.built),
+			"Started": formatTime(p.started),
+		}
+		ctx.MustExecute("errors.html", data)
+		return
 	}
-	ctx.MustExecute("errors.html", data)
+	// Exited at start
+	s := p.out.String()
+	var errorMessage string
+	if m := panicRe.FindStringSubmatch(s); len(m) > 1 {
+		errorMessage = m[1]
+	}
+	data := map[string]interface{}{
+		"Project":  p,
+		"Error":    errorMessage,
+		"ExitCode": p.exitCode,
+		"Output":   uncolor(s),
+	}
+	ctx.MustExecute("exited.html", data)
 }
 
 func (p *Project) StatusHandler(ctx *app.Context) {
@@ -526,16 +560,20 @@ func (p *Project) waitForBuild() {
 	}
 }
 
+func (p *Project) isRunning() bool {
+	return len(p.errors) == 0 && p.runError == nil
+}
+
 func (p *Project) HandleConnection(conn net.Conn) {
 	p.waitForBuild()
 	if p.proxied == nil {
 		p.proxied = make(map[net.Conn]struct{})
 	}
 	p.proxied[conn] = struct{}{}
-	if len(p.errors) > 0 {
-		p.ProxyConnection(conn, p.appPort)
-	} else {
+	if p.isRunning() {
 		p.ProxyConnection(conn, p.port)
+	} else {
+		p.ProxyConnection(conn, p.appPort)
 	}
 }
 

@@ -371,7 +371,10 @@ func (p *Project) Stop() error {
 			err = proc.Kill()
 		}
 		cmd.Wait()
-		cmd = nil
+		p.cmd = nil
+	}
+	if err != nil && strings.Contains(err.Error(), "already finished") {
+		err = nil
 	}
 	return err
 }

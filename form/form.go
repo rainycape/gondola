@@ -35,9 +35,17 @@ type Form struct {
 	validated bool
 	// Don't include the field name in the error
 	NamelessErrors bool
+	// DisableCSRF disables CSRF protection when set
+	// to true. Note that changing this after the
+	// form has been rendered or validated has no effect.
+	DisableCSRF bool
+	hasCSRF     bool
 }
 
 func (f *Form) validate() {
+	if err := f.addCSRF(); err != nil {
+		panic(err)
+	}
 	for _, v := range f.fields {
 		inp := f.ctx.FormValue(v.HTMLName)
 		label := v.Label.TranslatedString(f.ctx)
@@ -86,7 +94,6 @@ func (f *Form) makeField(name string) (*Field, error) {
 	if idx < 0 {
 		return nil, fmt.Errorf("can't map form field %q", name)
 	}
-	mangled := stringutil.CamelCaseToLower(name, "_")
 	tag := s.Tags[idx]
 	label := tag.Value("label")
 	if label == "" {
@@ -134,14 +141,15 @@ func (f *Form) makeField(name string) (*Field, error) {
 			return nil, fmt.Errorf("field %q requires choices, but %T does not implement ChoicesProvider", name, container)
 		}
 	}
+	htmlName := f.toHTMLName(name)
 	field := &Field{
 		Type:        typ,
 		Name:        name,
-		HTMLName:    mangled,
+		HTMLName:    htmlName,
 		Label:       i18n.String(label),
 		Placeholder: i18n.String(tag.Value("placeholder")),
 		Help:        i18n.String(tag.Value("help")),
-		id:          mangled,
+		id:          htmlName,
 		value:       fieldValue,
 		s:           s,
 		sval:        sval,
@@ -160,17 +168,15 @@ func (f *Form) lookupField(name string) (*Field, error) {
 }
 
 func (f *Form) makeFields(names []string) error {
-	fields := make([]*Field, 0, len(names))
 	for _, v := range names {
 		field, err := f.makeField(v)
 		if err != nil {
 			return err
 		}
 		if field != nil {
-			fields = append(fields, field)
+			f.fields = append(f.fields, field)
 		}
 	}
-	f.fields = fields
 	return nil
 }
 
@@ -517,7 +523,14 @@ func (f *Form) renderField(buf *bytes.Buffer, field *Field) (err error) {
 	return
 }
 
+func (f *Form) toHTMLName(name string) string {
+	return stringutil.CamelCaseToLower(name, "_")
+}
+
 func (f *Form) render(fields []*Field) (template.HTML, error) {
+	if err := f.addCSRF(); err != nil {
+		return template.HTML(""), err
+	}
 	var buf bytes.Buffer
 	var err error
 	for _, v := range fields {
@@ -531,6 +544,9 @@ func (f *Form) render(fields []*Field) (template.HTML, error) {
 // Render renders all the fields in the form, in the order
 // specified during construction.
 func (f *Form) Render() (template.HTML, error) {
+	if err := f.addCSRF(); err != nil {
+		return template.HTML(""), err
+	}
 	return f.render(f.fields)
 }
 
@@ -564,6 +580,21 @@ func (f *Form) RenderExcept(names ...string) (template.HTML, error) {
 		}
 	}
 	return f.render(fields)
+}
+
+func (f *Form) addCSRF() error {
+	if !f.hasCSRF && !f.DisableCSRF {
+		csrf, err := newCSRF(f)
+		if err != nil {
+			return err
+		}
+		f.hasCSRF = true
+		if err := f.appendVal(csrf); err != nil {
+			return err
+		}
+		return f.makeFields(f.structs[len(f.structs)-1].QNames)
+	}
+	return nil
 }
 
 func (f *Form) makeId() {

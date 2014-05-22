@@ -10,6 +10,9 @@ import (
 )
 
 func isatty(w io.Writer) bool {
+	if os.Getenv("GONDOLA_FORCE_TTY") != "" {
+		return true
+	}
 	if ioctlReadTermios != 0 {
 		if f, ok := w.(*os.File); ok {
 			var termios syscall.Termios

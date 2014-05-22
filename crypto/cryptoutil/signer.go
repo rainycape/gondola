@@ -34,7 +34,7 @@ type Hasher func(key []byte) (hash.Hash, error)
 // authentication system, it's ok to use the same salt for all the forms, but
 // not to use the same salt for the forms and the authentication).
 type Signer struct {
-	// Hasher is the function used to obtain a hash.Has from the
+	// Hasher is the function used to obtain a hash.Hash from the
 	// Key.
 	Hasher Hasher
 	// Key is the key used for signing the data.

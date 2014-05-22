@@ -127,7 +127,7 @@ func (f *Form) makeField(name string) (*Field, error) {
 			return nil, fmt.Errorf("field %q has invalid type %v", name, s.Types[idx])
 		}
 	}
-	// Check if the struct imlpements the ChoicesProvider interface
+	// Check if the struct implements the ChoicesProvider interface
 	if typ == RADIO || typ == SELECT {
 		container := sval.Addr().Interface()
 		if _, ok := container.(ChoicesProvider); !ok {

@@ -59,11 +59,11 @@ function pollReload(built, started) {
                 reload = true;
             } else {
                 var resp = parseJson(req.responseText);
-                reload = (built && resp.built != built) || (started && resp.started != started)
+                reload = (built && resp.built != built) || (started && resp.started && resp.started != started)
             }
             if (reload) {
                 location.reload(true);
             }
         });
-    }, 1000)
+    }, 500)
 }

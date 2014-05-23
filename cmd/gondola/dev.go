@@ -16,6 +16,8 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -117,23 +119,20 @@ func NewProject(dir string, config string) *Project {
 	p := &Project{
 		dir:        dir,
 		configPath: config,
-		appPort:    randomFreePort(),
 	}
 	a := app.New()
 	a.Logger = nil
 	a.SetTemplatesLoader(devAssets)
 	a.Handle("/_gondola_dev_server_status", p.StatusHandler)
 	a.Handle("/", p.Handler)
-	a.Port = p.appPort
-	go func() {
-		os.Setenv("GONDOLA_IS_DEV_SERVER", "1")
-		a.MustListenAndServe()
-	}()
+	a.Port = 8888
+	p.App = a
 	return p
 }
 
 type Project struct {
 	sync.Mutex
+	App        *app.App
 	dir        string
 	configPath string
 	tags       string
@@ -142,18 +141,22 @@ type Project struct {
 	noCache    bool
 	profile    bool
 	port       int
-	appPort    int
+	proxy      *httputil.ReverseProxy
 	buildCmd   *exec.Cmd
 	errors     []*BuildError
 	cmd        *exec.Cmd
 	watcher    *fsnotify.Watcher
-	proxied    map[net.Conn]struct{}
 	built      time.Time
 	started    time.Time
 	// runtime info
 	out      bytes.Buffer
 	runError error
 	exitCode int
+}
+
+func (p *Project) Listen() {
+	os.Setenv("GONDOLA_IS_DEV_SERVER", "1")
+	p.App.MustListenAndServe()
 }
 
 func (p *Project) Name() string {
@@ -334,7 +337,6 @@ func (p *Project) Start() error {
 }
 
 func (p *Project) startLocked() error {
-	p.started = time.Now().UTC()
 	p.port = randomFreePort()
 	cmd := p.ProjectCmd()
 	log.Infof("Starting %s (%s)", p.Name(), cmdString(cmd))
@@ -357,12 +359,26 @@ func (p *Project) startLocked() error {
 			}
 		}
 	}()
+	time.AfterFunc(100*time.Millisecond, p.projectStarted)
 	return err
+}
+
+func (p *Project) projectStarted() {
+	p.Lock()
+	defer p.Unlock()
+	u, err := url.Parse(fmt.Sprintf("http://localhost:%d", p.port))
+	if err != nil {
+		panic(err)
+	}
+	p.proxy = httputil.NewSingleHostReverseProxy(u)
+	p.started = time.Now().UTC()
 }
 
 func (p *Project) Stop() error {
 	p.Lock()
 	defer p.Unlock()
+	p.proxy = nil
+	p.started = time.Time{}
 	var err error
 	cmd := p.cmd
 	if cmd != nil {
@@ -414,12 +430,6 @@ func (p *Project) Build() {
 		}
 	}
 	p.buildCmd = cmd
-	// Browsers might keep connections open
-	// after the request is served and they
-	// might need to be rerouted (e.g. the
-	// project had errors and it doesn't have
-	// them anymore).
-	p.DropConnections()
 	p.StopMonitoring()
 	p.Unlock()
 	if err := p.Stop(); err != nil {
@@ -521,19 +531,45 @@ func (p *Project) Handler(ctx *app.Context) {
 		ctx.MustExecute("errors.html", data)
 		return
 	}
-	// Exited at start
-	s := p.out.String()
-	var errorMessage string
-	if m := panicRe.FindStringSubmatch(s); len(m) > 1 {
-		errorMessage = m[1]
+	if p.runError != nil {
+		// Exited at start
+		s := p.out.String()
+		var errorMessage string
+		if m := panicRe.FindStringSubmatch(s); len(m) > 1 {
+			errorMessage = m[1]
+		}
+		data := map[string]interface{}{
+			"Project":  p,
+			"Error":    errorMessage,
+			"ExitCode": p.exitCode,
+			"Output":   uncolor(s),
+			"Started":  formatTime(p.started),
+		}
+		ctx.MustExecute("exited.html", data)
+		return
 	}
-	data := map[string]interface{}{
-		"Project":  p,
-		"Error":    errorMessage,
-		"ExitCode": p.exitCode,
-		"Output":   uncolor(s),
+	if p.proxy == nil {
+		// Building
+		if ctx.R.Method != "POST" || ctx.R.Method != "PUT" {
+			data := map[string]interface{}{
+				"Project": p,
+				"Name":    p.Name(),
+				"Built":   formatTime(p.built),
+				"Started": "1", // This waits until the app is restarted for reloading
+			}
+			ctx.MustExecute("building.html", data)
+			return
+		}
+		// Wait until the app starts
+		for {
+			time.Sleep(10 * time.Millisecond)
+			if p.proxy != nil {
+				break
+			}
+		}
 	}
-	ctx.MustExecute("exited.html", data)
+	// Proxy
+	p.proxy.ServeHTTP(ctx, ctx.R)
 }
 
 func (p *Project) StatusHandler(ctx *app.Context) {
@@ -543,13 +579,6 @@ func (p *Project) StatusHandler(ctx *app.Context) {
 		"built":   built,
 		"started": started,
 	})
-}
-
-func (p *Project) DropConnections() {
-	for k := range p.proxied {
-		k.Close()
-	}
-	p.proxied = nil
 }
 
 func (p *Project) waitForBuild() {
@@ -565,55 +594,6 @@ func (p *Project) waitForBuild() {
 
 func (p *Project) isRunning() bool {
 	return len(p.errors) == 0 && p.runError == nil
-}
-
-func (p *Project) HandleConnection(conn net.Conn) {
-	p.waitForBuild()
-	if p.proxied == nil {
-		p.proxied = make(map[net.Conn]struct{})
-	}
-	p.proxied[conn] = struct{}{}
-	if p.isRunning() {
-		p.ProxyConnection(conn, p.port)
-	} else {
-		p.ProxyConnection(conn, p.appPort)
-	}
-}
-
-func (p *Project) ProxyConnection(conn net.Conn, port int) {
-	r := fmt.Sprintf("localhost:%d", port)
-	sock, err := net.Dial("tcp", r)
-	if err != nil {
-		if oerr, ok := err.(*net.OpError); ok {
-			if oerr.Err == syscall.ECONNREFUSED {
-				// Wait a bit for the server to start
-				time.Sleep(time.Second)
-				sock, err = net.Dial("tcp", r)
-			}
-		}
-		if err != nil {
-			log.Errorf("Error proxying connection to %s: %s", r, err)
-			conn.Close()
-			return
-		}
-	}
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		io.Copy(sock, conn)
-		// conn was closed by client
-		sock.Close()
-		wg.Done()
-	}()
-	go func() {
-		io.Copy(conn, sock)
-		// sock was closed by server
-		conn.Close()
-		wg.Done()
-	}()
-	wg.Wait()
-	conn.Close()
-	sock.Close()
 }
 
 func findConfig(dir string, name string) string {
@@ -667,21 +647,12 @@ func Dev(ctx *app.Context) {
 		eof = "Z"
 	}
 	log.Infof("Starting Gondola development server on port %d (press Control+%s to exit)", p.port, eof)
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", p.port))
-	if err != nil {
-		log.Panic(err)
-	}
 	if !noBrowser {
-		startBrowser(fmt.Sprintf("http://localhost:%d", p.port))
+		time.AfterFunc(time.Second, func() {
+			startBrowser(fmt.Sprintf("http://localhost:%d", p.port))
+		})
 	}
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			log.Warningf("Error accepting connection: %s", err)
-			continue
-		}
-		go p.HandleConnection(conn)
-	}
+	p.Listen()
 }
 
 func startBrowser(url string) bool {

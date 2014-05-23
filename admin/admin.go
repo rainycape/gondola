@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"gnd.la/app"
+	"gnd.la/internal/runtimeutil"
 	"gnd.la/signal"
 	"gnd.la/tasks"
 	"gnd.la/util/stringutil"
@@ -168,6 +169,9 @@ func executeCommand(name string, cmd *command, args []string, a *app.App) (err e
 				err = e
 			} else {
 				err = fmt.Errorf("%v", r)
+			}
+			if file, line, ok := runtimeutil.PanicLocation(); ok {
+				err = fmt.Errorf("%v (at %s:%d)", err, file, line)
 			}
 		}
 	}()

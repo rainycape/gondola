@@ -1,9 +1,11 @@
 package admin
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 
 	"gnd.la/app"
@@ -73,6 +75,28 @@ func printResources(ctx *app.Context) {
 	fmt.Println(string(data))
 }
 
+func renderTemplate(ctx *app.Context) {
+	var template string
+	ctx.MustParseIndexValue(0, &template)
+	tmpl, err := ctx.App().LoadTemplate(template)
+	if err != nil {
+		panic(err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTo(&buf, ctx, nil); err != nil {
+		panic(err)
+	}
+	var output string
+	ctx.ParseParamValue("o", &output)
+	if output == "" || output == "-" {
+		fmt.Print(buf.String())
+	} else {
+		if err := ioutil.WriteFile(output, buf.Bytes(), 0644); err != nil {
+			panic(err)
+		}
+	}
+}
+
 func init() {
 	Register(catFile, &Options{
 		Help:  "Prints a file from the blobstore to the stdout",
@@ -82,4 +106,9 @@ func init() {
 		Help: "Pre-compile and bundle all app assets",
 	})
 	Register(printResources, &Options{Name: "_print-resources"})
+	Register(renderTemplate, &Options{
+		Name:  "_render-template",
+		Help:  "Render a template and print its output",
+		Flags: Flags(StringFlag("o", "", "Output file. If empty or -, outputs to stdout")),
+	})
 }

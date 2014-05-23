@@ -3,6 +3,7 @@ package template
 import (
 	"bytes"
 	"fmt"
+	"gnd.la/internal/runtimeutil"
 	"gnd.la/util/stringutil"
 	"gnd.la/util/types"
 	"html/template"
@@ -449,7 +450,9 @@ func (s *state) recover(pc *int, tmpl *string, err *error) {
 		if !ok {
 			e = fmt.Errorf("%v", r)
 		}
-		*err = s.formatErr(*pc, *tmpl, e)
+		skip, _, _, _ := runtimeutil.GetPanic()
+		location, _ := runtimeutil.FormatCaller(skip, 0, false, false)
+		*err = s.formatErr(*pc, *tmpl, fmt.Errorf("%v (%v)", e, location))
 	}
 }
 

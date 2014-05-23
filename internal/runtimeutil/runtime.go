@@ -167,3 +167,14 @@ func GetPanic() (int, int, uintptr, bool) {
 	}
 	return 0, 0, 0, false
 }
+
+// PanicLocation returns the panic location.
+// If ok is false, the location could not be determined.
+func PanicLocation() (file string, line int, ok bool) {
+	var skip int
+	skip, _, _, ok = GetPanic()
+	if ok {
+		_, file, line, ok = runtime.Caller(skip)
+	}
+	return
+}

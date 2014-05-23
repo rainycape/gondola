@@ -450,9 +450,10 @@ func (s *state) recover(pc *int, tmpl *string, err *error) {
 		if !ok {
 			e = fmt.Errorf("%v", r)
 		}
-		skip, _, _, _ := runtimeutil.GetPanic()
-		location, _ := runtimeutil.FormatCaller(skip, 0, false, false)
-		*err = s.formatErr(*pc, *tmpl, fmt.Errorf("%v (%v)", e, location))
+		if file, line, ok := runtimeutil.PanicLocation(); ok {
+			e = fmt.Errorf("%v (at %s:%d)", e, file, line)
+		}
+		*err = s.formatErr(*pc, *tmpl, e)
 	}
 }
 

@@ -403,6 +403,22 @@ func (app *App) include(prefix string, child *App, containerTemplate string) err
 	return nil
 }
 
+// Parent returns the parent App. Note that this is non-nil only
+// for apps which have been included into another app.
+func (app *App) Parent() *App {
+	return app.parent
+}
+
+// Included returns the apps which have been included by this
+// app.
+func (app *App) Included() []*App {
+	apps := make([]*App, len(app.included))
+	for ii, v := range app.included {
+		apps[ii] = v.app
+	}
+	return apps
+}
+
 // TrustsXHeaders returns if the app uses X headers
 // for determining the remote IP and scheme. See SetTrustXHeaders()
 // for a more detailed explanation.

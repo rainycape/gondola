@@ -99,6 +99,7 @@ func NewCmd(ctx *app.Context) {
 		if err := w.Flush(); err != nil {
 			panic(err)
 		}
+		return
 	}
 	name := ctx.IndexValue(0)
 	if name == "" {

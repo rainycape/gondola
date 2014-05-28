@@ -2,81 +2,160 @@
 //
 // The URL format for this driver is:
 //
-//  - redis://host[:port][#password={pw}&db={number}]
+//  - redis://host[:port][#password={pw}&db={number}&max_idle={number}&max_active={number}&idle_timeout={seconds}]
 //
 // If no db is provided, it defaults to -1.
+// For the defaults and the explanation for the rest of the parameters,
+// see DefaultMaxIdle, DefaultMaxActive and DefaultIdleTimeout.
 package redis
 
 import (
 	"fmt"
-	"github.com/vmihailenco/redis"
+	"time"
+
 	"gnd.la/cache/driver"
 	"gnd.la/config"
-	"strconv"
+
+	"github.com/garyburd/redigo/redis"
+)
+
+const (
+	// DefaultMaxIdle is the maximum number of idle connections
+	// kept in the connection pool.
+	DefaultMaxIdle = 8
+	// DefaultMaxActive is the maximum number of connections that
+	// will be open at any given time. Setting it to zero, the
+	// default value, won't limit the number of connections.
+	DefaultMaxActive = 0
+	// DefaultIdleTimeout is the amount of seconds after an idle
+	// connection will be dropped from the pool.
+	DefaultIdleTimeout = 300
 )
 
 type redisDriver struct {
-	*redis.Client
+	pool *redis.Pool
 }
 
 func (r *redisDriver) Set(key string, b []byte, timeout int) error {
-	var req *redis.StatusReq
+	conn := r.pool.Get()
+	var err error
 	if timeout == 0 {
-		req = r.Client.Set(key, string(b))
+		_, err = conn.Do("SET", key, b)
 	} else {
-		req = r.Client.SetEx(key, int64(timeout), string(b))
+		_, err = conn.Do("SETEX", key, int32(timeout), b)
 	}
-	return req.Err()
+	conn.Close()
+	return err
 }
 
 func (r *redisDriver) Get(key string) ([]byte, error) {
-	req := r.Client.Get(key)
-	if err := req.Err(); err != nil {
-		if err == redis.Nil {
-			return nil, nil
-		}
+	conn := r.pool.Get()
+	reply, err := conn.Do("GET", key)
+	conn.Close()
+	if err != nil {
 		return nil, err
 	}
-	return []byte(req.Val()), nil
+	switch reply := reply.(type) {
+	case []byte:
+		return reply, nil
+	case string:
+		return []byte(reply), nil
+	case redis.Error:
+		return nil, reply
+	}
+	// nil returned, item was not present
+	return nil, nil
 }
 
 func (r *redisDriver) GetMulti(keys []string) (map[string][]byte, error) {
-	req := r.Client.MGet(keys...)
-	if err := req.Err(); err != nil {
+	args := make([]interface{}, len(keys))
+	for ii, v := range keys {
+		args[ii] = v
+	}
+	conn := r.pool.Get()
+	reply, err := conn.Do("MGET", args...)
+	conn.Close()
+	if err != nil {
 		return nil, err
 	}
-	value := make(map[string][]byte, len(keys))
-	for ii, v := range req.Val() {
+	if e, ok := reply.(redis.Error); ok {
+		return nil, e
+	}
+	values := reply.([]interface{})
+	ret := make(map[string][]byte, len(keys))
+	for ii, v := range values {
 		if v != nil {
-			s := v.(string)
-			value[keys[ii]] = []byte(s)
+			if b, ok := v.([]byte); ok {
+				ret[keys[ii]] = b
+			}
 		}
 	}
-	return value, nil
+	return ret, nil
 }
 
 func (r *redisDriver) Delete(key string) error {
-	req := r.Client.Del(key)
-	return req.Err()
+	conn := r.pool.Get()
+	_, err := conn.Do("DEL", key)
+	conn.Close()
+	return err
 }
 
 func (r *redisDriver) Connection() interface{} {
-	return r.Client
+	return r.pool
+}
+
+func (r *redisDriver) Close() error {
+	return r.pool.Close()
 }
 
 func redisOpener(url *config.URL) (driver.Driver, error) {
 	password := url.Fragment.Get("password")
-	db := int64(-1)
+	db := -1
+	maxIdle := DefaultMaxIdle
+	maxActive := DefaultMaxActive
+	idleTimeout := DefaultIdleTimeout
 	if d := url.Fragment.Get("db"); d != "" {
-		val, err := strconv.ParseInt(d, 0, 64)
-		if err != nil {
+		val, ok := url.Fragment.Int("db")
+		if !ok {
 			return nil, fmt.Errorf("invalid db %q, must be an integer", d)
 		}
 		db = val
 	}
-	conn := driver.DefaultPort(url.Value, 6379)
-	client := redis.NewTCPClient(conn, password, db)
-	return &redisDriver{Client: client}, nil
+	if v, ok := url.Fragment.Int("max_idle"); ok {
+		maxIdle = v
+	}
+	if v, ok := url.Fragment.Int("max_active"); ok {
+		maxActive = v
+	}
+	if v, ok := url.Fragment.Int("idle_timeout"); ok {
+		idleTimeout = v
+	}
+	server := driver.DefaultPort(url.Value, 6379)
+	pool := &redis.Pool{
+		Dial: func() (redis.Conn, error) {
+			c, err := redis.Dial("tcp", server)
+			if err != nil {
+				return nil, err
+			}
+			if password != "" {
+				if _, err := c.Do("AUTH", password); err != nil {
+					c.Close()
+					return nil, err
+				}
+			}
+			if db != -1 {
+				if _, err := c.Do("SELECT", db); err != nil {
+					c.Close()
+					return nil, err
+				}
+			}
+			return c, err
+		},
+		MaxIdle:     maxIdle,
+		MaxActive:   maxActive,
+		IdleTimeout: time.Duration(idleTimeout) * time.Second,
+	}
+	return &redisDriver{pool: pool}, nil
 }
 
 func init() {

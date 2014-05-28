@@ -3,7 +3,7 @@
 package memcache
 
 import (
-	"github.com/rainycape/gomemcache/memcache"
+	"github.com/rainycape/memcache"
 	"gnd.la/cache/driver"
 	"gnd.la/config"
 	"strings"

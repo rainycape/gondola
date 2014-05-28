@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"gnd.la/app"
 	"gnd.la/loaders"
+	"gnd.la/log"
 	"html/template"
 	"path/filepath"
 )
@@ -40,6 +41,7 @@ func articleHandler(ctx *app.Context) {
 		return
 	}
 	dir, base := filepath.Split(article.Template)
+	log.Debugf("loading article from dir %s", dir)
 	loader := loaders.FSLoader(dir)
 	tmpl, err := app.LoadTemplate(ctx.App(), loader, nil, base)
 	if err != nil {

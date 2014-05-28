@@ -1271,7 +1271,7 @@ func (app *App) importAssets(included *includedApp) error {
 // than 16 bytes or the App has no Secret, an error is returned.
 func (app *App) Signer(salt []byte) (*cryptoutil.Signer, error) {
 	if len(salt) < 16 {
-		return nil, fmt.Errorf("salt must be at least 32 bytes, it's %d", len(salt))
+		return nil, fmt.Errorf("salt must be at least 16 bytes, it's %d", len(salt))
 	}
 	if app.Secret == "" {
 		return nil, errNoSecret

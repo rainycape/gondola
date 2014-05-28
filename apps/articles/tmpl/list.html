@@ -3,7 +3,7 @@
 <ul class="articles-list">
   {{ range .Articles }}
     <li class="articles-article">
-      <h2><a href="{{ reverse_article @Ctx . }}">{{ .Title }}</a></h2>
+      <h2><a href="{{ reverse_article . }}">{{ .Title }}</a></h2>
       {{ with .Synopsis }}
         <p class="articles-synopsis">
           {{ . }}

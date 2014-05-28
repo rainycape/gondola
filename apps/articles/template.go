@@ -49,7 +49,7 @@ func reverseAppsArticle(a *app.App, article interface{}, checked map[*app.App]bo
 
 func init() {
 	template.AddFuncs(template.FuncMap{
-		"reverse_article":     reverseArticle,
+		"!reverse_article":    reverseArticle,
 		"reverse_app_article": reverseAppArticle,
 	})
 }

@@ -17,9 +17,19 @@ func isNil(v interface{}) bool {
 }
 
 func DescField(idx *index.Index, field string) bool {
-	if strs, ok := idx.Get(index.DESC).([]string); ok {
-		for _, v := range strs {
+	val := idx.Get(index.DESC)
+	switch x := val.(type) {
+	case string:
+		return x == field
+	case []string:
+		for _, v := range x {
 			if v == field {
+				return true
+			}
+		}
+	case []interface{}:
+		for _, v := range x {
+			if s, ok := v.(string); ok && s == field {
 				return true
 			}
 		}

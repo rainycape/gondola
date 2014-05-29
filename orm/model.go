@@ -69,10 +69,21 @@ func (m *model) Indexes() []*index.Index {
 	// Add indexes declared in the fields
 	for ii, v := range m.fields.Tags {
 		if v.Has("index") {
-			indexes = append(indexes, &index.Index{
-				Fields: []string{m.fields.QNames[ii]},
-				Unique: v.Has("unique"),
-			})
+			dir := v.Value("index")
+			if dir == "" || dir == "asc" || dir == "both" {
+				indexes = append(indexes, &index.Index{
+					Fields: []string{m.fields.QNames[ii]},
+					Unique: v.Has("unique"),
+				})
+			}
+			if dir == "desc" || dir == "both" {
+				name := m.fields.QNames[ii]
+				idx := &index.Index{
+					Fields: []string{name},
+					Unique: v.Has("unique"),
+				}
+				indexes = append(indexes, idx.Set(index.DESC, name))
+			}
 		}
 	}
 	return indexes

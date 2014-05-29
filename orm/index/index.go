@@ -11,7 +11,7 @@ type Index struct {
 	//    type Bar struct {
 	//        Foo
 	//    }
-	// To create a index in A and B, you'd do:
+	// To create a index in Bar over A and B, you'd do:
 	//    New("Foo.A", "Foo.B")
 	Fields []string
 	// Wheter the index should be unique.
@@ -25,11 +25,15 @@ type Index struct {
 // than that value. For conveniency, the options for the builtin
 // drivers are defined as contants in this package.
 // The same index is returned, to allow chaining calls.
-func (i *Index) Set(opt int, value interface{}) *Index {
+func (i *Index) Set(opt int, values ...interface{}) *Index {
 	if i.options == nil {
-		i.options = map[int]interface{}{}
+		i.options = make(map[int]interface{})
 	}
-	i.options[opt] = value
+	if len(values) == 1 {
+		i.options[opt] = values[0]
+	} else {
+		i.options[opt] = values
+	}
 	return i
 }
 

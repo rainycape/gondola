@@ -139,6 +139,9 @@ func (d *Driver) indexName(m driver.Model, idx *index.Index) (string, error) {
 		// dbName is quoted and includes the table name
 		// extract the unquoted field name.
 		buf.WriteString(unquote(dbName))
+		if DescField(idx, v) {
+			buf.WriteString("_desc")
+		}
 	}
 	s := buf.String()
 	putBuffer(buf)

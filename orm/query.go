@@ -239,6 +239,12 @@ func F(field string) query.F {
 	return query.F(field)
 }
 
+// Subquery is a conveniency function which returns a subquery which
+// can used with any of the Q functions (Eq, Neq, Lt, In...).
+func Subquery(q string) query.Subquery {
+	return query.Subquery(q)
+}
+
 type querySort struct {
 	field string
 	dir   driver.SortDirection

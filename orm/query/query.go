@@ -20,6 +20,10 @@ func (f F) String() string {
 	return fmt.Sprintf("F(%s)", string(f))
 }
 
+// Type Subquery represents a literal subquery passed as a Q condition.
+// It can be used with Eq, Neq, In, etc...
+type Subquery string
+
 type Field struct {
 	Field string
 	Value interface{}

@@ -22,7 +22,8 @@ import (
 )
 
 var (
-	stringType = reflect.TypeOf("")
+	stringType   = reflect.TypeOf("")
+	subqueryType = reflect.TypeOf(query.Subquery(""))
 )
 
 type Driver struct {
@@ -689,28 +690,32 @@ func (d *Driver) condition(buf *bytes.Buffer, params *[]interface{}, m driver.Mo
 	case *query.Gte:
 		err = d.clause(buf, params, m, "%s >= %s", &x.Field, begin)
 	case *query.In:
-		value := reflect.ValueOf(x.Value)
-		if value.Type().Kind() != reflect.Slice {
-			return fmt.Errorf("argument for IN must be a slice (field %s)", x.Field.Field)
-		}
 		dbName, _, err := m.Map(x.Field.Field)
 		if err != nil {
 			return err
 		}
-		vLen := value.Len()
-		if vLen == 0 {
-			return fmt.Errorf("empty IN (field %s)", x.Field.Field)
-		}
 		buf.WriteString(dbName)
 		buf.WriteString(" IN (")
-		jj := len(*params) + begin
-		for ii := 0; ii < vLen; ii++ {
-			*params = append(*params, value.Index(ii).Interface())
-			buf.WriteString(d.backend.Placeholder(jj))
-			buf.WriteByte(',')
-			jj++
+		value := reflect.ValueOf(x.Value)
+		switch {
+		case value.Type() == subqueryType:
+			buf.WriteString(value.String())
+		case value.Type().Kind() == reflect.Slice || value.Type().Kind() == reflect.Array:
+			vLen := value.Len()
+			if vLen == 0 {
+				return fmt.Errorf("empty IN (field %s)", x.Field.Field)
+			}
+			jj := len(*params) + begin
+			for ii := 0; ii < vLen; ii++ {
+				*params = append(*params, value.Index(ii).Interface())
+				buf.WriteString(d.backend.Placeholder(jj))
+				buf.WriteByte(',')
+				jj++
+			}
+			buf.Truncate(buf.Len() - 1)
+		default:
+			return fmt.Errorf("argument for IN must be slice or array or query.Subquery (field %s)", x.Field.Field)
 		}
-		buf.Truncate(buf.Len() - 1)
 		buf.WriteByte(')')
 	case *query.And:
 		err = d.conditions(buf, params, m, x.Conditions, " AND ", begin)
@@ -732,6 +737,10 @@ func (d *Driver) clause(buf *bytes.Buffer, params *[]interface{}, m driver.Model
 				return err
 			}
 			fmt.Fprintf(buf, format, dbName, fName)
+			return nil
+		}
+		if sq, ok := f.Value.(query.Subquery); ok {
+			fmt.Fprintf(buf, format, dbName, "("+string(sq)+")")
 			return nil
 		}
 		fmt.Fprintf(buf, format, dbName, d.backend.Placeholder(len(*params)+begin))

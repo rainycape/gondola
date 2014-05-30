@@ -144,7 +144,7 @@ func parseTwitterResponse(resp *httpclient.Response, out interface{}) error {
 		var message string
 		var code int
 		var errs twitterErrors
-		if resp.JSONDecode(&errs) == nil && len(errs.Errors) > 0 {
+		if resp.DecodeJSON(&errs) == nil && len(errs.Errors) > 0 {
 			message = errs.Errors[0].Message
 			code = errs.Errors[0].Code
 		}
@@ -154,7 +154,7 @@ func parseTwitterResponse(resp *httpclient.Response, out interface{}) error {
 			StatusCode: resp.StatusCode,
 		}
 	}
-	if err := resp.JSONDecode(out); err != nil {
+	if err := resp.DecodeJSON(out); err != nil {
 		return err
 	}
 	return nil

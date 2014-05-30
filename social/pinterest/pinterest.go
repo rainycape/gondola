@@ -288,7 +288,7 @@ type Pin struct {
 
 func parseJson(resp *httpclient.Response) (map[string]interface{}, error) {
 	var m map[string]interface{}
-	if err := resp.JSONDecode(&m); err != nil {
+	if err := resp.DecodeJSON(&m); err != nil {
 		return nil, err
 	}
 	if rresp, ok := m["resource_response"].(map[string]interface{}); ok {

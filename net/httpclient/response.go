@@ -71,7 +71,7 @@ func (r *Response) String() string {
 // UnmarshalJSON reads the whole response body and decodes it as
 // JSON in the provided out parameter using json.Unmarshal. If you
 // need to sequentially decode several objects (e.g. a streaming
-// response), see JSONDecode.
+// response), see DecodeJSON.
 func (r *Response) UnmarshalJSON(out interface{}) error {
 	data, err := r.ReadAll()
 	if err != nil {
@@ -80,10 +80,10 @@ func (r *Response) UnmarshalJSON(out interface{}) error {
 	return json.Unmarshal(data, out)
 }
 
-// JSONDecode uses a json.Decoder to read and decode the next
+// DecodeJSON uses a json.Decoder to read and decode the next
 // JSON-encoded value from the response body and stores it
 // in the value pointed to by out.
-func (r *Response) JSONDecode(out interface{}) error {
+func (r *Response) DecodeJSON(out interface{}) error {
 	if r.dec == nil {
 		r.dec = json.NewDecoder(r.Body)
 	}

@@ -26,7 +26,7 @@ func (a *App) stats(u string) (*Stats, error) {
 	}
 	defer resp.Close()
 	var res map[string]interface{}
-	if err := resp.JSONDecode(&res); err != nil {
+	if err := resp.DecodeJSON(&res); err != nil {
 		return nil, err
 	}
 	normalized, ok := res["url"].(string)

@@ -191,7 +191,7 @@ func decodeStory(value interface{}) (*Story, error) {
 
 func decodeListing(resp *httpclient.Response) (*Listing, error) {
 	var value map[string]interface{}
-	err := resp.JSONDecode(&value)
+	err := resp.DecodeJSON(&value)
 	if err != nil {
 		return nil, err
 	}

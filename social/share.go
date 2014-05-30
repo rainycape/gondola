@@ -3,6 +3,7 @@ package social
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 
 	"gnd.la/app"
 	"gnd.la/social/facebook"
@@ -32,18 +33,17 @@ func Share(ctx *app.Context, s Service, item *Item, config interface{}) (interfa
 	case Facebook:
 		conf := config.(*FacebookConfig)
 		path := "/me/feed"
-		parameters := map[string]string{
-			"title":   item.Title,
-			"message": item.Description,
-		}
+		parameters := make(url.Values)
+		parameters.Set("title", item.Title)
+		parameters.Set("message", item.Description)
 		if len(item.Links) > 0 {
 			// Post to /me/links rather than /me/feed, so we get
 			// share buttons. See http://stackoverflow.com/questions/10770103
 			path = "/me/links"
-			parameters["link"] = item.Links[0].String()
+			parameters.Set("link", item.Links[0].String())
 		}
 		if len(item.Images) > 0 {
-			parameters["picture"] = item.Images[0].String()
+			parameters.Set("picture", item.Images[0].String())
 		}
 		return conf.App.Clone(ctx).Post(path, parameters, conf.AccessToken)
 	case Pinterest:

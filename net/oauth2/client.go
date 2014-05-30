@@ -46,6 +46,10 @@ type Client struct {
 	// nil, the entire response body will be returned as an error using
 	// errors.New.
 	DecodeError func(*httpclient.Response) error
+	// ScopeSeparator indicates the string used to separate scopes. If
+	// empty, it defaults to ",". Note that some provides use ","
+	// (e.g. Facebook), while others use an space " " (e.g. Google).
+	ScopeSeparator string
 }
 
 // New returns a new oAuth 2 Client. The authorization parameter
@@ -122,7 +126,11 @@ func (c *Client) Authorization(redirectURI string, scopes []string, state string
 		data.Set(k, v)
 	}
 	if len(scopes) > 0 {
-		data.Set("scope", strings.Join(scopes, ","))
+		sep := ","
+		if c.ScopeSeparator != "" {
+			sep = c.ScopeSeparator
+		}
+		data.Set("scope", strings.Join(scopes, sep))
 	}
 	data.Set("state", state)
 	return urlutil.AppendQuery(c.AuthorizationURL, data)
@@ -133,14 +141,13 @@ func (c *Client) Authorization(redirectURI string, scopes []string, state string
 func (c *Client) Exchange(redirectURI string, code string) (*Token, error) {
 	data := make(url.Values)
 	data.Set("client_id", c.Id)
-	data.Set("redirect_uri", redirectURI)
 	data.Set("client_secret", c.Secret)
+	data.Set("redirect_uri", redirectURI)
 	data.Set("code", code)
 	for k, v := range c.ExchangeParameters {
 		data.Set(k, v)
 	}
-	exchange := urlutil.AppendQuery(c.ExchangeURL, data)
-	resp, err := c.client().Get(exchange)
+	resp, err := c.client().PostForm(c.ExchangeURL, data)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +155,7 @@ func (c *Client) Exchange(redirectURI string, code string) (*Token, error) {
 	if c.responseHasError(resp) {
 		return nil, c.decodeError(resp)
 	}
-	return ParseToken(resp.Body)
+	return NewToken(resp)
 }
 
 func (c *Client) do(f func(string, url.Values) (*httpclient.Response, error), u string, form url.Values, accessToken string) (*httpclient.Response, error) {

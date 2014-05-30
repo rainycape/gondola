@@ -26,7 +26,7 @@ func (app *App) Stats(urls []string) (map[string]*Stats, error) {
 	}
 	data := strings.Join(escaped, ",")
 	endPoint := fmt.Sprintf("http://api.facebook.com/restserver.php?method=links.getStats&urls=%s", data)
-	resp, err := app.client().Get(endPoint)
+	resp, err := app.client().HTTPClient.Get(endPoint)
 	if err != nil {
 		return nil, err
 	}

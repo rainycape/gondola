@@ -8,7 +8,7 @@
     var _fbChannelUrl = '{{ reverse @FacebookChannel }}';
   {{ end }}
   {{ if @GoogleApp }}
-    var _googleSignIn = '{{ reverse @SignInGoogle }}';
+    var _jsGoogleSignIn = '{{ reverse @JSSignInGoogle }}';
   {{ end }}
     var _twitterSignIn = '{{ reverse @SignInTwitter }}';
     var ns = $[name] = $[name] || $({});
@@ -58,7 +58,7 @@
             ns.trigger(ns.FB_WILL_LOAD);
             ns._script('//connect.facebook.net/en_US/all.js');
         }
-        if (typeof _googleSignIn !== 'undefined') {
+        if (typeof _jsGoogleSignIn !== 'undefined') {
             window.__usersOnGoogleSignedIn = function(resp) {
                 // This function is called as soon as the button is
                 // rendered if the user is already signed in. Just ignore
@@ -68,7 +68,7 @@
                     return;
                 }
                 if (resp.code) {
-                    $.post(_googleSignIn, 'code=' + resp.code, function(data, textStatus, jqXHR) {
+                    $.post(_jsGoogleSignIn, 'code=' + resp.code, function(data, textStatus, jqXHR) {
                         ns._onSignedIn(data);
                     });
                 }

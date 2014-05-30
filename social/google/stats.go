@@ -35,7 +35,7 @@ func (a *App) stats(url string) (*Stats, error) {
 	    "key":"p",
 	    "apiVersion":"v1"
 	}]`, url)
-	resp, err := a.client().Post(rpc, "application/json", strings.NewReader(body))
+	resp, err := a.client().HTTPClient.Post(rpc, "application/json", strings.NewReader(body))
 	if err != nil {
 		return nil, err
 	}

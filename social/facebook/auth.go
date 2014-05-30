@@ -4,41 +4,14 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"gnd.la/net/oauth2"
 )
 
-func (app *App) AuthURL(redirectUri string, permissions []string, state string) string {
-	scope := strings.Join(permissions, ",")
-	facebookUrl := fmt.Sprintf("https://www.facebook.com/dialog/oauth?client_id=%v&redirect_uri=%v&scope=%v&state=%v",
-		app.Id, url.QueryEscape(redirectUri), scope, state)
-	return facebookUrl
-}
-
-func (app *App) ExchangeCode(code string, redirectUri string, extend bool) (*Token, error) {
-	exchangeUrl := fmt.Sprintf("https://graph.facebook.com/oauth/access_token?client_id=%v&redirect_uri=%v&client_secret=%v&code=%v",
-		app.Id, url.QueryEscape(redirectUri), app.Secret, code)
-	resp, err := app.client().Get(exchangeUrl)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Close()
-	if responseHasError(resp) {
-		return nil, decodeResponseError(resp)
-	}
-	b, err := resp.ReadAll()
-	if err != nil {
-		return nil, err
-	}
-	token, err := ParseToken(string(b))
-	if err == nil && extend {
-		token, err = app.ExtendToken(token)
-	}
-	return token, err
-}
-
-func (app *App) ExtendToken(token *Token) (*Token, error) {
+func (app *App) Extend(token *oauth2.Token) (*oauth2.Token, error) {
 	requestUrl := fmt.Sprintf("https://graph.facebook.com/oauth/access_token?client_id=%v&client_secret=%v&grant_type=fb_exchange_token&fb_exchange_token=%v",
 		app.Id, app.Secret, token.Key)
-	resp, err := app.client().Get(requestUrl)
+	resp, err := app.client().HTTPClient.Get(requestUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -46,20 +19,19 @@ func (app *App) ExtendToken(token *Token) (*Token, error) {
 	if responseHasError(resp) {
 		return nil, decodeResponseError(resp)
 	}
-	b, err := resp.ReadAll()
+	newToken, err := oauth2.ParseToken(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	newToken, err := ParseToken(string(b))
-	if err == ErrMissingExpires {
-		/* FB returned the same token because this token
-		was previously extended */
-		newToken, err = token, nil
+	if newToken.Expires.IsZero() {
+		// FB returned the same token because this token
+		// was previously extended.
+		newToken.Expires = token.Expires
 	}
-	return newToken, err
+	return newToken, nil
 }
 
-func (app *App) AccountToken(token *Token, accountId string) (*Token, error) {
+func (app *App) AccountToken(token *oauth2.Token, accountId string) (*oauth2.Token, error) {
 	resp, err := app.Get("/me/accounts", nil, token.Key)
 	if err != nil {
 		return nil, err
@@ -75,16 +47,16 @@ func (app *App) AccountToken(token *Token, accountId string) (*Token, error) {
 		}
 	}
 	if key == "" {
-		return nil, fmt.Errorf("Could not find token for account %s", accountId)
+		return nil, fmt.Errorf("could not find token for account %s", accountId)
 	}
-	/* The token expires at the same time as the main token */
-	return &Token{key, token.Expires}, nil
+	// The token expires at the same time as the main token
+	return &oauth2.Token{Key: key, Expires: token.Expires}, nil
 }
 
-func Authorize(app *App, permissions []string) (*Token, error) {
+func Authorize(app *App, permissions []string) (*oauth2.Token, error) {
 	// This URL is used by the FB JS SDK to get the token from the fragment
 	redirect := "https://www.facebook.com/connect/login_success.html"
-	auth := app.AuthURL(redirect, permissions, "") + "&response_type=token"
+	auth := app.Authorization(redirect, permissions, "") + "&response_type=token"
 	fmt.Printf("Please, open the following URL in your browser:\n%s\n", auth)
 	fmt.Printf("Then, paste the resulting URL after authorizing the app\nResulting URL: ")
 	var input string
@@ -96,5 +68,5 @@ func Authorize(app *App, permissions []string) (*Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ParseToken(result.Fragment)
+	return oauth2.ParseToken(strings.NewReader(result.Fragment))
 }

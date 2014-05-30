@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/url"
 )
 
 type Value struct {
@@ -94,19 +93,14 @@ func decodeValues(v interface{}) []*Value {
 }
 
 func (a *App) Person(id string, accessToken string) (*Person, error) {
-	values := url.Values{"access_token": []string{accessToken}}
-	p := fmt.Sprintf("https://www.googleapis.com/plus/v1/people/%s?%s", id, values.Encode())
-	resp, err := a.client().Get(p)
+	p := fmt.Sprintf("https://www.googleapis.com/plus/v1/people/%s", id)
+	resp, err := a.client().Get(p, nil, accessToken)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Close()
-	if !resp.IsOK() {
-		return nil, googleError(resp.Body, resp.StatusCode)
-	}
 	var person *Person
-	dec := json.NewDecoder(resp.Body)
-	if err := dec.Decode(&person); err != nil {
+	if err := resp.UnmarshalJSON(&person); err != nil {
 		return nil, err
 	}
 	return person, nil

@@ -1,7 +1,6 @@
 package facebook
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -64,15 +63,13 @@ func parseComment(data interface{}) (*Comment, error) {
 
 func (a *App) Comments(url string) ([]*Comment, error) {
 	commentsUrl := fmt.Sprintf("http://graph.facebook.com/comments/?ids=%s", url)
-	resp, err := a.client().Get(commentsUrl)
+	resp, err := a.client().HTTPClient.Get(commentsUrl)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Close()
-	decoder := json.NewDecoder(resp.Body)
 	var value interface{}
-	err = decoder.Decode(&value)
-	if err != nil {
+	if err := resp.DecodeJSON(&value); err != nil {
 		return nil, err
 	}
 	dataMap, ok := value.(map[string]interface{})

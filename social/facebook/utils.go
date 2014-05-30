@@ -1,7 +1,6 @@
 package facebook
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -29,10 +28,20 @@ func responseHasError(resp *httpclient.Response) bool {
 
 func decodeResponseError(resp *httpclient.Response) error {
 	c := &ErrorContainer{}
-	decoder := json.NewDecoder(resp.Body)
-	err := decoder.Decode(&c)
-	if err != nil {
+	if err := resp.DecodeJSON(&c); err != nil {
 		return err
 	}
-	return fmt.Errorf("Error from Facebook (type %v): %v", c.Error.Type, c.Error.Message)
+	return fmt.Errorf("error from Facebook (type %v): %v", c.Error.Type, c.Error.Message)
+}
+
+func graphURL(path string, accessToken string) string {
+	proto := "http"
+	if accessToken != "" {
+		proto = "https"
+	}
+	separator := "/"
+	if strings.HasPrefix(path, "/") {
+		separator = ""
+	}
+	return fmt.Sprintf("%v://graph.facebook.com%v%v", proto, separator, path)
 }

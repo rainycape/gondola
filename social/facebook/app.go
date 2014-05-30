@@ -1,34 +1,44 @@
 package facebook
 
 import (
-	"fmt"
+	"net/url"
 
 	"gnd.la/net/httpclient"
-	"gnd.la/util/stringutil"
+	"gnd.la/net/oauth2"
+)
+
+const (
+	Authorization = "https://www.facebook.com/dialog/oauth"
+	Exchange      = "https://graph.facebook.com/oauth/access_token"
 )
 
 type App struct {
-	Id         string
-	Secret     string
-	Client     *httpclient.Client
-	httpClient *httpclient.Client
+	*oauth2.Client
 }
 
 func (a *App) Parse(s string) error {
-	fields, err := stringutil.SplitFields(s, ":")
+	return a.client().Parse(s)
+}
+
+func (a *App) client() *oauth2.Client {
+	if a.Client == nil {
+		a.Client = oauth2.New(Authorization, Exchange)
+		a.Client.ResponseHasError = responseHasError
+		a.Client.DecodeError = decodeResponseError
+	}
+	return a.Client
+}
+
+func (app *App) do(f func(string, url.Values, string) (*httpclient.Response, error), path string, form url.Values, accessToken string) (map[string]interface{}, error) {
+	endpoint := graphURL(path, accessToken)
+	resp, err := f(endpoint, form, accessToken)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	switch len(fields) {
-	case 1:
-		a.Id = fields[0]
-	case 2:
-		a.Id = fields[0]
-		a.Secret = fields[1]
-	default:
-		return fmt.Errorf("invalid number of fields: %d", len(fields))
-	}
-	return nil
+	defer resp.Close()
+	var m map[string]interface{}
+	err = resp.UnmarshalJSON(&m)
+	return m, err
 }
 
 func (a *App) Clone(ctx httpclient.Context) *App {
@@ -37,12 +47,10 @@ func (a *App) Clone(ctx httpclient.Context) *App {
 	return &ac
 }
 
-func (a *App) client() *httpclient.Client {
-	if a.Client != nil {
-		return a.Client
-	}
-	if a.httpClient == nil {
-		a.httpClient = httpclient.New(nil)
-	}
-	return a.httpClient
+func (app *App) Get(path string, data url.Values, accessToken string) (map[string]interface{}, error) {
+	return app.do(app.Client.Get, path, data, accessToken)
+}
+
+func (app *App) Post(path string, data url.Values, accessToken string) (map[string]interface{}, error) {
+	return app.do(app.Client.Post, path, data, accessToken)
 }

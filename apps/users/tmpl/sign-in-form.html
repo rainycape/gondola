@@ -14,8 +14,8 @@
         {{ end }}
         {{ if .GoogleApp }}
         <div><!-- gapi.signin.render works only on block elements -->
-          <a class="google" data-scope="{{ .GoogleScopes }}" data-clientid="{{ .GoogleApp.Key }}"
-            data-clientid="{{ .GoogleApp.Key }}" data-redirecturi="postmessage"
+          <a class="google" data-scope="{{ .GoogleScopes }}"
+            data-clientid="{{ .GoogleApp.Id }}" data-redirecturi="postmessage"
             data-accesstype="offline" data-cookiepolicy="single_host_origin"
             data-callback="__usersOnGoogleSignedIn"
             href="{{ reverse @SignInGoogle }}{{ with .From }}?from={{ . }}{{ end }}">

@@ -1,18 +1,17 @@
 package users
 
 import (
-	"gnd.la/app"
-	"gnd.la/orm"
-	"gnd.la/social/google"
-	"gnd.la/util/stringutil"
 	"reflect"
 	"strings"
 	"time"
+
+	"gnd.la/app"
+	"gnd.la/net/oauth2"
+	"gnd.la/orm"
 )
 
-const (
-	gStateCookie = "g-state"
-	gRedirCookie = "g-redir"
+var (
+	gSignInHandler app.Handler
 )
 
 type Google struct {
@@ -28,57 +27,38 @@ type Google struct {
 	Refresh     string    `form:"-" json:"-"`
 }
 
-func signInGoogleHandler(ctx *app.Context) {
-	code := ctx.FormValue("code")
-	if code != "" {
-		cookies := ctx.Cookies()
-		xhr := ctx.IsXHR()
-		if !xhr {
-			state := ctx.FormValue("state")
-			var initialState string
-			cookies.Get(gStateCookie, &initialState)
-			cookies.Delete(gStateCookie)
-			if state == "" || state != initialState {
-				ctx.Forbidden("invalid state")
-				return
-			}
-		}
-		var redir string
-		if xhr {
-			redir = "postmessage"
-		} else {
-			cookies.Get(gRedirCookie, &redir)
-			cookies.Delete(gRedirCookie)
-		}
-		token, err := GoogleApp.Clone(ctx).Exchange(code, redir)
-		if err != nil {
-			panic(err)
-		}
-		user, err := userFromGoogleToken(ctx, token)
-		if err != nil {
-			panic(err)
-		}
-		ctx.MustSignIn(asGondolaUser(user))
-		if xhr {
-			writeJSONEncoded(ctx, user)
-		} else {
-			redirectToFrom(ctx)
-		}
-	} else {
-		cookies := ctx.Cookies()
-		redir := ctx.URL().String()
-		state := stringutil.Random(32)
-		cookies.Set(gStateCookie, state)
-		cookies.Set(gRedirCookie, redir)
-		auth, err := GoogleApp.Clone(ctx).Authorize(GoogleScopes, redir, state)
-		if err != nil {
-			panic(err)
-		}
-		ctx.Redirect(auth, false)
+func signInGoogleTokenHandler(ctx *app.Context, client *oauth2.Client, token *oauth2.Token) {
+	user, err := userFromGoogleToken(ctx, token)
+	if err != nil {
+		panic(err)
 	}
+	ctx.MustSignIn(asGondolaUser(user))
+	redirectToFrom(ctx)
 }
 
-func userFromGoogleToken(ctx *app.Context, token *google.Token) (reflect.Value, error) {
+func signInGoogleHandler(ctx *app.Context) {
+	if gSignInHandler == nil {
+		gSignInHandler = oauth2.Handler(signInGoogleTokenHandler, GoogleApp.Client, GoogleScopes)
+	}
+	gSignInHandler(ctx)
+}
+
+func jsSignInGoogleHandler(ctx *app.Context) {
+	code := ctx.RequireFormValue(oauth2.Code)
+	redir := "postmessage" // this is the redir value used for G+ JS sign in
+	token, err := GoogleApp.Clone(ctx).Exchange(redir, code)
+	if err != nil {
+		panic(err)
+	}
+	user, err := userFromGoogleToken(ctx, token)
+	if err != nil {
+		panic(err)
+	}
+	ctx.MustSignIn(asGondolaUser(user))
+	writeJSONEncoded(ctx, user)
+}
+
+func userFromGoogleToken(ctx *app.Context, token *oauth2.Token) (reflect.Value, error) {
 	person, err := GoogleApp.Clone(ctx).Person("me", token.Key)
 	if err != nil {
 		return reflect.Value{}, err

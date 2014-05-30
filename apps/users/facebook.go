@@ -2,17 +2,17 @@ package users
 
 import (
 	"fmt"
-	"gnd.la/app"
-	"gnd.la/orm"
-	"gnd.la/social/facebook"
-	"gnd.la/util/stringutil"
+	"net/url"
 	"reflect"
 	"time"
+
+	"gnd.la/app"
+	"gnd.la/net/oauth2"
+	"gnd.la/orm"
 )
 
-const (
-	fbStateCookie = "fb-state"
-	fbRedirCookie = "fb-redir"
+var (
+	fbSignInHandler app.Handler
 )
 
 type Facebook struct {
@@ -29,34 +29,20 @@ type Facebook struct {
 	Expires     time.Time `form:"-" json:"-"`
 }
 
-func signInFacebookHandler(ctx *app.Context) {
-	code := ctx.FormValue("code")
-	if code != "" {
-		cookies := ctx.Cookies()
-		state := ctx.FormValue("state")
-		var savedState string
-		if err := cookies.Get(fbStateCookie, &savedState); err != nil || state != savedState {
-			ctx.Forbidden("invalid state")
-			return
-		}
-		cookies.Delete(fbStateCookie)
-		var redir string
-		cookies.Get(fbRedirCookie, &redir)
-		cookies.Delete(fbRedirCookie)
-		user, err := userFromFacebookCode(ctx, code, redir)
-		if err != nil {
-			panic(err)
-		}
-		ctx.MustSignIn(asGondolaUser(user))
-		redirectToFrom(ctx)
-	} else {
-		cookies := ctx.Cookies()
-		redir := ctx.URL().String()
-		state := stringutil.Random(32)
-		cookies.Set(fbStateCookie, state)
-		cookies.Set(fbRedirCookie, redir)
-		ctx.Redirect(FacebookApp.Clone(ctx).AuthURL(redir, FacebookPermissions, state), false)
+func signInFacebookTokenHandler(ctx *app.Context, client *oauth2.Client, token *oauth2.Token) {
+	user, err := userFromFacebookToken(ctx, token)
+	if err != nil {
+		panic(err)
 	}
+	ctx.MustSignIn(asGondolaUser(user))
+	redirectToFrom(ctx)
+}
+
+func signInFacebookHandler(ctx *app.Context) {
+	if fbSignInHandler == nil {
+		fbSignInHandler = oauth2.Handler(signInFacebookTokenHandler, FacebookApp.Client, FacebookPermissions)
+	}
+	fbSignInHandler(ctx)
 }
 
 func jsSignInFacebookHandler(ctx *app.Context) {
@@ -69,7 +55,8 @@ func jsSignInFacebookHandler(ctx *app.Context) {
 	// specified format, this will make it easier
 	// to find it if it happens.
 	code := resp["code"].(string)
-	user, err := userFromFacebookCode(ctx, code, "")
+	token, err := FacebookApp.Clone(ctx).Exchange("", code)
+	user, err := userFromFacebookToken(ctx, token)
 	if err != nil {
 		panic(err)
 	}
@@ -77,9 +64,11 @@ func jsSignInFacebookHandler(ctx *app.Context) {
 	writeJSONEncoded(ctx, user)
 }
 
-func fetchFacebookUser(ctx *app.Context, token *facebook.Token) (*Facebook, error) {
+func fetchFacebookUser(ctx *app.Context, token *oauth2.Token) (*Facebook, error) {
 	fields := "id,name,first_name,last_name,email,username,picture.width(200),picture.height(200)"
-	info, err := FacebookApp.Clone(ctx).Get("/me", map[string]string{"fields": fields}, token.Key)
+	values := make(url.Values)
+	values.Set("fields", fields)
+	info, err := FacebookApp.Clone(ctx).Get("/me", values, token.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -103,12 +92,12 @@ func fetchFacebookUser(ctx *app.Context, token *facebook.Token) (*Facebook, erro
 	}, nil
 }
 
-func userFromFacebookCode(ctx *app.Context, code string, redir string) (reflect.Value, error) {
-	token, err := FacebookApp.Clone(ctx).ExchangeCode(code, redir, true)
+func userFromFacebookToken(ctx *app.Context, token *oauth2.Token) (reflect.Value, error) {
+	extended, err := FacebookApp.Clone(ctx).Extend(token)
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	user, err := fetchFacebookUser(ctx, token)
+	user, err := fetchFacebookUser(ctx, extended)
 	if err != nil {
 		return reflect.Value{}, err
 	}

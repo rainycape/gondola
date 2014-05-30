@@ -3,8 +3,8 @@ package google
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
+
+	"gnd.la/net/httpclient"
 )
 
 type Error struct {
@@ -16,11 +16,11 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("%d: %s", e.Code, e.Message)
 }
 
-func googleError(r io.Reader, statusCode int) error {
-	data, _ := ioutil.ReadAll(r)
+func googleError(r *httpclient.Response) error {
+	data, _ := r.ReadAll()
 	var e *Error
 	if err := json.Unmarshal(data, &e); err == nil && e != nil && e.Message != "" {
 		return e
 	}
-	return fmt.Errorf("invalid status code %d: %s", statusCode, string(data))
+	return fmt.Errorf("invalid status code %d: %s", r.StatusCode, string(data))
 }

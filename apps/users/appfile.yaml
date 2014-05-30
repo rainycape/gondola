@@ -10,6 +10,7 @@ handlers:
     ResetHandler: ^/reset/$
     JSSignInHandler: ^/js/sign-in/$
     JSSignInFacebookHandler: ^/js/sign-in/facebook/$
+    JSSignInGoogleHandler: ^/js/sign-in/google/$
     JSSignUpHandler: ^/js/sign-up/$
     FacebookChannelHandler: ^/fb-channel/$
     UserImageHandler: ^/image/(\w+)\.(\w{3})$
@@ -22,6 +23,7 @@ vars:
     TwitterApp:
     JSSignInHandlerName: JSSignIn
     JSSignInFacebookHandlerName: JSSignInFacebook
+    JSSignInGoogleHandlerName: JSSignInGoogle
     JSSignUpHandlerName: JSSignUp
     ForgotHandlerName: Forgot
     ResetHandlerName: Reset

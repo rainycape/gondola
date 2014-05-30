@@ -1,6 +1,7 @@
 package oauth2
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -8,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gnd.la/net/httpclient"
 )
 
 // TokenType indicates the type of oAuth 2 token.
@@ -27,6 +30,9 @@ type Token struct {
 	// Scopes contains the scopes granted by the user. Note that
 	// not all providers return this information.
 	Scopes []string
+	// Refresh is used by Google tokens to obtain a new fresh
+	// token from an expired one.
+	Refresh string
 	// Type is the token type. Currently, this is always
 	// TokenTypeBearer.
 	Type TokenType
@@ -39,8 +45,8 @@ type Token struct {
 	Expires time.Time
 }
 
-// ParseToken parses an oAuth 2 token, including the values access_token, scope,
-// token_type, expires (or expires_in) and refresh.
+// ParseToken parses an oAuth 2 token from a query string.
+// See also NewToken and ParseJSONToken.
 func ParseToken(r io.Reader) (*Token, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -52,7 +58,7 @@ func ParseToken(r io.Reader) (*Token, error) {
 	}
 
 	tokenType := values.Get("token_type")
-	if tokenType != "" && tokenType != "bearer" {
+	if tokenType != "" && strings.ToLower(tokenType) != "bearer" {
 		return nil, fmt.Errorf("unknown token type %q", tokenType)
 	}
 	key := values.Get("access_token")
@@ -92,6 +98,48 @@ func ParseToken(r io.Reader) (*Token, error) {
 		Key:     key,
 		Scopes:  scopes,
 		Type:    TokenTypeBearer,
+		Refresh: values.Get("refresh_token"),
 		Expires: expires,
 	}, nil
+}
+
+// ParseJSONToken parses an oAuth 2 token from its JSON
+// representation. See also ParseToken.
+func ParseJSONToken(r io.Reader) (*Token, error) {
+	dec := json.NewDecoder(r)
+	var m map[string]interface{}
+	if err := dec.Decode(&m); err != nil {
+		return nil, fmt.Errorf("error decoding JSON token: %s", err)
+	}
+	tokenType, _ := m["token_type"].(string)
+	if tokenType != "" && strings.ToLower(tokenType) != "bearer" {
+		return nil, fmt.Errorf("unknown token type %q", tokenType)
+	}
+	key, _ := m["access_token"].(string)
+	if key == "" {
+		return nil, fmt.Errorf("access_token missing from JSON response %v", m)
+	}
+	var expires time.Time
+	if expiresIn, ok := m["expires_in"].(float64); ok {
+		expires = time.Now().UTC().Add(time.Second * time.Duration(expiresIn))
+	}
+	refresh, _ := m["refresh_token"].(string)
+	return &Token{
+		Key:     key,
+		Type:    TokenTypeBearer,
+		Refresh: refresh,
+		Expires: expires,
+	}, nil
+}
+
+// NewToken returns a Token from an httpclient.Response. Note that
+// this function supports both JSON encoded tokens and query string
+// encoded ones. It uses the response Content-Type to decide which
+// parsing strategy to use.
+func NewToken(r *httpclient.Response) (*Token, error) {
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "application/json") {
+		return ParseJSONToken(r.Body)
+	}
+	return ParseToken(r.Body)
 }

@@ -26,6 +26,7 @@ const (
 	JSSignInHandlerName         = "users-js-sign-in"
 	JSSignUpHandlerName         = "users-js-sign-up"
 	JSSignInFacebookHandlerName = "users-js-sign-in-facebook"
+	JSSignInGoogleHandlerName   = "users-js-sign-in-google"
 
 	SignInFacebookHandlerName = "users-sign-in-facebook"
 	SignInGoogleHandlerName   = "users-sign-in-google"
@@ -60,6 +61,7 @@ var (
 	ResetHandler            = app.NamedHandler(ResetHandlerName, resetHandler)
 	JSSignInHandler         = app.NamedHandler(JSSignInHandlerName, app.Anonymous(jsSignInHandler))
 	JSSignInFacebookHandler = app.NamedHandler(JSSignInFacebookHandlerName, app.Anonymous(jsSignInFacebookHandler))
+	JSSignInGoogleHandler   = app.NamedHandler(JSSignInGoogleHandlerName, app.Anonymous(jsSignInGoogleHandler))
 	JSSignUpHandler         = app.NamedHandler(JSSignUpHandlerName, app.Anonymous(jsSignUpHandler))
 	FacebookChannelHandler  = app.NamedHandler(FacebookChannelHandlerName, facebookChannelHandler)
 	UserImageHandler        = app.NamedHandler(ImageHandlerName, imageHandler)

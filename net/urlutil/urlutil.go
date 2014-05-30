@@ -67,3 +67,13 @@ func MustJoin(base string, rel string) string {
 func IsURL(s string) bool {
 	return strings.Contains(s, "://") || strings.HasPrefix(s, "//")
 }
+
+// AppendQuery appends the given query string as an url.Values to the given
+// URL. It works correctly even if the URL already has a query string.
+func AppendQuery(s string, query url.Values) string {
+	sep := "?"
+	if strings.IndexByte(s, '?') >= 0 {
+		sep = "&"
+	}
+	return s + sep + query.Encode()
+}

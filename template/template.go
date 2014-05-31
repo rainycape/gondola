@@ -146,7 +146,7 @@ var (
 	undefinedVariableRe      = regexp.MustCompile("(\\d+): undefined variable \"\\$(\\w+)\"")
 	topTree                  = compileTree(topBoilerplate)
 	bottomTree               = compileTree(bottomBoilerplate)
-	templatePrepend          = fmt.Sprintf("{{ $%s := %s }}\n", varsKey, varNop)
+	templatePrepend          = fmt.Sprintf("{{ $%s := %s }}", varsKey, varNop)
 )
 
 type Hook struct {
@@ -834,13 +834,6 @@ func (t *Template) load(name string, included bool, from string) error {
 	var renames map[string]string
 	for k, v := range treeMap {
 		v.Root.Nodes = removeVarNopNodes(v.Root.Nodes)
-		// Remove the \n introduced by the prepended text
-		for _, n := range v.Root.Nodes {
-			if tn, ok := n.(*parse.TextNode); ok {
-				tn.Text = tn.Text[1:]
-				break
-			}
-		}
 		if _, contains := t.trees[k]; contains {
 			log.Debugf("Template %s redefined", k)
 			// Redefinition of a template, which is allowed

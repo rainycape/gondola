@@ -69,6 +69,7 @@ var (
 
 	errNoSecret           = errors.New("app has no secret")
 	errNoKey              = errors.New("app has no encryption key")
+	errNoDefaultDatabase  = errors.New("default database is not set")
 	errNoDefaultBlobstore = errors.New("default blobstore is not set")
 )
 
@@ -900,7 +901,7 @@ func (app *App) openOrm() (*orm.Orm, error) {
 		return app.parent.openOrm()
 	}
 	if defaultDatabase == nil {
-		return nil, fmt.Errorf("default database is not set")
+		return nil, errNoDefaultDatabase
 	}
 	o, err := orm.New(defaultDatabase)
 	if err != nil {
@@ -1375,7 +1376,14 @@ func (app *App) Prepare() error {
 	// on GAE with the datastore, app.Orm will return an
 	// error.
 	var err error
-	if o, _ := app.openOrm(); o != nil {
+	o, err := app.openOrm()
+	if err != nil {
+		if err != errNoDefaultDatabase {
+			return err
+		}
+		err = nil
+	}
+	if o != nil {
 		err = o.Initialize()
 		o.Close()
 		if err != nil {

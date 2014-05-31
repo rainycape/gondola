@@ -11,11 +11,11 @@
         {{ range . }}
           {{ if eq .Name "Google" }}
             <div><!-- gapi.signin.render works only on block elements -->
-              <a class="google" data-scope="{{ join @GoogleScopes "," }}"
+              <a class="google" data-scope="{{ join @GoogleScopes " " }}"
                 data-clientid="{{ @GoogleApp.Id }}" data-redirecturi="postmessage"
                 data-accesstype="offline" data-cookiepolicy="single_host_origin"
                 data-callback="__usersOnGoogleSignedIn"
-                href="{{ reverse @SignInGoogle }}{{ with .From }}?from={{ . }}{{ end }}">
+                href="{{ reverse @SignInGoogle }}{{ with $From }}?from={{ . }}{{ end }}">
 
                 <span class="icon">{{ template "SocialIcon" "google-plus" }}</span>
                 {{ printf (t "Sign In with %s") "Google" }}

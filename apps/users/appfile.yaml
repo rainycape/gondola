@@ -39,6 +39,8 @@ vars:
     SignOutHandlerName: SignOut
     FacebookChannelHandlerName: FacebookChannel
     Current: User
+    AllowUserSignIn:
+    enabledSocialTypes: SocialTypes
 
 assets: assets
 

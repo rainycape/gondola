@@ -3,7 +3,7 @@
   var _signout = '{{ reverse @SignOut }}';
   {{ if @FacebookApp }}
     var _fbAppId = '{{ @FacebookApp.Id }}';
-    var _fbPerms = {{ .FacebookPermissions|json }};
+    var _fbPerms = {{ @FacebookPermissions|json }};
     var _jsFacebookSignIn = '{{ reverse @JSSignInFacebook }}';
     var _fbChannelUrl = '{{ reverse @FacebookChannel }}';
   {{ end }}
@@ -211,6 +211,25 @@
             FB.login(ns._onFacebookSignIn, opts);
         }
     }
+    ns.googleSignIn = function() {
+        var opts = {
+            scope: {{ @GoogleScopes|json }}.join(' '),
+            clientid: '{{ @GoogleApp.Id }}',
+            redirecturi: 'postmessage',
+            accesstype: 'offline',
+            cookiepolicy: 'single_host_origin',
+            callback: '__usersOnGoogleSignedIn',
+            immediate: false // otherwise auth will fail for unauthorized users
+        };
+        var interval = setInterval(function () {
+            if (ns._google_loaded) {
+                // See comment in __usersOnGoogleSignedIn
+                ns._googleSigninClicked = true;
+                gapi.auth.signIn(opts);
+            }
+            clearInterval(interval);
+        }, 50);
+    }
     ns.openAuthenticationWindow = function(url, name, width, height) {
         var f = '__users_' + name.toLowerCase() + '_signed_in';
         // Use this to avoid referencing the namespace
@@ -235,19 +254,34 @@
             callback(ns.user(), false);
         } else {
             ns._callback = callback;
-            var modal = $('#sign-in-modal');
-            if (!modal.length) {
-                $.get(_signin, 'modal=1', function (data, textStatus, jqXHR) {
-                    var el = $($.trim(data));
-                    ns._attachEvents(el);
-                    el.css('display', 'none');
-                    el.appendTo(document.body);
-                    $('#sign-in-modal').modal('show');
-                }, 'html');
-                return;
-            }
-            modal.modal('show');
+            ns.startSigninIn();
         }
+    }
+    ns.startSigninIn = function() {
+        {{ if and (not @AllowUserSignIn) (eq (len @SocialTypes) 1) }}
+            {{ $st := index @SocialTypes 0 }}
+            {{ if eq $st.Name "Facebook" }}
+                ns.facebookSignIn();
+            {{ else if eq $st.Name "Google" }}
+                ns.googleSignIn();
+            {{ else }}
+                var url = '{{ reverse $st.HandlerName }}';
+                ns.openAuthenticationWindow(url + '?window=1', '{{ $st.Name }}', {{ $st.PopupWidth }}, {{ $st.PopupHeight }});
+            {{ end }}
+            return;
+        {{ end }}
+        var modal = $('#sign-in-modal');
+        if (!modal.length) {
+            $.get(_signin, 'modal=1', function (data, textStatus, jqXHR) {
+                var el = $($.trim(data));
+                ns._attachEvents(el);
+                el.css('display', 'none');
+                el.appendTo(document.body);
+                $('#sign-in-modal').modal('show');
+            }, 'html');
+            return;
+        }
+        modal.modal('show');
     }
     ns.isSignedIn = function () {
         return !!ns.user();

@@ -71,6 +71,13 @@ var (
 )
 
 func signInHandler(ctx *app.Context) {
+	modal := ctx.FormValue("modal") != ""
+	st := enabledSocialTypes()
+	if !modal && !AllowUserSignIn && len(st) == 1 {
+		// Redirect to the only available social sign-in
+		ctx.MustRedirectReverse(false, st[0].HandlerName)
+		return
+	}
 	from := ctx.FormValue(app.SignInFromParameterName)
 	signIn := SignIn{From: from}
 	form := form.New(ctx, nil, &signIn)
@@ -81,7 +88,7 @@ func signInHandler(ctx *app.Context) {
 	}
 	user, _ := newEmptyUser()
 	data := map[string]interface{}{
-		"SocialTypes":       enabledSocialTypes(),
+		"SocialTypes":       st,
 		"AllowUserSignIn":   AllowUserSignIn,
 		"AllowRegistration": AllowRegistration,
 		"From":              from,
@@ -89,7 +96,7 @@ func signInHandler(ctx *app.Context) {
 		"SignUpForm":        SignUpForm(ctx, user),
 	}
 	tmpl := SignInTemplateName
-	if ctx.FormValue("modal") != "" && SignInModalTemplateName != "" {
+	if modal && SignInModalTemplateName != "" {
 		tmpl = SignInModalTemplateName
 	}
 	ctx.MustExecute(tmpl, data)

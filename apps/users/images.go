@@ -35,7 +35,7 @@ func userImageId(val reflect.Value) (string, string) {
 	}
 	for _, v := range enabledSocialTypes() {
 		fval := val.FieldByName(v.Name)
-		if fval.IsValid() {
+		if fval.IsValid() && fval.Elem().IsValid() {
 			image := fval.Elem().FieldByName("Image")
 			if image.String() != "" {
 				imageFormat := fval.Elem().FieldByName("ImageFormat")

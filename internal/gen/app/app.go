@@ -17,8 +17,9 @@ import (
 const appFilename = "appfile.yaml"
 
 type Templates struct {
-	Path  string            `yaml:"path"`
-	Hooks map[string]string `yaml:"hooks"`
+	Path      string            `yaml:"path"`
+	Functions map[string]string `yaml:"functions"`
+	Hooks     map[string]string `yaml:"hooks"`
 }
 
 type Translations struct {
@@ -124,36 +125,49 @@ func (app *App) Gen(release bool) error {
 			return fmt.Errorf("invalid handler type %s", obj.Type())
 		}
 	}
-	if app.Templates != nil && app.Templates.Path != "" {
-		buf.WriteString("templatesLoader := ")
-		if err := app.writeLoader(&buf, filepath.Join(app.Dir, app.Templates.Path), release); err != nil {
-			return err
-		}
-		buf.WriteString("App.SetTemplatesLoader(templatesLoader)\n")
-		re := regexp.MustCompile("\\W")
-		for k, v := range app.Templates.Hooks {
-			var pos string
-			switch strings.ToLower(v) {
-			case "top":
-				pos = "assets.Top"
-			case "bottom":
-				pos = "assets.Bottom"
-			case "none":
-				pos = "assets.None"
-			default:
-				return fmt.Errorf("invalid hook position %q", v)
-			}
-			suffix := re.ReplaceAllString(k, "_")
-			name := fmt.Sprintf("tmpl_%s", suffix)
-			fmt.Fprintf(&buf, "%s := template.New(templatesLoader, manager)\n", name)
-			fmt.Fprintf(&buf, "%s.Funcs(map[string]interface{}{\n", name)
-			funcNames := []string{"t", "tn", "tc", "tnc", "reverse"}
-			for _, v := range funcNames {
-				fmt.Fprintf(&buf, "\"%s\": func(_ ...interface{}) interface{} { return nil },\n", v)
+	if app.Templates != nil {
+		if len(app.Templates.Functions) > 0 {
+			buf.WriteString("template.AddFuncs(template.FuncMap{\n")
+			for k, v := range app.Templates.Functions {
+				obj := scope.Lookup(v)
+				if obj == nil {
+					return fmt.Errorf("could not find function named %q for template function %q", v, k)
+				}
+				fmt.Fprintf(&buf, "%q: %s,\n", k, v)
 			}
 			buf.WriteString("})\n")
-			fmt.Fprintf(&buf, "if err := %s.Parse(%q); err != nil {\npanic(err)\n}\n", name, k)
-			fmt.Fprintf(&buf, "App.AddHook(&template.Hook{Template: %s, Position: %s})\n", name, pos)
+		}
+		if app.Templates.Path != "" {
+			buf.WriteString("templatesLoader := ")
+			if err := app.writeLoader(&buf, filepath.Join(app.Dir, app.Templates.Path), release); err != nil {
+				return err
+			}
+			buf.WriteString("App.SetTemplatesLoader(templatesLoader)\n")
+			re := regexp.MustCompile("\\W")
+			for k, v := range app.Templates.Hooks {
+				var pos string
+				switch strings.ToLower(v) {
+				case "top":
+					pos = "assets.Top"
+				case "bottom":
+					pos = "assets.Bottom"
+				case "none":
+					pos = "assets.None"
+				default:
+					return fmt.Errorf("invalid hook position %q", v)
+				}
+				suffix := re.ReplaceAllString(k, "_")
+				name := fmt.Sprintf("tmpl_%s", suffix)
+				fmt.Fprintf(&buf, "%s := template.New(templatesLoader, manager)\n", name)
+				fmt.Fprintf(&buf, "%s.Funcs(map[string]interface{}{\n", name)
+				funcNames := []string{"t", "tn", "tc", "tnc", "reverse"}
+				for _, v := range funcNames {
+					fmt.Fprintf(&buf, "\"%s\": func(_ ...interface{}) interface{} { return nil },\n", v)
+				}
+				buf.WriteString("})\n")
+				fmt.Fprintf(&buf, "if err := %s.Parse(%q); err != nil {\npanic(err)\n}\n", name, k)
+				fmt.Fprintf(&buf, "App.AddHook(&template.Hook{Template: %s, Position: %s})\n", name, pos)
+			}
 		}
 	}
 	buf.WriteString("}\n")

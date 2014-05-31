@@ -345,6 +345,18 @@ func TestBadContextFunc(t *testing.T) {
 	}
 }
 
+func TestTemplateNoPipeMissedInstructions(t *testing.T) {
+	tmpl := parseNamedText(t, "template-nopipe", "{{ define \"foo\" }}2{{ end }}1 {{ template \"foo\" }}", nil, "text/plain")
+	expected := "1 2"
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, nil); err != nil {
+		t.Fatal(err)
+	}
+	if buf.String() != expected {
+		t.Errorf("expecting %q, got %q instead", expected, buf.String())
+	}
+}
+
 func BenchmarkRange(b *testing.B) {
 	benchmarkTemplate(b, rangeTests())
 }

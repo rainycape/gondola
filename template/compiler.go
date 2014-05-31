@@ -1212,9 +1212,9 @@ func (p *program) walk(n parse.Node) error {
 	case *parse.StringNode:
 		p.addSTRING(x.Text)
 	case *parse.TemplateNode:
-		s := p.s.snap()
 		pop := -1
 		if x.Pipe != nil {
+			s := p.s.snap()
 			if err := p.walk(x.Pipe); err != nil {
 				return err
 			}

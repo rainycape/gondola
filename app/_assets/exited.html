@@ -1,0 +1,16 @@
+{{/*
+  extends: base.html
+  include: reload.html
+*/}}
+{{ define "title" }}Exited{{ end }}
+<div class="header error">
+  <h1>Exited with code {{ .ExitCode }}</h1>
+  <h3>{{ .Error | to_html }}</h3>
+</div>
+{{ with .Output }}
+  <div class="header code">
+    <h3>Output</h3>
+    <pre><code>{{ . }}</code></pre>
+  </div>
+{{ end }}
+{{ template "reload.html" . }}

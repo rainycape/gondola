@@ -341,4 +341,8 @@ var templateFuncs = makeFuncMap(FuncMap{
 
 	// Pseudo-functions which act as custom tags
 	"extend": nop,
+	// Used to make the parser parse undefined
+	// variables, since we allow variable
+	// inheritance to subtemplates
+	varNop: nop,
 })

@@ -133,6 +133,7 @@ const (
 	bottomBoilerplate     = "{{ _gondola_bottomAssets }}"
 	nsSep                 = "."
 	nsMark                = "|"
+	varNop                = "_gondola_var_nop"
 )
 
 var (
@@ -142,9 +143,10 @@ var (
 	keyRe                    = regexp.MustCompile(`(?s:\s*([\w\-_])+?(:|\|))`)
 	defineRe                 = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
 	blockRe                  = regexp.MustCompile(`\{\{\s*block\s*("[\w\-_]+")\s*?(.*?)\s*?\}\}`)
+	undefinedVariableRe      = regexp.MustCompile("(\\d+): undefined variable \"\\$(\\w+)\"")
 	topTree                  = compileTree(topBoilerplate)
 	bottomTree               = compileTree(bottomBoilerplate)
-	templatePrepend          = fmt.Sprintf("{{ $%s := .%s }}\n", varsKey, varsKey)
+	templatePrepend          = fmt.Sprintf("{{ $%s := %s }}\n", varsKey, varNop)
 )
 
 type Hook struct {
@@ -791,18 +793,47 @@ func (t *Template) load(name string, included bool, from string) error {
 	if t.funcMap != nil {
 		fns = t.funcMap.asTemplateFuncMap()
 	}
-	treeMap, err := parse.Parse(name, s, leftDelim, rightDelim, templateFuncs.asTemplateFuncMap(), fns)
-	if err != nil {
-		return err
+	var treeMap map[string]*parse.Tree
+	for {
+		treeMap, err = parse.Parse(name, s, leftDelim, rightDelim, templateFuncs.asTemplateFuncMap(), fns)
+		if err == nil {
+			break
+		}
+		if m := undefinedVariableRe.FindStringSubmatch(err.Error()); m != nil {
+			// Look back to the previous define or beginning of the file
+			line, _ := strconv.Atoi(m[1])
+			maxP := 0
+			// Find the position in s where the error line ends
+			for ii := 0; ii < len(s) && line > 1; ii++ {
+				maxP++
+				if s[ii] == '\n' {
+					line--
+				}
+			}
+			varName := m[2]
+			p := 0
+			// Check if we have any defines before the error line
+			dm := defineRe.FindAllStringIndex(s, -1)
+			for ii := len(dm) - 1; ii >= 0; ii-- {
+				v := dm[ii]
+				if v[1] < maxP {
+					p = v[1]
+					break
+				}
+			}
+			s = s[:p] + fmt.Sprintf("{{ $%s := %s }}", varName, varNop) + s[p:]
+			err = nil
+		}
+		if err != nil {
+			return fmt.Errorf("error parsing %s", err)
+		}
 	}
 	if err := t.replaceExtendTag(name, treeMap, from); err != nil {
 		return err
 	}
 	var renames map[string]string
 	for k, v := range treeMap {
-		// Remove the first node, since it's there to set
-		// $Vars := .Vars, so the parser does not complain
-		v.Root.Nodes = v.Root.Nodes[1:]
+		v.Root.Nodes = removeVarNopNodes(v.Root.Nodes)
 		// Remove the \n introduced by the prepended text
 		for _, n := range v.Root.Nodes {
 			if tn, ok := n.(*parse.TextNode); ok {
@@ -1191,6 +1222,26 @@ func replaceBlocks(name string, s string) (string, error) {
 		s = fmt.Sprintf("%s{{ template %s . }}{{ define %s }}%s", s[:m[0]], name, name, s[m[1]:])
 	}
 	return s, nil
+}
+
+// removeVarNopNodes removes any nodes of the form
+// {{ $Something := _gondola_nop }}
+// They are used to fool the parser and letting us parse
+// variable nodes which haven't been previously defined
+// in the same template.
+func removeVarNopNodes(nodes []parse.Node) []parse.Node {
+	var newNodes []parse.Node
+	for _, v := range nodes {
+		if an, ok := v.(*parse.ActionNode); ok {
+			if len(an.Pipe.Cmds) == 1 && len(an.Pipe.Cmds[0].Args) == 1 {
+				if id, ok := an.Pipe.Cmds[0].Args[0].(*parse.IdentifierNode); ok && id.Ident == varNop {
+					continue
+				}
+			}
+		}
+		newNodes = append(newNodes, v)
+	}
+	return newNodes
 }
 
 func NamespacedName(ns []string, name string) string {

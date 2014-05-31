@@ -48,6 +48,10 @@ assets: assets
 #    context: gnd.la/apps/users
 #
 templates:
+    functions:
+        __users_get_social: getSocial
+        user_image: Image
     path: tmpl
     hooks:
         users-hook.html: bottom
+        social-button.html: none

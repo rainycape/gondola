@@ -13,7 +13,6 @@ import (
 	"gnd.la/app"
 	"gnd.la/net/httpclient"
 	"gnd.la/signal"
-	"gnd.la/template"
 )
 
 var (
@@ -146,9 +145,6 @@ func defaultFetchImage(ctx *app.Context, url string) (string, string, error) {
 }
 
 func init() {
-	template.AddFuncs(template.FuncMap{
-		"user_image": Image,
-	})
 	signal.Listen(app.WILL_LISTEN, func(_ string, obj interface{}) {
 		a := obj.(*app.App)
 		placeholder := "0000placeholder0000"

@@ -1,6 +1,7 @@
 package users
 
 import (
+	"fmt"
 	"reflect"
 
 	"gnd.la/app"
@@ -151,6 +152,20 @@ func userWithSocialAccount(ctx *app.Context, name string, acc socialAccount) (re
 	}
 	ctx.Orm().MustSave(user.Interface())
 	return user, nil
+}
+
+func getSocial(src interface{}) (*socialType, error) {
+	switch x := src.(type) {
+	case string:
+		st := socialTypesByName[x]
+		if st == nil {
+			return nil, fmt.Errorf("no social type named %s", x)
+		}
+		return st, nil
+	case *socialType:
+		return x, nil
+	}
+	return nil, fmt.Errorf("invalid social identifier type %T (%v)", src, src)
 }
 
 func init() {

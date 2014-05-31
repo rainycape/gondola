@@ -212,6 +212,7 @@
         }
     }
     ns.googleSignIn = function() {
+        {{ if @GoogleApp }}
         var opts = {
             scope: {{ @GoogleScopes|json }}.join(' '),
             clientid: '{{ @GoogleApp.Id }}',
@@ -229,6 +230,7 @@
             }
             clearInterval(interval);
         }, 50);
+        {{ end }}
     }
     ns.openAuthenticationWindow = function(url, name, width, height) {
         var f = '__users_' + name.toLowerCase() + '_signed_in';

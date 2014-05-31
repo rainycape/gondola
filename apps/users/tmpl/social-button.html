@@ -3,7 +3,14 @@
 */}}
 
 {{ define "SocialButton" }}
-<a class="{{ .ClassName }}" data-popup="{{ .Popup }}" data-popup-width="{{ .PopupWidth }}" data-popup-height="{{ .PopupHeight }}" data-name="{{ .Name }}" href="{{ reverse .HandlerName }}{{ with $From }}?from={{ . }}{{ end }}">
+  {{ template "SocialButtonView" (__users_get_social .) }}
+{{ end }}
+
+{{ define "SocialButtonView" }}
+<a class="{{ .ClassName }}" data-popup="{{ .Popup }}"
+  data-popup-width="{{ .PopupWidth }}" data-popup-height="{{ .PopupHeight }}"
+  data-name="{{ .Name }}"
+  href="{{ reverse .HandlerName }}{{ with (var "From") }}?from={{ . }}{{ end }}">
   <span class="icon">{{ template "SocialIcon" .IconName }}</span>
   {{ printf (t "Sign In with %s") .Name }}
 </a>

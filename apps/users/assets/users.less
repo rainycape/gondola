@@ -35,11 +35,10 @@
     border-right: 1px solid darken(@color, 10%);
 }
 
-.social-sign-in {
-    border-bottom: 1px solid #e5e5e5;
+.social-sign-in, .social-sign-in-inline {
     margin-bottom: 15px;
-    &.no-user-sign-in {
-        border: none;
+    &.user-sign-in {
+        border-bottom: 1px solid #e5e5e5;
     }
     .facebook {
         .social-button(@fbcolor);
@@ -70,14 +69,14 @@
         }
     }
     a {
+        display: block;
+        padding: 10px 15px;
         &, &:visited, &:hover {
             color: #fff;
             font-weight: bold;
             font-size: 16px;
-            padding: 10px 15px;
             position: relative;
             padding-left: 50px;
-            display: block;
             width: 279px;
             margin: 0 0 15px;
         }
@@ -107,6 +106,14 @@
                 bottom: 0;
             }
         }
+    }
+}
+
+.social-sign-in-inline {
+    display: inline;
+
+    a {
+        display: inline-block;
     }
 }
 

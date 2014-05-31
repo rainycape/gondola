@@ -7,7 +7,7 @@
     {{ $From := .From }}
     {{ $AllowUserSignIn := .AllowUserSignIn }}
     {{ with .SocialTypes }}
-      <div class="social-sign-in{{ if not $AllowUserSignIn }} no-user-sign-in{{ end }}">
+      <div class="social-sign-in{{ if $AllowUserSignIn }} user-sign-in{{ end }}">
         {{ range . }}
           {{ if eq .Name "Google" }}
             <div><!-- gapi.signin.render works only on block elements -->

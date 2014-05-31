@@ -118,7 +118,11 @@ func (b *Backend) DefineField(db *sql.DB, m driver.Model, table *sql.Table, fiel
 			return "", nil, fmt.Errorf("%s can only auto increment the primary key", b.Name())
 		}
 	}
-	return b.SqlBackend.DefineField(db, m, table, field)
+	def, constraints, err := b.SqlBackend.DefineField(db, m, table, field)
+	if err == nil {
+		def = strings.Replace(strings.Replace(def, "DEFAULT false", "DEFAULT 0", -1), "DEFAULT true", "DEFAULT 1", -1)
+	}
+	return def, constraints, err
 }
 
 func (b *Backend) AddFields(db *sql.DB, m driver.Model, prevTable *sql.Table, newTable *sql.Table, fields []*sql.Field) error {
@@ -172,7 +176,9 @@ func (b *Backend) FieldType(typ reflect.Type, t *structs.Tag) (string, error) {
 		return "TEXT", nil
 	}
 	switch typ.Kind() {
-	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Bool:
+		return "BOOLEAN", nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return "INTEGER", nil
 	case reflect.Float32, reflect.Float64:
 		return "REAL", nil

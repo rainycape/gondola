@@ -38,7 +38,7 @@ func userImageId(val reflect.Value) (string, string) {
 		if fval.IsValid() {
 			image := fval.Elem().FieldByName("Image")
 			if image.String() != "" {
-				imageFormat := fval.Elem().FieldByName("ImageName")
+				imageFormat := fval.Elem().FieldByName("ImageFormat")
 				return image.String(), imageFormat.String()
 			}
 		}

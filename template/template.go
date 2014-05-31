@@ -164,7 +164,7 @@ type Template struct {
 	Debug         bool
 	loader        loaders.Loader
 	trees         map[string]*parse.Tree
-	texts         map[string]string
+	offsets       map[*parse.Tree]map[int]int
 	final         bool
 	funcMap       funcMap
 	vars          VarMap
@@ -833,7 +833,7 @@ func (t *Template) load(name string, included bool, from string) error {
 	}
 	var renames map[string]string
 	for k, v := range treeMap {
-		v.Root.Nodes = removeVarNopNodes(v.Root.Nodes)
+		v.Root.Nodes = t.removeVarNopNodes(v, v.Root.Nodes)
 		if _, contains := t.trees[k]; contains {
 			log.Debugf("Template %s redefined", k)
 			// Redefinition of a template, which is allowed
@@ -852,7 +852,6 @@ func (t *Template) load(name string, included bool, from string) error {
 				}
 			}
 		}
-		t.texts[k] = s
 		err := t.AddParseTree(k, v)
 		if err != nil {
 			return err
@@ -905,6 +904,36 @@ func (t *Template) replaceExtendTag(name string, treeMap map[string]*parse.Tree,
 		})
 	}
 	return err
+}
+
+// removeVarNopNodes removes any nodes of the form
+// {{ $Something := _gondola_nop }}
+// They are used to fool the parser and letting us parse
+// variable nodes which haven't been previously defined
+// in the same template.
+func (t *Template) removeVarNopNodes(tr *parse.Tree, nodes []parse.Node) []parse.Node {
+	var newNodes []parse.Node
+	for _, v := range nodes {
+		if an, ok := v.(*parse.ActionNode); ok {
+			if len(an.Pipe.Cmds) == 1 && len(an.Pipe.Cmds[0].Args) == 1 {
+				if id, ok := an.Pipe.Cmds[0].Args[0].(*parse.IdentifierNode); ok && id.Ident == varNop {
+					// Store offset for errors
+					loc, _ := tr.ErrorContext(v)
+					if _, line, _, ok := splitErrorContext(loc); ok {
+						if t.offsets[tr] == nil {
+							t.offsets[tr] = make(map[int]int)
+						}
+						varName := an.Pipe.Decl[0].Ident[0]
+						// delim (2) + space (1) + len(varname) + space(1) + := (2) + space(1) + len(varNop) + space (1) + delim (2)
+						t.offsets[tr][line] += 2 + 1 + len(varName) + 1 + 2 + 1 + len(varNop) + 1 + 2
+					}
+					continue
+				}
+			}
+		}
+		newNodes = append(newNodes, v)
+	}
+	return newNodes
 }
 
 func (t *Template) walkTrees(nt parse.NodeType, f func(parse.Node)) {
@@ -1108,7 +1137,7 @@ func New(loader loaders.Loader, manager *assets.Manager) *Template {
 		AssetsManager: manager,
 		loader:        loader,
 		trees:         make(map[string]*parse.Tree),
-		texts:         make(map[string]string),
+		offsets:       make(map[*parse.Tree]map[int]int),
 	}
 	t.init()
 	return t
@@ -1217,24 +1246,17 @@ func replaceBlocks(name string, s string) (string, error) {
 	return s, nil
 }
 
-// removeVarNopNodes removes any nodes of the form
-// {{ $Something := _gondola_nop }}
-// They are used to fool the parser and letting us parse
-// variable nodes which haven't been previously defined
-// in the same template.
-func removeVarNopNodes(nodes []parse.Node) []parse.Node {
-	var newNodes []parse.Node
-	for _, v := range nodes {
-		if an, ok := v.(*parse.ActionNode); ok {
-			if len(an.Pipe.Cmds) == 1 && len(an.Pipe.Cmds[0].Args) == 1 {
-				if id, ok := an.Pipe.Cmds[0].Args[0].(*parse.IdentifierNode); ok && id.Ident == varNop {
-					continue
-				}
-			}
+// splitErrorContext returns the error context as (file, line, column, ok)
+func splitErrorContext(loc string) (string, int, int, bool) {
+	p := strings.SplitN(loc, ":", 2)
+	if len(p) == 2 {
+		var line int
+		var pos int
+		if _, err := fmt.Sscanf(p[1], "%d:%d", &line, &pos); err == nil {
+			return p[0], line, pos, true
 		}
-		newNodes = append(newNodes, v)
 	}
-	return newNodes
+	return "", 0, 0, false
 }
 
 func NamespacedName(ns []string, name string) string {

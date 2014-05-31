@@ -238,46 +238,14 @@ func (s *state) reset() {
 	s.iterators = s.iterators[:0]
 }
 
-func (s *state) countDefines(name string, tr *parse.Tree, node parse.Node) int {
-	search := []*Template{s.p.tmpl}
-	search = append(search, s.p.tmpl.children...)
-	for _, v := range s.p.tmpl.hooks {
-		search = append(search, v.Template)
-	}
-	var ns string
-	if ns = namespace(name); ns != "" {
-		name = name[len(ns)+len(nsMark):]
-	}
-	var text string
-	for _, v := range search {
-		if v.Namespace() == ns {
-			text = v.texts[name]
-			if text != "" {
-				break
-			}
-		}
-	}
-	pos := int(node.Position())
-	if len(text) > pos {
-		return len(defineRe.FindAllStringIndex(text[:pos], -1))
-	}
-	return 0
-}
-
 func (s *state) formatTreeErr(name string, tr *parse.Tree, node parse.Node, err error) error {
 	loc, _ := tr.ErrorContext(node)
 	if loc != "" {
-		// Need to substract the number of lines prepended
-		// which is 1 + (number of define nodes before this line)
-		p := strings.SplitN(loc, ":", 2)
-		if len(p) == 2 {
-			var line int
-			var pos int
-			if _, err := fmt.Sscanf(p[1], "%d:%d", &line, &pos); err == nil {
-				defines := s.countDefines(name, tr, node)
-				line -= 1 + defines
-				loc = fmt.Sprintf("%s:%d:%d", p[0], line, pos)
-			}
+		// Might to adjust the column due to the prepend varNop nodes
+		file, line, col, ok := splitErrorContext(loc)
+		if ok {
+			col -= s.p.tmpl.offsets[tr][line]
+			loc = fmt.Sprintf("%s:%d:%d", file, line, col)
 		}
 		err = fmt.Errorf("%s: %s", loc, err.Error())
 	}

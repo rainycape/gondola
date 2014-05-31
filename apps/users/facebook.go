@@ -8,7 +8,6 @@ import (
 
 	"gnd.la/app"
 	"gnd.la/net/oauth2"
-	"gnd.la/orm"
 )
 
 var (
@@ -32,6 +31,25 @@ type Facebook struct {
 	ImageURL    string    `form:"-" json:"-"`
 	Token       string    `form:"-" json:"-"`
 	Expires     time.Time `form:"-" json:"-"`
+}
+
+func (f *Facebook) accountId() interface{} {
+	return f.Id
+}
+
+func (f *Facebook) imageURL() string {
+	return f.ImageURL
+}
+
+func (f *Facebook) username() string {
+	if f.Username != "" {
+		return f.Username
+	}
+	return f.FirstName
+}
+
+func (f *Facebook) email() string {
+	return f.Email
 }
 
 func signInFacebookTokenHandler(ctx *app.Context, client *oauth2.Client, token *oauth2.Token) {
@@ -96,52 +114,7 @@ func userFromFacebookToken(ctx *app.Context, token *oauth2.Token) (reflect.Value
 		return reflect.Value{}, err
 	}
 	user, err := fetchFacebookUser(ctx, extended)
-	if err != nil {
-		return reflect.Value{}, err
-	}
-	return userFromFacebookUser(ctx, user)
-}
-
-func userFromFacebookUser(ctx *app.Context, fb *Facebook) (reflect.Value, error) {
-	user, userVal := newEmptyUser()
-	ok, err := ctx.Orm().One(orm.Eq("Facebook.Id", fb.Id), userVal)
-	if err != nil {
-		return reflect.Value{}, err
-	}
-	if ok {
-		if p := getUserValue(user, "Facebook").(*Facebook); p != nil {
-			fb.Image, fb.ImageFormat, fb.ImageURL = mightFetchImage(ctx, fb.ImageURL, p.Image, p.ImageFormat, p.ImageURL)
-		}
-		setUserValue(user, "Facebook", fb)
-	} else {
-		fb.Image, fb.ImageFormat, fb.ImageURL = fetchImage(ctx, fb.ImageURL)
-		// Check email
-		if fb.Email != "" {
-			// Check if we have a user with that email. In that case
-			// Add this FB account to his account
-			ok, err = ctx.Orm().One(orm.Eq("NormalizedEmail", Normalize(fb.Email)), userVal)
-			if err != nil {
-				return reflect.Value{}, err
-			}
-			if ok {
-				setUserValue(user, "Facebook", fb)
-			}
-		}
-		if !ok {
-			// This is a bit racy, but we'll live with it for now
-			username := fb.Username
-			if username == "" {
-				username = fb.FirstName
-			}
-			freeUsername := FindFreeUsername(ctx, username)
-			user = newUser(freeUsername)
-			setUserValue(user, "AutomaticUsername", true)
-			setUserValue(user, "Email", fb.Email)
-			setUserValue(user, "Facebook", fb)
-		}
-	}
-	ctx.Orm().MustSave(user.Interface())
-	return user, nil
+	return userWithSocialAccount(ctx, SocialTypeFacebook, user)
 }
 
 func facebookUserImage(user map[string]interface{}) string {

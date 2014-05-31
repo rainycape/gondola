@@ -7,7 +7,6 @@ import (
 
 	"gnd.la/app"
 	"gnd.la/net/oauth2"
-	"gnd.la/orm"
 )
 
 var (
@@ -30,6 +29,22 @@ type Google struct {
 	Token       string    `form:"-" json:"-"`
 	Expires     time.Time `form:"-" json:"-"`
 	Refresh     string    `form:"-" json:"-"`
+}
+
+func (g *Google) accountId() interface{} {
+	return g.Id
+}
+
+func (g *Google) imageURL() string {
+	return g.ImageURL
+}
+
+func (g *Google) username() string {
+	return strings.Replace(g.Name, " ", "", -1)
+}
+
+func (g *Google) email() string {
+	return g.Email
 }
 
 func signInGoogleTokenHandler(ctx *app.Context, client *oauth2.Client, token *oauth2.Token) {
@@ -61,11 +76,6 @@ func userFromGoogleToken(ctx *app.Context, token *oauth2.Token) (reflect.Value, 
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	user, userVal := newEmptyUser()
-	ok, err := ctx.Orm().One(orm.Eq("Google.Id", person.Id), userVal)
-	if err != nil {
-		return reflect.Value{}, err
-	}
 	email := person.Emails[0].Value
 	guser := &Google{
 		Id:       person.Id,
@@ -77,30 +87,5 @@ func userFromGoogleToken(ctx *app.Context, token *oauth2.Token) (reflect.Value, 
 		Expires:  token.Expires,
 		Refresh:  token.Refresh,
 	}
-	if ok {
-		// Update info
-		if p := getUserValue(user, "Google").(*Google); p != nil {
-			guser.Image, guser.ImageFormat, guser.ImageURL = mightFetchImage(ctx, guser.ImageURL, p.Image, p.ImageFormat, p.ImageURL)
-		}
-		setUserValue(user, "Google", guser)
-	} else {
-		guser.Image, guser.ImageFormat, guser.ImageURL = fetchImage(ctx, guser.ImageURL)
-		// Check if there's an already existing user with the same email
-		ok, err = ctx.Orm().One(orm.Eq("NormalizedEmail", Normalize(email)), userVal)
-		if err != nil {
-			return reflect.Value{}, err
-		}
-		if ok {
-			setUserValue(user, "Google", guser)
-		} else {
-			// Create a new account
-			username := FindFreeUsername(ctx, strings.Replace(person.Name.Given, " ", "", -1))
-			user = newUser(username)
-			setUserValue(user, "AutomaticUsername", true)
-			setUserValue(user, "Email", email)
-			setUserValue(user, "Google", guser)
-		}
-	}
-	ctx.Orm().MustSave(user.Interface())
-	return user, nil
+	return userWithSocialAccount(ctx, SocialTypeGoogle, guser)
 }

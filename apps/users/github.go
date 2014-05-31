@@ -6,7 +6,6 @@ import (
 
 	"gnd.la/app"
 	"gnd.la/net/oauth2"
-	"gnd.la/orm"
 )
 
 var (
@@ -30,6 +29,22 @@ type Github struct {
 	ImageURL    string    `form:"-" json:"-"`
 	Token       string    `form:"-" json:"-"`
 	Expires     time.Time `form:"-" json:"-"`
+}
+
+func (g *Github) accountId() interface{} {
+	return g.Id
+}
+
+func (g *Github) imageURL() string {
+	return g.ImageURL
+}
+
+func (g *Github) username() string {
+	return g.Username
+}
+
+func (g *Github) email() string {
+	return g.Email
 }
 
 func signInGithubTokenHandler(ctx *app.Context, client *oauth2.Client, token *oauth2.Token) {
@@ -61,38 +76,5 @@ func userFromGithubToken(ctx *app.Context, token *oauth2.Token) (reflect.Value, 
 		Token:    token.Key,
 		Expires:  token.Expires,
 	}
-	user, userVal := newEmptyUser()
-	ok, err := ctx.Orm().One(orm.Eq("Github.Id", gh.Id), userVal)
-	if err != nil {
-		return reflect.Value{}, err
-	}
-	if ok {
-		if p := getUserValue(user, "Github").(*Github); p != nil {
-			gh.Image, gh.ImageFormat, gh.ImageURL = mightFetchImage(ctx, gh.ImageURL, p.Image, p.ImageFormat, p.ImageURL)
-		}
-		setUserValue(user, "Github", gh)
-	} else {
-		gh.Image, gh.ImageFormat, gh.ImageURL = fetchImage(ctx, gh.ImageURL)
-		if gh.Email != "" {
-			// Check if we have a user with that email. In that case
-			// Add this GH account to his account
-			ok, err = ctx.Orm().One(orm.Eq("NormalizedEmail", Normalize(gh.Email)), userVal)
-			if err != nil {
-				return reflect.Value{}, err
-			}
-			if ok {
-				setUserValue(user, "GitHub", gh)
-			}
-		}
-		if !ok {
-			username := gh.Username
-			freeUsername := FindFreeUsername(ctx, username)
-			user = newUser(freeUsername)
-			setUserValue(user, "AutomaticUsername", true)
-			setUserValue(user, "Email", gh.Email)
-			setUserValue(user, "Github", gh)
-		}
-	}
-	ctx.Orm().MustSave(user.Interface())
-	return user, nil
+	return userWithSocialAccount(ctx, SocialTypeGithub, gh)
 }

@@ -2,6 +2,9 @@ package users
 
 import (
 	"reflect"
+
+	"gnd.la/app"
+	"gnd.la/orm"
 )
 
 const (
@@ -87,6 +90,67 @@ func enabledSocialTypes() []*socialType {
 		}
 	}
 	return types
+}
+
+type socialAccount interface {
+	accountId() interface{}
+	imageURL() string
+	username() string
+	email() string
+}
+
+func userWithSocialAccount(ctx *app.Context, name string, acc socialAccount) (reflect.Value, error) {
+	user, userVal := newEmptyUser()
+	ok, err := ctx.Orm().One(orm.Eq(name+".Id", acc.accountId()), userVal)
+	if err != nil {
+		return reflect.Value{}, err
+	}
+	acVal := reflect.Indirect(reflect.ValueOf(acc))
+	imageVal := acVal.FieldByName("Image")
+	imageFormatVal := acVal.FieldByName("ImageFormat")
+	imageURLVal := acVal.FieldByName("ImageURL")
+	if ok {
+		prev := getUserValue(user, name)
+		if prev != nil {
+			prevVal := reflect.Indirect(reflect.ValueOf(prev))
+			prevImage := prevVal.FieldByName("Image").String()
+			prevImageFormat := prevVal.FieldByName("ImageFormat").String()
+			prevImageURL := prevVal.FieldByName("ImageURL").String()
+			image, imageFormat, imageURL := mightFetchImage(ctx, acc.imageURL(), prevImage, prevImageFormat, prevImageURL)
+			imageVal.Set(reflect.ValueOf(image))
+			imageFormatVal.Set(reflect.ValueOf(imageFormat))
+			imageURLVal.Set(reflect.ValueOf(imageURL))
+		}
+		setUserValue(user, name, acc)
+	} else {
+		image, imageFormat, imageURL := fetchImage(ctx, acc.imageURL())
+		imageVal.Set(reflect.ValueOf(image))
+		imageFormatVal.Set(reflect.ValueOf(imageFormat))
+		imageURLVal.Set(reflect.ValueOf(imageURL))
+		// Check email
+		if email := acc.email(); email != "" {
+			// Check if we have a user with that email. In that case
+			// Add this social account to his account.
+			ok, err = ctx.Orm().One(orm.Eq("NormalizedEmail", Normalize(email)), userVal)
+			if err != nil {
+				return reflect.Value{}, err
+			}
+			if ok {
+				setUserValue(user, name, acc)
+			}
+		}
+		if !ok {
+			// This is a bit racy, but we'll live with it for now
+			username := acc.username()
+			freeUsername := FindFreeUsername(ctx, username)
+			user = newUser(freeUsername)
+			setUserValue(user, "AutomaticUsername", true)
+			setUserValue(user, "Email", acc.email())
+			setUserValue(user, name, acc)
+		}
+	}
+	ctx.Orm().MustSave(user.Interface())
+	return user, nil
 }
 
 func init() {

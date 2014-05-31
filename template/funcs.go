@@ -294,6 +294,14 @@ func toHtml(s string) template.HTML {
 	return template.HTML(strings.Replace(html.Escape(s), "\n", "<br>", -1))
 }
 
+func getVar(s *State, name string) interface{} {
+	v, ok := s.Var(name)
+	if !ok {
+		return nil
+	}
+	return v.Interface()
+}
+
 var templateFuncs = makeFuncMap(FuncMap{
 	"#eq":        eq,
 	"#neq":       neq,
@@ -327,6 +335,9 @@ var templateFuncs = makeFuncMap(FuncMap{
 	"#to_title":  strings.ToTitle,
 	"#to_upper":  strings.ToUpper,
 	"#to_html":   toHtml,
+
+	// state manipulation functions
+	"@var": getVar,
 
 	// Go builtins
 	"call":      call,

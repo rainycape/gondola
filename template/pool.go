@@ -11,12 +11,12 @@ var (
 	bufPool   = pool.New(0)
 )
 
-func getState() *state {
-	s, _ := statePool.Get().(*state)
+func getState() *State {
+	s, _ := statePool.Get().(*State)
 	return s
 }
 
-func putState(s *state) {
+func putState(s *State) {
 	statePool.Put(s)
 }
 

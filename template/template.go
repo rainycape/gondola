@@ -34,6 +34,7 @@ type funcTrait int
 const (
 	funcTraitPure = 1 << iota
 	funcTraitContext
+	funcTraitState
 )
 
 type funcInfo struct {
@@ -54,6 +55,9 @@ func makeFuncMap(fns FuncMap) funcMap {
 			} else if k[0] == '#' {
 				k = k[1:]
 				info.traits |= funcTraitPure
+			} else if k[0] == '@' {
+				k = k[1:]
+				info.traits |= funcTraitState
 			} else {
 				break
 			}
@@ -71,6 +75,9 @@ func (f funcMap) asFuncMap() FuncMap {
 		}
 		if v.traits&funcTraitContext != 0 {
 			k = "!" + k
+		}
+		if v.traits&funcTraitState != 0 {
+			k = "@" + k
 		}
 		fns[k] = v.f
 	}
@@ -1257,6 +1264,17 @@ func splitErrorContext(loc string) (string, int, int, bool) {
 		}
 	}
 	return "", 0, 0, false
+}
+
+func traitsArgumentCount(traits funcTrait) int {
+	c := 0
+	if traits&funcTraitContext != 0 {
+		c++
+	}
+	if traits&funcTraitState != 0 {
+		c++
+	}
+	return c
 }
 
 func NamespacedName(ns []string, name string) string {

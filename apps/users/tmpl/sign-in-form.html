@@ -5,8 +5,9 @@
   <div class="col-md-12">
     <h4 class="sign-in-title">{{ printf (t "Sign In to %s") @SiteName }}</h4>
     {{ $From := .From }}
+    {{ $AllowUserSignIn := .AllowUserSignIn }}
     {{ with .SocialTypes }}
-      <div class="social-sign-in">
+      <div class="social-sign-in{{ if not $AllowUserSignIn }} no-user-sign-in{{ end }}">
         {{ range . }}
           {{ if eq .Name "Google" }}
             <div><!-- gapi.signin.render works only on block elements -->
@@ -26,20 +27,24 @@
         {{ end }}
       </div>
     {{ end }}
-    <div class="sign-in-form">
-      <div id="sign-in-form">
-        <form method="post" data-js-action="{{ reverse @JSSignIn }}" action="{{ reverse @SignIn }}">
-          {{ .SignInForm.Render }}
-          <button class="users-submit btn btn-primary">{{ t "Sign In" }}</button>
-          <span class="sign-in-help">{{ t "Don't have an account?" }}
-            <a class="go go-sign-up btn btn-info btn-xs" href="{{ reverse @SignUp }}{{ with .From }}?from={{ . }}{{ end }}">{{ t "Create one" }}</a> {{ t "in seconds!" }}
-          </span>
-          <span id="users-forgot-link"><a href="{{ reverse @Forgot }}">{{ t "Forgot your password?" }}</a></span>
-        </form>
+    {{ if .AllowUserSignIn }}
+      <div class="sign-in-form">
+        <div id="sign-in-form">
+          <form method="post" data-js-action="{{ reverse @JSSignIn }}" action="{{ reverse @SignIn }}">
+            {{ .SignInForm.Render }}
+            <button class="users-submit btn btn-primary">{{ t "Sign In" }}</button>
+            {{ if .AllowRegistration }}
+              <span class="sign-in-help">{{ t "Don't have an account?" }}
+                <a class="go go-sign-up btn btn-info btn-xs" href="{{ reverse @SignUp }}{{ with .From }}?from={{ . }}{{ end }}">{{ t "Create one" }}</a> {{ t "in seconds!" }}
+              </span>
+            {{ end }}
+            <span id="users-forgot-link"><a href="{{ reverse @Forgot }}">{{ t "Forgot your password?" }}</a></span>
+          </form>
+        </div>
+        <div id="sign-up-form-wrapper" style="display:none">
+          {{ template "sign-up-form.html" . }}
+        </div>
       </div>
-      <div id="sign-up-form-wrapper" style="display:none">
-        {{ template "sign-up-form.html" . }}
-      </div>
-    </div>
+    {{ end }}
   </div>
 </div>

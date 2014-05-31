@@ -74,17 +74,19 @@ func signInHandler(ctx *app.Context) {
 	from := ctx.FormValue(app.SignInFromParameterName)
 	signIn := SignIn{From: from}
 	form := form.New(ctx, nil, &signIn)
-	if form.Submitted() && form.IsValid() {
+	if AllowUserSignIn && form.Submitted() && form.IsValid() {
 		ctx.MustSignIn(asGondolaUser(reflect.ValueOf(signIn.User)))
 		ctx.RedirectBack()
 		return
 	}
 	user, _ := newEmptyUser()
 	data := map[string]interface{}{
-		"SocialTypes": enabledSocialTypes(),
-		"From":        from,
-		"SignInForm":  form,
-		"SignUpForm":  SignUpForm(ctx, user),
+		"SocialTypes":       enabledSocialTypes(),
+		"AllowUserSignIn":   AllowUserSignIn,
+		"AllowRegistration": AllowRegistration,
+		"From":              from,
+		"SignInForm":        form,
+		"SignUpForm":        SignUpForm(ctx, user),
 	}
 	tmpl := SignInTemplateName
 	if ctx.FormValue("modal") != "" && SignInModalTemplateName != "" {
@@ -94,6 +96,10 @@ func signInHandler(ctx *app.Context) {
 }
 
 func jsSignInHandler(ctx *app.Context) {
+	if !AllowUserSignIn {
+		ctx.NotFound("")
+		return
+	}
 	signIn := SignIn{}
 	form := form.New(ctx, nil, &signIn)
 	if form.Submitted() && form.IsValid() {
@@ -106,6 +112,10 @@ func jsSignInHandler(ctx *app.Context) {
 }
 
 func signUpHandler(ctx *app.Context) {
+	if !allowRegistration() {
+		ctx.NotFound("")
+		return
+	}
 	from := ctx.FormValue(app.SignInFromParameterName)
 	user, _ := newEmptyUser()
 	form := SignUpForm(ctx, user)
@@ -122,6 +132,10 @@ func signUpHandler(ctx *app.Context) {
 }
 
 func jsSignUpHandler(ctx *app.Context) {
+	if !allowRegistration() {
+		ctx.NotFound("")
+		return
+	}
 	user, _ := newEmptyUser()
 	form := SignUpForm(ctx, user)
 	if form.Submitted() && form.IsValid() {
@@ -133,6 +147,10 @@ func jsSignUpHandler(ctx *app.Context) {
 }
 
 func forgotHandler(ctx *app.Context) {
+	if !AllowUserSignIn {
+		ctx.NotFound("")
+		return
+	}
 	var user *User
 	var isEmail bool
 	var sent bool
@@ -235,6 +253,10 @@ func decodeResetPayload(ctx *app.Context, payload string) (reflect.Value, error)
 }
 
 func resetHandler(ctx *app.Context) {
+	if !AllowUserSignIn {
+		ctx.NotFound("")
+		return
+	}
 	payload := ctx.FormValue("p")
 	var valid bool
 	var expired bool
@@ -336,4 +358,8 @@ func windowCallbackHandler(ctx *app.Context, user reflect.Value, callback string
 			ctx.MustRedirectReverse(false, app.SignInHandlerName)
 		}
 	}
+}
+
+func allowRegistration() bool {
+	return AllowUserSignIn && AllowRegistration
 }

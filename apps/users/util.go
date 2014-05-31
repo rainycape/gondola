@@ -17,7 +17,7 @@ func FindFreeUsername(ctx *app.Context, username string) string {
 		panic(fmt.Errorf("user type %s is not registered with the orm - add orm.Register(&%s{}) somewhere in your app", userType, userType.Name()))
 	}
 	for {
-		exists, err := o.Exists(tbl, orm.Eq("NormalizedUsername", Normalize(username)))
+		exists, err := o.Exists(tbl, orm.Eq("User.NormalizedUsername", Normalize(username)))
 		if err != nil {
 			panic(err)
 		}

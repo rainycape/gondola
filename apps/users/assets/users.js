@@ -10,7 +10,6 @@
   {{ if @GoogleApp }}
     var _jsGoogleSignIn = '{{ reverse @JSSignInGoogle }}';
   {{ end }}
-    var _twitterSignIn = '{{ reverse @SignInTwitter }}';
     var ns = $[name] = $[name] || $({});
     ns.FB_WILL_LOAD = 'users.fb-will-load';
     ns.FB_LOADED = 'users.fb-loaded';
@@ -103,11 +102,6 @@
                 });
             }
 
-            doc.find('.social-sign-in a.twitter').click(function (e) {
-                e.preventDefault();
-                ns.twitterSignIn();
-            });
-
             doc.find('.social-sign-in a.google').each(function () {
                 var a = this;
                 var interval = setInterval(function () {
@@ -128,6 +122,20 @@
                         clearInterval(interval);
                     };
                 }, 50);
+            });
+
+            doc.find('.social-sign-in a').each(function () {
+                var $this = $(this);
+                if ($this.data('popup')) {
+                    $this.click(function (e) {
+                        var url = $this.attr('href');
+                        var name = $this.data('name');
+                        var width = $this.data('popup-width');
+                        var height = $this.data('popup-height');
+                        ns.openAuthenticationWindow(url + '?window=1', name, width, height);
+                        e.preventDefault();
+                    });
+                }
             });
         }
         if (ns._options.js) {
@@ -203,19 +211,24 @@
             FB.login(ns._onFacebookSignIn, opts);
         }
     }
-    ns.twitterSignIn = function () {
-        var w = 600;
-        var h = 510;
-        var left = (screen.width/2)-(w/2);
-        var top = (screen.height/2)-(h/2);
+    ns.openAuthenticationWindow = function(url, name, width, height) {
+        var f = '__users_' + name.toLowerCase() + '_signed_in';
         // Use this to avoid referencing the namespace
-        // from the twitter handler
-        window.__users_twitter_signed_in = function(user) {
+        // from the auth handler
+        window[f] = function(user) {
             ns._onSignedIn(user);
-            delete window.__users_twitter_signed_in;
+            delete window[f];
         };
-        var win = window.open(_twitterSignIn + '?window=1', 'Twitter', 'height=' + h + ',width=' + w + ',menubar=0,resizable=0,toolbar=0,top=' + top + ',left=' + left);
-        win.document.title = 'Connecting to Twitter...';
+        var win = ns.openWindow(url, width, height);
+        win.document.title = 'Connecting to ' + name + '...';
+        return win;
+    }
+    ns.openWindow = function(url, width, height) {
+        width = Math.min(width || 600, screen.width - 100);
+        height = Math.min(height || 510, screen.height - 100);
+        var left = (screen.width/2)-(width/2);
+        var top = (screen.height/2)-(height/2);
+        return window.open(url, '', 'height=' + height + ',width=' + width + ',menubar=0,resizable=0,toolbar=0,top=' + top + ',left=' + left);
     }
     ns.signedIn = function(callback) {
         if (ns.isSignedIn()) {

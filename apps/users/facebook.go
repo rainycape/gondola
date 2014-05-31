@@ -12,7 +12,12 @@ import (
 )
 
 var (
-	fbSignInHandler app.Handler
+	signInFacebookHandler = delayedHandler(func() app.Handler {
+		if FacebookApp != nil {
+			return oauth2.Handler(signInFacebookTokenHandler, FacebookApp.Client, FacebookPermissions)
+		}
+		return nil
+	})
 )
 
 type Facebook struct {
@@ -36,13 +41,6 @@ func signInFacebookTokenHandler(ctx *app.Context, client *oauth2.Client, token *
 	}
 	ctx.MustSignIn(asGondolaUser(user))
 	redirectToFrom(ctx)
-}
-
-func signInFacebookHandler(ctx *app.Context) {
-	if fbSignInHandler == nil {
-		fbSignInHandler = oauth2.Handler(signInFacebookTokenHandler, FacebookApp.Client, FacebookPermissions)
-	}
-	fbSignInHandler(ctx)
 }
 
 func jsSignInFacebookHandler(ctx *app.Context) {
@@ -142,7 +140,7 @@ func userFromFacebookUser(ctx *app.Context, fb *Facebook) (reflect.Value, error)
 			setUserValue(user, "Facebook", fb)
 		}
 	}
-	ctx.Orm().MustSave(userVal)
+	ctx.Orm().MustSave(user.Interface())
 	return user, nil
 }
 

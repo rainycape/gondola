@@ -1,0 +1,15 @@
+{{/*
+  extends: none
+*/}}
+<!DOCTYPE html>
+<html>
+  <body>
+  <script type="text/javascript">
+    {{ if .Payload }}
+      window.opener[{{ .Callback }}]({{ .Payload }});
+    {{ end }}
+    delete window.opener[{{ .Callback }}];
+    window.close();
+  </script>
+  </body>
+</html>

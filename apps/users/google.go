@@ -11,7 +11,12 @@ import (
 )
 
 var (
-	gSignInHandler app.Handler
+	signInGoogleHandler = delayedHandler(func() app.Handler {
+		if GoogleApp != nil {
+			return oauth2.Handler(signInGoogleTokenHandler, GoogleApp.Client, GoogleScopes)
+		}
+		return nil
+	})
 )
 
 type Google struct {
@@ -34,13 +39,6 @@ func signInGoogleTokenHandler(ctx *app.Context, client *oauth2.Client, token *oa
 	}
 	ctx.MustSignIn(asGondolaUser(user))
 	redirectToFrom(ctx)
-}
-
-func signInGoogleHandler(ctx *app.Context) {
-	if gSignInHandler == nil {
-		gSignInHandler = oauth2.Handler(signInGoogleTokenHandler, GoogleApp.Client, GoogleScopes)
-	}
-	gSignInHandler(ctx)
 }
 
 func jsSignInGoogleHandler(ctx *app.Context) {
@@ -103,6 +101,6 @@ func userFromGoogleToken(ctx *app.Context, token *oauth2.Token) (reflect.Value, 
 			setUserValue(user, "Google", guser)
 		}
 	}
-	ctx.Orm().MustSave(userVal)
+	ctx.Orm().MustSave(user.Interface())
 	return user, nil
 }

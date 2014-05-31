@@ -1,0 +1,10 @@
+{{/*
+  include: icons.html
+*/}}
+
+{{ define "SocialButton" }}
+<a class="{{ .ClassName }}" data-popup="{{ .Popup }}" data-popup-width="{{ .PopupWidth }}" data-popup-height="{{ .PopupHeight }}" data-name="{{ .Name }}" href="{{ reverse .HandlerName }}{{ with $From }}?from={{ . }}{{ end }}">
+  <span class="icon">{{ template "SocialIcon" .IconName }}</span>
+  {{ printf (t "Sign In with %s") .Name }}
+</a>
+{{ end }}

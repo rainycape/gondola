@@ -1,11 +1,11 @@
 package users
 
 import (
-	"fmt"
+	"reflect"
+
 	"gnd.la/app"
 	"gnd.la/orm"
 	"gnd.la/social/twitter"
-	"reflect"
 )
 
 type Twitter struct {
@@ -19,30 +19,16 @@ type Twitter struct {
 }
 
 func signInTwitterUserHandler(ctx *app.Context, twUser *twitter.User, token *twitter.Token) {
-	const fname = "__users_twitter_signed_in"
-	inWindow := ctx.FormValue("window") != ""
+	const callback = "__users_twitter_signed_in"
+	var user reflect.Value
+	var err error
 	if twUser != nil && token != nil {
-		user, err := userFromTwitterUser(ctx, TwitterApp, twUser, token)
+		user, err = userFromTwitterUser(ctx, TwitterApp, twUser, token)
 		if err != nil {
 			panic(err)
 		}
-		ctx.MustSignIn(asGondolaUser(user))
-		if inWindow {
-			json, err := JSONEncode(user.Interface())
-			if err != nil {
-				panic(err)
-			}
-			fmt.Fprintf(ctx, "<!DOCTYPE html><html><script>window.opener.%s(%s);window.close()</script></html>", fname, string(json))
-		} else {
-			redirectToFrom(ctx)
-		}
-	} else {
-		if inWindow {
-			fmt.Fprintf(ctx, "<!DOCTYPE html><html><script>delete window.opener.%s;window.close()</script></html>", fname)
-		} else {
-			ctx.MustRedirectReverse(false, app.SignInHandlerName)
-		}
 	}
+	windowCallbackHandler(ctx, user, callback)
 }
 
 var signInTwitterHandler = twitter.AuthHandler(TwitterApp, signInTwitterUserHandler)
@@ -73,6 +59,6 @@ func userFromTwitterUser(ctx *app.Context, app *twitter.App, twuser *twitter.Use
 		setUserValue(user, "AutomaticUsername", true)
 		setUserValue(user, "Twitter", tw)
 	}
-	ctx.Orm().MustSave(userVal)
+	ctx.Orm().MustSave(user.Interface())
 	return user, nil
 }

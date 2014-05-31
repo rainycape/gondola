@@ -4,6 +4,7 @@ handlers:
     SignInFacebookHandler: ^/sign-in/facebook/$
     SignInGoogleHandler: ^/sign-in/google/$
     SignInTwitterHandler: ^/sign-in/twitter/$
+    SignInGithubHandler: ^/sign-in/github/$
     SignUpHandler: ^/sign-up/$
     SignOutHandler: ^/sign-out/$
     ForgotHandler: ^/forgot/$
@@ -20,7 +21,9 @@ vars:
     FacebookApp:
     FacebookPermissions:
     GoogleApp:
+    GoogleScopes:
     TwitterApp:
+    GithubApp:
     JSSignInHandlerName: JSSignIn
     JSSignInFacebookHandlerName: JSSignInFacebook
     JSSignInGoogleHandlerName: JSSignInGoogle
@@ -31,6 +34,7 @@ vars:
     SignInFacebookHandlerName: SignInFacebook
     SignInGoogleHandlerName: SignInGoogle
     SignInTwitterHandlerName: SignInTwitter
+    SignInGithubHandlerName: SignInGithub
     SignUpHandlerName: SignUp
     SignOutHandlerName: SignOut
     FacebookChannelHandlerName: FacebookChannel

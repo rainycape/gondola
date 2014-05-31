@@ -20,9 +20,6 @@ import (
 var (
 	userType  reflect.Type = nil
 	innerType              = reflect.TypeOf(User{})
-	fbType                 = reflect.TypeOf(&Facebook{})
-	twType                 = reflect.TypeOf(&Twitter{})
-	gogType                = reflect.TypeOf(&Google{})
 )
 
 type missingFieldError struct {
@@ -67,14 +64,12 @@ func checkUserType(typ reflect.Type) {
 	if !s.Embeds(innerType) {
 		panic(fmt.Errorf("invalid User type %s: must embed %s e.g type %s struct {\t\t%s\n\t...\n}", typ, innerType, typ.Name(), innerType))
 	}
-	if FacebookApp != nil && !s.Has("Facebook", fbType) {
-		panic(&missingFieldError{typ, "Facebook", fbType})
-	}
-	if TwitterApp != nil && !s.Has("Twitter", twType) {
-		panic(&missingFieldError{typ, "Twitter", twType})
-	}
-	if GoogleApp != nil && !s.Has("Google", gogType) {
-		panic(&missingFieldError{typ, "Google", gogType})
+	for _, v := range socialTypes {
+		if v.IsEnabled() {
+			if !s.Has(v.Name, v.Type) {
+				panic(&missingFieldError{typ, v.Name, v.Type})
+			}
+		}
 	}
 }
 
@@ -151,7 +146,11 @@ func getUserValue(v reflect.Value, key string) interface{} {
 	for v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
-	return v.FieldByName(key).Interface()
+	val := v.FieldByName(key)
+	if val.IsValid() {
+		return val.Interface()
+	}
+	return nil
 }
 
 func asGondolaUser(v reflect.Value) app.User {
@@ -180,6 +179,9 @@ func JSONEncode(user interface{}) ([]byte, error) {
 	}
 	if gog, ok := getUserValue(v, "Google").(*Google); ok {
 		val["google"] = gog
+	}
+	if gh, ok := getUserValue(v, "Github").(*Github); ok {
+		val["github"] = gh
 	}
 	b, err := json.Marshal(val)
 	if err != nil {

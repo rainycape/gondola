@@ -1,34 +1,28 @@
 {{/*
-  include: sign-up-form.html, icons.html
+  include: sign-up-form.html, icons.html, social-button.html
 */}}
 <div class="row sign-in">
   <div class="col-md-12">
     <h4 class="sign-in-title">{{ printf (t "Sign In to %s") @SiteName }}</h4>
-    {{ if .Social }}
+    {{ $From := .From }}
+    {{ with .SocialTypes }}
       <div class="social-sign-in">
-        {{ if .FacebookApp }}
-          <a class="facebook" href="{{ reverse @SignInFacebook }}{{ with .From }}?from={{ . }}{{ end }}">
-            <span class="icon">{{ template "SocialIcon" "facebook" }}</span>
-            {{ printf (t "Sign In with %s") "Facebook" }}
-          </a>
-        {{ end }}
-        {{ if .GoogleApp }}
-        <div><!-- gapi.signin.render works only on block elements -->
-          <a class="google" data-scope="{{ .GoogleScopes }}"
-            data-clientid="{{ .GoogleApp.Id }}" data-redirecturi="postmessage"
-            data-accesstype="offline" data-cookiepolicy="single_host_origin"
-            data-callback="__usersOnGoogleSignedIn"
-            href="{{ reverse @SignInGoogle }}{{ with .From }}?from={{ . }}{{ end }}">
-            <span class="icon">{{ template "SocialIcon" "google-plus" }}</span>
-            {{ printf (t "Sign In with %s") "Google" }}
-          </a>
-        </div>
-        {{ end }}
-        {{ if .TwitterApp }}
-          <a class="twitter" href="{{ reverse @SignInTwitter }}{{ with .From }}?from={{ . }}{{ end }}">
-            <span class="icon">{{ template "SocialIcon" "twitter" }}</span>
-            {{ printf (t "Sign In with %s") "Twitter" }}
-          </a>
+        {{ range . }}
+          {{ if eq .Name "Google" }}
+            <div><!-- gapi.signin.render works only on block elements -->
+              <a class="google" data-scope="{{ join @GoogleScopes "," }}"
+                data-clientid="{{ @GoogleApp.Id }}" data-redirecturi="postmessage"
+                data-accesstype="offline" data-cookiepolicy="single_host_origin"
+                data-callback="__usersOnGoogleSignedIn"
+                href="{{ reverse @SignInGoogle }}{{ with .From }}?from={{ . }}{{ end }}">
+
+                <span class="icon">{{ template "SocialIcon" "google-plus" }}</span>
+                {{ printf (t "Sign In with %s") "Google" }}
+              </a>
+            </div>
+          {{ else }}
+            {{ template "SocialButton" . }}
+          {{ end }}
         {{ end }}
       </div>
     {{ end }}

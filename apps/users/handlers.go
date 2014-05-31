@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"gnd.la/app"
@@ -31,6 +32,7 @@ const (
 	SignInFacebookHandlerName = "users-sign-in-facebook"
 	SignInGoogleHandlerName   = "users-sign-in-google"
 	SignInTwitterHandlerName  = "users-sign-in-twitter"
+	SignInGithubHandlerName   = "users-sign-in-github"
 	SignUpHandlerName         = "users-sign-up"
 	SignOutHandlerName        = "users-sign-out"
 	ForgotHandlerName         = "users-forgot"
@@ -55,6 +57,7 @@ var (
 	SignInFacebookHandler   = app.NamedHandler(SignInFacebookHandlerName, app.Anonymous(signInFacebookHandler))
 	SignInGoogleHandler     = app.NamedHandler(SignInGoogleHandlerName, app.Anonymous(signInGoogleHandler))
 	SignInTwitterHandler    = app.NamedHandler(SignInTwitterHandlerName, app.Anonymous(signInTwitterHandler))
+	SignInGithubHandler     = app.NamedHandler(SignInGithubHandlerName, app.Anonymous(signInGithubHandler))
 	SignUpHandler           = app.NamedHandler(SignUpHandlerName, app.Anonymous(signUpHandler))
 	SignOutHandler          = app.NamedHandler(SignOutHandlerName, app.SignOutHandler)
 	ForgotHandler           = app.NamedHandler(ForgotHandlerName, app.Anonymous(forgotHandler))
@@ -78,14 +81,10 @@ func signInHandler(ctx *app.Context) {
 	}
 	user, _ := newEmptyUser()
 	data := map[string]interface{}{
-		"Social":       FacebookApp != nil || TwitterApp != nil,
-		"FacebookApp":  FacebookApp,
-		"GoogleApp":    GoogleApp,
-		"GoogleScopes": strings.Join(GoogleScopes, " "),
-		"TwitterApp":   TwitterApp,
-		"From":         from,
-		"SignInForm":   form,
-		"SignUpForm":   SignUpForm(ctx, user),
+		"SocialTypes": enabledSocialTypes(),
+		"From":        from,
+		"SignInForm":  form,
+		"SignUpForm":  SignUpForm(ctx, user),
 	}
 	tmpl := SignInTemplateName
 	if ctx.FormValue("modal") != "" && SignInModalTemplateName != "" {
@@ -291,4 +290,50 @@ func saveNewUser(ctx *app.Context, user reflect.Value) {
 	setUserValue(user, "Created", time.Now().UTC())
 	ctx.Orm().MustInsert(user.Interface())
 	ctx.MustSignIn(asGondolaUser(user))
+}
+
+func delayedHandler(f func() app.Handler) app.Handler {
+	var handler app.Handler
+	var mu sync.Mutex
+	return func(ctx *app.Context) {
+		if handler == nil {
+			mu.Lock()
+			defer mu.Unlock()
+			if handler == nil {
+				handler = f()
+				if handler == nil {
+					ctx.NotFound("")
+					return
+				}
+			}
+		}
+		handler(ctx)
+	}
+}
+
+func windowCallbackHandler(ctx *app.Context, user reflect.Value, callback string) {
+	inWindow := ctx.FormValue("window") != ""
+	if user.IsValid() {
+		ctx.MustSignIn(asGondolaUser(user))
+	}
+	if inWindow {
+		var payload []byte
+		if user.IsValid() {
+			var err error
+			payload, err = JSONEncode(user.Interface())
+			if err != nil {
+				panic(err)
+			}
+		}
+		ctx.MustExecute("js-callback.html", map[string]interface{}{
+			"Callback": callback,
+			"Payload":  payload,
+		})
+	} else {
+		if user.IsValid() {
+			redirectToFrom(ctx)
+		} else {
+			ctx.MustRedirectReverse(false, app.SignInHandlerName)
+		}
+	}
 }

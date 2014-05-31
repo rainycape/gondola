@@ -27,14 +27,21 @@ func userImageId(val reflect.Value) (string, string) {
 	if image, _ := getUserValue(val, "Image").(string); image != "" {
 		return image, getUserValue(val, "ImageFormat").(string)
 	}
-	if fb, _ := getUserValue(val, "Facebook").(*Facebook); fb != nil && fb.Image != "" {
-		return fb.Image, fb.ImageFormat
+	for val.Kind() == reflect.Ptr {
+		if val.IsNil() {
+			return "", ""
+		}
+		val = val.Elem()
 	}
-	if tw, _ := getUserValue(val, "Twitter").(*Twitter); tw != nil && tw.Image != "" {
-		return tw.Image, tw.ImageFormat
-	}
-	if gog, _ := getUserValue(val, "Google").(*Google); gog != nil && gog.Image != "" {
-		return gog.Image, gog.ImageFormat
+	for _, v := range enabledSocialTypes() {
+		fval := val.FieldByName(v.Name)
+		if fval.IsValid() {
+			image := fval.Elem().FieldByName("Image")
+			if image.String() != "" {
+				imageFormat := fval.Elem().FieldByName("ImageName")
+				return image.String(), imageFormat.String()
+			}
+		}
 	}
 	return "", ""
 }

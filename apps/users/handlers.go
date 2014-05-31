@@ -145,9 +145,9 @@ func forgotHandler(ctx *app.Context) {
 		isEmail = strings.Contains(username, "@")
 		var field string
 		if isEmail {
-			field = "NormalizedEmail"
+			field = "User.NormalizedEmail"
 		} else {
-			field = "NormalizedUsername"
+			field = "User.NormalizedUsername"
 		}
 		ok := c.Orm().MustOne(orm.Eq(field, username), &user)
 		if !ok {

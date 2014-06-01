@@ -1,7 +1,6 @@
 package github
 
 import (
-	"errors"
 	"net/url"
 
 	"gnd.la/net/httpclient"
@@ -57,25 +56,4 @@ func (a *App) Get(path string, data url.Values, accessToken string, out interfac
 
 func (a *App) Post(path string, data url.Values, accessToken string, out interface{}) error {
 	return a.do(a.Client.Post, path, data, accessToken, out)
-}
-
-func (a *App) User(name string, accessToken string) (*User, error) {
-	var user *User
-	var p string
-	if name == "" {
-		// Authenticated user
-		p = "/user"
-	} else {
-		// Given user
-		p = "/users/" + name
-	}
-	err := a.Get(p, nil, accessToken, &user)
-	return user, err
-}
-
-func decodeError(r *httpclient.Response) error {
-	var m map[string]interface{}
-	r.UnmarshalJSON(&m)
-	message, _ := m["message"].(string)
-	return errors.New(message)
 }

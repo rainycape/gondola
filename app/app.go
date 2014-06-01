@@ -1413,6 +1413,25 @@ func (app *App) Prepare() error {
 		child.userFunc = app.userFunc
 		child.Logger = app.Logger
 	}
+	// Add hooks from each included app to all the other apps
+	for _, h := range app.hooks {
+		if h.Position == assets.None {
+			continue
+		}
+		for _, v := range app.included {
+			child := v.app
+			has := false
+			for _, ch := range child.hooks {
+				if ch == h {
+					has = true
+					break
+				}
+			}
+			if !has {
+				child.hooks = append(child.hooks, h)
+			}
+		}
+	}
 	if err == nil {
 		signal.Emit(DID_PREPARE, app)
 	}

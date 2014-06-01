@@ -15,7 +15,7 @@
   {{ $p := .Package }}
   {{ range .Values }}
     <pre class="doc">{{ $p.HTMLDecl .Decl }}</pre>
-    {{ $p.ScopedHTML .Doc .Decl }}</p>
+    {{ $p.ScopedHTML .Doc .Decl }}
   {{ end }}
 {{ end }}
 
@@ -28,7 +28,7 @@
       <a class="doc-anchor" href="{{ $p.ReversePos .Decl }}">{{ fa "external-link" }}</a>
     </h4>
     <pre class="doc">{{ $p.HTMLDecl .Decl }}</pre>
-    {{ $p.ScopedHTML .Doc .Decl }}</p>
+    {{ $p.ScopedHTML .Doc .Decl }}
     {{ with $p.FuncExamples . }}
         <ul class="list-inline list-unstyled">
           <li>Examples:</li>
@@ -44,7 +44,6 @@
 {{ $p := .Package }}
 <div class="pkg pkg-doc"{{ if .Pkg }} data-id="{{ .Pkg.ImportPath }}" data-rev="{{ .Revision.ShortIdentifier }}"{{ end }}>
   <div class="container">
-    <div>
       <span class="import">{{ with $p.CommandName }}Command {{ . }}{{ else }}{{ with $p.ImportPath }}import "{{ . }}"{{ end }}{{ end }}</span>
     {{ $doc := $p.Doc }}
     {{ $examples := $p.Examples }}

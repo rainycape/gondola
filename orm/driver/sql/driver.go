@@ -235,7 +235,9 @@ func (d *Driver) Operate(m driver.Model, q query.Q, ops []*operation.Operation) 
 			return nil, err
 		}
 		dbName = unquote(dbName)
+		buf.WriteByte('"')
 		buf.WriteString(dbName)
+		buf.WriteByte('"')
 		buf.WriteByte('=')
 		switch op.Operator {
 		case operation.OpAdd, operation.OpSub:
@@ -284,7 +286,9 @@ func (d *Driver) Update(m driver.Model, q query.Q, data interface{}) (driver.Res
 	buf.WriteByte('"')
 	buf.WriteString(" SET ")
 	for ii, v := range fields {
+		buf.WriteByte('"')
 		buf.WriteString(v)
+		buf.WriteByte('"')
 		buf.WriteByte('=')
 		buf.WriteString(d.backend.Placeholder(ii))
 		buf.WriteByte(',')

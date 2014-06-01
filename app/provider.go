@@ -29,9 +29,11 @@ func (r *regexpProvider) buildArguments() {
 	n := r.re.NumSubexp() + 1
 	m := r.matches
 	for ii := 0; ii < n; ii++ {
+		var arg string
 		if x := 2 * ii; x < len(m) && m[x] >= 0 {
-			r.arguments = append(r.arguments, r.path[m[x]:m[x+1]])
+			arg = r.path[m[x]:m[x+1]]
 		}
+		r.arguments = append(r.arguments, arg)
 	}
 }
 

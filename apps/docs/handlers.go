@@ -108,6 +108,7 @@ func packageHandler(ctx *app.Context) {
 	}
 	var title string
 	var header string
+	var distinct bool
 	switch {
 	case pkg.IsMain():
 		title = "Command " + path.Base(rel)
@@ -119,6 +120,7 @@ func packageHandler(ctx *app.Context) {
 	default:
 		title = "Package " + pkg.ImportPath()
 		header = "Package " + pkg.Name()
+		distinct = path.Base(pkg.ImportPath()) != pkg.Name()
 	}
 	breadcrumbs := []*breadcrumb{
 		{Title: "Index", Href: ctx.MustReverse(ListHandlerName)},
@@ -148,6 +150,7 @@ func packageHandler(ctx *app.Context) {
 		"Title":       title,
 		"Breadcrumbs": breadcrumbs,
 		"Package":     pkg,
+		"Distinct":    distinct,
 	}
 	ctx.MustExecute("package.html", data)
 }

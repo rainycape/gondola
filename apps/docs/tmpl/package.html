@@ -45,6 +45,7 @@
 <div class="pkg pkg-doc"{{ if .Pkg }} data-id="{{ .Pkg.ImportPath }}" data-rev="{{ .Revision.ShortIdentifier }}"{{ end }}>
   <div class="container">
       <span class="import">{{ with $p.CommandName }}Command {{ . }}{{ else }}{{ with $p.ImportPath }}import "{{ . }}"{{ end }}{{ end }}</span>
+      {{ if .Distinct }}<span class="text-muted">(referenced as <strong>{{ $p.Name }}</strong>)</span>{{ end }}
     {{ $doc := $p.Doc }}
     {{ $examples := $p.Examples }}
     {{ with $p.Synopsis }}

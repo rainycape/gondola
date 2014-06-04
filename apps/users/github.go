@@ -61,7 +61,8 @@ func signInGithubTokenHandler(ctx *app.Context, client *oauth2.Client, token *oa
 }
 
 func userFromGithubToken(ctx *app.Context, token *oauth2.Token) (reflect.Value, error) {
-	ghUser, err := GithubApp.Clone(ctx).User("", token.Key)
+	client := GithubApp.Clone(ctx)
+	ghUser, err := client.User("", token.Key)
 	if err != nil {
 		return reflect.Value{}, err
 	}
@@ -71,10 +72,21 @@ func userFromGithubToken(ctx *app.Context, token *oauth2.Token) (reflect.Value, 
 		Name:     ghUser.Name,
 		Company:  ghUser.Company,
 		Location: ghUser.Location,
-		Email:    ghUser.Email,
+		Email:    ghUser.Email, // this is the public email, if any
 		ImageURL: ghUser.AvatarURL,
 		Token:    token.Key,
 		Expires:  token.Expires,
+	}
+	// Check private emails
+	emails, _ := client.Emails(token.Key)
+	for _, v := range emails {
+		if v.Primary {
+			gh.Email = v.Address
+			break
+		}
+	}
+	if gh.Email == "" && len(emails) > 0 {
+		gh.Email = emails[0].Address
 	}
 	return userWithSocialAccount(ctx, SocialTypeGithub, gh)
 }

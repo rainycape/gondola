@@ -122,6 +122,9 @@ func userWithSocialAccount(ctx *app.Context, name string, acc socialAccount) (re
 			imageFormatVal.Set(reflect.ValueOf(imageFormat))
 			imageURLVal.Set(reflect.ValueOf(imageURL))
 		}
+		// Note: don't update main email, since it could
+		// cause a conflict if the new email is already in the db.
+		// already registered wi
 		setUserValue(user, name, acc)
 	} else {
 		image, imageFormat, imageURL := fetchImage(ctx, acc.imageURL())

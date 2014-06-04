@@ -812,7 +812,7 @@ func (t *Template) load(name string, included bool, from string) error {
 			// Look back to the previous define or beginning of the file
 			line, _ := strconv.Atoi(m[1])
 			maxP := 0
-			// Find the position in s where the error line ends
+			// Find the position in s where the error line begins
 			for ii := 0; ii < len(s) && line > 1; ii++ {
 				maxP++
 				if s[ii] == '\n' {
@@ -820,6 +820,10 @@ func (t *Template) load(name string, included bool, from string) error {
 				}
 			}
 			varName := m[2]
+			// Advance until the variable usage
+			if idx := strings.Index(s[maxP:], "$"+varName); idx > 0 {
+				maxP += idx
+			}
 			p := 0
 			// Check if we have any defines before the error line
 			dm := defineRe.FindAllStringIndex(s, -1)

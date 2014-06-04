@@ -801,12 +801,14 @@ func (t *Template) load(name string, included bool, from string) error {
 		fns = t.funcMap.asTemplateFuncMap()
 	}
 	var treeMap map[string]*parse.Tree
+	fixed := make(map[string]bool)
 	for {
 		treeMap, err = parse.Parse(name, s, leftDelim, rightDelim, templateFuncs.asTemplateFuncMap(), fns)
 		if err == nil {
 			break
 		}
-		if m := undefinedVariableRe.FindStringSubmatch(err.Error()); m != nil {
+		if m := undefinedVariableRe.FindStringSubmatch(err.Error()); m != nil && !fixed[err.Error()] {
+			fixed[err.Error()] = true
 			// Look back to the previous define or beginning of the file
 			line, _ := strconv.Atoi(m[1])
 			maxP := 0

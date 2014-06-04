@@ -16,3 +16,9 @@ type Tag struct {
 	ZipballURL string `json:"zipball_url"`
 	TarballURL string `json:"tarball_url"`
 }
+
+type Email struct {
+	Address  string `json:"email"`
+	Primary  bool   `json:"primary"`
+	Verified bool   `json:"verified"`
+}

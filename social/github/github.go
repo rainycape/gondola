@@ -21,6 +21,12 @@ func (a *App) User(name string, accessToken string) (*User, error) {
 	return user, err
 }
 
+func (a *App) Emails(accessToken string) ([]*Email, error) {
+	var emails []*Email
+	err := a.Get("/user/emails", nil, accessToken, &emails)
+	return emails, err
+}
+
 func (a *App) Repositories(username string, accessToken string) ([]*Repository, error) {
 	var repos []*Repository
 	var p string

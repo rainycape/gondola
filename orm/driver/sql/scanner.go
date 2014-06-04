@@ -7,8 +7,9 @@ import (
 
 	"gnd.la/encoding/codec"
 	"gnd.la/encoding/pipe"
-	"gnd.la/internal/pool"
 	"gnd.la/util/structs"
+
+	"gopkgs.com/pool.v1"
 )
 
 var (

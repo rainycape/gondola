@@ -3,7 +3,7 @@ package template
 import (
 	"bytes"
 
-	"gnd.la/internal/pool"
+	"gopkgs.com/pool.v1"
 )
 
 var (

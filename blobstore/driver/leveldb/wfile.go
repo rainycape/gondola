@@ -8,9 +8,9 @@ import (
 	"gnd.la/blobstore/chunk/fixed"
 	"gnd.la/encoding/binary"
 	"gnd.la/internal"
-	"gnd.la/internal/pool"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"gopkgs.com/pool.v1"
 )
 
 const (

@@ -3,7 +3,8 @@ package bootstrap
 import (
 	"fmt"
 	"gnd.la/template/assets"
-	"gnd.la/util/semver"
+
+	"gopkgs.com/semver.v1"
 )
 
 const (

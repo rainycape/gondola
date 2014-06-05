@@ -342,6 +342,12 @@ func (l *Logger) SetLevel(level LLevel) {
 	l.level = level
 }
 
+// IsDebug returns true if the Logger is showing
+// debug messages.
+func (l *Logger) IsDebug() bool {
+	return l.level <= LDebug
+}
+
 // AddWriter adds a writer to the standard logger for the standard logger.
 func SetOutput(out Writer) {
 	Std.AddWriter(out)

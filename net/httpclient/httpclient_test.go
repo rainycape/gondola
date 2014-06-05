@@ -28,7 +28,7 @@ func testUserAgent(t *testing.T, c *httpclient.Client, exp string) {
 	}
 	defer resp.Close()
 	var m map[string]interface{}
-	if err := resp.JSONDecode(&m); err != nil {
+	if err := resp.DecodeJSON(&m); err != nil {
 		t.Fatal(err)
 	}
 	ua := m["user-agent"].(string)
@@ -51,7 +51,7 @@ func TestUserAgent(t *testing.T) {
 
 func decodeArgs(resp *httpclient.Response) (map[string]string, error) {
 	var m map[string]interface{}
-	if err := resp.JSONDecode(&m); err != nil {
+	if err := resp.DecodeJSON(&m); err != nil {
 		return nil, err
 	}
 	var args map[string]interface{}

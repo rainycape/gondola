@@ -1,9 +1,10 @@
 package stringutil
 
 import (
-	"gnd.la/util/unidecode"
 	"regexp"
 	"strings"
+
+	"gopkgs.com/unidecode.v1"
 )
 
 var (

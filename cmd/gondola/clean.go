@@ -58,6 +58,7 @@ func usesTags(ctx *build.Context, pkgs map[string]bool, pkg *build.Package) bool
 		return uses
 	}
 	uses = flagsMayVary(pkg.AllTags)
+	pkgs[ip] = uses
 	for _, v := range pkg.Imports {
 		s, err := ctx.Import(v, "", 0)
 		if err == nil && s != nil {

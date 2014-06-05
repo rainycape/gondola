@@ -29,8 +29,9 @@
 //
 //  func main() {
 //	// Set up ORM, config etc...
+//	config.MustParse()
 //	a := app.New()
-//	// Set up context processors and finalizers, etc... on m
+//	// Set up context processors and finalizers, etc... on a
 //	// Now check if there's an admin command and run it
 //	if !admin.Execute(a) {
 //	    // No admin command supplied. Set up your handlers and

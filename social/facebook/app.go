@@ -29,16 +29,14 @@ func (a *App) client() *oauth2.Client {
 	return a.Client
 }
 
-func (app *App) do(f func(string, url.Values, string) (*httpclient.Response, error), path string, form url.Values, accessToken string) (map[string]interface{}, error) {
+func (app *App) do(f func(string, url.Values, string) (*httpclient.Response, error), path string, form url.Values, accessToken string, out interface{}) error {
 	endpoint := graphURL(path, accessToken)
 	resp, err := f(endpoint, form, accessToken)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Close()
-	var m map[string]interface{}
-	err = resp.UnmarshalJSON(&m)
-	return m, err
+	return resp.UnmarshalJSON(out)
 }
 
 func (a *App) Clone(ctx httpclient.Context) *App {
@@ -47,10 +45,10 @@ func (a *App) Clone(ctx httpclient.Context) *App {
 	return &ac
 }
 
-func (app *App) Get(path string, data url.Values, accessToken string) (map[string]interface{}, error) {
-	return app.do(app.Client.Get, path, data, accessToken)
+func (app *App) Get(path string, data url.Values, accessToken string, out interface{}) error {
+	return app.do(app.Client.Get, path, data, accessToken, out)
 }
 
-func (app *App) Post(path string, data url.Values, accessToken string) (map[string]interface{}, error) {
-	return app.do(app.Client.Post, path, data, accessToken)
+func (app *App) Post(path string, data url.Values, accessToken string, out interface{}) error {
+	return app.do(app.Client.Post, path, data, accessToken, out)
 }

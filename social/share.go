@@ -45,7 +45,9 @@ func Share(ctx *app.Context, s Service, item *Item, config interface{}) (interfa
 		if len(item.Images) > 0 {
 			parameters.Set("picture", item.Images[0].String())
 		}
-		return conf.App.Clone(ctx).Post(path, parameters, conf.AccessToken)
+		var out interface{}
+		err := conf.App.Clone(ctx).Post(path, parameters, conf.AccessToken, &out)
+		return out, err
 	case Pinterest:
 		conf := config.(*PinterestConfig)
 		sess, err := conf.Account.Clone(ctx).SignIn()

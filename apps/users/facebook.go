@@ -8,6 +8,7 @@ import (
 
 	"gnd.la/app"
 	"gnd.la/net/oauth2"
+	"gnd.la/social/facebook"
 )
 
 var (
@@ -84,25 +85,23 @@ func fetchFacebookUser(ctx *app.Context, token *oauth2.Token) (*Facebook, error)
 	fields := "id,name,first_name,last_name,email,username,picture.width(200),picture.height(200)"
 	values := make(url.Values)
 	values.Set("fields", fields)
-	info, err := FacebookApp.Clone(ctx).Get("/me", values, token.Key)
-	if err != nil {
+	var person *facebook.Person
+	if err := FacebookApp.Clone(ctx).Get("/me", values, token.Key, &person); err != nil {
 		return nil, err
 	}
-	id := info["id"].(string)
-	username, _ := info["username"].(string)
-	firstName, _ := info["first_name"].(string)
-	lastName, _ := info["last_name"].(string)
-	name, _ := info["name"].(string)
-	email, _ := info["email"].(string)
-	picture := facebookUserImage(info)
+	fmt.Printf("PERS %+v", person)
+	var imageURL string
+	if person.Picture != nil && person.Picture.Data != nil && !person.Picture.Data.IsSilhouette {
+		imageURL = person.Picture.Data.URL
+	}
 	return &Facebook{
-		Id:        id,
-		Username:  username,
-		Name:      name,
-		FirstName: firstName,
-		LastName:  lastName,
-		Email:     email,
-		ImageURL:  picture,
+		Id:        person.Id,
+		Username:  person.Username,
+		Name:      person.Name,
+		FirstName: person.FirstName,
+		LastName:  person.LastName,
+		Email:     person.Email,
+		ImageURL:  imageURL,
 		Token:     token.Key,
 		Expires:   token.Expires.UTC(),
 	}, nil
@@ -115,19 +114,6 @@ func userFromFacebookToken(ctx *app.Context, token *oauth2.Token) (reflect.Value
 	}
 	user, err := fetchFacebookUser(ctx, extended)
 	return userWithSocialAccount(ctx, SocialTypeFacebook, user)
-}
-
-func facebookUserImage(user map[string]interface{}) string {
-	if picture, ok := user["picture"].(map[string]interface{}); ok {
-		if data, ok := picture["data"].(map[string]interface{}); ok {
-			if isSil, _ := data["is_silhouette"].(bool); !isSil {
-				if url, ok := data["url"].(string); ok {
-					return url
-				}
-			}
-		}
-	}
-	return ""
 }
 
 func facebookChannelHandler(ctx *app.Context) {

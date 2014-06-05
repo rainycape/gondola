@@ -32,8 +32,8 @@ func (app *App) Extend(token *oauth2.Token) (*oauth2.Token, error) {
 }
 
 func (app *App) AccountToken(token *oauth2.Token, accountId string) (*oauth2.Token, error) {
-	resp, err := app.Get("/me/accounts", nil, token.Key)
-	if err != nil {
+	var resp map[string]interface{}
+	if err := app.Get("/me/accounts", nil, token.Key, &resp); err != nil {
 		return nil, err
 	}
 	data := resp["data"].([]interface{})

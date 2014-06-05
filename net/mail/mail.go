@@ -21,9 +21,6 @@ const (
 )
 
 var (
-	defaultServer      = "localhost:25"
-	defaultFrom        = ""
-	admin              = ""
 	errNoMessage       = errors.New("no message specified")
 	errNoDestinataries = errors.New("no destinataries specified")
 	errNoBody          = errors.New("no message body")
@@ -160,11 +157,9 @@ func Send(msg *Message) error {
 }
 
 // DefaultServer returns the default mail server address.
-func DefaultServer() string {
-	return defaultServer
-}
-
-// SetDefaultServer sets the default mail server adress in the format
+// Use the configuration file key mail_server or the
+// command line flag -mail-server to change it.
+// The format for the mail server is
 // [user:password]@host[:port]. If you want to use CRAM authentication,
 // prefix the username with "cram?" - witout quotes, otherwise PLAIN
 // authentication is used. Additionally, the special value "echo" can be
@@ -179,36 +174,25 @@ func DefaultServer() string {
 //  - echo
 //
 // The default server value is localhost:25.
-func SetDefaultServer(s string) {
-	if s == "" {
-		s = "localhost:25"
-	}
-	defaultServer = s
+func DefaultServer() string {
+	return Config.MailServer
 }
 
 // DefaultFrom returns the default From address used
-// in outgoing emails. Use gnd.la/config or SetDefaultFrom
-// to change it.
-func DefaultFrom() string {
-	return defaultFrom
-}
-
-// SetDefaultFrom sets the default From address used
 // in outgoing emails.
-func SetDefaultFrom(f string) {
-	defaultFrom = f
+// Use the configuration file key default_from or the
+// command line flag -default-from to change it.
+func DefaultFrom() string {
+	return Config.DefaultFrom
 }
 
-// AdminEmail returns the administrator email
+// AdminEmail returns the administrator email.
+// When email logging is enabled, errors will be sent to this
+// address.
+// Use the configuration file key admin_email or the
+// command line flag -admin-email to change it.
 func AdminEmail() string {
-	return admin
-}
-
-// SetAdminEmail sets the administrator's email. When
-// email logging is enabled, errors will be sent to this
-// address. You can also change this value using gnd.la/config.
-func SetAdminEmail(email string) {
-	admin = email
+	return Config.AdminEmail
 }
 
 func parseDestinataries(value interface{}, name string) ([]string, error) {

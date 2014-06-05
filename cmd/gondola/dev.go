@@ -121,11 +121,11 @@ func NewProject(dir string, config string) *Project {
 		configPath: config,
 	}
 	a := app.New()
+	a.Config().Port = 8888
 	a.Logger = nil
 	a.SetTemplatesLoader(devAssets)
 	a.Handle("/_gondola_dev_server_status", p.StatusHandler)
 	a.Handle("/", p.Handler)
-	a.Port = 8888
 	p.App = a
 	return p
 }
@@ -305,12 +305,12 @@ func (p *Project) ProjectCmd() *exec.Cmd {
 	}
 	args := []string{"-config", p.configPath, fmt.Sprintf("-port=%d", p.port)}
 	if p.noDebug {
-		args = append(args, "-app-debug=false", "-template-debug=false", "-log-debug=false")
+		args = append(args, "-debug=false", "-template-debug=false", "-log-debug=false")
 	} else {
 		if p.profile {
-			args = append(args, "-app-debug=false", "-template-debug=false", "-log-debug")
+			args = append(args, "-debug=false", "-template-debug=false", "-log-debug")
 		} else {
-			args = append(args, "-app-debug", "-template-debug", "-log-debug")
+			args = append(args, "-debug", "-template-debug", "-log-debug")
 		}
 	}
 	if p.noCache {
@@ -601,7 +601,7 @@ func findConfig(dir string, name string) string {
 		if c := findConfig(dir, devConfigName); c != "" {
 			return c
 		}
-		name = config.DefaultName
+		name = filepath.Base(config.DefaultFilename)
 	}
 	configPath := filepath.Join(dir, name)
 	for _, v := range []string{configPath, name} {
@@ -675,7 +675,7 @@ func init() {
 		Help: "Starts the development server",
 		Flags: admin.Flags(
 			admin.StringFlag("dir", ".", "Directory of the project"),
-			admin.StringFlag("config", "", "Configuration name to use - if empty the following are tried, in order "+devConfigName+", "+config.DefaultName),
+			admin.StringFlag("config", "", "Configuration name to use - if empty the following are tried, in order "+devConfigName+", "+filepath.Base(config.DefaultFilename)),
 			admin.StringFlag("tags", "", "Go build tags to pass to the compiler"),
 			admin.BoolFlag("no-debug", false, "Disable AppDebug, TemplateDebug and LogDebug - see gnd.la/config for details"),
 			admin.BoolFlag("no-cache", false, "Disables the cache when running the project"),

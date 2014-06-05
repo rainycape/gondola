@@ -19,7 +19,7 @@ func (w *SmtpWriter) Level() LLevel {
 }
 
 func (w *SmtpWriter) Write(level LLevel, flags int, b []byte) (int, error) {
-	if w.server == "" || w.from == "" || len(w.to) == 0 {
+	if w.server == "" || len(w.to) == 0 {
 		return 0, nil
 	}
 

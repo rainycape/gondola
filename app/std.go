@@ -24,7 +24,7 @@ func (app *App) cache() (*Cache, error) {
 					return nil, err
 				}
 			} else {
-				c, err := cache.New(defaultCache)
+				c, err := cache.New(app.cfg.Cache)
 				if err != nil {
 					return nil, err
 				}
@@ -67,10 +67,11 @@ func (app *App) blobstore() (*blobstore.Blobstore, error) {
 			if app.parent != nil {
 				app.store, err = app.parent.Blobstore()
 			} else {
-				if defaultBlobstore == nil {
+				bs := app.cfg.Blobstore
+				if bs == nil {
 					return nil, errNoDefaultBlobstore
 				}
-				app.store, err = blobstore.New(defaultBlobstore)
+				app.store, err = blobstore.New(bs)
 			}
 			if err != nil {
 				return nil, err
@@ -81,8 +82,8 @@ func (app *App) blobstore() (*blobstore.Blobstore, error) {
 }
 
 func (app *App) checkPort() error {
-	if app.Port <= 0 {
-		return fmt.Errorf("port %d is invalid, must be > 0", app.Port)
+	if p := app.cfg.Port; p <= 0 {
+		return fmt.Errorf("port %d is invalid, must be > 0", p)
 	}
 	return nil
 }

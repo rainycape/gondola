@@ -134,7 +134,7 @@ func TestExpectErrors(t *testing.T) {
 
 func init() {
 	testApp = app.New()
-	testApp.Secret = stringutil.Random(32)
+	testApp.Config().Secret = stringutil.Random(32)
 	testApp.Handle("^/hello$", func(ctx *app.Context) {
 		ctx.Header().Add("X-Hello", "World")
 		ctx.Header().Add("X-Number", "42")

@@ -127,7 +127,7 @@ func template_tnc(ctx *Context, context string, singular string, plural string, 
 
 func newTemplate(app *App, loader loaders.Loader, manager *assets.Manager) *Template {
 	t := &Template{tmpl: template.New(loader, manager), app: app}
-	t.tmpl.Debug = app.TemplateDebug
+	t.tmpl.Debug = app.cfg.TemplateDebug
 	t.tmpl.Funcs(templateFuncs).Funcs(template.FuncMap{"#reverse": t.reverse})
 	return t
 }

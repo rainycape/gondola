@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"gnd.la/app/profile"
-	"gnd.la/crypto/cryptoutil"
 	"gnd.la/encoding/base64"
 )
 
@@ -41,7 +40,10 @@ func shouldProfile(ctx *Context) bool {
 			ctx.Header().Add(profile.HeaderName, "auth")
 			return false
 		}
-		signer := cryptoutil.Signer{Salt: []byte(profile.Salt), Key: []byte(ctx.app.Secret)}
+		signer, err := ctx.app.Signer([]byte(profile.Salt))
+		if err != nil {
+			return false
+		}
 		data, err := signer.Unsign(req)
 		if err == nil {
 			parts := strings.Split(string(data), ":")

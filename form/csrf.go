@@ -3,6 +3,7 @@ package form
 import (
 	"crypto/sha256"
 	"crypto/subtle"
+	"errors"
 	"strings"
 
 	"gnd.la/app"
@@ -147,11 +148,15 @@ func csrfEncryptSigner(ctx *app.Context, salt string) (*cryptoutil.EncryptSigner
 	encrypter, _ := a.Encrypter()
 	if encrypter == nil {
 		var key []byte
-		if len(a.EncryptionKey) > 0 {
-			key = []byte(a.EncryptionKey)
+		cfg := a.Config()
+		if cfg == nil || cfg.Secret == "" {
+			return nil, errors.New("can't generate CSRF tokens, App configuration has no Secret")
+		}
+		if len(cfg.EncryptionKey) > 0 {
+			key = []byte(cfg.EncryptionKey)
 		} else {
 			s := sha256.New()
-			s.Write([]byte(a.Secret))
+			s.Write([]byte(cfg.Secret))
 			key = s.Sum(nil)
 		}
 		encrypter = &cryptoutil.Encrypter{Cipherer: a.Cipherer, Key: key}

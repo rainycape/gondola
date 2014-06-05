@@ -86,6 +86,6 @@ func testApp(nolog bool) (*App, string) {
 	app.Handle("^/foobar5/$", f)
 	app.Handle("^/article/(\\d)$", f)
 	app.Handle("^/$", f)
-	url := fmt.Sprintf("http://localhost:%d/", DefaultPort())
+	url := fmt.Sprintf("http://localhost:%d/", app.Config().Port)
 	return app, url
 }

@@ -26,45 +26,45 @@ func init() {
 	assetsHandler := assets.Handler(manager)
 	App.Handle("^"+prefix, func(ctx *app.Context) { assetsHandler(ctx, ctx.R) })
 	App.AddTemplateVars(map[string]interface{}{
-		"FacebookApp":         func() interface{} { return FacebookApp },
-		"SignUp":              SignUpHandlerName,
-		"SocialTypes":         enabledSocialTypes,
-		"SiteName":            func() string { return SiteName },
-		"FacebookPermissions": func() []string { return FacebookPermissions },
-		"JSSignIn":            JSSignInHandlerName,
-		"JSSignInFacebook":    JSSignInFacebookHandlerName,
-		"SignInGoogle":        SignInGoogleHandlerName,
-		"SignInTwitter":       SignInTwitterHandlerName,
-		"SignInGithub":        SignInGithubHandlerName,
-		"AllowUserSignIn":     func() bool { return AllowUserSignIn },
 		"JSSignInGoogle":      JSSignInGoogleHandlerName,
 		"SignIn":              func() string { return SignInHandlerName },
 		"SignInFacebook":      SignInFacebookHandlerName,
 		"User":                Current,
-		"GoogleApp":           func() interface{} { return GoogleApp },
+		"SocialTypes":         enabledSocialTypes,
+		"FacebookPermissions": func() []string { return FacebookPermissions },
 		"GoogleScopes":        func() []string { return GoogleScopes },
 		"TwitterApp":          func() interface{} { return TwitterApp },
+		"JSSignIn":            JSSignInHandlerName,
+		"JSSignInFacebook":    JSSignInFacebookHandlerName,
+		"Reset":               ResetHandlerName,
+		"SignInGoogle":        SignInGoogleHandlerName,
+		"SignInGithub":        SignInGithubHandlerName,
+		"SignOut":             SignOutHandlerName,
+		"FacebookChannel":     FacebookChannelHandlerName,
+		"AllowUserSignIn":     func() bool { return AllowUserSignIn },
+		"FacebookApp":         func() interface{} { return FacebookApp },
+		"SignUp":              SignUpHandlerName,
+		"SiteName":            func() string { return SiteName },
+		"GoogleApp":           func() interface{} { return GoogleApp },
 		"GithubApp":           func() interface{} { return GithubApp },
 		"JSSignUp":            JSSignUpHandlerName,
 		"Forgot":              ForgotHandlerName,
-		"Reset":               ResetHandlerName,
-		"SignOut":             SignOutHandlerName,
-		"FacebookChannel":     FacebookChannelHandlerName,
+		"SignInTwitter":       SignInTwitterHandlerName,
 	})
 	App.HandleOptions("^/sign-in/$", SignInHandler.Handler, SignInHandler.Options)
 	App.HandleOptions("^/sign-in/facebook/$", SignInFacebookHandler.Handler, SignInFacebookHandler.Options)
 	App.HandleOptions("^/js/sign-in/google/$", JSSignInGoogleHandler.Handler, JSSignInGoogleHandler.Options)
-	App.HandleOptions("^/image/(\\w+)\\.(\\w{3})$", UserImageHandler.Handler, UserImageHandler.Options)
-	App.HandleOptions("^/sign-in/twitter/$", SignInTwitterHandler.Handler, SignInTwitterHandler.Options)
-	App.HandleOptions("^/forgot/$", ForgotHandler.Handler, ForgotHandler.Options)
-	App.HandleOptions("^/js/sign-up/$", JSSignUpHandler.Handler, JSSignUpHandler.Options)
-	App.HandleOptions("^/sign-up/$", SignUpHandler.Handler, SignUpHandler.Options)
 	App.HandleOptions("^/sign-in/google/$", SignInGoogleHandler.Handler, SignInGoogleHandler.Options)
+	App.HandleOptions("^/sign-in/twitter/$", SignInTwitterHandler.Handler, SignInTwitterHandler.Options)
 	App.HandleOptions("^/sign-in/github/$", SignInGithubHandler.Handler, SignInGithubHandler.Options)
-	App.HandleOptions("^/sign-out/$", SignOutHandler.Handler, SignOutHandler.Options)
-	App.HandleOptions("^/reset/$", ResetHandler.Handler, ResetHandler.Options)
 	App.HandleOptions("^/js/sign-in/$", JSSignInHandler.Handler, JSSignInHandler.Options)
 	App.HandleOptions("^/js/sign-in/facebook/$", JSSignInFacebookHandler.Handler, JSSignInFacebookHandler.Options)
+	App.HandleOptions("^/sign-up/$", SignUpHandler.Handler, SignUpHandler.Options)
+	App.HandleOptions("^/image/(\\w+)\\.(\\w{3})$", UserImageHandler.Handler, UserImageHandler.Options)
+	App.HandleOptions("^/sign-out/$", SignOutHandler.Handler, SignOutHandler.Options)
+	App.HandleOptions("^/forgot/$", ForgotHandler.Handler, ForgotHandler.Options)
+	App.HandleOptions("^/reset/$", ResetHandler.Handler, ResetHandler.Options)
+	App.HandleOptions("^/js/sign-up/$", JSSignUpHandler.Handler, JSSignUpHandler.Options)
 	App.HandleOptions("^/fb-channel/$", FacebookChannelHandler.Handler, FacebookChannelHandler.Options)
 	template.AddFuncs(template.FuncMap{
 		"__users_get_social": getSocial,

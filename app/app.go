@@ -135,17 +135,6 @@ var (
 // to initialize an App, since there are some private fields which
 // require initialization.
 //
-// The following fields are not recommended to
-// change from code. Instead, users should specify
-// their values in the app configuration (see
-// gnd.la/config for more information). Otherwise,
-// Gondola's development server will not work.
-// Note that these parameters must be set in the
-// parent app BEFORE including any app and must not
-// be changed after the app starts listening.
-//
-//  Port, Debug, TemplateDebug, Secret, EncrytionKey and DefaultLanguage
-//
 // Cookie configuration fields should be set
 // from your code, since there are no configuration
 // options for them. Note that the defaults will work
@@ -164,32 +153,6 @@ type App struct {
 	// logging at all and gain a bit more of performance.
 	Logger *log.Logger
 
-	// Port indicates the port this app will listen on.
-	Port int
-	// Debug indicates if debug mode is enabled. If true,
-	// runtime errors generate detailed an error page with
-	// stack traces and request information.
-	Debug bool
-	// TemplateDebug indicates if this app should handle
-	// templates in debug mode. When it's enabled, assets
-	// are not bundled and templates are recompiled each
-	// time they are loaded.
-	TemplateDebug bool
-	// Secret indicates the secret associated with this app,
-	// which is used for signed cookies. It should be a
-	// random string with at least 32 characters.
-	// You can use gondola random-string to generate one.
-	Secret string
-	// EncriptionKey is the encryption key for this
-	// app, which is used by encrypted cookies. It should
-	// be a random string of 16 or 24 or 32 characters.
-	EncryptionKey string
-
-	// DefaultLanguage indicates the language used for
-	// translating strings when there's no LanguageHandler
-	// or when it returns an empty string.
-	DefaultLanguage string
-
 	// CookieOptions indicates the default options used
 	// used for cookies. If nil, the default values as returned
 	// by cookies.Defaults() are used.
@@ -206,6 +169,8 @@ type App struct {
 	// it defaults to AES.
 	Cipherer cryptoutil.Cipherer
 
+	// config received in New or defaultConfig, never nil
+	cfg *Config
 	// used for Get/Set
 	values map[string]interface{}
 
@@ -599,8 +564,11 @@ func (app *App) LoadTemplate(name string) (*Template, error) {
 		if err := tmpl.prepare(); err != nil {
 			return nil, err
 		}
-		if !app.TemplateDebug {
+		if !app.cfg.TemplateDebug {
 			app.templatesMutex.Lock()
+			if app.templatesCache == nil {
+				app.templatesCache = make(map[string]*Template)
+			}
 			app.templatesCache[name] = tmpl
 			app.templatesMutex.Unlock()
 		}
@@ -637,7 +605,7 @@ func (app *App) loadTemplate(loader loaders.Loader, manager *assets.Manager, nam
 }
 
 func (app *App) rewriteAssets(t *template.Template, included *includedApp) error {
-	if app.TemplateDebug {
+	if app.cfg.TemplateDebug {
 		return nil
 	}
 	for _, group := range t.Assets() {
@@ -851,9 +819,9 @@ func (app *App) ListenAndServe() error {
 	app.started = time.Now().UTC()
 	if app.Logger != nil && os.Getenv("GONDOLA_DEV_SERVER") == "" {
 		if app.address != "" {
-			app.Logger.Infof("Listening on %s, port %d", app.address, app.Port)
+			app.Logger.Infof("Listening on %s, port %d", app.address, app.cfg.Port)
 		} else {
-			app.Logger.Infof("Listening on port %d", app.Port)
+			app.Logger.Infof("Listening on port %d", app.cfg.Port)
 		}
 	}
 	var err error
@@ -862,7 +830,7 @@ func (app *App) ListenAndServe() error {
 			signal.Emit(DID_LISTEN, app)
 		}
 	})
-	err = http.ListenAndServe(app.address+":"+strconv.Itoa(app.Port), app)
+	err = http.ListenAndServe(app.address+":"+strconv.Itoa(app.cfg.Port), app)
 	return err
 }
 
@@ -871,7 +839,7 @@ func (app *App) ListenAndServe() error {
 func (app *App) MustListenAndServe() {
 	err := app.ListenAndServe()
 	if err != nil {
-		log.Panicf("error listening on port %d: %s", app.Port, err)
+		log.Panicf("error listening on port %d: %s", app.cfg.Port, err)
 	}
 }
 
@@ -900,15 +868,16 @@ func (app *App) openOrm() (*orm.Orm, error) {
 	if app.parent != nil {
 		return app.parent.openOrm()
 	}
-	if defaultDatabase == nil {
+	db := app.cfg.Database
+	if db == nil {
 		return nil, errNoDefaultDatabase
 	}
-	o, err := orm.New(defaultDatabase)
+	o, err := orm.New(db)
 	if err != nil {
 		return nil, err
 	}
-	if log.Std.Level() == log.LDebug {
-		o.SetLogger(log.Std)
+	if app.Logger != nil && app.Logger.Level() == log.LDebug {
+		o.SetLogger(app.Logger)
 	}
 	return o, nil
 }
@@ -1029,7 +998,7 @@ func (app *App) logError(ctx *Context, err interface{}) {
 		}
 		// Check if there are any attached files that we might
 		// want to send in an email
-		if !app.Debug && mail.AdminEmail() != "" {
+		if !app.cfg.Debug && mail.AdminEmail() != "" {
 			ctx.R.ParseMultipartForm(32 << 20) // 32 MiB, as stdlib
 			if form := ctx.R.MultipartForm; form != nil {
 				var count int
@@ -1074,7 +1043,7 @@ func (app *App) logError(ctx *Context, err interface{}) {
 		}
 	}
 	log.Error(buf.String())
-	if app.Debug {
+	if app.cfg.Debug {
 		app.errorPage(ctx, elapsed, skip, stackSkip, req, err)
 	} else {
 		app.handleHTTPError(ctx, "Internal Server Error", http.StatusInternalServerError)
@@ -1240,46 +1209,46 @@ func (app *App) closeContext(ctx *Context) {
 
 func (app *App) importAssets(included *includedApp) error {
 	am := included.app.assetsManager
-	if app.TemplateDebug {
+	if app.cfg.TemplateDebug {
 		am.SetPrefix(included.prefix + am.Prefix())
-	} else {
-		m := app.assetsManager
-		prefix := strings.ToLower(included.app.name)
-		res, err := am.Loader().List()
+		return nil
+	}
+	m := app.assetsManager
+	prefix := strings.ToLower(included.app.name)
+	res, err := am.Loader().List()
+	if err != nil {
+		return err
+	}
+	log.Debugf("will import assets %v from app %s", res, included.app.name)
+	renames := make(map[string]string)
+	for _, v := range res {
+		src, _, err := am.Load(v)
 		if err != nil {
 			return err
 		}
-		log.Debugf("will import assets %v from app %s", res, included.app.name)
-		renames := make(map[string]string)
-		for _, v := range res {
-			src, _, err := am.Load(v)
-			if err != nil {
-				return err
-			}
-			defer src.Close()
-			sum := hashutil.Fnv32a(src)
-			nonExt := v[:len(v)-len(path.Ext(v))]
-			dest := path.Join(prefix, nonExt+".gen."+sum+path.Ext(v))
-			renames[v] = dest
-			log.Debugf("importing asset %q as %q", v, dest)
-			if f, _, _ := m.Load(dest); f != nil {
-				f.Close()
-				continue
-			}
-			f, err := m.Create(dest, true)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-			if _, err := src.Seek(0, os.SEEK_SET); err != nil {
-				return err
-			}
-			if _, err := io.Copy(f, src); err != nil {
-				return err
-			}
+		defer src.Close()
+		sum := hashutil.Fnv32a(src)
+		nonExt := v[:len(v)-len(path.Ext(v))]
+		dest := path.Join(prefix, nonExt+".gen."+sum+path.Ext(v))
+		renames[v] = dest
+		log.Debugf("importing asset %q as %q", v, dest)
+		if f, _, _ := m.Load(dest); f != nil {
+			f.Close()
+			continue
 		}
-		included.renames = renames
+		f, err := m.Create(dest, true)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		if _, err := src.Seek(0, os.SEEK_SET); err != nil {
+			return err
+		}
+		if _, err := io.Copy(f, src); err != nil {
+			return err
+		}
 	}
+	included.renames = renames
 	return nil
 }
 
@@ -1290,13 +1259,14 @@ func (app *App) Signer(salt []byte) (*cryptoutil.Signer, error) {
 	if len(salt) < 16 {
 		return nil, fmt.Errorf("salt must be at least 16 bytes, it's %d", len(salt))
 	}
-	if app.Secret == "" {
+	secret := app.cfg.Secret
+	if secret == "" {
 		return nil, errNoSecret
 	}
 	return &cryptoutil.Signer{
 		Hasher: app.Hasher,
 		Salt:   salt,
-		Key:    []byte(app.Secret),
+		Key:    []byte(secret),
 	}, nil
 }
 
@@ -1304,12 +1274,13 @@ func (app *App) Signer(salt []byte) (*cryptoutil.Signer, error) {
 // Cipherer and Key to encrypt values. If the App has no
 // Key, an error will be returned.
 func (app *App) Encrypter() (*cryptoutil.Encrypter, error) {
-	if app.EncryptionKey == "" {
+	key := app.cfg.EncryptionKey
+	if key == "" {
 		return nil, errNoKey
 	}
 	return &cryptoutil.Encrypter{
 		Cipherer: app.Cipherer,
-		Key:      []byte(app.EncryptionKey),
+		Key:      []byte(key),
 	}, nil
 }
 
@@ -1391,20 +1362,16 @@ func (app *App) Prepare() error {
 		}
 	}
 	signal.Emit(WILL_PREPARE, app)
-	if app.Secret != "" && len(app.Secret) < 32 && os.Getenv("GONDOLA_ALLOW_SHORT_SECRET") == "" {
+	if s := app.cfg.Secret; s != "" && len(s) < 32 && os.Getenv("GONDOLA_ALLOW_SHORT_SECRET") == "" {
 		if os.Getenv("GONDOLA_IS_DEV_SERVER") != "" {
 			os.Setenv("GONDOLA_IS_DEV_SERVER", "")
 		} else {
-			return fmt.Errorf("secret %q is too short, must be at least 32 characters - use gondola random-string to generate one", app.Secret)
+			return fmt.Errorf("secret %q is too short, must be at least 32 characters - use gondola random-string to generate one", s)
 		}
 	}
 	for _, v := range app.included {
 		child := v.app
-		child.Debug = app.Debug
-		child.TemplateDebug = app.TemplateDebug
-		child.Secret = app.Secret
-		child.EncryptionKey = app.EncryptionKey
-		child.DefaultLanguage = app.DefaultLanguage
+		child.cfg = app.cfg
 		child.CookieOptions = app.CookieOptions
 		child.CookieCodec = app.CookieCodec
 		child.Hasher = app.Hasher
@@ -1438,41 +1405,45 @@ func (app *App) Prepare() error {
 	return err
 }
 
-// New returns a new App initialized with the current default values.
-// See gnd.la/defaults for further information. Keep in mind that,
-// for performance reasons, the values from gnd.la/defaults are
-// copied to the app when it's created, so any changes made to
-// gnd.la/defaults after app creation won't have any effect on it.
+// Config returns the App configuration, which will always
+// be non-nil. Note that is not recommended altering the Config
+// fields from your code. Instead, use the configuration file and
+// flags.
+func (app *App) Config() *Config {
+	return app.cfg
+}
+
+// New returns a new App initialized with the given config. If config
+// is nil, the default configuration (exposed via gnd.la/config) is
+// used instead.
 func New() *App {
-	m := &App{
-		Logger:          log.Std,
-		Port:            defaultPort,
-		Debug:           defaultDebug,
-		TemplateDebug:   defaultTemplateDebug,
-		Secret:          defaultSecret,
-		EncryptionKey:   defaultEncryptionKey,
-		DefaultLanguage: defaultLanguage,
-		appendSlash:     true,
-		templatesCache:  make(map[string]*Template),
+	// Make a copy of the configuration
+	cc := defaultConfig
+	cfg := &cc
+	a := &App{
+		Logger:         log.Std,
+		cfg:            cfg,
+		appendSlash:    true,
+		templatesCache: make(map[string]*Template),
 	}
 	// Used to automatically reload the page on panics when the server
 	// is restarted.
-	if m.Debug || profile.On {
-		m.Handle("^/debug/pprof/cmdline", wrap(pprof.Cmdline))
-		m.Handle("^/debug/pprof/profile", wrap(pprof.Profile))
-		m.Handle("^/debug/pprof", wrap(pprof.Index))
-		m.Handle("^/debug/profile", profileInfoHandler)
-		m.Handle(devStatusPage, func(ctx *Context) {
+	if cfg.Debug || profile.On {
+		a.Handle("^/debug/pprof/cmdline", wrap(pprof.Cmdline))
+		a.Handle("^/debug/pprof/profile", wrap(pprof.Profile))
+		a.Handle("^/debug/pprof", wrap(pprof.Index))
+		a.Handle("^/debug/profile", profileInfoHandler)
+		a.Handle(devStatusPage, func(ctx *Context) {
 			ctx.WriteJSON(map[string]interface{}{
 				"built":   nil,
-				"started": strconv.FormatInt(m.started.Unix(), 10),
+				"started": strconv.FormatInt(a.started.Unix(), 10),
 			})
 		})
-		m.Handle(monitorAPIPage, monitorAPIHandler)
-		m.Handle(monitorPage, monitorHandler)
-		m.addAssetsManager(internalAssetsManager, false)
+		a.Handle(monitorAPIPage, monitorAPIHandler)
+		a.Handle(monitorPage, monitorHandler)
+		a.addAssetsManager(internalAssetsManager, false)
 	}
-	return m
+	return a
 }
 
 func wrap(f func(w http.ResponseWriter, r *http.Request)) Handler {

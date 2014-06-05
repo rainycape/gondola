@@ -43,7 +43,8 @@ func (app *App) orm() (*Orm, error) {
 	if o := app.o; o != nil {
 		return o, nil
 	}
-	if defaultDatabase == nil || defaultDatabase.Scheme == "datastore" {
+	db := app.cfg.Database
+	if db == nil || db.Scheme == "datastore" {
 		return nil, errNoAppOrm
 	}
 	// Using GCSQL
@@ -76,7 +77,7 @@ func (app *App) checkPort() error {
 }
 
 func (c *Context) cache() *Cache {
-	ca, err := cache.New(defaultCache)
+	ca, err := cache.New(c.app.cfg.Cache)
 	if err != nil {
 		panic(err)
 	}
@@ -106,10 +107,11 @@ func (c *Context) orm() *Orm {
 }
 
 func (c *Context) blobstore() *blobstore.Blobstore {
-	if defaultBlobstore == nil {
+	bs := c.app.cfg.Blobstore
+	if bs == nil {
 		panic(errNoDefaultBlobstore)
 	}
-	b, err := blobstore.New(defaultBlobstore)
+	b, err := blobstore.New(bs)
 	if err != nil {
 		panic(err)
 	}

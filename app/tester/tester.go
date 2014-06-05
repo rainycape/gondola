@@ -288,8 +288,8 @@ func (r *Request) Bench(b *testing.B) {
 	// do the boxing once, rather than on
 	// on every iteration
 	var w http.ResponseWriter = resp
-	r.App.Debug = false
-	r.App.TemplateDebug = false
+	r.App.Config().Debug = false
+	r.App.Config().TemplateDebug = false
 	// Do the request once, to allow templates
 	// to be cached
 	r.App.ServeHTTP(w, req)

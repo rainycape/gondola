@@ -9,7 +9,7 @@ func (c *Context) Language() string {
 	if c.app.languageHandler != nil {
 		return c.app.languageHandler(c)
 	}
-	return c.app.DefaultLanguage
+	return c.app.cfg.Language
 }
 
 func (c *Context) TranslationTable() *table.Table {

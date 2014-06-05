@@ -46,8 +46,8 @@ func makeBoundary() string {
 }
 
 func sendMail(to []string, cc []string, bcc []string, msg *Message) error {
-	from := defaultFrom
-	server := defaultServer
+	from := Config.DefaultFrom
+	server := Config.MailServer
 	if msg.Server != "" {
 		server = msg.Server
 	}

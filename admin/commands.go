@@ -40,7 +40,9 @@ func catFile(ctx *app.Context) {
 
 func makeAssets(ctx *app.Context) {
 	a := ctx.App()
-	a.TemplateDebug = false
+	if cfg := a.Config(); cfg != nil {
+		cfg.TemplateDebug = false
+	}
 	loader := a.TemplatesLoader()
 	if names, err := loader.List(); err == nil {
 		for _, name := range names {

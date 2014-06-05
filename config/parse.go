@@ -3,24 +3,21 @@ package config
 import (
 	"flag"
 	"fmt"
-	"gnd.la/form/input"
-	"gnd.la/internal"
-	"gnd.la/log"
-	"gnd.la/signal"
-	"gnd.la/util/pathutil"
-	"gnd.la/util/stringutil"
-	"gnd.la/util/types"
 	"io"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"gnd.la/form/input"
+	"gnd.la/internal"
+	"gnd.la/util/pathutil"
+	"gnd.la/util/stringutil"
+	"gnd.la/util/types"
 )
 
-const DefaultName = "app.conf"
-
 var (
-	defaultFilename = pathutil.Relative(DefaultName)
+	DefaultFilename = pathutil.Relative("app.conf")
 	configName      *string
 )
 
@@ -41,26 +38,12 @@ func (f fieldMap) Append(name string, value reflect.Value, tag reflect.StructTag
 
 type varMap map[string]interface{}
 
-// SetDefaultFilename changes the default filename used by Parse().
-func SetDefaultFilename(name string) {
-	defaultFilename = name
-}
-
-// DefaultFilename returns the default config filename used by Parse().
-// It might changed by calling SetDefaultFilename() or overriden using
-// the -config command line flag (the latter, of present, takes precendence).
-// The initial value is app.conf in the same directory as the application
-// binary.
-func DefaultFilename() string {
-	return defaultFilename
-}
-
 // Filename returns the filename used by Parse(). If the -config command
 // line flag was provided, it returns its value. Otherwise, it returns
 // DefaultFilename().
 func Filename() string {
 	if configName == nil || *configName == "" {
-		return defaultFilename
+		return DefaultFilename
 	}
 	return *configName
 }
@@ -312,7 +295,7 @@ func copyFlagValues(fields fieldMap, values varMap) error {
 	return nil
 }
 
-func configFields(config interface{}) (fieldMap, error) {
+func reflectValue(config interface{}) (reflect.Value, error) {
 	value := reflect.ValueOf(config)
 	for value.Kind() == reflect.Ptr {
 		if value.IsNil() {
@@ -321,8 +304,20 @@ func configFields(config interface{}) (fieldMap, error) {
 		value = value.Elem()
 	}
 	if !value.CanAddr() {
-		return nil, fmt.Errorf("config must be a pointer to a struct (it's %T)", config)
+		return reflect.Value{}, fmt.Errorf("config must be a pointer to a struct (it's %T)", config)
 	}
+	return value, nil
+}
+
+func configFields(config interface{}) (fieldMap, error) {
+	val, err := reflectValue(config)
+	if err != nil {
+		return nil, err
+	}
+	return configValueFields(val)
+}
+
+func configValueFields(value reflect.Value) (fieldMap, error) {
 	fields := make(fieldMap)
 	valueType := value.Type()
 	for ii := 0; ii < value.NumField(); ii++ {
@@ -397,51 +392,19 @@ func mapToString(v reflect.Value) string {
 	return strings.Join(s, ", ")
 }
 
-// Parse parses the application configuration into the given config struct. If
-// the configuration is parsed successfully, the signal SET is
-// emitted with the given config as its object (which sets the default parameters
-// in gnd.la/app and gnd.la/net/mail, among other packages.
-// Check the documentation on the gnd.la/signal package
-// to learn more about Gondola's signals.
-//
-// Supported types include bool, string, u?int(|8|6|32|62) and float(32|64). If
-// any config field type is not supported, an error is returned. Additionally,
-// two struct tags are taken into account. The "help" tag is used when to provide
-// a help string to the user when defining command like flags, while the "default"
-// tag is used to provide a default value for the field in case it hasn't been
-// provided as a config key nor a command line flag.
-//
-// The parsing process starts by reading the config file returned by Filename()
-// (which might be overriden by the -config command line flag), and then parses
-// any flags provided in the command line. This means any value in the config
-// file might be overriden by a command line flag.
-//
-// Go's idiomatic camel-cased struct field names are mangled into lowercase words
-// to produce the flag names and config fields. e.g. a field named "FooBar" will
-// produce a "-foo-bar" flag and a "foo_bar" config key. Embedded struct are
-// flattened, as if their fields were part of the container struct. Finally, while
-// not mandatory, is very recommended that your config struct embeds config.Config,
-// so the standard parameters for Gondola applications are already defined for you.
-// e.g.
-//
-//  var MyConfig struct {
-//	config.Config
-//	MyStringValue	string
-//	MyINTValue	int `help:"Some int used for something" default:"42"`
-//  }
-//
-//  func init() {
-//	config.MustParse(&MyConfig)
-//  }
-//  // Besides the Gondola's standard flags and keys, this config would define
-//  // the flags -my-string-value and -my-int-value as well as the config file keys
-//  // my_string_value and my_int_value.
-//
-func Parse(config interface{}) error {
-	configName = flag.String("config", defaultFilename, "Config file name")
-	fields, err := configFields(config)
-	if err != nil {
-		return err
+// Parse parses all configurations previously registered using Register or RegisterFunc.
+// See those functions for information about adding your own configuration parameters.
+func Parse() error {
+	configName = flag.String("config", DefaultFilename, "Config file name")
+	fields := make(fieldMap)
+	for _, v := range registry {
+		valueFields, err := configValueFields(v.value)
+		if err != nil {
+			return err
+		}
+		for k, v := range valueFields {
+			fields[k] = v
+		}
 	}
 	/* Setup flags before calling flag.Parse() */
 	flagValues, err := setupFlags(fields)
@@ -462,34 +425,24 @@ func Parse(config interface{}) error {
 	if err := copyFlagValues(fields, flagValues); err != nil {
 		return err
 	}
-	Set(config)
+	// Call registry functions
+	for _, v := range registry {
+		if v.f != nil {
+			v.f()
+		}
+	}
 	return nil
 }
 
 // MustParse works like Parse, but panics if there's an error.
-func MustParse(config interface{}) {
-	err := Parse(config)
-	if err != nil {
-		panic(fmt.Errorf("error parsing config: %s", err))
+func MustParse() {
+	if err := Parse(); err != nil {
+		panic(fmt.Errorf("error parsing config %s: %s", Filename(), err))
 	}
-}
-
-// Set sets the given value as the main config. It will emit the
-// SET signal, so listeners will be aware of the
-// configure. You only need to call this function if, for some
-// reason, you're not using Parse().
-func Set(config interface{}) {
-	debug := BoolValue(config, "LogDebug", false)
-	if debug {
-		log.SetLevel(log.LDebug)
-	}
-	debug = debug && BoolValue(config, "AppDebug", false)
-	setMailConfig(config, debug)
-	signal.Emit(SET, config)
 }
 
 func init() {
 	if internal.InAppEngineDevServer() {
-		defaultFilename = pathutil.Relative("dev.conf")
+		DefaultFilename = pathutil.Relative("dev.conf")
 	}
 }

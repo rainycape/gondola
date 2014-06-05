@@ -481,10 +481,10 @@ func New(r Reporter, a *app.App) *Tester {
 		flag.Parse()
 	}
 	if *remoteHost == "" {
-		if *gaeLocal {
+		if gaeLocal != nil && *gaeLocal {
 			h := gaeLocalHost
 			remoteHost = &h
-		} else if *gaeRemote {
+		} else if gaeRemote != nil && *gaeRemote {
 			h := internal.AppEngineAppHost()
 			remoteHost = &h
 		}

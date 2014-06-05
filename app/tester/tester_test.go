@@ -160,8 +160,7 @@ func init() {
 		} else {
 			values = ctx.R.Form
 		}
-		var keys []string
-		generic.Keys(values, &keys)
+		keys := generic.Keys(values).([]string)
 		sort.Strings(keys)
 		for _, k := range keys {
 			fmt.Fprintf(ctx, "%s=%s\n", k, values.Get(k))

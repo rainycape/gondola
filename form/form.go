@@ -555,6 +555,9 @@ func (f *Form) Render() (template.HTML, error) {
 // Fields are rendered according to the order of the parameters
 // passed to this function.
 func (f *Form) RenderOnly(names ...string) (template.HTML, error) {
+	if err := f.addCSRF(); err != nil {
+		return template.HTML(""), err
+	}
 	var fields []*Field
 	for _, v := range names {
 		field, err := f.lookupField(v)
@@ -569,6 +572,9 @@ func (f *Form) RenderOnly(names ...string) (template.HTML, error) {
 // RenderExcept renders all the form's fields except the ones specified
 // in the names parameter.
 func (f *Form) RenderExcept(names ...string) (template.HTML, error) {
+	if err := f.addCSRF(); err != nil {
+		return template.HTML(""), err
+	}
 	n := make(map[string]bool, len(names))
 	for _, v := range names {
 		n[v] = true

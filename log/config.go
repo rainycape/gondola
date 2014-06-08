@@ -21,7 +21,6 @@ func init() {
 			if admin != "" && server != "" {
 				writer := NewSmtpWriter(LError, server, from, admin)
 				Std.AddWriter(writer)
-				println("EMAIL ERRORS")
 			}
 		}
 	})

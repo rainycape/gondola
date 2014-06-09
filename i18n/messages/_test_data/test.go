@@ -31,30 +31,30 @@ func main() {
 	/// Please, translate this.
 	/// This comment is still part of the translation comment.
 	// This comment is not part of the translation comment.
-	fmt.Println(i18n.T("Hello world\n", nil))
+	fmt.Println(i18n.T(nil, "Hello world\n"))
 
 	/// This translation has a context
-	fmt.Println(i18n.Tc("second", "Hello world\n", nil))
+	fmt.Println(i18n.Tc(nil, "second", "Hello world\n"))
 
 	/// This is a long translation, to test line splitting in quoted strings.
-	fmt.Println(i18n.T("Lorem ipsum dolor sit amet, consectetur adipiscing elit. In sed ante ut massa ultrices auctor. Vivamus rutrum ut ante et aliquet. Proin ut rutrum enim, a elementum ligula. Morbi malesuada.", nil))
+	fmt.Println(i18n.T(nil, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. In sed ante ut massa ultrices auctor. Vivamus rutrum ut ante et aliquet. Proin ut rutrum enim, a elementum ligula. Morbi malesuada."))
 
 	// This is not part of the translation comment.
 	//
 	// T: Translate this too.
-	fmt.Println(i18n.T("Bye"+" "+"wor\"ld", nil))
+	fmt.Println(i18n.T(nil, "Bye"+" "+"wor\"ld"))
 
 	/*/ This whole comment is part of the translation
 	  comment.
 	   And it keeps newlines, but strips leading whitespace.
 	*/
 	// This, however, is not.
-	fmt.Println(i18n.T("Hello again "+"world", nil))
+	fmt.Println(i18n.T(nil, "Hello again "+"world"))
 
 	for ii := 0; ii < 5; ii++ {
 		/// Using i18n.Sprintfn. The format string is fixed by i18n.Sprintfn
 		/// so it doesn't show any extra arguments.
-		fmt.Println(i18n.Sprintfn("Hello one world", "Hello %d worlds", ii, nil, ii))
+		fmt.Println(i18n.Sprintfn(nil, "Hello one world", "Hello %d worlds", ii, ii))
 	}
 }
 

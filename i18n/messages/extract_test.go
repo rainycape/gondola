@@ -2,13 +2,22 @@ package messages
 
 import (
 	"bytes"
+	"flag"
+	"gnd.la/log"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
 )
 
+var (
+	output = flag.String("o", "", "File to extract the messages to")
+)
+
 func TestExtract(t *testing.T) {
-	m, err := Extract("_test_data", DefaultFunctions(), DefaultTypes(), DefaultTagFields())
+	if testing.Verbose() {
+		log.SetLevel(log.LDebug)
+	}
+	m, err := Extract("_test_data", DefaultExtractOptions())
 	if err != nil {
 		t.Error(err)
 	}
@@ -22,6 +31,13 @@ func TestExtract(t *testing.T) {
 		t.Error(err)
 	}
 	if len(b) != len(buf.Bytes()) || bytes.Compare(b, buf.Bytes()) != 0 {
-		t.Errorf("invalid messages (%d / %d)", len(b), len(buf.Bytes()))
+		t.Errorf("invalid messages (expected %d bytes - got %d)", len(b), len(buf.Bytes()))
 	}
+	if *output != "" {
+		ioutil.WriteFile(*output, buf.Bytes(), 0644)
+	}
+}
+
+func init() {
+	flag.Parse()
 }

@@ -71,4 +71,3 @@ msgstr ""
 #: _test_data/test.go:68
 msgid "Var inside function"
 msgstr ""
-

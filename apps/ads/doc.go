@@ -50,4 +50,4 @@
 // displaying them for free users and hiding them for paid users). Finally, if this
 // function has not been called by the time window.load trigers, it will be automatically
 // called with disabled set to false.
-package adsense
+package ads

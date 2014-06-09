@@ -1186,7 +1186,7 @@ func (app *App) CloseContext(ctx *Context) {
 		v(ctx)
 	}
 	ctx.Close()
-	if app.Logger != nil && ctx.R != nil && ctx.R.URL.Path != devStatusPage && ctx.R.URL.Path != monitorAPIPage {
+	if !ctx.background && app.Logger != nil && ctx.R != nil && ctx.R.URL.Path != devStatusPage && ctx.R.URL.Path != monitorAPIPage {
 		// Log at most with Warning level, to avoid potentially generating
 		// an email to the admin when running in production mode. If there
 		// was an error while processing this request, it has been already

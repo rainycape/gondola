@@ -1,6 +1,7 @@
 name: AdSense
 vars:
     Publisher:
+    Shadow:
 
 assets: assets
 

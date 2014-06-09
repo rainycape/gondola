@@ -4,8 +4,8 @@
 */}}
 {{ define "__ad" }}
 {{ if and @Publisher . }}
-    <div class="adsense-box" style="margin: 0 auto; position: relative;">
-      <a class="adsense-hide-button" href="#"><span class="adsense-shown">{{ tc "AdSense" "hide" }}</span><span class="adsense-hidden">{{ tc "AdSense" "show" }}</span></a>
+  <div class="adsense-box adsense-top-box {{ if @Shadow }} adsense-shadow{{ end }}">
+      <a class="adsense-hide-button" href="#"><span class="adsense-hide">{{ tc "AdSense" "hide" }}</span><span class="adsense-show">{{ tc "AdSense" "show" }}</span></a>
       <ins class="adsbygoogle adsense-box"
         style="display:block"
         data-ad-client="{{ @Publisher }}"

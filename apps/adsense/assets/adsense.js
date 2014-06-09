@@ -54,18 +54,21 @@
         var button = ad.find('.adsense-hide-button');
         var total = ad.height() + button.height();
         ad.css('bottom', -total + 'px');
+        ad.addClass('adsense-box-visible');
         // reflow
         ad.height();
         ad.animate({'bottom': 0}, 'slow');
         var hidden = false;
         button.click(function() {
+            var bottom;
             if (hidden) {
-                ad.animate({'bottom': 0}, 'slow');
-                button.removeClass('adsense-out');
+                bottom = '0';
             } else {
-                button.addClass('adsense-out');
-                ad.animate({'bottom': -ad.height() + 'px'}, 'slow');
+                bottom = -ad.height() + 'px';
             }
+            ad.toggleClass('adsense-box-visible');
+            ad.animate({'bottom': bottom}, 'slow', function() {
+            });
             hidden = !hidden;
             return false;
         });

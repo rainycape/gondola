@@ -483,59 +483,59 @@ func (s *State) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 						k := s.p.rstrings[i]
 						res = stackable(top.MapIndex(k))
 					}
-				} else {
-					name := s.p.strings[i]
-					// get pointer methods and try to call a method by that name
-					ptr := top
-					kind := ptr.Kind()
-					if kind != reflect.Interface && kind != reflect.Ptr && ptr.CanAddr() {
-						ptr = ptr.Addr()
-						kind = reflect.Ptr
+					goto endopFIELD
+				}
+				name := s.p.strings[i]
+				// get pointer methods and try to call a method by that name
+				ptr := top
+				kind := ptr.Kind()
+				if kind != reflect.Interface && kind != reflect.Ptr && ptr.CanAddr() {
+					ptr = ptr.Addr()
+					kind = reflect.Ptr
+				}
+				fn := ptr.MethodByName(name)
+				if !fn.IsValid() && kind == reflect.Ptr && ptr.Type().Elem().Kind() == reflect.Interface {
+					ptr = ptr.Elem()
+					fn = ptr.MethodByName(name)
+				}
+				if fn.IsValid() {
+					// when calling a function from a field, there will be
+					// and extra argument at the top of the stack, either
+					// the dot or the result of the last field lookup, so
+					// we have to remove it.
+					s.stack = s.stack[:p]
+					if err := s.call(fn, name, args, 0, nil); err != nil {
+						return err
 					}
-					fn := ptr.MethodByName(name)
-					if !fn.IsValid() && kind == reflect.Ptr && ptr.Type().Elem().Kind() == reflect.Interface {
-						ptr = ptr.Elem()
-						fn = ptr.MethodByName(name)
+					// s.call already puts the result in the stack
+					break
+				}
+				// try to get a field by that name
+				for top.Kind() == reflect.Ptr || top.Kind() == reflect.Interface {
+					if top.IsNil() {
+						// nil pointer or interface, put a nil on the stack.
+						// this is different from Go templates, which return an
+						// error when evaluating nil
+						goto endopFIELD
 					}
-					if fn.IsValid() {
-						// when calling a function from a field, there will be
-						// and extra argument at the top of the stack, either
-						// the dot or the result of the last field lookup, so
-						// we have to remove it.
-						s.stack = s.stack[:p]
-						if err := s.call(fn, name, args, 0, nil); err != nil {
-							return err
-						}
-						// s.call already puts the result in the stack
-						break
+					top = top.Elem()
+				}
+				if top.Kind() != reflect.Struct {
+					if err := s.requiresPointerErr(top, name); err != nil {
+						return s.formatErr(pc, tmpl, err)
 					}
-					// try to get a field by that name
-					for top.Kind() == reflect.Ptr || top.Kind() == reflect.Interface {
-						if top.IsNil() {
-							// nil pointer or interface, put a nil on the stack.
-							// this is different from Go templates, which return an
-							// error when evaluating nil
-							s.stack[p] = res
-							break
-						}
-						top = top.Elem()
+					return s.errorf(pc, tmpl, "can't evaluate field on type %T", top.Interface())
+				}
+				res = top.FieldByName(name)
+				if !res.IsValid() {
+					if err := s.requiresPointerErr(top, name); err != nil {
+						return s.formatErr(pc, tmpl, err)
 					}
-					if top.Kind() != reflect.Struct {
-						if err := s.requiresPointerErr(top, name); err != nil {
-							return s.formatErr(pc, tmpl, err)
-						}
-						return s.errorf(pc, tmpl, "can't evaluate field on type %T", top.Interface())
-					}
-					res = top.FieldByName(name)
-					if !res.IsValid() {
-						if err := s.requiresPointerErr(top, name); err != nil {
-							return s.formatErr(pc, tmpl, err)
-						}
-						return s.errorf(pc, tmpl, "%q is not a field of struct type %T", name, top.Interface())
-					}
+					return s.errorf(pc, tmpl, "%q is not a field of struct type %T", name, top.Interface())
 				}
 			}
 			// opFIELD overwrites the stack
+		endopFIELD:
 			s.stack[p] = res
 		case opFUNC:
 			args, i := decodeVal(v.val)

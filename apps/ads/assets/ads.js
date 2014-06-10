@@ -55,7 +55,6 @@
                 if (options[key]) {
                     if (network.Script) {
                         (function(selector) {
-                            console.log('loading ', network.Script);
                             $.getScript(network.Script, function(data, textStatus, jqxhr) {
                                 if (jqxhr.status == 200) {
                                     ns._ShowAds(selector);

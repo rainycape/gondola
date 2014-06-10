@@ -596,7 +596,10 @@ func (s *State) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 			name := s.p.strings[t]
 			ns := s.p.strings[n]
 			mark := s.varMark()
-			dupDot := s.stack[len(s.stack)-1]
+			var dupDot reflect.Value
+			if len(s.stack) > 0 {
+				dupDot = s.stack[len(s.stack)-1]
+			}
 			err := s.execute(name, ns, dupDot)
 			if err != nil {
 				// execute already returns the formatted error

@@ -1,0 +1,58 @@
+-
+    name: AdSense
+    description: Google's AdSense
+    publisher_example: ca-pub-123456
+    url: http://www.google.com/adsense/
+    requires_slot: true
+    responsive: true
+    script: //pagead2.googlesyndication.com/pagead/js/adsbygoogle.js
+    sizes:
+        - 120x90
+        - 120x240
+        - 120x600
+        - 125x125
+        - 160x90
+        - 160x600
+        - 180x90
+        - 180x150
+        - 200x90
+        - 200x200
+        - 234x60
+        - 250x250
+        - 300x250
+        - 300x600
+        - 300x1050
+        - 320x50
+        - 320x100
+        - 336x280
+        - 468x15
+        - 468x60
+        - 728x15
+        - 728x90
+        - 970x90
+        - 970x250
+-
+    name: Chitika
+    url: http://www.chitika.com
+    publisher_example: your-chitika-username
+    script: //cdn.chitika.net/getads.js
+    default_slot: Chitika Default
+    responsive: true
+    sizes:
+        - 120x600
+        - 160x160
+        - 160x600
+        - 200x200
+        - 250x250
+        - 300x150
+        - 300x250
+        - 300x600
+        - 336x280
+        - 468x60
+        - 468x180
+        - 468x250
+        - 500x200
+        - 500x250
+        - 550x120
+        - 550x250
+        - 728x90

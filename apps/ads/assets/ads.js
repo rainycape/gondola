@@ -1,18 +1,20 @@
 (function(name) {
     var ns = window[name] = window[name] || {};
+    {{ $last := add (len @providers) -1 }}
     var defaults = {
-        AdSense: true
+        {{ range $ii, $v := @providers }}
+            {{ $v.Name }}: true{{ if neq $ii $last }},{{ end }}
+        {{ end }}
     };
 
     var networks = {
-        AdSense: {
-            Option: 'AdSense',
-            Class: 'ads-adsense',
-            Script: '//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js',
-            Status: function(ad) {
-                return ad.find('ins.adsbygoogle').data('adsbygoogle-status');
-            }
-        }
+        {{ range $ii, $v := @providers }}
+            {{ $v.Name}}: {
+                Name: '{{ $v.Name }}',
+                Class: '{{ $v.className }}',
+                Script: '{{ $v.script }}'
+            }{{ if neq $ii $last }},{{ end }}
+        {{ end }}
     };
 
     ns.Init = function(options) {
@@ -28,16 +30,40 @@
         for (var key in networks) {
             var network = networks[key];
             var selector = '.' + network.Class;
-            if ($(selector).length > 0) {
-                if (options[network.Option]) {
+            var ads = $(selector);
+            if (ads.length > 0) {
+                ads.each(function () {
+                    var $this = $(this);
+                    if (!$this.is(':visible')) {
+                        var f = ns._getNetworkFunction(network, 'remove');
+                        if (f) {
+                            f($this);
+                        }
+                        $this.remove();
+                    }
+                });
+                ads = $(selector);
+            }
+            if (ads.length > 0) {
+                var setup = ns._getNetworkFunction(network, 'setup');
+                if (setup) {
+                    ads.each(function () {
+                        var ad = $(this);
+                        setup(ad);
+                    });
+                }
+                if (options[key]) {
                     if (network.Script) {
-                        $.getScript(network.Script, function(data, textStatus, jqxhr) {
-                            if (jqxhr.status == 200) {
-                                ns._ShowAds(selector);
-                            } else {
-                                ns._HideAds(selector);
-                            }
-                        });
+                        (function(selector) {
+                            console.log('loading ', network.Script);
+                            $.getScript(network.Script, function(data, textStatus, jqxhr) {
+                                if (jqxhr.status == 200) {
+                                    ns._ShowAds(selector);
+                                } else {
+                                    ns._HideAds(selector);
+                                }
+                            });
+                        })(selector);
                     } else {
                         ns._ShowAds(selector);
                     }
@@ -49,10 +75,10 @@
     }
 
     ns._ShowAds = function(selector) {
-        $('.ads-responsive-fixed').each(function() {
+        $('.ads-fixed').each(function() {
             var $this = $(this);
             if (!selector || $this.find(selector).length) {
-                ns._ShowResponsiveFixedAd($this);
+                ns._ShowFixedAd($this);
             }
         });
     }
@@ -66,11 +92,11 @@
         });
     }
 
-    ns._ShowResponsiveFixedAd = function(ad) {
+    ns._ShowFixedAd = function(ad) {
         var status = ns._adStatus(ad);
         if (!status) {
             // call again in a bit
-            setTimeout(function() { ns._ShowResponsiveFixedAd(ad) }, 100);
+            setTimeout(function() { ns._ShowFixedAd(ad) }, 100);
             return;
         }
         if (status !== 'done') {
@@ -80,38 +106,97 @@
         var button = ad.find('.ads-hide-button');
         button.css('display', 'block');
         var total = ad.height() + button.height();
-        ad.css('bottom', -total + 'px');
+        var prop = 'bottom';
+        if (ad.hasClass('ads-fixed-top')) {
+                prop = 'top';
+        }
+        ad.css(prop, -total + 'px');
         ad.addClass('ads-box-visible');
         // reflow
         ad.height();
-        ad.animate({'bottom': 0}, 'slow');
+        var animation = {};
+        animation[prop] = 0;
+        ad.animate(animation, 'slow');
         var hidden = false;
         button.click(function() {
-            var bottom;
+            var pos;
             if (hidden) {
-                bottom = '0';
+                pos = '0';
             } else {
-                bottom = -ad.height() + 'px';
+                pos = -ad.height() + 'px';
             }
             ad.toggleClass('ads-box-visible');
-            ad.animate({'bottom': bottom}, 'slow');
+            var animation = {};
+            animation[prop] = pos;
+            ad.animate(animation, 'slow');
             hidden = !hidden;
             return false;
         });
     }
 
-    ns._adStatus = function(ad) {
+    ns._getAdNetwork = function(ad) {
         for (var key in networks) {
             var network = networks[key];
             var selector = '.' + network.Class;
             if (ad.is(selector) || ad.find(selector).length) {
-                if (network.Status) {
-                    return network.Status(ad);
-                }
-                return 'done';
+                return network;
             }
         }
+        return null;
+    }
+
+    ns._getNetworkFunction = function(n, name) {
+        var f = ns['_'+name+n.Name];
+        if (f && f instanceof Function) {
+            return f
+        }
+        return null
+    }
+
+    ns._adStatus = function(ad) {
+        var network = ns._getAdNetwork(ad);
+        if (network) {
+            var f = ns._getNetworkFunction(network, 'status');
+            if (f) {
+                return f(ad);
+            }
+            return 'done';
+        }
         return 'failed';
+    }
+
+    // Network specific setup and status functions
+
+    ns._statusAdSense = function(ad) {
+        return ad.find('ins.adsbygoogle').data('adsbygoogle-status');
+    }
+
+    ns._removeAdSense = function(ad) {
+        // Remove ad from window.adsbygoogle
+        if (window.adsbygoogle) {
+            window.adsbygoogle.pop();
+        }
+    }
+
+    ns._setupChitika = function(ad) {
+        var div = ad.find('div').slice(0, 1);
+        var publisher = div.data('publisher');
+        var width = parseInt(div.data('width'), 10);
+        var height = parseInt(div.data('height'), 10);
+        if (!width || isNaN(width)) {
+            width = ad.width();
+        }
+        if (!height || isNaN(height)) {
+            height = ad.height();
+        }
+        var sid = div.data('sid');
+        if (window.CHITIKA === undefined) {
+            window.CHITIKA = { 'units' : [] };
+        };
+        var unit = {"calltype":"async[2]","publisher":publisher,"width":width,"height":height,"sid":sid};
+        var placement_id = window.CHITIKA.units.length;
+        window.CHITIKA.units.push(unit);
+        $('<div/>').attr('id', 'chitikaAdBlock-' + placement_id).appendTo(ad);
     }
 
     // If the ads have not been enabled or disabled when $(window).load

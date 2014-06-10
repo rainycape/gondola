@@ -1,11 +1,16 @@
 name: Ads
 vars:
     AdSense:
-    Shadow:
+    Chitika:
+    Top:
+    Bottom:
+    Fixed:
+    sizes: Sizes
+    providers:
 
 assets: assets
 
 templates:
     path: tmpl
     hooks:
-        adsense.html: none
+        assets.html: none

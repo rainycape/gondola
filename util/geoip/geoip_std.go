@@ -6,7 +6,7 @@ import (
 	"gnd.la/app"
 	"gnd.la/log"
 
-	"github.com/rainycape/geoip"
+	"gopkgs.com/geoip.v1"
 )
 
 const (

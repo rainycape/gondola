@@ -135,7 +135,7 @@ func userWithSocialAccount(ctx *app.Context, name string, acc socialAccount) (re
 		if email := acc.email(); email != "" {
 			// Check if we have a user with that email. In that case
 			// Add this social account to his account.
-			ok, err = ctx.Orm().One(orm.Eq("NormalizedEmail", Normalize(email)), userVal)
+			ok, err = ctx.Orm().One(orm.Eq("User.NormalizedEmail", Normalize(email)), userVal)
 			if err != nil {
 				return reflect.Value{}, err
 			}

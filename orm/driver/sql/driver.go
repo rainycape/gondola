@@ -112,7 +112,9 @@ func (d *Driver) createIndex(m driver.Model, idx *index.Index, name string) erro
 		if err != nil {
 			return err
 		}
+		buf.WriteByte('"')
 		buf.WriteString(name)
+		buf.WriteByte('"')
 		if DescField(idx, v) {
 			buf.WriteString(" DESC")
 		}

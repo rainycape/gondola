@@ -22,3 +22,10 @@ type Email struct {
 	Primary  bool   `json:"primary"`
 	Verified bool   `json:"verified"`
 }
+
+type Organization struct {
+	Id        int64  `json:"id"`
+	Login     string `json:"login"`
+	URL       string `json:"url"`
+	AvatarURL string `json:"avatar_url"`
+}

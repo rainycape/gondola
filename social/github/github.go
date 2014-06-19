@@ -21,6 +21,18 @@ func (a *App) User(name string, accessToken string) (*User, error) {
 	return user, err
 }
 
+func (a *App) Organizations(username string, accessToken string) ([]*Organization, error) {
+	var orgs []*Organization
+	var p string
+	if username == "" {
+		p = "/user/orgs"
+	} else {
+		p = fmt.Sprintf("/users/%s/orgs", username)
+	}
+	err := a.Get(p, nil, accessToken, &orgs)
+	return orgs, err
+}
+
 func (a *App) Emails(accessToken string) ([]*Email, error) {
 	var emails []*Email
 	err := a.Get("/user/emails", nil, accessToken, &emails)
@@ -39,9 +51,16 @@ func (a *App) Repositories(username string, accessToken string) ([]*Repository, 
 	return repos, err
 }
 
-func (a *App) Repository(username string, name string, accessToken string) (*Repository, error) {
+func (a *App) OrganizationRepositories(name string, accessToken string) ([]*Repository, error) {
+	var repos []*Repository
+	p := fmt.Sprintf("/orgs/%s/repos", name)
+	err := a.Get(p, nil, accessToken, &repos)
+	return repos, err
+}
+
+func (a *App) Repository(fullName string, accessToken string) (*Repository, error) {
 	var repo *Repository
-	p := fmt.Sprintf("/repos/%s/%s", username, name)
+	p := "/repos/" + fullName
 	err := a.Get(p, nil, accessToken, &repo)
 	return repo, err
 }

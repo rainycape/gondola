@@ -102,14 +102,20 @@ func testMigrations(t *testing.T, o *Orm) {
 	if err := o.Initialize(); err != nil {
 		t.Errorf("error initializing Migration4: %s", err)
 	}
-	if _, err := o.Insert(&Migration4{Reference: 42}); err == nil {
+	tx := o.MustBegin()
+	tx.SqlDB().Exec("PRAGMA foreign_keys = on")
+	if _, err := tx.Insert(&Migration4{Reference: 42}); err == nil {
 		t.Error("expecting an error when violating Migration4 FK")
 	}
+	tx.Rollback()
+	tx = o.MustBegin()
 	ref := &Referenced{}
-	o.MustInsert(ref)
-	if _, err := o.Insert(&Migration4{Reference: ref.Id}); err != nil {
-		t.Error(err)
+	tx.MustInsert(ref)
+	m4 := &Migration4{Reference: ref.Id}
+	if _, err := tx.Insert(m4); err != nil {
+		t.Errorf("error inserting FK %+v: %s", m4, err)
 	}
+	tx.MustCommit()
 }
 
 func TestMigrations(t *testing.T) {

@@ -132,25 +132,6 @@ func (o *Orm) MustInsert(obj interface{}) Result {
 	return res
 }
 
-// InsertInto works like insert, but stores the object in the
-// given table (as returned by Register).
-func (o *Orm) InsertInto(t *Table, obj interface{}) (Result, error) {
-	if err := t.model.fields.Methods.Save(obj); err != nil {
-		return nil, err
-	}
-	return o.insert(t.model.model, obj)
-}
-
-// MustInsertInto works like InsertInto, but panics if there's
-// an error.
-func (o *Orm) MustInsertInto(t *Table, obj interface{}) Result {
-	res, err := o.InsertInto(t, obj)
-	if err != nil {
-		panic(err)
-	}
-	return res
-}
-
 func (o *Orm) insert(m *model, obj interface{}) (Result, error) {
 	if profile.On && profile.Profiling() {
 		defer profile.Start(orm).Note("insert", m.name).End()
@@ -304,24 +285,6 @@ func (o *Orm) MustSave(obj interface{}) Result {
 	return res
 }
 
-// SaveInto works like Save, but stores the object in the given
-// table (as returned from Register).
-func (o *Orm) SaveInto(t *Table, obj interface{}) (Result, error) {
-	if err := t.model.fields.Methods.Save(obj); err != nil {
-		return nil, err
-	}
-	return o.save(t.model.model, obj)
-}
-
-// MustSaveInto works like SaveInto, but panics if there's an error.
-func (o *Orm) MustSaveInto(t *Table, obj interface{}) Result {
-	res, err := o.SaveInto(t, obj)
-	if err != nil {
-		panic(err)
-	}
-	return res
-}
-
 func (o *Orm) save(m *model, obj interface{}) (Result, error) {
 	if profile.On && profile.Profiling() {
 		defer profile.Start(orm).Note("save", m.name).End()
@@ -369,9 +332,9 @@ func (o *Orm) save(m *model, obj interface{}) (Result, error) {
 	return res, nil
 }
 
-// DeleteFromTable removes all objects from the given table matching
+// DeleteFrom removes all objects from the given table matching
 // the query.
-func (o *Orm) DeleteFromTable(t *Table, q query.Q) (Result, error) {
+func (o *Orm) DeleteFrom(t *Table, q query.Q) (Result, error) {
 	return o.delete(t.model.model, q)
 }
 
@@ -391,12 +354,6 @@ func (o *Orm) MustDelete(obj interface{}) {
 	if err := o.Delete(obj); err != nil {
 		panic(err)
 	}
-}
-
-// DeleteFrom works like Delete, but deletes from the given table
-// (as returned by Register)
-func (o *Orm) DeleteFrom(t *Table, obj interface{}) error {
-	return o.deleteByPk(t.model.model, obj)
 }
 
 func (o *Orm) deleteByPk(m *model, obj interface{}) error {

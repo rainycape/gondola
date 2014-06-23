@@ -27,16 +27,16 @@ func (s *SaveError) Save() error {
 }
 
 func testLoadSaveMethods(t *testing.T, o *Orm) {
-	SaveLoadTable := o.mustRegister((*Object)(nil), &Options{
+	o.mustRegister((*Object)(nil), &Options{
 		Table: "test_load_save_methods",
 	})
 	o.mustInitialize()
 	obj := &Object{Value: "Foo"}
-	o.MustSaveInto(SaveLoadTable, obj)
+	o.MustSave(obj)
 	if obj.saved != 1 {
 		t.Errorf("Save() was called %d times rather than 1", obj.saved)
 	}
-	_, err := o.Table(SaveLoadTable).One(&obj)
+	_, err := o.One(nil, &obj)
 	if err != nil {
 		t.Error(err)
 	}
@@ -47,28 +47,28 @@ func testLoadSaveMethods(t *testing.T, o *Orm) {
 	// should call Save() just once.
 	obj.saved = 0
 	obj.Id = 2
-	o.MustSaveInto(SaveLoadTable, obj)
+	o.MustSave(obj)
 	if obj.saved != 1 {
 		t.Errorf("Save() was called %d times rather than 1", obj.saved)
 	}
 }
 
 func testLoadSaveMethodsErrors(t *testing.T, o *Orm) {
-	LoadErrorTable := o.mustRegister((*LoadError)(nil), &Options{
+	o.mustRegister((*LoadError)(nil), &Options{
 		Table: "test_load_error",
 	})
-	SaveErrorTable := o.mustRegister((*SaveError)(nil), &Options{
+	o.mustRegister((*SaveError)(nil), &Options{
 		Table: "test_save_error",
 	})
 	o.mustInitialize()
-	_, err := o.SaveInto(SaveErrorTable, &SaveError{})
+	_, err := o.Save(&SaveError{})
 	if err != saveError {
 		t.Errorf("unexpected error %v when saving SaveError", err)
 	}
 	le := &LoadError{}
-	o.MustSaveInto(LoadErrorTable, le)
+	o.MustSave(le)
 	id := le.Id
-	_, err = o.Table(LoadErrorTable).Filter(Eq("Object.Id", id)).One(&le)
+	_, err = o.Query(Eq("Object.Id", id)).One(&le)
 	if err != loadError {
 		t.Errorf("unexpected error %v when loading LoadError", err)
 	}

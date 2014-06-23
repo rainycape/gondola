@@ -119,6 +119,9 @@ func (o *Orm) registerLocked(t interface{}, opts *Options) (*Table, error) {
 	if _, ok := names[table]; ok {
 		return nil, fmt.Errorf("duplicate ORM table name %q", table)
 	}
+	if _, ok := types[s.Type]; ok {
+		return nil, fmt.Errorf("duplicate ORM type %s", s.Type)
+	}
 	fields, references, err := o.fields(table, s)
 	if err != nil {
 		return nil, err
@@ -155,12 +158,8 @@ func (o *Orm) registerLocked(t interface{}, opts *Options) (*Table, error) {
 		tags:       o.tags,
 	}
 	names[table] = model
-	// The first registered table is the default for the type
-	typ := model.Type()
-	if _, ok := types[typ]; !ok || opts != nil && opts.Default {
-		types[typ] = model
-	}
-	log.Debugf("Registered model %v (%q) with tags %q", typ, name, o.tags)
+	types[s.Type] = model
+	log.Debugf("Registered model %v (%q) with tags %q", s.Type, name, o.tags)
 	o.typeRegistry = types.clone()
 	return tableWithModel(model), nil
 }

@@ -31,8 +31,4 @@ type Options struct {
 	// defined in both the a field tag and using this field, an
 	// error will be returned when registering the model.
 	PrimaryKey []string
-	// Default indicates if the model should override any previously
-	// registered models and become the default model for its type.
-	// (otherwise, the first registered model is the default for the type).
-	Default bool
 }

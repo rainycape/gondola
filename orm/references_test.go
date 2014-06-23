@@ -97,9 +97,8 @@ func testReferences(t *testing.T, o *Orm) {
 		t.Fatal(err)
 	}
 	timestampTable, err := o.Register((*Timestamp)(nil), &Options{
-		Table:   "test_references_timestamp",
-		Default: true,
-		Name:    "Timestamp",
+		Table: "test_references_timestamp",
+		Name:  "Timestamp",
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -78,8 +78,7 @@ func BenchmarkLoadSaveMethods(b *testing.B) {
 
 func benchmarkInsert(b *testing.B, o *Orm) {
 	o.mustRegister((*Outer)(nil), &Options{
-		Table:   "outer_bench_insert",
-		Default: true,
+		Table: "outer_bench_insert",
 	})
 	o.mustInitialize()
 	obj := &Outer{
@@ -101,8 +100,7 @@ func BenchmarkInsert(b *testing.B) {
 
 func benchmarkOne(b *testing.B, o *Orm) {
 	o.mustRegister((*Outer)(nil), &Options{
-		Table:   "outer_bench_one",
-		Default: true,
+		Table: "outer_bench_one",
 	})
 	o.mustInitialize()
 	obj := &Outer{

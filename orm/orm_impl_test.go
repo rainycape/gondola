@@ -130,10 +130,17 @@ func equalTimes(t1, t2 time.Time) bool {
 	return t1.Truncate(time.Second).Equal(t2.Truncate(time.Second))
 }
 
-func newOrm(t T, url string, logging bool) *Orm {
+func clearRegistry(o *Orm) {
 	// Clear registry
 	globalRegistry.names = make(map[string]nameRegistry)
 	globalRegistry.types = make(map[string]typeRegistry)
+	if o != nil {
+		o.typeRegistry = globalRegistry.types[o.tags]
+	}
+}
+
+func newOrm(t T, url string, logging bool) *Orm {
+	clearRegistry(nil)
 	o, err := New(config.MustParseURL(url))
 	if err != nil {
 		t.Fatal(err)
@@ -232,12 +239,12 @@ func testSaveDelete(t *testing.T, o *Orm) {
 	})
 	o.mustInitialize()
 	obj := &Object{Value: "Foo"}
-	o.MustSaveInto(SaveTable, obj)
+	o.MustSave(obj)
 	id1 := obj.Id
 	// This should perform an insert, even when it has a primary key
 	// because the update will have 0 rows affected.
 	obj.Id = id1 + 1
-	o.MustSaveInto(SaveTable, obj)
+	o.MustSave(obj)
 	id2 := obj.Id
 	count := o.Table(SaveTable).MustCount()
 	if count != 2 {
@@ -245,7 +252,7 @@ func testSaveDelete(t *testing.T, o *Orm) {
 	}
 	// This should perform an update
 	obj.Value = "Bar"
-	o.MustSaveInto(SaveTable, obj)
+	o.MustSave(obj)
 	count = o.Table(SaveTable).MustCount()
 	if count != 2 {
 		t.Errorf("expected count = 2, got %v instead", count)
@@ -259,7 +266,7 @@ func testSaveDelete(t *testing.T, o *Orm) {
 	} else if obj2.Value != obj.Value {
 		t.Errorf("bad update, expected value %q, got %q instead", obj.Value, obj2.Value)
 	}
-	err = o.DeleteFrom(SaveTable, obj)
+	err = o.Delete(obj)
 	if err != nil {
 		t.Error(err)
 	}
@@ -267,7 +274,7 @@ func testSaveDelete(t *testing.T, o *Orm) {
 	if count != 1 {
 		t.Errorf("expected count = 1, got %v instead", count)
 	}
-	res, err := o.DeleteFromTable(SaveTable, Eq("Id", id1))
+	res, err := o.DeleteFrom(SaveTable, Eq("Id", id1))
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -364,7 +371,7 @@ func testTransactions(t *testing.T, o *Orm) {
 		t.Error(err)
 		return
 	}
-	tx.MustSaveInto(table, obj)
+	tx.MustSave(obj)
 	tx.MustCommit()
 	e, err := o.Exists(table, Eq("Id", obj.Id))
 	if err != nil {
@@ -374,7 +381,7 @@ func testTransactions(t *testing.T, o *Orm) {
 	}
 	tx2 := o.MustBegin()
 	obj.Id = 0
-	tx2.MustSaveInto(table, obj)
+	tx2.MustSave(obj)
 	tx2.MustRollback()
 	e, err = o.Exists(table, Eq("Id", obj.Id))
 	if err != nil {
@@ -395,7 +402,7 @@ func testFuncTransactions(t *testing.T, o *Orm) {
 	o.mustInitialize()
 	obj := &AutoIncrement{}
 	if err := o.Transaction(func(o *Orm) error {
-		_, err := o.SaveInto(table, obj)
+		_, err := o.Save(obj)
 		return err
 	}); err != nil {
 		t.Error(err)
@@ -408,7 +415,7 @@ func testFuncTransactions(t *testing.T, o *Orm) {
 	}
 	if err := o.Transaction(func(o *Orm) error {
 		obj.Id = 0
-		o.MustSaveInto(table, obj)
+		o.MustSave(obj)
 		return Rollback
 	}); err != nil {
 		t.Error(err)
@@ -460,7 +467,7 @@ func testCompositePrimaryKey(t *testing.T, o *Orm) {
 	if c1 != 1 {
 		t.Errorf("expecting 1 row, got %v instead", c1)
 	}
-	_, err = o.InsertInto(table, comp)
+	_, err = o.Insert(comp)
 	if err == nil {
 		t.Error("must return error because of duplicate constraint")
 	}
@@ -491,8 +498,7 @@ func testCompositePrimaryKey(t *testing.T, o *Orm) {
 func testQueryAll(t *testing.T, o *Orm) {
 	const count = 10
 	_ = o.mustRegister((*AutoIncrement)(nil), &Options{
-		Table:   "test_query_all",
-		Default: true,
+		Table: "test_query_all",
 	})
 	o.mustInitialize()
 	obj := &AutoIncrement{}
@@ -564,16 +570,13 @@ func testQueryAll(t *testing.T, o *Orm) {
 
 func testDefaults(t *testing.T, o *Orm) {
 	o.mustRegister((*EmptyDefaulter)(nil), &Options{
-		Table:   "test_empty_defaults",
-		Default: true,
+		Table: "test_empty_defaults",
 	})
 	o.mustRegister((*PartialDefaulter)(nil), &Options{
-		Table:   "test_partial_defaults",
-		Default: true,
+		Table: "test_partial_defaults",
 	})
 	o.mustRegister((*Defaulter)(nil), &Options{
-		Table:   "test_defaults",
-		Default: true,
+		Table: "test_defaults",
 	})
 	o.mustInitialize()
 	edef := EmptyDefaulter{}
@@ -675,6 +678,7 @@ func testOrm(t *testing.T, o *Orm) {
 		testSaveUnchanged,
 	}
 	for _, v := range tests {
+		clearRegistry(o)
 		v(t, o)
 	}
 }

@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"gnd.la/log"
-	"gnd.la/template/assets"
 	"hash/fnv"
 	"io"
+	"io/ioutil"
 	"path"
+
+	"gnd.la/log"
+	"gnd.la/template/assets"
 )
 
 func executeAsset(t *Template, p *Template, vars VarMap, m *assets.Manager, asset *assets.Asset) (string, error) {
@@ -35,8 +37,6 @@ func executeAsset(t *Template, p *Template, vars VarMap, m *assets.Manager, asse
 	if err := tmpl.ExecuteContext(&buf, nil, nil, vars); err != nil {
 		return "", err
 	}
-	ext := path.Ext(name)
-	nonExt := name[:len(name)-len(ext)]
 	f, _, err := m.Load(name)
 	if err != nil {
 		return "", err
@@ -49,7 +49,21 @@ func executeAsset(t *Template, p *Template, vars VarMap, m *assets.Manager, asse
 	f.Close()
 	h.Write(buf.Bytes())
 	hash := hex.EncodeToString(h.Sum(nil))
+	ext := path.Ext(name)
+	nonExt := name[:len(name)-len(ext)]
 	out := fmt.Sprintf("%s.gen.%s%s", nonExt, hash, ext)
+	// Check if the file already exists and has the same
+	// contents. This prevents failures when runnin on
+	// App Engine, since writes are not allowed.
+	if prev, _, err := m.Load(out); err == nil {
+		defer prev.Close()
+		if data, err := ioutil.ReadAll(prev); err == nil {
+			if bytes.Equal(data, buf.Bytes()) {
+				// File already up to date
+				return out, nil
+			}
+		}
+	}
 	w, err := m.Create(out, true)
 	if err != nil {
 		return "", err

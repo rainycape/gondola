@@ -78,17 +78,17 @@ func Normalize(s string) string {
 }
 
 type User struct {
-	UserId             int64             `form:"-" sql:"id,primary_key,auto_increment" json:"id"`
+	UserId             int64             `form:"-" orm:"id,primary_key,auto_increment" json:"id"`
 	Username           string            `form:",max_length=16,min_length=4,alphanumeric,label=Username" json:"username"`
-	NormalizedUsername string            `form:"-" sql:",unique" json:"-"`
+	NormalizedUsername string            `form:"-" orm:",unique" json:"-"`
 	Email              string            `form:",max_length=50,label=Email" json:"-"`
-	NormalizedEmail    string            `form:"-" sql:",unique" json:"-"`
+	NormalizedEmail    string            `form:"-" orm:",unique" json:"-"`
 	Password           password.Password `form:"-,min_length=6,label=Password" json:"-"`
 	Created            time.Time         `json:"-" form:"-"`
 	AutomaticUsername  bool              `form:"-" json:"-"`
 	Admin              bool              `form:"-" orm:",default=false" json:"admin"`
-	Image              string            `form:"-" sql:",omitempty,nullempty" json:"-"`
-	ImageFormat        string            `form:"-" sql:",omitempty,nullempty" json:"-"`
+	Image              string            `form:"-" orm:",omitempty,nullempty" json:"-"`
+	ImageFormat        string            `form:"-" orm:",omitempty,nullempty" json:"-"`
 }
 
 func (u *User) Id() int64 {

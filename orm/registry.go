@@ -496,7 +496,7 @@ func defaultTableName(typ reflect.Type) string {
 }
 
 func typeName(typ reflect.Type) string {
-	if p := typ.PkgPath(); p != "main" {
+	if p := typ.PkgPath(); !strings.HasPrefix(p, "main") {
 		return p + "." + typ.Name()
 	}
 	return typ.Name()

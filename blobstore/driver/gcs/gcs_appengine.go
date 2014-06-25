@@ -5,6 +5,7 @@ package gcs
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -26,17 +27,40 @@ type gcsDriver struct {
 	c      appengine.Context
 }
 
+type rfile struct {
+	file.FileReader
+}
+
+func (f rfile) Metadata() ([]byte, error) {
+	return nil, driver.ErrMetadataNotHandled
+}
+
+type wfile struct {
+	io.WriteCloser
+}
+
+func (f wfile) SetMetadata(_ []byte) error {
+	return driver.ErrMetadataNotHandled
+}
+
 func (d *gcsDriver) path(id string) string {
 	return fmt.Sprintf("/gs/%s/%s", d.bucket, id)
 }
 
 func (d *gcsDriver) Create(id string) (driver.WFile, error) {
 	f, _, err := file.Create(d.c, d.path(id), nil)
-	return f, err
+	if err != nil {
+		return nil, err
+	}
+	return wfile{f}, nil
 }
 
 func (d *gcsDriver) Open(id string) (driver.RFile, error) {
-	return file.Open(d.c, d.path(id))
+	f, err := file.Open(d.c, d.path(id))
+	if err != nil {
+		return nil, err
+	}
+	return rfile{f}, nil
 }
 
 func (d *gcsDriver) Remove(id string) error {

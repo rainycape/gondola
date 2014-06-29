@@ -96,6 +96,7 @@ type handlerInfo struct {
 	path      string
 	pathMatch []int
 	re        *regexp.Regexp
+	rc        *regexpCache
 	handler   Handler
 }
 
@@ -231,6 +232,7 @@ func (app *App) HandleOptions(pattern string, handler Handler, opts *Options) {
 		host:    host,
 		name:    name,
 		re:      re,
+		rc:      newRegexpCache(re),
 		handler: handler,
 	}
 	if p := literalRegexp(re); p != "" {
@@ -774,7 +776,7 @@ func (app *App) reverse(name string, args []interface{}) (string, error) {
 func (app *App) reverseHandler(name string, args []interface{}) (bool, string, error) {
 	for _, v := range app.handlers {
 		if v.name == name {
-			reversed, err := formatRegexp(v.re, args)
+			reversed, err := formatRegexp(v.rc, args)
 			if err != nil {
 				if acerr, ok := err.(*argumentCountError); ok {
 					if acerr.Min == acerr.Max {

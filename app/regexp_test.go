@@ -60,7 +60,7 @@ func testRegexp(t *testing.T, pattern string, args []interface{}, expected strin
 		t.Error(err)
 		return
 	}
-	res, err := formatRegexp(r, args)
+	res, err := formatRegexp(newRegexpCache(r), args)
 	if err != nil {
 		t.Error(err)
 		return
@@ -84,7 +84,7 @@ func TestBadRegexp(t *testing.T) {
 			t.Error(err)
 			continue
 		}
-		res, err := formatRegexp(r, v.args)
+		res, err := formatRegexp(newRegexpCache(r), v.args)
 		if err == nil {
 			t.Errorf("expecting an error formatting %q with args %v = %q, got %q instead", v.pattern, v.args, res)
 		}

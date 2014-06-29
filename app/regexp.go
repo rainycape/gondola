@@ -1,10 +1,11 @@
 package app
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"regexp/syntax"
-	"strings"
+	"sync"
 )
 
 type argumentCountError struct {
@@ -47,23 +48,34 @@ func walk(r *syntax.Regexp, f func(r *syntax.Regexp) bool) bool {
 	return stop
 }
 
-func compileToSyntaxRegexp(r *regexp.Regexp) *syntax.Regexp {
-	re, _ := syntax.Parse(r.String(), syntax.Perl)
-	return re
+type regexpCache struct {
+	re    *syntax.Regexp
+	max   int
+	min   int
+	cache map[string]*regexp.Regexp
+	mu    sync.RWMutex
 }
 
-func formatRegexp(r *regexp.Regexp, args []interface{}) (string, error) {
-	re := compileToSyntaxRegexp(r)
-	max := re.MaxCap()
-	min := minCap(re)
-	rem := len(args)
-	if rem < min || rem > max {
-		return "", &argumentCountError{rem, min, max}
+func newRegexpCache(r *regexp.Regexp) *regexpCache {
+	s := r.String()
+	re, _ := syntax.Parse(s, syntax.Perl)
+	return &regexpCache{
+		re:    re,
+		min:   minCap(re),
+		max:   re.MaxCap(),
+		cache: make(map[string]*regexp.Regexp),
 	}
-	var formatted []string
+}
+
+func formatRegexp(re *regexpCache, args []interface{}) (string, error) {
+	rem := len(args)
+	if rem < re.min || rem > re.max {
+		return "", &argumentCountError{rem, re.min, re.max}
+	}
+	var buf bytes.Buffer
 	var err error
 	var stack []*syntax.Regexp
-	walk(re, func(r *syntax.Regexp) bool {
+	walk(re.re, func(r *syntax.Regexp) bool {
 		if r == nil {
 			stack = stack[:len(stack)-1]
 			return false
@@ -83,7 +95,9 @@ func formatRegexp(r *regexp.Regexp, args []interface{}) (string, error) {
 				}
 			}
 			if !provided {
-				formatted = append(formatted, string(r.Rune))
+				for _, ru := range r.Rune {
+					buf.WriteRune(ru)
+				}
 			}
 			if rem == 0 {
 				return true
@@ -99,11 +113,20 @@ func formatRegexp(r *regexp.Regexp, args []interface{}) (string, error) {
 			}
 			cur := fmt.Sprintf("%v", args[c-1])
 			patt := r.String()
-			if matched, _ := regexp.MatchString(patt, cur); !matched {
+			re.mu.RLock()
+			sr, ok := re.cache[patt]
+			re.mu.RUnlock()
+			if !ok {
+				sr = regexp.MustCompile(patt)
+				re.mu.Lock()
+				re.cache[patt] = sr
+				re.mu.Unlock()
+			}
+			if !sr.MatchString(cur) {
 				err = fmt.Errorf("Invalid replacement at index %d. Format is %q, replacement is %q.", c-1, patt, cur)
 				return true
 			}
-			formatted = append(formatted, cur)
+			buf.WriteString(cur)
 			rem--
 		}
 		return false
@@ -111,7 +134,7 @@ func formatRegexp(r *regexp.Regexp, args []interface{}) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.Join(formatted, ""), nil
+	return buf.String(), nil
 }
 
 func literalRegexp(r *regexp.Regexp) string {

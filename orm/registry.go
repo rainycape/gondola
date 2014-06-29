@@ -469,7 +469,7 @@ func (o *Orm) TypeTable(typ reflect.Type) *Table {
 
 // returns wheter the kind defaults to nullempty option
 func defaultsToNullEmpty(typ reflect.Type, t *structs.Tag) bool {
-	if t.Has("references") || t.Has("codec") {
+	if t.Has("references") || t.Has("codec") || t.Has("notnull") {
 		return true
 	}
 	switch typ.Kind() {

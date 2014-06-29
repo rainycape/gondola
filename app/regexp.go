@@ -30,7 +30,7 @@ func minCap(re *syntax.Regexp) int {
 	return c
 }
 
-func walk(r *syntax.Regexp, f func(*syntax.Regexp) bool) bool {
+func walk(r *syntax.Regexp, f func(r *syntax.Regexp) bool) bool {
 	stop := f(r)
 	if !stop {
 		for _, v := range r.Sub {
@@ -40,6 +40,9 @@ func walk(r *syntax.Regexp, f func(*syntax.Regexp) bool) bool {
 			}
 		}
 	}
+	if !stop {
+		stop = f(nil)
+	}
 	return stop
 }
 
@@ -47,47 +50,60 @@ func formatRegexp(r *regexp.Regexp, strict bool, args []interface{}) (string, er
 	re, _ := syntax.Parse(r.String(), syntax.Perl)
 	max := re.MaxCap()
 	min := minCap(re)
-	l := len(args)
-	if l < min || l > max {
+	rem := len(args)
+	if rem < min || rem > max {
 		return "", &argumentCountError{min, max}
 	}
 	var formatted []string
 	var err error
-	if l == 0 {
-		walk(re, func(r *syntax.Regexp) bool {
-			switch r.Op {
-			case syntax.OpLiteral:
+	var stack []*syntax.Regexp
+	walk(re, func(r *syntax.Regexp) bool {
+		if r == nil {
+			stack = stack[:len(stack)-1]
+			return false
+		}
+		stack = append(stack, r)
+		switch r.Op {
+		case syntax.OpLiteral:
+			// Check if this literal was already provided by a previous
+			// replacement. If we're inside a capture group, the provided
+			// replacement must have already satisfied this literal, otherwise
+			// it would have failed (assuming strict mode)
+			provided := false
+			for _, v := range stack {
+				if v.Op == syntax.OpCapture {
+					provided = true
+					break
+				}
+			}
+			if !provided {
 				formatted = append(formatted, string(r.Rune))
-			case syntax.OpCapture:
+			}
+			if rem == 0 {
 				return true
 			}
-			return false
-		})
-	} else {
-		stop := false
-		walk(re, func(r *syntax.Regexp) bool {
-			switch r.Op {
-			case syntax.OpLiteral:
-				formatted = append(formatted, string(r.Rune))
-				if stop {
+		case syntax.OpQuest:
+			if rem == 0 {
+				return true
+			}
+		case syntax.OpCapture:
+			c := r.Cap
+			if rem == 0 || c > len(args) {
+				return true
+			}
+			cur := fmt.Sprintf("%v", args[c-1])
+			if strict {
+				patt := r.String()
+				if matched, _ := regexp.MatchString(patt, cur); !matched {
+					err = fmt.Errorf("Invalid replacement at index %d. Format is %q, replacement is %q.", c-1, patt, cur)
 					return true
 				}
-			case syntax.OpCapture:
-				c := r.Cap
-				cur := fmt.Sprintf("%v", args[c-1])
-				if strict {
-					patt := r.String()
-					if matched, _ := regexp.MatchString(patt, cur); !matched {
-						err = fmt.Errorf("Invalid replacement at index %d. Format is %q, replacement is %q.", c-1, patt, cur)
-						return true
-					}
-				}
-				formatted = append(formatted, cur)
-				stop = c == l
 			}
-			return false
-		})
-	}
+			formatted = append(formatted, cur)
+			rem--
+		}
+		return false
+	})
 	if err != nil {
 		return "", err
 	}

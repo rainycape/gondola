@@ -1,9 +1,6 @@
 package app
 
-import (
-	"fmt"
-	"testing"
-)
+import "testing"
 
 func helloHandler(ctx *Context) {
 	ctx.Write([]byte("Hello world"))
@@ -71,21 +68,4 @@ func TestReverse(t *testing.T) {
 	testReverse(t, "/image/test.png", a, "image", "test", "png")
 	testReverse(t, "/image/test-png", a, "imagedash", "test", "png")
 	testReverse(t, "/image/test\\png", a, "imageslash", "test", "png")
-}
-
-func testApp(nolog bool) (*App, string) {
-	app := New()
-	if nolog {
-		app.Logger = nil
-	}
-	f := func(ctx *Context) {}
-	app.Handle("^/foobar/$", f)
-	app.Handle("^/foobar2/$", f)
-	app.Handle("^/foobar3/$", f)
-	app.Handle("^/foobar4/$", f)
-	app.Handle("^/foobar5/$", f)
-	app.Handle("^/article/(\\d)$", f)
-	app.Handle("^/$", f)
-	url := fmt.Sprintf("http://localhost:%d/", app.Config().Port)
-	return app, url
 }

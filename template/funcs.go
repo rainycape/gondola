@@ -296,7 +296,7 @@ func toHtml(s string) template.HTML {
 
 func getVar(s *State, name string) interface{} {
 	v, ok := s.Var(name)
-	if !ok {
+	if !ok || !v.IsValid() {
 		return nil
 	}
 	return v.Interface()

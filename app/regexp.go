@@ -8,12 +8,13 @@ import (
 )
 
 type argumentCountError struct {
-	MinArguments int
-	MaxArguments int
+	Count int
+	Min   int
+	Max   int
 }
 
 func (e *argumentCountError) Error() string {
-	return fmt.Sprintf("Invalid number of arguments. Minimum is %d, maximum is %d.", e.MinArguments, e.MaxArguments)
+	return fmt.Sprintf("Invalid number of arguments %d. Minimum is %d, maximum is %d.", e.Count, e.Min, e.Max)
 }
 
 func minCap(re *syntax.Regexp) int {
@@ -46,13 +47,18 @@ func walk(r *syntax.Regexp, f func(r *syntax.Regexp) bool) bool {
 	return stop
 }
 
-func formatRegexp(r *regexp.Regexp, strict bool, args []interface{}) (string, error) {
+func compileToSyntaxRegexp(r *regexp.Regexp) *syntax.Regexp {
 	re, _ := syntax.Parse(r.String(), syntax.Perl)
+	return re
+}
+
+func formatRegexp(r *regexp.Regexp, args []interface{}) (string, error) {
+	re := compileToSyntaxRegexp(r)
 	max := re.MaxCap()
 	min := minCap(re)
 	rem := len(args)
 	if rem < min || rem > max {
-		return "", &argumentCountError{min, max}
+		return "", &argumentCountError{rem, min, max}
 	}
 	var formatted []string
 	var err error
@@ -68,7 +74,7 @@ func formatRegexp(r *regexp.Regexp, strict bool, args []interface{}) (string, er
 			// Check if this literal was already provided by a previous
 			// replacement. If we're inside a capture group, the provided
 			// replacement must have already satisfied this literal, otherwise
-			// it would have failed (assuming strict mode)
+			// it would have failed.
 			provided := false
 			for _, v := range stack {
 				if v.Op == syntax.OpCapture {
@@ -92,12 +98,10 @@ func formatRegexp(r *regexp.Regexp, strict bool, args []interface{}) (string, er
 				return true
 			}
 			cur := fmt.Sprintf("%v", args[c-1])
-			if strict {
-				patt := r.String()
-				if matched, _ := regexp.MatchString(patt, cur); !matched {
-					err = fmt.Errorf("Invalid replacement at index %d. Format is %q, replacement is %q.", c-1, patt, cur)
-					return true
-				}
+			patt := r.String()
+			if matched, _ := regexp.MatchString(patt, cur); !matched {
+				err = fmt.Errorf("Invalid replacement at index %d. Format is %q, replacement is %q.", c-1, patt, cur)
+				return true
 			}
 			formatted = append(formatted, cur)
 			rem--

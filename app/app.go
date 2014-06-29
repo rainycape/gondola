@@ -774,15 +774,15 @@ func (app *App) reverse(name string, args []interface{}) (string, error) {
 func (app *App) reverseHandler(name string, args []interface{}) (bool, string, error) {
 	for _, v := range app.handlers {
 		if v.name == name {
-			reversed, err := formatRegexp(v.re, true, args)
+			reversed, err := formatRegexp(v.re, args)
 			if err != nil {
 				if acerr, ok := err.(*argumentCountError); ok {
-					if acerr.MinArguments == acerr.MaxArguments {
+					if acerr.Min == acerr.Max {
 						return true, "", fmt.Errorf("handler %q requires exactly %d arguments, %d received instead",
-							name, acerr.MinArguments, len(args))
+							name, acerr.Min, len(args))
 					}
 					return true, "", fmt.Errorf("handler %q requires at least %d arguments and at most %d arguments, %d received instead",
-						name, acerr.MinArguments, acerr.MaxArguments, len(args))
+						name, acerr.Min, acerr.Max, len(args))
 				}
 				return true, "", fmt.Errorf("error reversing handler %q: %s", name, err)
 			}

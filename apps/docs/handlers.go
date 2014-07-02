@@ -1,12 +1,12 @@
 package docs
 
 import (
+	"path"
+	"strings"
+
 	"gnd.la/app"
 	"gnd.la/apps/docs/doc"
 	"gnd.la/log"
-	"path"
-	"path/filepath"
-	"strings"
 )
 
 const (
@@ -37,12 +37,17 @@ type packageGroup struct {
 	Packages []*doc.Package
 }
 
+func docContext(ctx *app.Context) doc.Context {
+	return doc.DefaultContext
+}
+
 func listHandler(ctx *app.Context) {
 	var groups []*packageGroup
+	dctx := docContext(ctx)
 	for _, gr := range Groups {
 		var groupPackages []*doc.Package
 		for _, v := range gr.Packages {
-			pkgs, err := doc.ImportPackages(packageDir(v))
+			pkgs, err := dctx.ImportPackages(packageDir(dctx, v))
 			if err != nil {
 				log.Errorf("error importing %s: %s", v, err)
 				continue
@@ -70,14 +75,15 @@ func listHandler(ctx *app.Context) {
 }
 
 func stdListHandler(ctx *app.Context) {
-	allPkgs, err := doc.ImportPackages(filepath.Join(doc.Context.GOROOT, "src"))
+	dctx := docContext(ctx)
+	allPkgs, err := dctx.ImportPackages(dctx.Join(dctx.GOROOT, "src"))
 	if err != nil {
 		panic(err)
 	}
 	var pkgs []*doc.Package
 	var cmds []*doc.Package
 	for _, v := range allPkgs {
-		if filepath.Base(v.Dir()) == "cmd" {
+		if dctx.Base(v.Dir()) == "cmd" {
 			cmds = append(cmds, v)
 		} else {
 			pkgs = append(pkgs, v)
@@ -97,12 +103,13 @@ func stdListHandler(ctx *app.Context) {
 }
 
 func packageHandler(ctx *app.Context) {
+	dctx := docContext(ctx)
 	rel := ctx.IndexValue(0)
 	if rel[len(rel)-1] == '/' {
 		ctx.MustRedirectReverse(true, PackageHandlerName, rel[:len(rel)-1])
 		return
 	}
-	pkg, err := doc.ImportPackage(rel)
+	pkg, err := dctx.ImportPackage(rel)
 	if err != nil {
 		panic(err)
 	}
@@ -115,8 +122,12 @@ func packageHandler(ctx *app.Context) {
 		header = title
 	case pkg.IsEmpty():
 		prefix := "Directory "
-		title = prefix + pkg.ImportPath()
 		header = prefix + path.Base(rel)
+		if pkg.ImportPath() != "" {
+			title = prefix + pkg.ImportPath()
+		} else {
+			title = header
+		}
 	default:
 		title = "Package " + pkg.ImportPath()
 		header = "Package " + pkg.Name()
@@ -155,20 +166,20 @@ func packageHandler(ctx *app.Context) {
 	ctx.MustExecute("package.html", data)
 }
 
-func packageDir(p string) string {
+func packageDir(dctx doc.Context, p string) string {
 	if strings.IndexByte(p, '.') > 0 {
 		// Non std package
-		return filepath.Join(doc.Context.GOPATH, "src", p)
+		return dctx.Join(dctx.GOPATH, "src", p)
 	}
 	// Std pckage
 	if strings.HasPrefix(p, "cmd") {
-		return filepath.Join(doc.Context.GOROOT, "src", p)
+		return dctx.Join(dctx.GOROOT, "src", p)
 	}
-	return filepath.Join(doc.Context.GOROOT, "src", "pkg", p)
+	return dctx.Join(dctx.GOROOT, "src", "pkg", p)
 }
 
 func init() {
-	doc.App = App
-	doc.DocHandlerName = PackageHandlerName
-	doc.SourceHandlerName = SourceHandlerName
+	doc.DefaultContext.App = App
+	doc.DefaultContext.DocHandlerName = PackageHandlerName
+	doc.DefaultContext.SourceHandlerName = SourceHandlerName
 }

@@ -3,16 +3,16 @@ package docs
 import (
 	"bytes"
 	"fmt"
-	"gnd.la/app"
-	"gnd.la/html"
-	"gnd.la/log"
 	"html/template"
 	"io/ioutil"
 	"math"
 	"net/http"
-	"os"
-	"path/filepath"
+	"path"
 	"strings"
+
+	"gnd.la/app"
+	"gnd.la/html"
+	"gnd.la/log"
 )
 
 var (
@@ -33,16 +33,16 @@ var (
 )
 
 func sourceHandler(ctx *app.Context) {
+	dctx := docContext(ctx)
 	rel := ctx.IndexValue(0)
-	p := filepath.FromSlash(rel)
-	dir := packageDir(filepath.Dir(p))
-	path := filepath.Join(dir, filepath.Base(p))
-	log.Debugf("Loading source from %s", path)
-	info, err := os.Stat(path)
-	if err != nil {
-		ctx.NotFound("File not found")
-		return
+	p := dctx.FromSlash(rel)
+	pDir := dctx.Dir(p)
+	dir := packageDir(dctx, dctx.Dir(p))
+	filePath := dir
+	if pDir+dctx.Separator != p {
+		filePath = dctx.Join(dir, dctx.Base(p))
 	}
+	log.Debugf("Loading source from %s", filePath)
 	var breadcrumbs []*breadcrumb
 	for ii := 0; ii < len(rel); {
 		var end int
@@ -63,12 +63,12 @@ func sourceHandler(ctx *app.Context) {
 	var files []string
 	var code template.HTML
 	var lines []int
-	if info.IsDir() {
+	if dctx.IsDir(filePath) {
 		if rel != "" && rel[len(rel)-1] != '/' {
 			ctx.MustRedirectReverse(true, SourceHandlerName, rel+"/")
 			return
 		}
-		contents, err := ioutil.ReadDir(path)
+		contents, err := dctx.ReadDir(filePath)
 		if err != nil {
 			panic(err)
 		}
@@ -77,10 +77,16 @@ func sourceHandler(ctx *app.Context) {
 				files = append(files, n)
 			}
 		}
-		title = "Directory " + filepath.Base(rel)
+		title = "Directory " + dctx.Base(rel)
 		tmpl = "dir.html"
 	} else {
-		contents, err := ioutil.ReadFile(path)
+		f, err := dctx.OpenFile(filePath)
+		if err != nil {
+			ctx.NotFound("File not found")
+			return
+		}
+		defer f.Close()
+		contents, err := ioutil.ReadAll(f)
 		if err != nil {
 			panic(err)
 		}
@@ -90,12 +96,12 @@ func sourceHandler(ctx *app.Context) {
 			switch contentType {
 			case "image/gif", "image/png", "image/jpeg":
 			default:
-				ctx.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s;", filepath.Base(rel)))
+				ctx.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s;", dctx.Base(rel)))
 			}
 			ctx.Write(contents)
 			return
 		}
-		title = "File " + filepath.Base(rel)
+		title = "File " + dctx.Base(rel)
 		var buf bytes.Buffer
 		buf.WriteString("<span id=\"line-1\">")
 		last := 0
@@ -122,7 +128,7 @@ func sourceHandler(ctx *app.Context) {
 		"Code":        code,
 		"Lines":       lines,
 		"Padding":     math.Ceil(math.Log10(float64(len(lines)+1))) + 0.1,
-		"Highlighter": highlighters[filepath.Ext(rel)],
+		"Highlighter": highlighters[path.Ext(rel)],
 	}
 	ctx.MustExecute(tmpl, data)
 }

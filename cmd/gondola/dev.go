@@ -3,14 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"code.google.com/p/go.exp/fsnotify"
 	"fmt"
-	"gnd.la/admin"
-	"gnd.la/app"
-	"gnd.la/config"
-	"gnd.la/internal/runtimeutil"
-	"gnd.la/log"
-	"gnd.la/util/generic"
 	"go/build"
 	"html/template"
 	"io"
@@ -28,6 +21,14 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"code.google.com/p/go.exp/fsnotify"
+	"gnd.la/admin"
+	"gnd.la/app"
+	"gnd.la/config"
+	"gnd.la/internal/runtimeutil"
+	"gnd.la/log"
+	"gnd.la/util/generic"
 )
 
 const (
@@ -525,8 +526,6 @@ func (p *Project) Handler(ctx *app.Context) {
 			"Project": p,
 			"Errors":  p.errors,
 			"Count":   len(p.errors),
-			"Built":   formatTime(p.built),
-			"Started": formatTime(p.started),
 		}
 		ctx.MustExecute("errors.html", data)
 		return
@@ -543,7 +542,6 @@ func (p *Project) Handler(ctx *app.Context) {
 			"Error":    errorMessage,
 			"ExitCode": p.exitCode,
 			"Output":   uncolor(s),
-			"Started":  formatTime(p.started),
 		}
 		ctx.MustExecute("exited.html", data)
 		return
@@ -554,8 +552,6 @@ func (p *Project) Handler(ctx *app.Context) {
 			data := map[string]interface{}{
 				"Project": p,
 				"Name":    p.Name(),
-				"Built":   formatTime(p.built),
-				"Started": "1", // This waits until the app is restarted for reloading
 			}
 			ctx.MustExecute("building.html", data)
 			return
@@ -575,6 +571,10 @@ func (p *Project) Handler(ctx *app.Context) {
 func (p *Project) StatusHandler(ctx *app.Context) {
 	built := formatTime(p.built)
 	started := formatTime(p.started)
+	if p.proxy == nil {
+		// Building - this waits until the app is restarted for reloading
+		started = "1"
+	}
 	ctx.WriteJSON(map[string]interface{}{
 		"built":   built,
 		"started": started,

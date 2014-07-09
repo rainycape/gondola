@@ -1070,7 +1070,6 @@ func (app *App) errorPage(ctx *Context, elapsed time.Duration, skip int, stackSk
 		"Code":     code,
 		"Stack":    stack,
 		"Request":  req,
-		"Started":  strconv.FormatInt(app.started.Unix(), 10),
 	}
 	if err := t.Execute(ctx, data); err != nil {
 		panic(err)

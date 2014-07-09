@@ -48,22 +48,36 @@ function parseJson(text) {
     return eval('(' + text + ')');
 }
 
-function pollReload(built, started) {
+function appStatus(callback) {
+    sendRequest(GONDOLA_DEV_SERVER_STATUS, null, function (req) {
+        var reload = false;
+        if (req.status == 404) {
+            callback(null);
+        } else {
+            var resp = parseJson(req.responseText);
+            callback(resp);
+        }
+    });
+}
+
+function pollReload() {
+    var built, started;
+    appStatus(function(resp) {
+        if (!resp) {
+            // Assume the app has started and since the request
+            // is being forwarded to the app, the handler for this
+            // path does not exist.
+            location.reload(true);
+        } else {
+            built = resp.built;
+            started = resp.started;
+        }
+    });
     setInterval(function() {
-        sendRequest(GONDOLA_DEV_SERVER_STATUS, null, function (req) {
-            var reload = false;
-            if (req.status == 404) {
-                // Assume the app has started and since the request
-                // is being forwarded to the app, the handler for this
-                // path does not exist.
-                reload = true;
-            } else {
-                var resp = parseJson(req.responseText);
-                reload = (built && resp.built != built) || (started && resp.started && resp.started != started)
-            }
-            if (reload) {
+        appStatus(function(resp) {
+            if (!resp || (built && resp.built != built) || (started && resp.started && resp.started != started)) {
                 location.reload(true);
             }
         });
-    }, 500)
+    }, 500);
 }

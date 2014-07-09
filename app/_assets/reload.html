@@ -1,4 +1,4 @@
 <script type="text/javascript">
   {{ template "mux.js" . }}
-  pollReload({{ with .Built }}'{{ . }}'{{ else }}null{{ end }}, {{ with .Started }}'{{ . }}'{{ else }}null{{ end }});
+  pollReload();
 </script>

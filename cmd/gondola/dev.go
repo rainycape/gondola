@@ -133,22 +133,23 @@ func NewProject(dir string, config string) *Project {
 
 type Project struct {
 	sync.Mutex
-	App        *app.App
-	dir        string
-	configPath string
-	tags       string
-	race       bool
-	noDebug    bool
-	noCache    bool
-	profile    bool
-	port       int
-	proxy      *httputil.ReverseProxy
-	buildCmd   *exec.Cmd
-	errors     []*BuildError
-	cmd        *exec.Cmd
-	watcher    *fsnotify.Watcher
-	built      time.Time
-	started    time.Time
+	App          *app.App
+	dir          string
+	configPath   string
+	tags         string
+	race         bool
+	noDebug      bool
+	noCache      bool
+	profile      bool
+	port         int
+	proxy        *httputil.ReverseProxy
+	proxyChecked bool
+	buildCmd     *exec.Cmd
+	errors       []*BuildError
+	cmd          *exec.Cmd
+	watcher      *fsnotify.Watcher
+	built        time.Time
+	started      time.Time
 	// runtime info
 	out      bytes.Buffer
 	runError error
@@ -371,6 +372,7 @@ func (p *Project) projectStarted() {
 	if err != nil {
 		panic(err)
 	}
+	p.proxyChecked = false
 	p.proxy = httputil.NewSingleHostReverseProxy(u)
 	p.started = time.Now().UTC()
 }
@@ -563,6 +565,17 @@ func (p *Project) Handler(ctx *app.Context) {
 				break
 			}
 		}
+	}
+	for !p.proxyChecked {
+		// Check if we can connect to the app, to make
+		// sure it has really started.
+		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", p.port))
+		if err == nil {
+			conn.Close()
+			p.proxyChecked = true
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 	// Proxy
 	p.proxy.ServeHTTP(ctx, ctx.R)

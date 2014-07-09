@@ -37,7 +37,8 @@ func (t *testInt) Next() int {
 }
 
 var (
-	ftests = []*templateTest{
+	fortyTwo = 42
+	ftests   = []*templateTest{
 		{"{{ $one := 1 }}{{ $two := 2 }}{{ $three := 3 }}{{ $one }}+{{ $two }}+{{ $three }}={{ add $one $two $three }}", nil, "1+2+3=6"},
 		{"{{ add 2 3 }}", nil, "5"},
 		{"{{ to_lower .foo }}", map[string]string{"foo": "BAR"}, "bar"},
@@ -54,6 +55,9 @@ var (
 		{"{{ concat (concat \"foo\" \"bar\") \"baz\" }}", nil, "foobarbaz"},
 		{"{{ if divisible 5 2 }}1{{ else }}0{{ end }}", nil, "0"},
 		{"{{ if divisible 4 2 }}1{{ else }}0{{ end }}", nil, "1"},
+		{"{{ indirect . }}", (*int)(nil), "0"},
+		{"{{ indirect . }}", fortyTwo, "42"},
+		{"{{ indirect . }}", &fortyTwo, "42"},
 	}
 	compilerTests = []*templateTest{
 		{"{{ \"output\" | printf \"%s\" }}", nil, "output"},

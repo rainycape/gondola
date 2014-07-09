@@ -164,12 +164,15 @@ func _append(items interface{}, args ...interface{}) (string, error) {
 	return "", nil
 }
 
-func deref(arg interface{}) (interface{}, error) {
+func _indirect(arg interface{}) interface{} {
 	v := reflect.ValueOf(arg)
-	if v.Kind() != reflect.Ptr {
-		return nil, fmt.Errorf("argument to deref must be pointer, not %T", arg)
+	for v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			v = reflect.New(v.Type().Elem())
+		}
+		v = v.Elem()
 	}
-	return v.Elem().Interface(), nil
+	return v.Interface()
 }
 
 type numericFloatFunc func(args ...interface{}) (float64, error)
@@ -307,7 +310,7 @@ var templateFuncs = makeFuncMap(FuncMap{
 	"#map":       _map,
 	"#slice":     _slice,
 	"#append":    _append,
-	"#deref":     deref,
+	"#indirect":  _indirect,
 	"#addf":      addf,
 	"#add":       add,
 	"#addi":      addi,

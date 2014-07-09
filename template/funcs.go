@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"math"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -172,63 +172,53 @@ func deref(arg interface{}) (interface{}, error) {
 	return v.Elem().Interface(), nil
 }
 
-func mult(args ...interface{}) (float64, error) {
-	val := 1.0
-	for ii, v := range args {
-		value := reflect.ValueOf(v)
-		switch value.Kind() {
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			val *= float64(value.Int())
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			val *= float64(value.Uint())
-		case reflect.Float32, reflect.Float64:
-			val *= value.Float()
-		case reflect.String:
-			v, err := strconv.ParseFloat(value.String(), 64)
-			if err != nil {
-				return 0, fmt.Errorf("Error parsing string passed to mult at index %d: %s", ii, err)
-			}
-			val *= v
-		default:
-			return 0, fmt.Errorf("Invalid argument of type %T passed to mult at index %d", v, ii)
-		}
+type numericFloatFunc func(args ...interface{}) (float64, error)
+type numericIntFunc func(args ...interface{}) (int, error)
+type numericIfaceFunc func(args ...interface{}) (interface{}, error)
+
+type operator func(float64, float64) float64
+
+func numberToIface(f float64) interface{} {
+	if _, frac := math.Modf(f); frac == 0 {
+		return int(f)
 	}
-	return val, nil
+	return f
 }
 
-func imult(args ...interface{}) (int, error) {
-	val, err := mult(args...)
-	return int(val), err
-}
-
-func add(args ...interface{}) (float64, error) {
-	val := 0.0
-	for ii, v := range args {
-		value := reflect.ValueOf(v)
-		switch value.Kind() {
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			val += float64(value.Int())
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			val += float64(value.Uint())
-		case reflect.Float32, reflect.Float64:
-			val += value.Float()
-		case reflect.String:
-			v, err := strconv.ParseFloat(value.String(), 64)
-			if err != nil {
-				return 0, fmt.Errorf("error parsing string passed to add() at index %d: %s", ii, err)
-			}
-			val += v
-		default:
-			return 0, fmt.Errorf("invalid argument of type %T passed to add() at index %d", v, ii)
+func numericFunctions(n float64, op operator) (numericFloatFunc, numericIntFunc, numericIfaceFunc) {
+	floatFunc := func(args ...interface{}) (float64, error) {
+		if len(args) == 0 {
+			return n, nil
 		}
+		total, err := types.ToFloat(args[0])
+		if err != nil {
+			return 0, err
+		}
+		for _, v := range args[1:] {
+			val, err := types.ToFloat(v)
+			if err != nil {
+				return 0, err
+			}
+			total = op(total, val)
+		}
+		return total, nil
 	}
-	return val, nil
+	intFunc := func(args ...interface{}) (int, error) {
+		val, err := floatFunc(args...)
+		return int(val), err
+	}
+	ifaceFunc := func(args ...interface{}) (interface{}, error) {
+		val, err := floatFunc(args...)
+		return numberToIface(val), err
+	}
+	return floatFunc, intFunc, ifaceFunc
 }
 
-func iadd(args ...interface{}) (int, error) {
-	val, err := add(args...)
-	return int(val), err
-}
+var (
+	mulf, muli, mul = numericFunctions(1.0, func(a, b float64) float64 { return a * b })
+	addf, addi, add = numericFunctions(0.0, func(a, b float64) float64 { return a + b })
+	subf, subi, sub = numericFunctions(0.0, func(a, b float64) float64 { return a - b })
+)
 
 func concat(args ...interface{}) string {
 	s := make([]string, len(args))
@@ -318,11 +308,16 @@ var templateFuncs = makeFuncMap(FuncMap{
 	"#slice":     _slice,
 	"#append":    _append,
 	"#deref":     deref,
-	"#mult":      mult,
-	"#imult":     imult,
-	"#divisible": divisible,
+	"#addf":      addf,
 	"#add":       add,
-	"#iadd":      iadd,
+	"#addi":      addi,
+	"#subf":      subf,
+	"#sub":       sub,
+	"#subi":      subi,
+	"#mulf":      mulf,
+	"#mul":       mul,
+	"#muli":      muli,
+	"#divisible": divisible,
 	"#even":      even,
 	"#odd":       odd,
 	"#concat":    concat,
@@ -330,6 +325,8 @@ var templateFuncs = makeFuncMap(FuncMap{
 	"#or":        or,
 	"#not":       not,
 	"now":        now,
+	"#int":       types.ToInt,
+	"#float":     types.ToFloat,
 	"#split":     strings.Split,
 	"#split_n":   strings.SplitN,
 	"#to_lower":  strings.ToLower,

@@ -71,8 +71,7 @@ func Bundle(groups []*Group, opts Options) (*Asset, error) {
 	// The bundle is output to the first manager
 	m := groups[0].Manager
 	// Check if the code has been already bundled
-	if f, _, _ := m.Load(name); f != nil {
-		f.Close()
+	if m.Has(name) {
 		log.Debugf("%s already bundled into %s and up to date", names, name)
 	} else {
 		dir := path.Dir(name)

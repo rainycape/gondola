@@ -4,15 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"gnd.la/app/profile"
-	"gnd.la/html"
-	itemplate "gnd.la/internal/template"
-	"gnd.la/internal/templateutil"
-	"gnd.la/loaders"
-	"gnd.la/log"
-	"gnd.la/template/assets"
-	"gnd.la/util/pathutil"
-	"gnd.la/util/stringutil"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -25,6 +16,17 @@ import (
 	"strconv"
 	"strings"
 	"text/template/parse"
+
+	"gnd.la/app/profile"
+	"gnd.la/html"
+	itemplate "gnd.la/internal/template"
+	"gnd.la/internal/templateutil"
+	"gnd.la/log"
+	"gnd.la/template/assets"
+	"gnd.la/util/pathutil"
+	"gnd.la/util/stringutil"
+
+	"gopkgs.com/vfs.v1"
 )
 
 type FuncMap map[string]interface{}
@@ -169,7 +171,7 @@ type Template struct {
 	prog          *program
 	name          string
 	Debug         bool
-	loader        loaders.Loader
+	fs            vfs.VFS
 	trees         map[string]*parse.Tree
 	offsets       map[*parse.Tree]map[int]int
 	final         bool
@@ -736,7 +738,7 @@ func (t *Template) parseComment(name string, comment string, file string, includ
 }
 
 func (t *Template) loadText(name string) (string, error) {
-	f, _, err := t.loader.Load(name)
+	f, err := t.fs.Open(name)
 	if err != nil {
 		return "", err
 	}
@@ -1131,24 +1133,29 @@ func AddFuncs(f FuncMap) {
 	}
 }
 
-// Returns a loader which loads templates from
-// the tmpl directory, relative to the application
-// binary.
-func DefaultTemplateLoader() loaders.Loader {
-	return loaders.FSLoader(pathutil.Relative("tmpl"))
+// DefaultVFS returns a VFS which loads templates from
+// the tmpl directory, relative to the application binary.
+func DefaultVFS() vfs.VFS {
+	fs, err := vfs.FS(pathutil.Relative("tmpl"))
+	if err != nil {
+		// Very unlikely, since FS only fails when
+		// os.Getwd() fails.
+		panic(err)
+	}
+	return fs
 }
 
-// New returns a new template with the given loader and assets
-// manager. Please, refer to the documention in gnd.la/loaders
-// and gnd.la/asssets for further information in those types.
-// If the loader is nil, DefaultTemplateLoader() will be used.
-func New(loader loaders.Loader, manager *assets.Manager) *Template {
-	if loader == nil {
-		loader = DefaultTemplateLoader()
+// New returns a new template with the given VFS and assets
+// manager. Please, refer to the documention in gopkgs.com/vfs.v1
+// and gnd.la/template/assets for further information in those types.
+// If the fs is nil, DefaultVFS() will be used.
+func New(fs vfs.VFS, manager *assets.Manager) *Template {
+	if fs == nil {
+		fs = DefaultVFS()
 	}
 	t := &Template{
 		AssetsManager: manager,
-		loader:        loader,
+		fs:            fs,
 		trees:         make(map[string]*parse.Tree),
 		offsets:       make(map[*parse.Tree]map[int]int),
 	}
@@ -1156,10 +1163,10 @@ func New(loader loaders.Loader, manager *assets.Manager) *Template {
 	return t
 }
 
-// Parse creates a new template using the given loader and manager and then
+// Parse creates a new template using the given VFS and manager and then
 // parses the template with the given name.
-func Parse(loader loaders.Loader, manager *assets.Manager, name string) (*Template, error) {
-	t := New(loader, manager)
+func Parse(fs vfs.VFS, manager *assets.Manager, name string) (*Template, error) {
+	t := New(fs, manager)
 	err := t.Parse(name)
 	if err != nil {
 		return nil, err
@@ -1168,10 +1175,10 @@ func Parse(loader loaders.Loader, manager *assets.Manager, name string) (*Templa
 }
 
 // MustParse works like parse, but panics if there's an error
-func MustParse(loader loaders.Loader, manager *assets.Manager, name string) *Template {
-	t, err := Parse(loader, manager, name)
+func MustParse(fs vfs.VFS, manager *assets.Manager, name string) *Template {
+	t, err := Parse(fs, manager, name)
 	if err != nil {
-		log.Fatalf("Error loading template %s: %s\n", name, err)
+		panic(fmt.Errorf("error loading template %s: %s\n", name, err))
 	}
 	return t
 }

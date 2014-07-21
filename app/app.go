@@ -29,7 +29,6 @@ import (
 	"gnd.la/encoding/codec"
 	"gnd.la/internal/runtimeutil"
 	"gnd.la/internal/templateutil"
-	"gnd.la/loaders"
 	"gnd.la/log"
 	"gnd.la/net/mail"
 	"gnd.la/orm"
@@ -37,6 +36,8 @@ import (
 	"gnd.la/template"
 	"gnd.la/template/assets"
 	"gnd.la/util/stringutil"
+
+	"gopkgs.com/vfs.v1"
 )
 
 const (
@@ -183,7 +184,7 @@ type App struct {
 	name               string
 	userFunc           UserFunc
 	assetsManager      *assets.Manager
-	templatesLoader    loaders.Loader
+	templatesFS        vfs.VFS
 	templatesMutex     sync.RWMutex
 	templatesCache     map[string]*Template
 	templateProcessors []TemplateProcessor
@@ -485,21 +486,21 @@ func (app *App) SetAssetsManager(manager *assets.Manager) {
 	app.assetsManager = manager
 }
 
-// TemplatesLoader returns the loader for the templates assocciated
+// TemplatesFS returns the VFS for the templates assocciated
 // with this app. By default, templates will be loaded from the
 // tmpl directory relative to the application binary.
-func (app *App) TemplatesLoader() loaders.Loader {
-	if app.templatesLoader == nil {
-		app.templatesLoader = template.DefaultTemplateLoader()
+func (app *App) TemplatesFS() vfs.VFS {
+	if app.templatesFS == nil {
+		app.templatesFS = template.DefaultVFS()
 	}
-	return app.templatesLoader
+	return app.templatesFS
 }
 
-// SetTemplatesLoader sets the loader used to load the templates
+// SetTemplatesFS sets the VFS used to load the templates
 // associated with this app. By default, templates will be loaded from the
 // tmpl directory relative to the application binary.
-func (app *App) SetTemplatesLoader(loader loaders.Loader) {
-	app.templatesLoader = loader
+func (app *App) SetTemplatesFS(fs vfs.VFS) {
+	app.templatesFS = fs
 }
 
 // AddTemplateProcessor adds a new template processor. Template processors
@@ -544,7 +545,7 @@ func (app *App) LoadTemplate(name string) (*Template, error) {
 		if profile.On && profile.Profiling() {
 			defer profile.Start("template").Note("load", name).End()
 		}
-		tmpl, err = app.loadTemplate(app.templatesLoader, app.assetsManager, name)
+		tmpl, err = app.loadTemplate(app.templatesFS, app.assetsManager, name)
 		if err != nil {
 			return nil, err
 		}
@@ -578,8 +579,8 @@ func (app *App) LoadTemplate(name string) (*Template, error) {
 	return tmpl, nil
 }
 
-func (app *App) loadTemplate(loader loaders.Loader, manager *assets.Manager, name string) (*Template, error) {
-	t := newTemplate(app, loader, manager)
+func (app *App) loadTemplate(fs vfs.VFS, manager *assets.Manager, name string) (*Template, error) {
+	t := newTemplate(app, fs, manager)
 	var vars map[string]interface{}
 	if app.namespace != nil {
 		var err error
@@ -597,7 +598,7 @@ func (app *App) loadTemplate(loader loaders.Loader, manager *assets.Manager, nam
 			return nil, err
 		}
 	}
-	if app.parent != nil && loader == app.templatesLoader {
+	if app.parent != nil && fs == app.templatesFS {
 		t.tmpl.AddNamespace(app.name)
 		if !t.tmpl.IsFinal() {
 			return app.parent.chainTemplate(t, app.childInfo)
@@ -642,7 +643,7 @@ func (app *App) rewriteAssets(t *template.Template, included *includedApp) error
 }
 
 func (app *App) loadContainerTemplate(included *includedApp) (*Template, string, error) {
-	container, err := app.loadTemplate(app.templatesLoader, app.assetsManager, included.container)
+	container, err := app.loadTemplate(app.templatesFS, app.assetsManager, included.container)
 	if err != nil {
 		return nil, "", err
 	}
@@ -719,8 +720,11 @@ func (app *App) SetAddress(address string) {
 // that /favicon.ico and /robots.txt will be handled too, but they
 // will must be in the directory which contains the rest of the assets.
 func (app *App) HandleAssets(prefix string, dir string) {
-	loader := loaders.FSLoader(dir)
-	manager := assets.NewManager(loader, prefix)
+	fs, err := vfs.FS(dir)
+	if err != nil {
+		panic(err)
+	}
+	manager := assets.New(fs, prefix)
 	app.SetAssetsManager(manager)
 	app.addAssetsManager(manager, true)
 }
@@ -1209,45 +1213,51 @@ func (app *App) closeContext(ctx *Context) {
 }
 
 func (app *App) importAssets(included *includedApp) error {
-	am := included.app.assetsManager
+	im := included.app.assetsManager
 	if app.cfg.TemplateDebug {
-		am.SetPrefix(included.prefix + am.Prefix())
+		im.SetPrefix(included.prefix + im.Prefix())
 		return nil
 	}
 	m := app.assetsManager
 	prefix := strings.ToLower(included.app.name)
-	res, err := am.Loader().List()
-	if err != nil {
-		return err
-	}
-	log.Debugf("will import assets %v from app %s", res, included.app.name)
 	renames := make(map[string]string)
-	for _, v := range res {
-		src, _, err := am.Load(v)
+	err := vfs.Walk(im.VFS(), "/", func(fs vfs.VFS, p string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
+		}
+		log.Debugf("will import asset %v from app %s", p, included.app.name)
+		src, err := im.Load(p)
 		if err != nil {
 			return err
 		}
 		defer src.Close()
-		sum := hashutil.Fnv32a(src)
-		nonExt := v[:len(v)-len(path.Ext(v))]
-		dest := path.Join(prefix, nonExt+".gen."+sum+path.Ext(v))
-		renames[v] = dest
-		log.Debugf("importing asset %q as %q", v, dest)
-		if f, _, _ := m.Load(dest); f != nil {
-			f.Close()
-			continue
+		seeker, err := assets.Seeker(src)
+		if err != nil {
+			return err
+		}
+		sum := hashutil.Fnv32a(seeker)
+		nonExt := p[:len(p)-len(path.Ext(p))]
+		dest := path.Join(prefix, nonExt+".gen."+sum+path.Ext(p))
+		renames[p] = dest
+		log.Debugf("importing asset %q as %q", p, dest)
+		if m.Has(dest) {
+			return nil
 		}
 		f, err := m.Create(dest, true)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
-		if _, err := src.Seek(0, os.SEEK_SET); err != nil {
+		if _, err := seeker.Seek(0, os.SEEK_SET); err != nil {
 			return err
 		}
-		if _, err := io.Copy(f, src); err != nil {
+		if _, err := io.Copy(f, seeker); err != nil {
 			return err
 		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 	included.renames = renames
 	return nil

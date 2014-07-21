@@ -2,13 +2,14 @@ package assets
 
 import (
 	"fmt"
-	"gnd.la/crypto/hashutil"
-	"gnd.la/log"
-	"gnd.la/net/urlutil"
 	"io"
 	"net/http"
 	"net/url"
 	"path"
+
+	"gnd.la/crypto/hashutil"
+	"gnd.la/log"
+	"gnd.la/net/urlutil"
 )
 
 func Script(name string) *Asset {
@@ -49,7 +50,7 @@ func scriptFallback(m *Manager, script *Asset, fallback string) (*Asset, error) 
 				return nil, err
 			}
 			defer resp.Body.Close()
-			w, err := m.Loader().Create(fallbackName, true)
+			w, err := m.Create(fallbackName, true)
 			if err != nil {
 				return nil, err
 			}

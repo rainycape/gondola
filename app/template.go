@@ -7,14 +7,15 @@ import (
 
 	"gnd.la/app/profile"
 	"gnd.la/internal/templateutil"
-	"gnd.la/loaders"
 	"gnd.la/template"
 	"gnd.la/template/assets"
+
+	"gopkgs.com/vfs.v1"
 )
 
 var (
 	reservedVariables     = []string{"Ctx", "App", "Apps"}
-	internalAssetsManager = assets.NewManager(appAssets, assetsPrefix)
+	internalAssetsManager = assets.New(appAssets, assetsPrefix)
 	profileHook           *template.Hook
 	errNoLoadedTemplate   = errors.New("this template was not loaded from App.LoadTemplate nor NewTemplate")
 
@@ -125,8 +126,8 @@ func template_tnc(ctx *Context, context string, singular string, plural string, 
 	return ctx.Tnc(context, singular, plural, n)
 }
 
-func newTemplate(app *App, loader loaders.Loader, manager *assets.Manager) *Template {
-	t := &Template{tmpl: template.New(loader, manager), app: app}
+func newTemplate(app *App, fs vfs.VFS, manager *assets.Manager) *Template {
+	t := &Template{tmpl: template.New(fs, manager), app: app}
 	if app.cfg != nil {
 		t.tmpl.Debug = app.cfg.TemplateDebug
 	}
@@ -139,13 +140,13 @@ func newInternalTemplate(app *App) *Template {
 }
 
 // LoadTemplate loads a template for the given *App, using the given
-// loaders.Loader and *assets.Manager. Note that users should rarely
+// vfs.VFS and *assets.Manager. Note that users should rarely
 // use this function and most of the time App.LoadTemplate() should
 // be used. The purpose of this function is allowing apps to load
 // templates from multiple sources. Note that, as opposed to App.LoadTemplate,
 // this function does not perform any caching.
-func LoadTemplate(app *App, loader loaders.Loader, manager *assets.Manager, name string) (*Template, error) {
-	t, err := app.loadTemplate(loader, manager, name)
+func LoadTemplate(app *App, fs vfs.VFS, manager *assets.Manager, name string) (*Template, error) {
+	t, err := app.loadTemplate(fs, manager, name)
 	if err != nil {
 		return nil, err
 	}

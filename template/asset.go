@@ -16,7 +16,7 @@ import (
 func executeAsset(t *Template, p *Template, vars VarMap, m *assets.Manager, asset *assets.Asset) (string, error) {
 	name := asset.TemplateName()
 	log.Debugf("executing asset template %s (from %s)", name, t.name)
-	tmpl := New(m.Loader(), nil)
+	tmpl := New(m.VFS(), nil)
 	tmpl.Funcs(t.funcMap.asFuncMap())
 	if p != nil {
 		tmpl.Funcs(p.funcMap.asFuncMap())
@@ -37,7 +37,7 @@ func executeAsset(t *Template, p *Template, vars VarMap, m *assets.Manager, asse
 	if err := tmpl.ExecuteContext(&buf, nil, nil, vars); err != nil {
 		return "", err
 	}
-	f, _, err := m.Load(name)
+	f, err := m.Load(name)
 	if err != nil {
 		return "", err
 	}
@@ -55,7 +55,7 @@ func executeAsset(t *Template, p *Template, vars VarMap, m *assets.Manager, asse
 	// Check if the file already exists and has the same
 	// contents. This prevents failures when runnin on
 	// App Engine, since writes are not allowed.
-	if prev, _, err := m.Load(out); err == nil {
+	if prev, err := m.Load(out); err == nil {
 		defer prev.Close()
 		if data, err := ioutil.ReadAll(prev); err == nil {
 			if bytes.Equal(data, buf.Bytes()) {

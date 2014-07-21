@@ -2,9 +2,7 @@ package genutil
 
 import (
 	"bytes"
-	"code.google.com/p/go.tools/go/types"
 	"fmt"
-	"gnd.la/internal/importer"
 	"go/ast"
 	"go/build"
 	"go/parser"
@@ -14,6 +12,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"gnd.la/internal/importer"
+
+	"code.google.com/p/go.tools/go/types"
 )
 
 // Package represents a parsed package with all its
@@ -140,6 +142,7 @@ func NewPackage(path string) (*Package, error) {
 		p.astFiles[ii] = f.ast
 	}
 	imp := importer.New()
+	imp.TypeCheckFuncBodies = func(_ string) bool { return false }
 	context := &types.Config{
 		IgnoreFuncBodies: true,
 		FakeImportC:      true,

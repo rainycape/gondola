@@ -108,7 +108,7 @@ func (a *Asset) Rename(name string) {
 }
 
 func (a *Asset) Code(m *Manager) (string, error) {
-	f, _, err := m.Load(a.Name)
+	f, err := m.Load(a.Name)
 	if err != nil {
 		return "", err
 	}

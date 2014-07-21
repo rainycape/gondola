@@ -124,7 +124,7 @@ func NewProject(dir string, config string) *Project {
 	a := app.New()
 	a.Config().Port = 8888
 	a.Logger = nil
-	a.SetTemplatesLoader(devAssets)
+	a.SetTemplatesFS(devAssets)
 	a.Handle("/_gondola_dev_server_status", p.StatusHandler)
 	a.Handle("/", p.Handler)
 	p.App = a

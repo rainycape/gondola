@@ -2,11 +2,13 @@ package articles
 
 import (
 	"bytes"
-	"gnd.la/app"
-	"gnd.la/loaders"
-	"gnd.la/log"
 	"html/template"
 	"path/filepath"
+
+	"gnd.la/app"
+	"gnd.la/log"
+
+	"gopkgs.com/vfs.v1"
 )
 
 const (
@@ -42,8 +44,11 @@ func articleHandler(ctx *app.Context) {
 	}
 	dir, base := filepath.Split(article.Template)
 	log.Debugf("loading article from dir %s", dir)
-	loader := loaders.FSLoader(dir)
-	tmpl, err := app.LoadTemplate(ctx.App(), loader, nil, base)
+	fs, err := vfs.FS(dir)
+	if err != nil {
+		panic(err)
+	}
+	tmpl, err := app.LoadTemplate(ctx.App(), fs, nil, base)
 	if err != nil {
 		panic(err)
 	}

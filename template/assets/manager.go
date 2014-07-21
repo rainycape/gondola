@@ -1,31 +1,31 @@
 package assets
 
 import (
-	"gnd.la/crypto/hashutil"
-	"gnd.la/loaders"
-	"gnd.la/net/urlutil"
 	"io"
-	"io/ioutil"
 	"net/url"
+	"os"
 	"path"
-	"path/filepath"
 	"runtime"
 	"sync"
-	"time"
+
+	"gnd.la/crypto/hashutil"
+	"gnd.la/net/urlutil"
+
+	"gopkgs.com/vfs.v1"
 )
 
 type Manager struct {
-	loader       loaders.Loader
+	fs           vfs.VFS
 	prefix       string
 	prefixLength int
 	cache        map[string]string
 	mutex        sync.RWMutex
 }
 
-func NewManager(loader loaders.Loader, prefix string) *Manager {
+func New(fs vfs.VFS, prefix string) *Manager {
 	m := new(Manager)
 	m.cache = make(map[string]string)
-	m.loader = loader
+	m.fs = fs
 	m.SetPrefix(prefix)
 	runtime.SetFinalizer(m, func(manager *Manager) {
 		manager.Close()
@@ -34,46 +34,46 @@ func NewManager(loader loaders.Loader, prefix string) *Manager {
 }
 
 func (m *Manager) hash(name string) (string, error) {
-	r, _, err := m.Load(name)
+	f, err := m.Load(name)
 	if err != nil {
 		return "", err
 	}
-	defer r.Close()
-	b, err := ioutil.ReadAll(r)
-	if err != nil {
-		return "", err
-	}
-	return hashutil.Adler32(b)[:6], nil
+	h := hashutil.Adler32(f)
+	f.Close()
+	return h[:6], nil
 }
 
-func (m *Manager) Loader() loaders.Loader {
-	return m.loader
+func (m *Manager) VFS() vfs.VFS {
+	return m.fs
 }
 
-func (m *Manager) Load(name string) (loaders.ReadSeekCloser, time.Time, error) {
-	return m.loader.Load(name)
-}
-
-func (m *Manager) LoadURL(u *url.URL) (loaders.ReadSeekCloser, time.Time, error) {
+func (m *Manager) Path(u *url.URL) string {
 	p := u.Path
 	if !(p[1] == 'f' || p[1] == 'r') && !(p == "/favicon.ico" || p == "/robots.txt") {
 		p = p[m.prefixLength:]
 	}
-	p = filepath.FromSlash(path.Clean(p))
-	return m.Load(p)
+	return path.Clean(p)
+}
+
+func (m *Manager) Load(name string) (io.ReadCloser, error) {
+	return m.fs.Open(name)
+}
+
+func (m *Manager) LoadURL(u *url.URL) (io.ReadCloser, error) {
+	return m.Load(m.Path(u))
 }
 
 func (m *Manager) Has(name string) bool {
-	f, _, _ := m.Load(name)
-	if f != nil {
-		f.Close()
-		return true
-	}
-	return false
+	st, err := m.fs.Stat(name)
+	return err == nil && st.Mode().IsRegular()
 }
 
 func (m *Manager) Create(name string, overwrite bool) (io.WriteCloser, error) {
-	return m.loader.Create(name, overwrite)
+	flags := os.O_WRONLY | os.O_CREATE
+	if !overwrite {
+		flags |= os.O_EXCL
+	}
+	return m.fs.OpenFile(name, flags, 0644)
 }
 
 func (m *Manager) URL(name string) string {

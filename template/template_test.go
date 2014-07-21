@@ -9,8 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"gnd.la/loaders"
 	"gnd.la/template/assets"
+
+	"gopkgs.com/vfs.v1"
 )
 
 type templateTest struct {
@@ -104,12 +105,15 @@ var (
 )
 
 func parseNamedText(tb testing.TB, name string, text string, funcs map[string]interface{}, contentType string) *Template {
-	loader := loaders.MapLoader(map[string][]byte{name: []byte(text)})
-	tmpl := New(loader, nil)
+	fs, err := vfs.Map(map[string]*vfs.File{name: &vfs.File{Data: []byte(text)}})
+	if err != nil {
+		tb.Fatal(err)
+	}
+	tmpl := New(fs, nil)
 	tmpl.Funcs(funcs)
 	tmpl.Funcs(FuncMap{"#t": func(s string) string { return s }})
 	tmpl.contentType = contentType
-	err := tmpl.Parse(name)
+	err = tmpl.Parse(name)
 	if err != nil {
 		tb.Errorf("error parsing %q: %s", text, err)
 		return nil
@@ -126,8 +130,11 @@ func parseText(tb testing.TB, text string) *Template {
 }
 
 func parseTestTemplate(tb testing.TB, name string) *Template {
-	loader := loaders.FSLoader("_testdata")
-	tmpl := New(loader, assets.NewManager(loader, ""))
+	fs, err := vfs.FS("_testdata")
+	if err != nil {
+		tb.Fatal(err)
+	}
+	tmpl := New(fs, assets.New(fs, ""))
 	tmpl.Funcs(FuncMap{"#t": func(s string) string { return s }})
 	if err := tmpl.Parse(name); err != nil {
 		tb.Errorf("error parsing %q: %s", name, err)

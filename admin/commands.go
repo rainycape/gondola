@@ -9,8 +9,9 @@ import (
 	"os"
 
 	"gnd.la/app"
-	"gnd.la/loaders"
 	"gnd.la/log"
+
+	"gopkgs.com/vfs.v1"
 )
 
 // Builtin admin commands implemented here
@@ -43,28 +44,36 @@ func makeAssets(ctx *app.Context) {
 	if cfg := a.Config(); cfg != nil {
 		cfg.TemplateDebug = false
 	}
-	loader := a.TemplatesLoader()
-	if names, err := loader.List(); err == nil {
-		for _, name := range names {
-			if _, err := a.LoadTemplate(name); err != nil {
-				log.Errorf("error loading template %q: %s", name, err)
-			}
+	err := vfs.Walk(a.TemplatesFS(), "/", func(fs vfs.VFS, p string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
 		}
-	} else {
+		if _, err := a.LoadTemplate(p); err != nil {
+			log.Errorf("error loading template %s: %s", p, err)
+		}
+		return nil
+	})
+
+	if err != nil {
 		log.Errorf("error listing templates: %s", err)
 	}
 }
 
 func printResources(ctx *app.Context) {
+	// TODO: Define an interface in package vfs, so this fails
+	// if the interface is changed or renamed.
+	type rooter interface {
+		Root() string
+	}
 	var assets string
 	var templates string
 	if mgr := ctx.App().AssetsManager(); mgr != nil {
-		if ldr, ok := mgr.Loader().(loaders.DirLoader); ok {
-			assets = ldr.Dir()
+		if r, ok := mgr.VFS().(rooter); ok {
+			assets = r.Root()
 		}
 	}
-	if ldr, ok := ctx.App().TemplatesLoader().(loaders.DirLoader); ok {
-		templates = ldr.Dir()
+	if r, ok := ctx.App().TemplatesFS().(rooter); ok {
+		templates = r.Root()
 	}
 	resources := map[string]string{
 		"assets":    assets,

@@ -1225,6 +1225,9 @@ func (app *App) importAssets(included *includedApp) error {
 		if err != nil || info.IsDir() {
 			return err
 		}
+		if p != "" && p[0] == '/' {
+			p = p[1:]
+		}
 		log.Debugf("will import asset %v from app %s", p, included.app.name)
 		src, err := im.Load(p)
 		if err != nil {

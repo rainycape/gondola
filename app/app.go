@@ -1424,6 +1424,16 @@ func (app *App) Config() *Config {
 	return app.cfg
 }
 
+// Transform transforms all the registered handlers using the given
+// Transformer. Note that handlers registered after this call won't
+// be transformed. This function might be used to cache an entire
+// App using gnd.la/cache/layer.
+func (app *App) Transform(tr Transformer) {
+	for _, v := range app.handlers {
+		v.handler = tr(v.handler)
+	}
+}
+
 // New returns a new App initialized with the given config. If config
 // is nil, the default configuration (exposed via gnd.la/config) is
 // used instead.

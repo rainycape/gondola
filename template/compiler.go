@@ -489,9 +489,13 @@ func (s *State) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 				// get pointer methods and try to call a method by that name
 				ptr := top
 				kind := ptr.Kind()
-				if kind != reflect.Interface && kind != reflect.Ptr && ptr.CanAddr() {
-					ptr = ptr.Addr()
-					kind = reflect.Ptr
+				if kind != reflect.Interface && kind != reflect.Ptr {
+					if ptr.CanAddr() {
+						ptr = ptr.Addr()
+						kind = reflect.Ptr
+					}
+				} else if ptr.IsNil() {
+					goto endopFIELD
 				}
 				fn := ptr.MethodByName(name)
 				if !fn.IsValid() && kind == reflect.Ptr && ptr.Type().Elem().Kind() == reflect.Interface {

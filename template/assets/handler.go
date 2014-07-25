@@ -8,7 +8,11 @@ import (
 	"gnd.la/log"
 )
 
-func Handler(m *Manager) http.HandlerFunc {
+// Handler returns an http.handlerFunc which serves the assets from this
+// Manager. To avoid circular imports, this function returns an http.HandlerFunc
+// rather than a gnd.la/app.Handler. To obtain a gnd.la/app.Handler use
+// gnd.la/app.HandlerFromHTTPFunc.
+func (m *Manager) Handler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		p := m.Path(r.URL)
 		f, err := m.Load(p)

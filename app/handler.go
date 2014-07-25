@@ -1,5 +1,7 @@
 package app
 
+import "net/http"
+
 // Handler is the function type used to satisfy a request
 // (not necessarily HTTP) with a given *Context.
 // Gondola uses Handler for responding to HTTP requests
@@ -30,5 +32,19 @@ func NamedHandler(name string, handler Handler) *HandlerInfo {
 		Options: &Options{
 			Name: name,
 		},
+	}
+}
+
+// HandlerFromHTTPFunc returns a Handler from an http.HandlerFunc.
+func HandlerFromHTTPFunc(f http.HandlerFunc) Handler {
+	return func(ctx *Context) {
+		f(ctx, ctx.R)
+	}
+}
+
+// HandlerFromHTTPHandler returns a Handler from an http.Handler.
+func HandlerFromHTTPHandler(h http.Handler) Handler {
+	return func(ctx *Context) {
+		h.ServeHTTP(ctx, ctx.R)
 	}
 }

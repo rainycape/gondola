@@ -730,10 +730,7 @@ func (app *App) HandleAssets(prefix string, dir string) {
 }
 
 func (app *App) addAssetsManager(manager *assets.Manager, main bool) {
-	assetsHandler := assets.Handler(manager)
-	handler := func(ctx *Context) {
-		assetsHandler(ctx, ctx.R)
-	}
+	handler := HandlerFromHTTPFunc(manager.Handler())
 	app.Handle("^"+manager.Prefix(), handler)
 	if main {
 		app.Handle("^/favicon.ico$", handler)

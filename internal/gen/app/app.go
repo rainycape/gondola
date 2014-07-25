@@ -84,8 +84,7 @@ func (app *App) Gen(release bool) error {
 		buf.WriteString("const prefix = \"/assets/\"\n")
 		buf.WriteString("manager = assets.New(assetsFS, prefix)\n")
 		buf.WriteString("App.SetAssetsManager(manager)\n")
-		buf.WriteString("assetsHandler := assets.Handler(manager)\n")
-		buf.WriteString("App.Handle(\"^\"+prefix, func(ctx *app.Context) { assetsHandler(ctx, ctx.R) })\n")
+		buf.WriteString("App.Handle(\"^\"+prefix, app.HandlerFromHTTPFunc(manager.Handler()))\n")
 	}
 	scope := pkg.Scope()
 	if len(app.Vars) > 0 {

@@ -288,24 +288,24 @@ func testCache(t *testing.T, url string) {
 }
 
 func TestGobCodec(t *testing.T) {
-	testCache(t, "memory://?codec=gob")
+	testCache(t, "memory://#codec=gob")
 }
 
 func TestJsonCodec(t *testing.T) {
-	testCache(t, "memory://?codec=json")
+	testCache(t, "memory://#codec=json")
 }
 
 func TestMsgpackCodec(t *testing.T) {
-	testCache(t, "memory://?codec=msgpack")
+	testCache(t, "memory://#codec=msgpack")
 }
 
 func TestCompress(t *testing.T) {
-	testCache(t, "memory://?min_compress=0&compress_level=9")
+	testCache(t, "memory://#min_compress=0&compress_level=9")
 }
 
 func TestPrefix(t *testing.T) {
 	prefix := "foo"
-	c1, err := newCache("memory://?prefix=" + prefix)
+	c1, err := newCache("memory://#prefix=" + prefix)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -345,7 +345,7 @@ func TestRedis(t *testing.T) {
 }
 
 func TestMemoryCacheMaxSize(t *testing.T) {
-	c, err := newCache("memory://?max_size=1K")
+	c, err := newCache("memory://#max_size=1K")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -387,40 +387,40 @@ func benchmarkCache(b *testing.B, config string) {
 }
 
 func BenchmarkGobCache(b *testing.B) {
-	benchmarkCache(b, "memory://?codec=gob")
+	benchmarkCache(b, "memory://#codec=gob")
 }
 
 func BenchmarkJsonCache(b *testing.B) {
-	benchmarkCache(b, "memory://?codec=json")
+	benchmarkCache(b, "memory://#codec=json")
 }
 
 func BenchmarkMemcacheCache(b *testing.B) {
 	if !testPort(11211) {
 		b.Skip("memcache is not running. start memcache on localhost to run this test")
 	}
-	benchmarkCache(b, "memcache://?codec=json")
+	benchmarkCache(b, "memcache://#codec=json")
 }
 
 func BenchmarkRedisCache(b *testing.B) {
 	if !testPort(6379) {
 		b.Skip("redis is not running. start redis on localhost to run this test")
 	}
-	benchmarkCache(b, "redis://?codec=json")
+	benchmarkCache(b, "redis://#codec=json")
 }
 
 func BenchmarkMemcacheMsgpackCache(b *testing.B) {
 	if !testPort(11211) {
 		b.Skip("memcache is not running. start memcache on localhost to run this test")
 	}
-	benchmarkCache(b, "memcache://?codec=msgpack")
+	benchmarkCache(b, "memcache://#codec=msgpack")
 }
 
 func BenchmarkMsgpackCache(b *testing.B) {
-	benchmarkCache(b, "memory://?codec=msgpack")
+	benchmarkCache(b, "memory://#codec=msgpack")
 }
 
 func BenchmarkPrefixCache(b *testing.B) {
-	benchmarkCache(b, "memory://?prefix=foo&codec=gob")
+	benchmarkCache(b, "memory://#prefix=foo&codec=gob")
 }
 
 func init() {

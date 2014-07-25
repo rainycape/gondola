@@ -68,7 +68,7 @@ func Stop(name string, t *Token) {
 
 // Emit calls all the listeners for the given signal.
 func Emit(name string, object interface{}) {
-	log.Debugf("Emitting signal %s with object %+v", name, object)
+	log.Debugf("Emitting signal %s with %T object", name, object)
 	if rec := signals[name]; rec != nil {
 		params := []reflect.Value{reflect.ValueOf(name), reflect.ValueOf(object)}
 		for _, v := range rec {

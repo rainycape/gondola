@@ -48,3 +48,18 @@ func HandlerFromHTTPHandler(h http.Handler) Handler {
 		h.ServeHTTP(ctx, ctx.R)
 	}
 }
+
+func includedAppHandler(app *App, prefix string) Handler {
+	prefixLen := len(prefix)
+	return func(ctx *Context) {
+		prevApp := ctx.app
+		defer func() {
+			ctx.app = prevApp
+		}()
+		ctx.app = app
+		defer func() {
+			ctx.app = app
+		}()
+		app.serveOrNotFound(ctx.R.URL.Path[prefixLen:], ctx)
+	}
+}

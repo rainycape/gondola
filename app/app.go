@@ -217,7 +217,8 @@ func (app *App) HandleNamed(pattern string, handler Handler, name string) {
 // HandleOptions adds a new handler to the App. If the Options include a
 // non-empty name, it can be be reversed using Context.Reverse or
 // the "reverse" template function. To add a host-specific Handler,
-// set the Host field in Options to a non-empty string.
+// set the Host field in Options to a non-empty string. Note that handler patterns
+// are tried in the same order that they were added to the App.
 func (app *App) HandleOptions(pattern string, handler Handler, opts *Options) {
 	if handler == nil {
 		panic(fmt.Errorf("handler for pattern %q can't be nil", pattern))
@@ -369,6 +370,8 @@ func (app *App) include(prefix string, child *App, containerTemplate string) err
 			return err
 		}
 	}
+	// All checks passed, add the included app handler
+	app.HandleOptions("^"+prefix, includedAppHandler(child, prefix), nil)
 	return nil
 }
 
@@ -1090,7 +1093,11 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if app.runProcessors(ctx) {
 		return
 	}
-	if !app.serve(r.URL.Path, ctx) {
+	app.serveOrNotFound(r.URL.Path, ctx)
+}
+
+func (app *App) serveOrNotFound(path string, ctx *Context) {
+	if !app.serve(path, ctx) {
 		// Not Found
 		app.handleHTTPError(ctx, "Not Found", http.StatusNotFound)
 	}
@@ -1100,18 +1107,6 @@ func (app *App) serve(path string, ctx *Context) bool {
 	if handler := app.matchHandler(path, ctx); handler != nil {
 		handler(ctx)
 		return true
-	}
-
-	for _, v := range app.included {
-		if strings.HasPrefix(path, v.prefix) {
-			ctx.app = v.app
-			defer func() {
-				ctx.app = app
-			}()
-			if v.app.serve(path[len(v.prefix):], ctx) {
-				return true
-			}
-		}
 	}
 
 	if app.appendSlash && (ctx.R.Method == "GET" || ctx.R.Method == "HEAD") && !strings.HasSuffix(path, "/") {

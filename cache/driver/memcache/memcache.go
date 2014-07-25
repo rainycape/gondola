@@ -3,12 +3,14 @@
 package memcache
 
 import (
-	"github.com/rainycape/memcache"
-	"gnd.la/cache/driver"
-	"gnd.la/config"
 	"net"
 	"strings"
 	"time"
+
+	"gnd.la/cache/driver"
+	"gnd.la/config"
+
+	"gopkgs.com/memcache.v2"
 )
 
 type memcacheDriver struct {
@@ -72,7 +74,10 @@ func memcacheOpener(url *config.URL) (driver.Driver, error) {
 	for ii, v := range hosts {
 		conns[ii] = driver.DefaultPort(v, 11211)
 	}
-	client := memcache.New(conns...)
+	client, err := memcache.New(conns...)
+	if err != nil {
+		return nil, err
+	}
 	if tm, ok := url.Fragment.Int("timeout"); ok {
 		client.SetTimeout(time.Millisecond * time.Duration(tm))
 	}

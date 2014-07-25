@@ -3,15 +3,16 @@ package cache
 import (
 	"encoding/gob"
 	"fmt"
+	"net"
+	"reflect"
+	"testing"
+	"time"
+
 	_ "gnd.la/cache/driver/memcache"
 	_ "gnd.la/cache/driver/redis"
 	"gnd.la/config"
 	_ "gnd.la/encoding/codec/msgpack"
 	"gnd.la/log"
-	"net"
-	"reflect"
-	"testing"
-	"time"
 )
 
 type T interface {

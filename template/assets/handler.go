@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"gnd.la/internal/httpserve"
 	"gnd.la/log"
 )
 
@@ -25,8 +26,7 @@ func Handler(m *Manager) http.HandlerFunc {
 			modtime = st.ModTime()
 		}
 		if r.URL.RawQuery != "" {
-			w.Header().Set("Expires", "Thu, 31 Dec 2037 23:55:55 GMT")
-			w.Header().Set("Cache-Control", "max-age=315360000")
+			httpserve.NeverExpires(w)
 		}
 		http.ServeContent(w, r, r.URL.Path, modtime, seeker)
 		f.Close()

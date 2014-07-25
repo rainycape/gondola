@@ -9,9 +9,9 @@ import (
 	_ "image/png"
 	"reflect"
 	"strings"
-	"time"
 
 	"gnd.la/app"
+	"gnd.la/internal/httpserve"
 	"gnd.la/net/httpclient"
 	"gnd.la/signal"
 )
@@ -21,8 +21,6 @@ var (
 	ImageFetcher func(ctx *app.Context, url string) (id string, format string, err error)
 
 	imagePrefix string
-	// Maximum unix timestamp with 32 bits
-	maxExpires = time.Unix(int64((^uint32(0) >> 1)), 0).UTC().Format(time.RFC1123)
 )
 
 func userImageId(val reflect.Value) (string, string) {
@@ -87,7 +85,7 @@ func imageHandler(ctx *app.Context) {
 		return
 	}
 	ctx.SetHeader("Content-Type", "image/"+format)
-	ctx.SetHeader("Expires", maxExpires)
+	httpserve.NeverExpires(ctx)
 	bs := ctx.Blobstore()
 	if err := bs.Serve(ctx, id, nil); err != nil {
 		panic(err)

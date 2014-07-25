@@ -1,11 +1,17 @@
 package driver
 
 import (
+	"errors"
+
 	"gnd.la/config"
 )
 
 var (
 	drivers = map[string]Opener{}
+
+	// ErrNotImplemented can be used by drivers to signal
+	// the cache that they don't implement a given feature.
+	ErrNotImplemented = errors.New("not implemented")
 )
 
 // Opener is a function which returns a new Driver connection
@@ -42,6 +48,8 @@ type Driver interface {
 	// to the cache, which is driver dependant and
 	// might even be nil.
 	Connection() interface{}
+	// Flush clears the cache, removing all cached items.
+	Flush() error
 }
 
 // Register registers a new cache driver with the

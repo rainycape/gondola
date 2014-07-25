@@ -2,12 +2,13 @@ package driver
 
 import (
 	"fmt"
-	"gnd.la/config"
-	"gnd.la/util/parseutil"
 	"runtime"
 	"sort"
 	"sync"
 	"time"
+
+	"gnd.la/config"
+	"gnd.la/util/parseutil"
 )
 
 type item struct {
@@ -152,6 +153,14 @@ func (d *MemoryDriver) Close() error {
 }
 
 func (d *MemoryDriver) Connection() interface{} {
+	return nil
+}
+
+func (d *MemoryDriver) Flush() error {
+	cache.Lock()
+	defer cache.Unlock()
+	cache.size = 0
+	cache.items = make(map[string]*item)
 	return nil
 }
 

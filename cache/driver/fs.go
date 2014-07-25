@@ -2,13 +2,14 @@ package driver
 
 import (
 	"encoding/binary"
-	"gnd.la/config"
-	"gnd.la/crypto/hashutil"
-	"gnd.la/util/pathutil"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
+
+	"gnd.la/config"
+	"gnd.la/crypto/hashutil"
+	"gnd.la/util/pathutil"
 )
 
 type FileSystemDriver struct {
@@ -90,6 +91,10 @@ func (f *FileSystemDriver) Close() error {
 
 func (f *FileSystemDriver) Connection() interface{} {
 	return nil
+}
+
+func (f *FileSystemDriver) Flush() error {
+	return ErrNotImplemented
 }
 
 func fsOpener(url *config.URL) (Driver, error) {

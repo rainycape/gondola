@@ -108,6 +108,13 @@ func (r *redisDriver) Close() error {
 	return r.pool.Close()
 }
 
+func (r *redisDriver) Flush() error {
+	conn := r.pool.Get()
+	_, err := conn.Do("FLUSHDB")
+	conn.Close()
+	return err
+}
+
 func redisOpener(url *config.URL) (driver.Driver, error) {
 	password := url.Fragment.Get("password")
 	db := -1

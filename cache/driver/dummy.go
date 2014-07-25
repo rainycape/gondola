@@ -35,6 +35,10 @@ func (d *DummyDriver) Connection() interface{} {
 	return nil
 }
 
+func (d *DummyDriver) Flush() error {
+	return nil
+}
+
 func openDummyDriver(url *config.URL) (Driver, error) {
 	if ddrv == nil {
 		// No locking, since the worst thing that might

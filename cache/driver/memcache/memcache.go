@@ -53,6 +53,10 @@ func (c *memcacheDriver) Connection() interface{} {
 	return c.Client
 }
 
+func (c *memcacheDriver) Flush() error {
+	return c.Client.Flush(0)
+}
+
 func (c *memcacheDriver) error(err error) error {
 	if err != nil {
 		if err == memcache.ErrCacheMiss {

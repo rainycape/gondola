@@ -3,14 +3,15 @@ package cache
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
+
 	"gnd.la/app/profile"
 	"gnd.la/cache/driver"
 	"gnd.la/config"
 	"gnd.la/encoding/codec"
 	"gnd.la/encoding/pipe"
 	"gnd.la/log"
-	"reflect"
-	"strings"
 )
 
 var (
@@ -256,6 +257,11 @@ func (c *Cache) Delete(key string) error {
 		return derr
 	}
 	return nil
+}
+
+// Flush removes all items from the cache.
+func (c *Cache) Flush() error {
+	return c.driver.Flush()
 }
 
 // Close closes the cache connection. If you're using a cache

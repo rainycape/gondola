@@ -3,13 +3,14 @@ package template
 import (
 	"bytes"
 	"fmt"
-	"gnd.la/internal/runtimeutil"
-	"gnd.la/util/stringutil"
-	"gnd.la/util/types"
 	"html/template"
 	"reflect"
 	"strings"
 	"text/template/parse"
+
+	"gnd.la/internal/runtimeutil"
+	"gnd.la/util/stringutil"
+	"gnd.la/util/types"
 )
 
 var (

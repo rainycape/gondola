@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"gnd.la/internal/gen/genutil"
@@ -88,8 +89,14 @@ func (app *App) Gen(release bool) error {
 	}
 	scope := pkg.Scope()
 	if len(app.Vars) > 0 {
+		var varNames []string
+		for k := range app.Vars {
+			varNames = append(varNames, k)
+		}
+		sort.Strings(varNames)
 		buf.WriteString("App.AddTemplateVars(map[string]interface{}{\n")
-		for k, v := range app.Vars {
+		for _, k := range varNames {
+			v := app.Vars[k]
 			ident := k
 			name := v
 			if name == "" || name == nil {
@@ -111,7 +118,13 @@ func (app *App) Gen(release bool) error {
 		}
 		buf.WriteString("})\n")
 	}
-	for k, v := range app.Handlers {
+	var handlerNames []string
+	for k := range app.Handlers {
+		handlerNames = append(handlerNames, k)
+	}
+	sort.Strings(handlerNames)
+	for _, k := range handlerNames {
+		v := app.Handlers[k]
 		obj := scope.Lookup(k)
 		if obj == nil {
 			return fmt.Errorf("could not find handler named %q", k)

@@ -56,7 +56,7 @@ func List(fs vfs.VFS, dir string) ([]*article.Article, error) {
 			// Not a recognized extension
 			continue
 		}
-		article, err := article.Load(fs, p)
+		article, err := article.Open(fs, p)
 		if err != nil {
 			return nil, err
 		}

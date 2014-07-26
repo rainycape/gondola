@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -284,8 +286,8 @@ func New(r io.Reader) (*Article, error) {
 	return article, nil
 }
 
-// Load returns a new Article loading it from the given filename in the given fs.
-func Load(fs vfs.VFS, filename string) (*Article, error) {
+// Open returns a new Article loading it from the given filename in the given fs.
+func Open(fs vfs.VFS, filename string) (*Article, error) {
 	f, err := fs.Open(filename)
 	if err != nil {
 		return nil, err
@@ -296,5 +298,20 @@ func Load(fs vfs.VFS, filename string) (*Article, error) {
 		return nil, err
 	}
 	article.Filename = filename
+	return article, nil
+}
+
+// OpenFile returns a new Article loading it from the file at the given path.
+func OpenFile(filename string) (*Article, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	article, err := New(f)
+	if err != nil {
+		return nil, err
+	}
+	article.Filename = filepath.ToSlash(filename)
 	return article, nil
 }

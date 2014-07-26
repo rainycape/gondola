@@ -3,3 +3,14 @@
 <div class="articles-article-body">
   {{ .Body }}
 </div>
+{{ $created := .Article.Created }}
+{{ if $created }}
+<div class="article-updates">
+  {{ $updated := .Article.LastUpdate }}
+  {{ if eq $created $updated }}
+    <p>{{ printf (t "Created on %s") ($created.Format "2006-01-02 15:04") }}</p>
+  {{ else }}
+    <p>{{ printf (t "Last update on %s, created on %s") ($updated.Format "2006-01-02 15:04") ($created.Format "2006-01-02 15:04") }}</p>
+  {{ end }}
+</div>
+{{ end }}

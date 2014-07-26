@@ -3,10 +3,12 @@ package articles
 import (
 	"bytes"
 	"html/template"
-	"path/filepath"
+	"path"
 
 	"gnd.la/app"
 	"gnd.la/log"
+
+	"gnd.la/apps/articles/article"
 
 	"gopkgs.com/vfs.v1"
 )
@@ -23,32 +25,36 @@ var (
 
 func articleHandler(ctx *app.Context) {
 	slug := ctx.IndexValue(0)
-	var article *Article
-	for _, v := range AppArticles(ctx.App()) {
+	var art *article.Article
+	articles := AppArticles(ctx.App())
+	for _, v := range articles {
 		if v.Slug() == slug {
-			article = v
+			art = v
 			break
 		}
 	}
-	if article == nil {
-		for _, v := range AppArticles(ctx.App()) {
-			for _, t := range v.PrevTitles {
-				if titleSlug(t) == slug {
-					ctx.MustRedirectReverse(true, ArticleHandlerName, v.Slug())
+	if art == nil {
+		for _, v := range articles {
+			for _, s := range v.AllSlugs() {
+				if s == slug {
+					ctx.MustRedirectReverse(true, ArticleHandlerName, s)
 					return
 				}
 			}
 		}
-		ctx.NotFound("article")
+		ctx.NotFound("article not found")
 		return
 	}
-	dir, base := filepath.Split(article.Template)
-	log.Debugf("loading article from dir %s", dir)
-	fs, err := vfs.FS(dir)
-	if err != nil {
+	fs := vfs.Memory()
+	filename := path.Base(art.Filename)
+	if filename == "" {
+		filename = "article.html"
+	}
+	if err := vfs.WriteFile(fs, filename, art.Text, 0644); err != nil {
 		panic(err)
 	}
-	tmpl, err := app.LoadTemplate(ctx.App(), fs, nil, base)
+	log.Debugf("loading article %s", articleId(art))
+	tmpl, err := app.LoadTemplate(ctx.App(), fs, nil, filename)
 	if err != nil {
 		panic(err)
 	}
@@ -58,8 +64,8 @@ func articleHandler(ctx *app.Context) {
 	}
 	body := buf.String()
 	data := map[string]interface{}{
-		"Article": article,
-		"Title":   article.Title,
+		"Article": art,
+		"Title":   art.Title(),
 		"Body":    template.HTML(body),
 	}
 	ctx.MustExecute("article.html", data)

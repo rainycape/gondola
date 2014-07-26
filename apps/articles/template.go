@@ -2,9 +2,24 @@ package articles
 
 import (
 	"fmt"
+	"path"
+
 	"gnd.la/app"
+	"gnd.la/apps/articles/article"
 	"gnd.la/template"
 )
+
+func articleId(art *article.Article) string {
+	if art.Id != "" {
+		return art.Id
+	}
+	if art.Filename != "" {
+		base := path.Base(art.Filename)
+		ext := path.Ext(base)
+		return base[:len(base)-len(ext)]
+	}
+	return ""
+}
 
 func reverseArticle(ctx *app.Context, article interface{}) (string, error) {
 	return reverseAppArticle(ctx.App(), article)
@@ -15,36 +30,36 @@ func reverseAppArticle(a *app.App, article interface{}) (string, error) {
 	return reverseAppsArticle(a, article, checked)
 }
 
-func reverseAppsArticle(a *app.App, article interface{}, checked map[*app.App]bool) (string, error) {
+func reverseAppsArticle(a *app.App, art interface{}, checked map[*app.App]bool) (string, error) {
 	checked[a] = true
 	articles := AppArticles(a)
-	switch x := article.(type) {
+	switch x := art.(type) {
 	case string:
 		for _, v := range articles {
-			if v.Id == x {
+			if articleId(v) == x {
 				return a.Reverse(ArticleHandlerName, v.Slug())
 			}
 		}
-	case *Article:
+	case *article.Article:
 		return a.Reverse(ArticleHandlerName, x.Slug())
-	case Article:
+	case article.Article:
 		return a.Reverse(ArticleHandlerName, x.Slug())
 	}
 	if p := a.Parent(); p != nil && !checked[p] {
-		return reverseAppsArticle(p, article, checked)
+		return reverseAppsArticle(p, art, checked)
 	}
 	for _, v := range a.Included() {
 		if checked[v] {
 			continue
 		}
-		if url, err := reverseAppsArticle(v, article, checked); err == nil {
+		if url, err := reverseAppsArticle(v, art, checked); err == nil {
 			return url, nil
 		}
 	}
-	if id, ok := article.(string); ok {
+	if id, ok := art.(string); ok {
 		return "", fmt.Errorf("no article with id %q found", id)
 	}
-	return "", fmt.Errorf("can't reverse Article from %T, must be *Article or string (article id)", article)
+	return "", fmt.Errorf("can't reverse Article from %T, must be *Article or string (article id)", art)
 }
 
 func init() {

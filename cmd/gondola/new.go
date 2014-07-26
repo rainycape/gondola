@@ -5,15 +5,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"gnd.la/admin"
-	"gnd.la/app"
-	"gnd.la/internal/project"
-	"gnd.la/log"
-	"gnd.la/net/urlutil"
-	"gnd.la/util/fileutil"
-	"gnd.la/util/generic"
-	"gnd.la/util/stringutil"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -23,6 +16,13 @@ import (
 	"strings"
 	"text/tabwriter"
 	"text/template"
+
+	"gnd.la/internal/project"
+	"gnd.la/log"
+	"gnd.la/net/urlutil"
+	"gnd.la/util/fileutil"
+	"gnd.la/util/generic"
+	"gnd.la/util/stringutil"
 )
 
 const (
@@ -80,46 +80,43 @@ func isEmptyDir(dir string) bool {
 	return err == nil && len(files) == 0
 }
 
-func NewCmd(ctx *app.Context) {
+type newOptions struct {
+	Template string `help:"Project template to use"`
+	List     bool   `help:"List available project templates"`
+	Gae      bool   `help:"Create an App Engine hybrid project"`
+}
+
+func newCommand(args []string, opts *newOptions) error {
 	tmpls, err := getAvailableTemplates()
 	if err != nil {
-		panic(err)
+		return err
 	}
-	var list bool
-	var ptemplate string
-	var gae bool
-	ctx.ParseParamValue("list", &list)
-	ctx.ParseParamValue("template", &ptemplate)
-	ctx.ParseParamValue("gae", &gae)
-	if list {
+	if opts.List {
 		w := tabwriter.NewWriter(os.Stdout, 8, 4, 2, ' ', 0)
 		for _, v := range tmpls {
 			fmt.Fprintf(w, "%s:\t%s\n", v.Name, v.Description)
 		}
-		if err := w.Flush(); err != nil {
-			panic(err)
-		}
-		return
+		return w.Flush()
 	}
-	name := ctx.IndexValue(0)
-	if name == "" {
-		admin.UsageError("missing directory name")
+	if len(args) == 0 {
+		return errors.New("missing directory name")
 	}
+	name := args[0]
 	for _, v := range tmpls {
-		if v.Name == ptemplate {
+		if v.Name == opts.Template {
 			if exists, _ := fileutil.Exists(name); exists && !isEmptyDir(name) {
-				admin.Errorf("%s already exists", name)
+				return fmt.Errorf("%s already exists", name)
 			}
 			if err := os.MkdirAll(name, 0755); err != nil {
-				panic(err)
+				return err
 			}
-			r, err := getTemplateReader(v.URL, gae)
+			r, err := getTemplateReader(v.URL, opts.Gae)
 			if err != nil {
-				panic(err)
+				return err
 			}
 			hdr, err := r.Next()
 			if err != nil {
-				panic(err)
+				return err
 			}
 			// Data to pass to templates
 			tmplData := map[string]interface{}{
@@ -155,30 +152,17 @@ func NewCmd(ctx *app.Context) {
 					}
 					log.Debugf("writing file %s", p)
 					if err := ioutil.WriteFile(p, data, info.Mode()); err != nil {
-						panic(err)
+						return err
 					}
 				}
 				hdr, err = r.Next()
 				if err != nil && err != io.EOF {
-					panic(err)
+					return err
 				}
 			}
-			return
+			return nil
 		}
 	}
 	available := generic.Map(tmpls, func(t *project.Template) string { return t.Name }).([]string)
-	admin.Errorf("template %s not found, availble ones are: %s", ptemplate, strings.Join(available, ", "))
-}
-
-func init() {
-	admin.Register(NewCmd, &admin.Options{
-		Name:  "New",
-		Help:  "Create a new Gondola project",
-		Usage: "<dir_name>",
-		Flags: admin.Flags(
-			admin.StringFlag("template", "hello", "Project template to use"),
-			admin.BoolFlag("list", false, "List available project templates"),
-			admin.BoolFlag("gae", false, "Create an App Engine hybrid project"),
-		),
-	})
+	return fmt.Errorf("template %s not found, availble ones are: %s", opts.Template, strings.Join(available, ", "))
 }

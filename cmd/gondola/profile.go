@@ -6,19 +6,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/howeyc/gopass"
-	"gnd.la/admin"
-	"gnd.la/app"
-	"gnd.la/app/profile"
-	"gnd.la/crypto/cryptoutil"
-	"gnd.la/encoding/base64"
-	"gnd.la/log"
-	"gnd.la/util/stringutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
+
+	"gnd.la/app/profile"
+	"gnd.la/crypto/cryptoutil"
+	"gnd.la/encoding/base64"
+	"gnd.la/log"
+	"gnd.la/util/stringutil"
+
+	"github.com/howeyc/gopass"
 )
 
 var (
@@ -100,40 +100,33 @@ func requestProfile(u string, method string, values url.Values, secret string) (
 	return info, nil
 }
 
-func Profile(ctx *app.Context) {
-	u := ctx.IndexValue(0)
-	if u == "" {
-		log.Fatalf("url can't be empty")
-	}
-	var method string
-	ctx.ParseParamValue("m", &method)
-	var data string
-	ctx.ParseParamValue("d", &data)
-	var values url.Values
-	if data != "" {
-		values = make(url.Values)
-		fields, err := stringutil.SplitFields(data, ";")
-		if err != nil {
-			log.Fatalf("invalid data: %s", err)
+type profileOptions struct {
+	Method string `help:"HTTP method"`
+	Data   string `help:"Optional data to be sent in the request in the form k1=v1&k2=v2..."`
+}
 
+func profileCommand(args []string, opts *profileOptions) error {
+	if len(args) == 0 {
+		return errors.New("url can't be empty")
+	}
+	u := args[0]
+	var values url.Values
+	if opts.Data != "" {
+		vals, err := url.ParseQuery(opts.Data)
+		if err != nil {
+			return fmt.Errorf("error parsing data %q: %s", opts.Data, err)
 		}
-		for _, v := range fields {
-			parts, err := stringutil.SplitFields(data, ";")
-			if err != nil || len(parts) != 2 {
-				log.Fatalf("invalid data parameter %q: %s", v, err)
-			}
-			values.Add(parts[0], parts[1])
-		}
+		values = vals
 	}
 	parsed, err := url.Parse(u)
 	if err != nil {
-		log.Fatalf("invalid url %q: %s", u, err)
+		return fmt.Errorf("invalid url %q: %s", u, err)
 	}
 	host := parsed.Host
 	var secret string
 	var info *profileInfo
 	for {
-		info, err = requestProfile(u, method, values, secret)
+		info, err = requestProfile(u, opts.Method, values, secret)
 		if err == nil {
 			break
 		}
@@ -149,7 +142,7 @@ func Profile(ctx *app.Context) {
 			fmt.Println("")
 			continue
 		}
-		log.Fatal(err)
+		return err
 	}
 	width := 80
 	fmt.Printf("total %s\n%s\n\n", info.Elapsed, strings.Repeat("=", width))
@@ -177,6 +170,7 @@ func Profile(ctx *app.Context) {
 		fmt.Printf("%s\n\n", strings.Repeat("=", width))
 	}
 	fmt.Printf("others - %s\n", other)
+	return nil
 }
 
 func pad(s string, width int) string {
@@ -214,14 +208,4 @@ func formatNotes(notes []*profile.Note, width int) []string {
 		}
 	}
 	return output
-}
-
-func init() {
-	admin.Register(Profile, &admin.Options{
-		Help: "Shows profiling information for a remote server running a Gondola app",
-		Flags: admin.Flags(
-			admin.StringFlag("m", "GET", "HTTP method"),
-			admin.StringFlag("d", "", "Data to be sent in the request in the form k1=v1;k2=v2..."),
-		),
-	})
 }

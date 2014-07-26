@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"code.google.com/p/go.exp/fsnotify"
-	"gnd.la/admin"
 	"gnd.la/app"
 	"gnd.la/config"
 	"gnd.la/internal/runtimeutil"
@@ -625,34 +624,43 @@ func findConfig(dir string, name string) string {
 	return ""
 }
 
-func Dev(ctx *app.Context) {
-	var verbose bool
-	ctx.ParseParamValue("v", &verbose)
-	if !verbose {
+type devOptions struct {
+	Dir       string `help:"Project directory"`
+	Port      int    `help:"Port to listen on"`
+	Config    string `help:"Configuration file. If empty, dev.conf and app.conf are tried in that order"`
+	Tags      string `help:"Build tags to pass to the Go compiler"`
+	NoDebug   bool   `name:"no-debug" help:"Disable AppDebug, TemplateDebug and LogDebug - see gnd.la/config for details"`
+	NoCache   bool   `name:"no-cache" help:"Disables the cache when running the project"`
+	Profile   bool   `help:"Compiles and runs the project with profiling enabled"`
+	Race      bool   `help:"Enable -race when building. If the platform does not support -race, this option is ignored"`
+	NoBrowser bool   `name:"no-browser" help:"Don't open the default browser when starting the development server"`
+	Verbose   bool   `name:"v" help:"Enable verbose output"`
+}
+
+func devCommand(opts *devOptions) error {
+	if !opts.Verbose {
 		log.SetLevel(log.LInfo)
 	}
-	var dir string
-	var configName string
-	var noBrowser bool
-	ctx.ParseParamValue("dir", &dir)
-	ctx.ParseParamValue("config", &configName)
+	dir := opts.Dir
+	if dir == "" {
+		dir = "."
+	}
 	path, err := filepath.Abs(dir)
 	if err != nil {
-		log.Panic(err)
+		return err
 	}
-	configPath := findConfig(dir, configName)
+	configPath := findConfig(dir, opts.Config)
 	if configPath == "" {
-		log.Panicf("can't find configuration file %s in %s", configName, dir)
+		log.Panicf("can't find configuration file %s in %s", opts.Config, dir)
 	}
 	log.Infof("Using config file %s", configPath)
 	p := NewProject(path, configPath)
-	ctx.ParseParamValue("port", &p.port)
-	ctx.ParseParamValue("tags", &p.tags)
-	ctx.ParseParamValue("race", &p.race)
-	ctx.ParseParamValue("no-debug", &p.noDebug)
-	ctx.ParseParamValue("no-cache", &p.noCache)
-	ctx.ParseParamValue("profile", &p.profile)
-	ctx.ParseParamValue("no-browser", &noBrowser)
+	p.port = opts.Port
+	p.tags = opts.Tags
+	p.race = opts.Race
+	p.noDebug = opts.NoDebug
+	p.noCache = opts.NoCache
+	p.profile = opts.Profile
 	clean(dir)
 	go p.Build()
 	eof := "C"
@@ -660,12 +668,13 @@ func Dev(ctx *app.Context) {
 		eof = "Z"
 	}
 	log.Infof("Starting Gondola development server on port %d (press Control+%s to exit)", p.port, eof)
-	if !noBrowser {
+	if !opts.NoBrowser {
 		time.AfterFunc(time.Second, func() {
 			startBrowser(fmt.Sprintf("http://localhost:%d", p.port))
 		})
 	}
 	p.Listen()
+	return nil
 }
 
 func startBrowser(url string) bool {
@@ -681,22 +690,4 @@ func startBrowser(url string) bool {
 	}
 	cmd := exec.Command(args[0], append(args[1:], url)...)
 	return cmd.Start() == nil
-}
-
-func init() {
-	admin.Register(Dev, &admin.Options{
-		Help: "Starts the development server",
-		Flags: admin.Flags(
-			admin.StringFlag("dir", ".", "Directory of the project"),
-			admin.StringFlag("config", "", "Configuration name to use - if empty the following are tried, in order "+devConfigName+", "+filepath.Base(config.DefaultFilename)),
-			admin.StringFlag("tags", "", "Go build tags to pass to the compiler"),
-			admin.BoolFlag("no-debug", false, "Disable AppDebug, TemplateDebug and LogDebug - see gnd.la/config for details"),
-			admin.BoolFlag("no-cache", false, "Disables the cache when running the project"),
-			admin.BoolFlag("profile", false, "Compiles and runs the project with profiling enabled"),
-			admin.IntFlag("port", 8888, "Port to listen on"),
-			admin.BoolFlag("race", false, "Enable -race when building. If the platform does not support -race, this option is ignored."),
-			admin.BoolFlag("no-brower", false, "Don't open the default browser when starting the development server."),
-			admin.BoolFlag("v", false, "Enable verbose output"),
-		),
-	})
 }

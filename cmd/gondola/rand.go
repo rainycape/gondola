@@ -2,24 +2,18 @@ package main
 
 import (
 	"fmt"
-	"gnd.la/admin"
-	"gnd.la/app"
+
 	"gnd.la/util/stringutil"
 )
 
 const (
-	defaultSecretLength = 64
+	defaultRandomLength = 64
 )
 
-func RandomString(ctx *app.Context) {
-	var length int
-	ctx.ParseParamValue("length", &length)
-	fmt.Println(stringutil.RandomPrintable(length))
+type randomStringOptions struct {
+	Length int `help:"Length of the generated random string"`
 }
 
-func init() {
-	admin.Register(RandomString, &admin.Options{
-		Help:  "Generates a random string suitable for use as the app secret",
-		Flags: admin.Flags(admin.IntFlag("length", defaultSecretLength, "Length of the generated secret string")),
-	})
+func randomStringCommand(opts *randomStringOptions) {
+	fmt.Println(stringutil.RandomPrintable(opts.Length))
 }

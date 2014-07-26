@@ -1,28 +1,17 @@
 package main
 
 import (
-	"gnd.la/admin"
-	"gnd.la/app"
-	gapp "gnd.la/internal/gen/app"
+	"gnd.la/internal/gen/app"
 )
 
-func GenApp(ctx *app.Context) {
-	var release bool
-	ctx.ParseParamValue("release", &release)
-	a, err := gapp.Parse(".")
-	if err != nil {
-		panic(err)
-	}
-	if err := a.Gen(release); err != nil {
-		panic(err)
-	}
+type genAppOptions struct {
+	Release bool `help:"Generate release files, otherwise development files are generated"`
 }
 
-func init() {
-	admin.Register(GenApp, &admin.Options{
-		Help: "Generate boilerplate code for a Gondola app from the app.yaml file",
-		Flags: admin.Flags(
-			admin.BoolFlag("release", false, "Generate release files"),
-		),
-	})
+func genAppCommand(opts *genAppOptions) error {
+	a, err := app.Parse(".")
+	if err != nil {
+		return err
+	}
+	return a.Gen(opts.Release)
 }

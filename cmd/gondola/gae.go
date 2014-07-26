@@ -12,8 +12,6 @@ import (
 
 	"code.google.com/p/go.exp/fsnotify"
 
-	"gnd.la/admin"
-	"gnd.la/app"
 	"gnd.la/log"
 )
 
@@ -106,22 +104,17 @@ func watchAppResources(buildArgs []string, resources []string) error {
 	return nil
 }
 
-func GaeDev(ctx *app.Context) {
+func gaeDevCommand() error {
 	log.Debugf("starting App Engine development server - press Control+C to stop")
-	var tags string
-	ctx.ParseParamValue("tags", &tags)
 	var buildArgs []string
-	if tags != "" {
-		buildArgs = append(buildArgs, "-tags", tags)
-	}
 	resources, err := makeAppAssets(buildArgs)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	go watchAppResources(buildArgs, resources)
 	serveCmd, err := startServe(buildArgs)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	errCh := make(chan error, 1)
 	go func() {
@@ -135,42 +128,28 @@ func GaeDev(ctx *app.Context) {
 		<-errCh
 		log.Debugf("exited")
 	case err := <-errCh:
-		panic(err)
+		return err
 	}
+	return nil
 }
 
-func GaeDeploy(ctx *app.Context) {
-	cmd := exec.Command("gondola", "rm-gen")
-	if err := runCmd(cmd); err != nil {
-		panic(err)
-	}
-	makeAppAssets(nil)
-	deployCmd := exec.Command("goapp", "deploy")
-	if err := runCmd(deployCmd); err != nil {
-		panic(err)
-	}
+type gaeTestOptions struct {
+	Verbose bool `name:"v" help:"Enable verbose tests"`
 }
 
-func GaeTest(ctx *app.Context) {
+func gaeTestCommand(opts *gaeTestOptions) error {
 	log.Debugf("starting App Engine tests")
-	var tags string
-	ctx.ParseParamValue("tags", &tags)
 	var buildArgs []string
-	if tags != "" {
-		buildArgs = append(buildArgs, "-tags", tags)
-	}
 	serveCmd, err := startServe(buildArgs)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	serveCh := make(chan error, 1)
 	go func() {
 		serveCh <- serveCmd.Wait()
 	}()
 	args := append([]string{"test"}, buildArgs...)
-	var verbose bool
-	ctx.ParseParamValue("v", &verbose)
-	if verbose {
+	if opts.Verbose {
 		args = append(args, "-v")
 	}
 	args = append(args, "-L")
@@ -178,19 +157,18 @@ func GaeTest(ctx *app.Context) {
 	runCmd(testCmd)
 	serveCmd.Process.Signal(os.Interrupt)
 	<-serveCh
+	return nil
 }
 
-func init() {
-	admin.Register(GaeDev, &admin.Options{
-		Help: "Start App Engine development server",
-	})
-	admin.Register(GaeDeploy, &admin.Options{
-		Help: "Deploy your application to App Engine development",
-	})
-	admin.Register(GaeTest, &admin.Options{
-		Help: "Start serving your app on localhost and run gnd.la/test/tester tests against it",
-		Flags: admin.Flags(
-			admin.BoolFlag("v", false, "Enable verbose tests"),
-		),
-	})
+func gaeDeployCommand() error {
+	cmd := exec.Command("gondola", "rm-gen")
+	if err := runCmd(cmd); err != nil {
+		return err
+	}
+	makeAppAssets(nil)
+	deployCmd := exec.Command("goapp", "deploy")
+	if err := runCmd(deployCmd); err != nil {
+		return err
+	}
+	return nil
 }

@@ -1,14 +1,13 @@
 package main
 
 import (
-	"gnd.la/admin"
-	"gnd.la/app"
-	"gnd.la/log"
 	"go/build"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"gnd.la/log"
 )
 
 var (
@@ -110,19 +109,10 @@ func clean(dir string) error {
 	return cmd.Run()
 }
 
-func Clean(ctx *app.Context) {
-	var dir string
-	ctx.ParseIndexValue(0, &dir)
-	if dir == "" {
-		dir = "."
+func cleanCommand(args []string) error {
+	dir := "."
+	if len(args) > 0 {
+		dir = args[0]
 	}
-	if err := clean(dir); err != nil {
-		panic(err)
-	}
-}
-
-func init() {
-	admin.Register(Clean, &admin.Options{
-		Help: "Cleans any Gondola packages which use conditional compilation - DO THIS BEFORE BUILDING A BINARY FOR DEPLOYMENT - see golang.org/issue/3172",
-	})
+	return clean(dir)
 }

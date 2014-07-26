@@ -1,24 +1,11 @@
 package main
 
-import (
-	"gnd.la/admin"
-	"gnd.la/app"
-	"gnd.la/internal/gen"
-)
+import "gnd.la/internal/gen"
 
-func Gen(ctx *app.Context) {
-	var genfile string
-	ctx.ParseParamValue("genfile", &genfile)
-	if err := gen.Gen(".", genfile); err != nil {
-		panic(err)
-	}
+type genOptions struct {
+	Genfile string `name:"genfile" help:"Code generation configuration file"`
 }
 
-func init() {
-	admin.Register(Gen, &admin.Options{
-		Help: "Perform code generation in the current directory according the rules in the config file",
-		Flags: admin.Flags(
-			admin.StringFlag("genfile", "genfile.yaml", "Code generation configuration file"),
-		),
-	})
+func genCommand(opts *genOptions) error {
+	return gen.Gen(".", opts.Genfile)
 }

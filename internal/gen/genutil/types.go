@@ -22,12 +22,30 @@ import (
 // dependencies. Use NewPackage to create a Package.
 type Package struct {
 	*types.Package
-	dir string
+	dir  string
+	pkg  *_package
+	info *types.Info
 }
 
 // Dir returns the package source directory.
 func (p *Package) Dir() string {
 	return p.dir
+}
+
+func (p *Package) FileSet() *token.FileSet {
+	return p.pkg.fset
+}
+
+func (p *Package) ASTFiles() map[string]*ast.File {
+	files := make(map[string]*ast.File)
+	for k, v := range p.pkg.files {
+		files[k] = v.ast
+	}
+	return files
+}
+
+func (p *Package) Info() *types.Info {
+	return p.info
 }
 
 func (p *Package) types(exported bool, include *regexp.Regexp, exclude *regexp.Regexp, names []string) ([]*types.Named, error) {
@@ -164,7 +182,14 @@ func NewPackage(path string) (*Package, error) {
 			}
 		}
 	}
-	tpkg, err := context.Check(ipath, p.fset, p.astFiles, nil)
+	var info types.Info
+	info.Types = make(map[ast.Expr]types.TypeAndValue)
+	info.Defs = make(map[*ast.Ident]types.Object)
+	info.Uses = make(map[*ast.Ident]types.Object)
+	info.Implicits = make(map[ast.Node]types.Object)
+	info.Selections = make(map[*ast.SelectorExpr]*types.Selection)
+	info.Scopes = make(map[ast.Node]*types.Scope)
+	tpkg, err := context.Check(ipath, p.fset, p.astFiles, &info)
 	if err != nil {
 		// This error is caused by using fields in C structs, ignore it
 		if !strings.Contains(err.Error(), "invalid type") {
@@ -174,6 +199,8 @@ func NewPackage(path string) (*Package, error) {
 	return &Package{
 		Package: tpkg,
 		dir:     pkg.Dir,
+		pkg:     p,
+		info:    &info,
 	}, nil
 }
 

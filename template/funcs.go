@@ -297,63 +297,113 @@ func getVar(s *State, name string) interface{} {
 }
 
 var templateFuncs = makeFuncMap(FuncMap{
-	"#eq":        eq,
-	"#neq":       neq,
-	"#lt":        lt,
-	"#lte":       lte,
-	"#gt":        gt,
-	"#gte":       gte,
-	"#json":      _json,
-	"#jsons":     jsons,
-	"#nz":        nz,
-	"#join":      strings.Join,
-	"#map":       _map,
-	"#slice":     _slice,
-	"#append":    _append,
-	"#indirect":  _indirect,
-	"#addf":      addf,
-	"#add":       add,
-	"#addi":      addi,
-	"#subf":      subf,
-	"#sub":       sub,
-	"#subi":      subi,
-	"#mulf":      mulf,
-	"#mul":       mul,
-	"#muli":      muli,
+	// Returns true iff the first argument is equal to any of the
+	// following ones.
+	"#eq": eq,
+	// Returns true iff the first argument is different to all the following
+	// ones.
+	"#neq": neq,
+	// Returns true iff arg1 < arg2. Produces an error if arguments are of
+	// different types of if its type is not comparable.
+	"#lt": lt,
+	// Returns true iff arg1 <= arg2. Produces an error if arguments are of
+	// different types of if its type is not comparable.
+	"#lte": lte,
+	// Returns true iff arg1 > arg2. Produces an error if arguments are of
+	// different types of if its type is not comparable.
+	"#gt": gt,
+	// Returns true iff arg1 >= arg2. Produces an error if arguments are of
+	// different types of if its type is not comparable.
+	"#gte": gte,
+	// Returns the JSON representation of the given argument as a string.
+	// Produces an error in the argument can't be converted to JSON.
+	"#json": _json,
+	// Same as jsons, but returns a template.JS, which can be embedded in script
+	// sections of an HTML template without further escaping.
+	"#jsons": jsons,
+	"#nz":    nz,
+	"#join":  strings.Join,
+	"#map":   _map,
+	// Returns a slice with the given arguments.
+	"#slice":    _slice,
+	"#append":   _append,
+	"#indirect": _indirect,
+	// Add all the arguments, returning a float64.
+	"#addf": addf,
+	// Add all the arguments, returning either an int (if the result does not
+	// have a decimal part) or a float64.
+	"#add": add,
+	// Add all the arguments, returning a int. If the result has a decimal part,
+	// it's truncated.
+	"#addi": addi,
+	// Substract all the arguments in the given order, from left to right, returning a float64.
+	"#subf": subf,
+	// Substract all the arguments in the given order, from left to right, returning either an int
+	// (if the result does not have a decimal part) or a float64.
+	"#sub": sub,
+	// Substract all the arguments in the given order, from left to right, returning a int. If the
+	// result has a decimal part, it's truncated.
+	"#subi": subi,
+	// Multiply all the arguments, returning a float64.
+	"#mulf": mulf,
+	// Multiply all the arguments, returning either an int (if the result does not
+	// have a decimal part) or a float64.
+	"#mul": mul,
+	// Multiply all the arguments, returning a int. If the result has a decimal part,
+	// it's truncated.
+	"#muli": muli,
+	// Returns true if the first argument is divisible by the second one.
 	"#divisible": divisible,
-	"#even":      even,
-	"#odd":       odd,
-	"#concat":    concat,
-	"#and":       and,
-	"#or":        or,
-	"#not":       not,
-	"now":        now,
-	"#int":       types.ToInt,
-	"#float":     types.ToFloat,
-	"#split":     strings.Split,
-	"#split_n":   strings.SplitN,
-	"#to_lower":  strings.ToLower,
-	"#to_title":  strings.ToTitle,
-	"#to_upper":  strings.ToUpper,
-	"#to_html":   toHtml,
+	// An alias for divisible(arg, 2)
+	"#even": even,
+	// An alias for not divisible(arg, 2)
+	"#odd": odd,
+	// Return the result of concatenating all the arguments.
+	"#concat": concat,
+	// Return the last argument of the given ones if all of them are true. Otherwise,
+	// return the first non-true one.
+	"#and": and,
+	// Return the first true argument of the given ones. If none of them is true,
+	// return false.
+	"#or": or,
+	// Return the negation of the truth value of the given argument.
+	"#not": not,
+	// Return the current time.Time in the local timezone.
+	"now":       now,
+	"#int":      types.ToInt,
+	"#float":    types.ToFloat,
+	"#split":    strings.Split,
+	"#split_n":  strings.SplitN,
+	"#to_lower": strings.ToLower,
+	"#to_title": strings.ToTitle,
+	"#to_upper": strings.ToUpper,
+	// Converts plain text to HTML by escaping it and replacing
+	// newlines with <br> tags.
+	"#to_html": toHtml,
 
-	// state manipulation functions
+	// !state manipulation functions
+
+	// Return the value of the given variable, or an empty
+	// value if no such variable exists.
 	"@var": getVar,
 
-	// Go builtins
-	"call":      call,
-	"#html":     template.HTMLEscaper,
-	"#index":    index,
-	"#js":       template.JSEscaper,
+	// !Go builtins
+	"call":  call,
+	"#html": template.HTMLEscaper,
+	// Return the result of indexing into the first argument, which must be a map or slice,
+	// using the second one (i.e. item[idx]).
+	"#index": index,
+	"#js":    template.JSEscaper,
+	// Return the length of the argument, which must be map, slice or array.
 	"#len":      length,
 	"#print":    fmt.Sprint,
 	"#printf":   fmt.Sprintf,
 	"#println":  fmt.Sprintln,
 	"#urlquery": template.URLQueryEscaper,
 
-	// Pseudo-functions which act as custom tags
+	// !Pseudo-functions which act as custom tags
 	"extend": nop,
-	// Used to make the parser parse undefined
+	// !Used to make the parser parse undefined
 	// variables, since we allow variable
 	// inheritance to subtemplates
 	varNop: nop,

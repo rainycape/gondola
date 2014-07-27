@@ -28,6 +28,8 @@ import (
 	"gnd.la/internal/runtimeutil"
 	"gnd.la/log"
 	"gnd.la/util/generic"
+
+	"gopkgs.com/browser.v1"
 )
 
 const (
@@ -670,24 +672,19 @@ func devCommand(opts *devOptions) error {
 	log.Infof("Starting Gondola development server on port %d (press Control+%s to exit)", p.port, eof)
 	if !opts.NoBrowser {
 		time.AfterFunc(time.Second, func() {
-			startBrowser(fmt.Sprintf("http://localhost:%d", p.port))
+			host := "localhost"
+			if sshConn := os.Getenv("SSH_CONNECTION"); sshConn != "" {
+				parts := strings.Split(sshConn, " ")
+				// e.g. SSH_CONNECTION="10.211.55.2 56989 10.211.55.8 22"
+				if len(parts) == 4 {
+					if net.ParseIP(parts[2]) != nil {
+						host = parts[2]
+					}
+				}
+			}
+			browser.Open(fmt.Sprintf("http://%s:%d", host, p.port))
 		})
 	}
 	p.Listen()
 	return nil
-}
-
-func startBrowser(url string) bool {
-	// try to start the browser
-	var args []string
-	switch runtime.GOOS {
-	case "darwin":
-		args = []string{"open"}
-	case "windows":
-		args = []string{"cmd", "/c", "start"}
-	default:
-		args = []string{"xdg-open"}
-	}
-	cmd := exec.Command(args[0], append(args[1:], url)...)
-	return cmd.Start() == nil
 }

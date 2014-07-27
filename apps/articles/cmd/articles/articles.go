@@ -67,25 +67,26 @@ const (
 standard output. It can be used to validate articles files.`
 	setHelp = `The set command sets properties in article files. The parsed
 properties include:
-    id (string)
-    title ([]string)
-    slug ([]string)
-    synopsis (string)
-    updated ([]time.Time)
-    priority (int)
+
+    - id (string)
+    - title ([]string)
+    - slug ([]string)
+    - synopsis (string)
+    - updated ([]time.Time)
+    - priority (int)
 
 Setting a property stored in a slice prepends the new value to the existing ones. To
 delete a value, simply remove its line with a text editor.
 
 time.Time properties must use one of the following formats:
 
-    now
-    today
-    yyyy-mm-dd
-    yyyy-mm-dd hh:MM
-    yyyy-mm-dd hh:MM:ss
-    time.RFC822
-    time.RFC822Z`
+    - now
+    - today
+    - yyyy-mm-dd
+    - yyyy-mm-dd hh:MM
+    - yyyy-mm-dd hh:MM:ss
+    - time.RFC822
+    - time.RFC822Z`
 )
 
 var (

@@ -1,11 +1,13 @@
 package docs
 
 import (
-	"gnd.la/log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
+
+	"gnd.la/log"
 )
 
 var (
@@ -63,7 +65,26 @@ func updatePackage(pkg string) error {
 	if strings.HasSuffix(pkg, "/") {
 		pkg += "..."
 	}
-	cmd := exec.Command("go", "get", "-u", "-v", pkg)
+	goBin := "go"
+	env := make(map[string]string)
+	for _, v := range os.Environ() {
+		if eq := strings.Index(v, "="); eq >= 0 {
+			env[v[:eq]] = v[eq+1:]
+		}
+	}
+	if goRoot := DefaultContext.GOROOT; goRoot != "" {
+		goBin = filepath.Join(goRoot, "bin", "go")
+		env["GOROOT"] = goRoot
+	}
+	if goPath := DefaultContext.GOPATH; goPath != "" {
+		env["GOPATH"] = goPath
+	}
+	cmd := exec.Command(goBin, "get", "-u", "-v", pkg)
+	cmdEnv := make([]string, 0, len(env))
+	for k, v := range env {
+		cmdEnv = append(cmdEnv, k+"="+v)
+	}
+	cmd.Env = cmdEnv
 	log.Debugf("Updating package %s", pkg)
 	if log.Level() == log.LDebug {
 		cmd.Stdout = os.Stdout

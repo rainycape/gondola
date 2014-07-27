@@ -106,13 +106,19 @@ type BuildError struct {
 }
 
 func (b *BuildError) Location() string {
+	if b.Filename == "" {
+		return ""
+	}
 	return fmt.Sprintf("%s, line %d", b.Filename, b.Line)
 }
 
 func (b *BuildError) Code() template.HTML {
+	if b.Filename == "" {
+		return template.HTML("")
+	}
 	s, err := runtimeutil.FormatSourceHTML(b.Filename, b.Line, 5, true, true)
 	if err != nil {
-		log.Errorf("Error formatting code from %s: %s", b.Filename, err)
+		log.Errorf("error formatting code from %s: %s", b.Filename, err)
 	}
 	return s
 }

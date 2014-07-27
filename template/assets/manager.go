@@ -73,7 +73,14 @@ func (m *Manager) Create(name string, overwrite bool) (io.WriteCloser, error) {
 	if !overwrite {
 		flags |= os.O_EXCL
 	}
-	return m.fs.OpenFile(name, flags, 0644)
+	f, err := m.fs.OpenFile(name, flags, 0644)
+	if err != nil && vfs.IsNotExist(err) {
+		// Try to create the directory
+		if err2 := vfs.MkdirAll(m.fs, path.Dir(name), 0755); err2 == nil {
+			f, err = m.fs.OpenFile(name, flags, 0644)
+		}
+	}
+	return f, err
 }
 
 func (m *Manager) URL(name string) string {

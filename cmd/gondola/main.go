@@ -114,5 +114,5 @@ func main() {
 			}
 		},
 	}
-	command.RunOpts(nil, opts, commands)
+	command.Exit(command.RunOpts(nil, opts, commands))
 }

@@ -8,7 +8,7 @@
 </div>
 {{ range .Errors }}
   <div class="header code multi">
-    <h3>At {{ .Location }}: {{ .Error }}</h3>
+    <h3>{{ with .Location }}At {{ . }}: {{ end }}{{ .Error }}</h3>
     {{ with .Code }}
       <pre><code>{{ . }}</code></pre>
     {{ end }}

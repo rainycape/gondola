@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"go/build"
 	"html/template"
@@ -187,25 +188,26 @@ func (p *Project) buildTags() []string {
 	return nil
 }
 
-func (p *Project) importPackage(imported map[string]bool, pkgs *[]*build.Package, path string) error {
+func (p *Project) importPackage(imported map[string]bool, pkgs *[]*build.Package, path string) []error {
 	if imported[path] {
 		return nil
 	}
 	pkg, err := build.Import(path, p.dir, 0)
 	if err != nil {
-		return err
+		return []error{err}
 	}
 	imported[path] = true
 	*pkgs = append(*pkgs, pkg)
+	var errs []error
 	for _, imp := range pkg.Imports {
 		if imp == "C" {
 			continue
 		}
-		if err := p.importPackage(imported, pkgs, imp); err != nil {
-			return err
+		if errs2 := p.importPackage(imported, pkgs, imp); len(errs2) > 0 {
+			errs = append(errs, errs2...)
 		}
 	}
-	return nil
+	return errs
 }
 
 // Packages returns the packages imported by the Project, either
@@ -213,7 +215,19 @@ func (p *Project) importPackage(imported map[string]bool, pkgs *[]*build.Package
 func (p *Project) Packages() ([]*build.Package, error) {
 	var pkgs []*build.Package
 	imported := make(map[string]bool)
-	err := p.importPackage(imported, &pkgs, ".")
+	var err error
+	errs := p.importPackage(imported, &pkgs, ".")
+	if len(errs) > 0 {
+		var msgs []string
+		for _, v := range errs {
+			if v != nil {
+				msgs = append(msgs, v.Error())
+			}
+		}
+		if len(msgs) > 0 {
+			err = errors.New(strings.Join(msgs, ", "))
+		}
+	}
 	return pkgs, err
 }
 
@@ -239,7 +253,8 @@ func (p *Project) StartMonitoring() error {
 		toWatch = []string{build.Default.GOROOT, build.Default.GOPATH, p.dir}
 	default:
 		pkgs, err := p.Packages()
-		if err != nil {
+		if err != nil && len(pkgs) == 0 {
+			// TODO: Show the packages which failed to be monitored
 			return err
 		}
 		toWatch = generic.Map(pkgs, func(pkg *build.Package) string { return pkg.Dir }).([]string)

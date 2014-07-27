@@ -5,7 +5,7 @@ The web framework for writing faster sites, faster. Written in Go.
 View documentation at [http://gondolaweb.com](http://gondolaweb.com).
 
 Unless indicated otherwise at the top of file, all the source code for
-Governator is released under the [MPL-2](http://www.mozilla.org/MPL/2.0/)
+Gondola is released under the [MPL-2](http://www.mozilla.org/MPL/2.0/)
 license.
 
 Contributors, either individuals or companies, will be credited by

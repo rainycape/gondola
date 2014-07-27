@@ -438,7 +438,9 @@ func (p *Project) CompilerCmd() *exec.Cmd {
 		// If there's a lib directory, add it to rpath
 		args = append(args, []string{"-ldflags", "-r lib"}...)
 	}
-	return p.GoCmd(args...)
+	cmd := exec.Command("gondola", args...)
+	cmd.Dir = p.dir
+	return cmd
 }
 
 // Build builds the project. If the project was already building, the build

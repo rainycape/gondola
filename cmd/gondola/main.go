@@ -27,6 +27,14 @@ var (
 			Options: &newOptions{Template: "hello"},
 		},
 		{
+			Name:     "build",
+			Help:     "Build packages",
+			Usage:    "[package-1] [package-2] ... [package-n]",
+			LongHelp: buildHelp,
+			Func:     buildCommand,
+			Options:  &buildOptions{Go: "go"},
+		},
+		{
 			Name: "clean",
 			Help: "Cleans any Gondola packages which use conditional compilation - DO THIS BEFORE BUILDING A BINARY FOR DEPLOYMENT - see golang.org/issue/3172",
 			Func: cleanCommand,

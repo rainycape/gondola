@@ -33,9 +33,11 @@ package markdown
 
 import (
 	"bytes"
-	"github.com/russross/blackfriday"
-	"gnd.la/template"
 	"regexp"
+
+	"gnd.la/template"
+
+	"github.com/russross/blackfriday"
 )
 
 const (
@@ -63,6 +65,8 @@ var (
 	// originally typed an escape sequence.
 	unescapes = []*unescape{
 		{[]byte("&quot;"), []byte("\"")},
+		{[]byte("&ldquo;"), []byte("\"")},
+		{[]byte("&rdquo;"), []byte("\"")},
 		{[]byte("&gt;"), []byte(">")},
 		{[]byte("&lt;"), []byte("<")},
 		{[]byte("&amp;"), []byte("&")},

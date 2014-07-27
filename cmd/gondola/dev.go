@@ -587,6 +587,10 @@ func (p *Project) StatusHandler(ctx *app.Context) {
 	started := formatTime(p.started)
 	if p.proxy == nil {
 		// Building - this waits until the app is restarted for reloading
+		// or compilation fails with an error
+		if p.built.IsZero() {
+			built = "1"
+		}
 		started = "1"
 	}
 	ctx.WriteJSON(map[string]interface{}{

@@ -510,7 +510,10 @@ func (p *Project) Build() {
 				filename := filepath.Clean(filepath.Join(p.dir, parts[0]))
 				line, err := strconv.Atoi(parts[1])
 				if err != nil {
-					// unknown error line, ignore for now
+					// Not a line number, show error message
+					p.errors = append(p.errors, &BuildError{
+						Error: eline,
+					})
 					continue
 				}
 				be := &BuildError{

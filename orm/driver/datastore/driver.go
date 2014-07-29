@@ -227,26 +227,28 @@ func (d *Driver) applyQuery(m driver.Model, dq *datastore.Query, q query.Q) (*da
 			return nil, fmt.Errorf("datastore queries can't reference other properties (%v)", field.Value)
 		}
 		name := field.Field
+		fields := m.Fields()
+		idx, ok := fields.QNameMap[name]
+		if !ok {
+			return nil, fmt.Errorf("can't map field %q to a datastore name", name)
+		}
 		if strings.IndexByte(name, '.') >= 0 {
 			// GAE flattens embedded fields, so we must remove
 			// the parts of the field which refer to a flattened
 			// field.
-			fields := m.Fields()
-			if idx, ok := fields.QNameMap[name]; ok {
-				indexes := fields.Indexes[idx]
-				parts := strings.Split(name, ".")
-				if len(indexes) == len(parts) {
-					var final []string
-					typ := fields.Type
-					for ii, v := range indexes {
-						f := typ.Field(v)
-						if !f.Anonymous {
-							final = append(final, parts[ii])
-						}
-						typ = f.Type
+			indexes := fields.Indexes[idx]
+			parts := strings.Split(name, ".")
+			if len(indexes) == len(parts) {
+				var final []string
+				typ := fields.Type
+				for ii, v := range indexes {
+					f := typ.Field(v)
+					if !f.Anonymous {
+						final = append(final, parts[ii])
 					}
-					name = strings.Join(final, ".")
+					typ = f.Type
 				}
+				name = strings.Join(final, ".")
 			}
 		}
 		log.Debugf("DATASTORE: filter %s %s %v", m, name+op, field.Value)

@@ -641,12 +641,21 @@ func (p *Project) isRunning() bool {
 	return len(p.errors) == 0 && p.runError == nil
 }
 
+func autoConfigNames() []string {
+	return []string{
+		devConfigName,
+		filepath.Base(config.DefaultFilename),
+	}
+}
+
 func findConfig(dir string, name string) string {
 	if name == "" {
-		if c := findConfig(dir, devConfigName); c != "" {
-			return c
+		for _, v := range autoConfigNames() {
+			if c := findConfig(dir, v); c != "" {
+				return c
+			}
 		}
-		name = filepath.Base(config.DefaultFilename)
+		return ""
 	}
 	configPath := filepath.Join(dir, name)
 	for _, v := range []string{configPath, name} {
@@ -684,7 +693,11 @@ func devCommand(opts *devOptions) error {
 	}
 	configPath := findConfig(dir, opts.Config)
 	if configPath == "" {
-		log.Panicf("can't find configuration file %s in %s", opts.Config, dir)
+		name := opts.Config
+		if name == "" {
+			name = fmt.Sprintf("(tried %s)", strings.Join(autoConfigNames(), ", "))
+		}
+		log.Panicf("can't find configuration file %s in %s", name, dir)
 	}
 	log.Infof("Using config file %s", configPath)
 	p := NewProject(path, configPath)

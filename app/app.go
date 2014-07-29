@@ -27,6 +27,7 @@ import (
 	"gnd.la/crypto/cryptoutil"
 	"gnd.la/crypto/hashutil"
 	"gnd.la/encoding/codec"
+	"gnd.la/internal"
 	"gnd.la/internal/runtimeutil"
 	"gnd.la/internal/templateutil"
 	"gnd.la/log"
@@ -611,7 +612,7 @@ func (app *App) loadTemplate(fs vfs.VFS, manager *assets.Manager, name string) (
 }
 
 func (app *App) rewriteAssets(t *template.Template, included *includedApp) error {
-	if app.cfg.TemplateDebug {
+	if !app.shouldImportAssets() {
 		return nil
 	}
 	for _, group := range t.Assets() {
@@ -1204,9 +1205,13 @@ func (app *App) closeContext(ctx *Context) {
 	app.CloseContext(ctx)
 }
 
+func (app *App) shouldImportAssets() bool {
+	return !app.cfg.TemplateDebug || internal.InAppEngine()
+}
+
 func (app *App) importAssets(included *includedApp) error {
 	im := included.app.assetsManager
-	if app.cfg.TemplateDebug {
+	if !app.shouldImportAssets() {
 		im.SetPrefix(included.prefix + im.Prefix())
 		return nil
 	}

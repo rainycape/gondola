@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"gnd.la/app"
-	"gnd.la/bootstrap/form"
 	"gnd.la/crypto/password"
+	"gnd.la/form"
 	"gnd.la/i18n"
 	"gnd.la/net/mail"
 	"gnd.la/orm"
@@ -80,7 +80,7 @@ func signInHandler(ctx *app.Context) {
 	}
 	from := ctx.FormValue(app.SignInFromParameterName)
 	signIn := SignIn{From: from}
-	form := form.New(ctx, nil, &signIn)
+	form := form.New(ctx, &signIn)
 	if AllowUserSignIn && form.Submitted() && form.IsValid() {
 		ctx.MustSignIn(asGondolaUser(reflect.ValueOf(signIn.User)))
 		ctx.RedirectBack()
@@ -108,7 +108,7 @@ func jsSignInHandler(ctx *app.Context) {
 		return
 	}
 	signIn := SignIn{}
-	form := form.New(ctx, nil, &signIn)
+	form := form.New(ctx, &signIn)
 	if form.Submitted() && form.IsValid() {
 		user := reflect.ValueOf(signIn.User)
 		ctx.MustSignIn(asGondolaUser(user))
@@ -186,7 +186,7 @@ func forgotHandler(ctx *app.Context) {
 		}
 		return nil
 	}
-	f := form.New(ctx, nil, &fields)
+	f := form.New(ctx, &fields)
 	if f.Submitted() && f.IsValid() {
 		se, err := ctx.App().EncryptSigner(Salt)
 		if err != nil {
@@ -283,7 +283,7 @@ func resetHandler(ctx *app.Context) {
 	}
 	if valid {
 		passwordForm := &PasswordForm{User: user}
-		f = form.New(ctx, nil, passwordForm)
+		f = form.New(ctx, passwordForm)
 		if f.Submitted() && f.IsValid() {
 			ctx.Orm().MustSave(user.Interface())
 			ctx.MustSignIn(asGondolaUser(user))

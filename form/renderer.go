@@ -1,8 +1,9 @@
 package form
 
 import (
-	"gnd.la/html"
 	"io"
+
+	"gnd.la/html"
 )
 
 // Renderer is the interface implemented to help the form
@@ -50,4 +51,22 @@ type Renderer interface {
 	WriteHelp(w io.Writer, field *Field, help string) error
 	// EndField is called after all the other field related functions have been called.
 	EndField(w io.Writer, field *Field) error
+}
+
+var (
+	rendererFunc func() Renderer
+)
+
+// SetDefaultRenderer sets the function which will return a default
+// renderer. The default value returns nil.
+func SetDefaultRenderer(f func() Renderer) {
+	rendererFunc = f
+}
+
+// DefaultRenderer return a new Renderer using the default function.
+func DefaultRenderer() Renderer {
+	if rendererFunc != nil {
+		return rendererFunc()
+	}
+	return nil
 }

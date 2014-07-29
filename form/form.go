@@ -3,6 +3,10 @@ package form
 import (
 	"bytes"
 	"fmt"
+	"html/template"
+	"reflect"
+	"strconv"
+
 	"gnd.la/app"
 	"gnd.la/crypto/password"
 	"gnd.la/form/input"
@@ -11,9 +15,6 @@ import (
 	"gnd.la/util/stringutil"
 	"gnd.la/util/structs"
 	"gnd.la/util/types"
-	"html/template"
-	"reflect"
-	"strconv"
 )
 
 var (
@@ -627,18 +628,37 @@ func (f *Form) SetId(id string) {
 	}
 }
 
-// New returns a new form using the given context, renderer and options. If render is
-// nil, BasicRenderer will be used. The values argument must contains pointers to structs.
-// Since any error generated during form creation will be a programming error, New panics
-// rather than returning it. This way chaining is also possible. Consult the package
-// documentation for the the tags parsed by the form library.
-// Gondola also contains specific renderers for Bootstrap and Foundation, check the
-// gnd.la/foundation and gnd.la/bootstrap packages for more information.
-func New(ctx *app.Context, r Renderer, opt *Options, values ...interface{}) *Form {
+// New is a shorthand for NewOpts(ctx, nil, values...). See
+// NewOpts for more information.
+func New(ctx *app.Context, values ...interface{}) *Form {
+	return NewOpts(ctx, nil, values...)
+}
+
+// NewOpts returns a new form using the given context, renderer
+// and options.
+//
+// If no Renderer is specified (either opts is nil or its Renderer field is
+// nil), DefaultRenderer will be used to instantiate a renderer. Some
+// packages, like gnd.la/bootstrap/form, override DefaultRenderer.
+//
+// The values argument must contains pointers to structs.
+//
+// Since any error generated during form creation will be a programming error,
+// this function panics rather than returning it. This way chaining is also possible.
+//
+// Consult the package documentation for the the tags parsed by the form library.
+func NewOpts(ctx *app.Context, opts *Options, values ...interface{}) *Form {
+	var r Renderer = nil
+	if opts != nil {
+		r = opts.Renderer
+	}
+	if r == nil {
+		r = DefaultRenderer()
+	}
 	form := &Form{
 		ctx:      ctx,
 		renderer: r,
-		options:  opt,
+		options:  opts,
 	}
 	for _, v := range values {
 		err := form.appendVal(v)
@@ -647,8 +667,8 @@ func New(ctx *app.Context, r Renderer, opt *Options, values ...interface{}) *For
 		}
 	}
 	var fieldNames []string
-	if opt != nil && len(opt.Fields) > 0 {
-		fieldNames = opt.Fields
+	if opts != nil && len(opts.Fields) > 0 {
+		fieldNames = opts.Fields
 	} else {
 		for _, v := range form.structs {
 			fieldNames = append(fieldNames, v.QNames...)

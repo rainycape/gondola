@@ -4,8 +4,8 @@ import (
 	"reflect"
 
 	"gnd.la/app"
-	"gnd.la/bootstrap/form"
 	"gnd.la/crypto/password"
+	"gnd.la/form"
 	"gnd.la/i18n"
 	"gnd.la/orm"
 )
@@ -46,7 +46,7 @@ func (f *AcceptForm) ValidateAccept() error {
 func SignUpForm(ctx *app.Context, user reflect.Value) *form.Form {
 	passwordForm := &PasswordForm{User: user}
 	acceptForm := &AcceptForm{Accept: true}
-	return form.New(ctx, nil, user.Interface(), passwordForm, acceptForm)
+	return form.New(ctx, user.Interface(), passwordForm, acceptForm)
 }
 
 type SignIn struct {

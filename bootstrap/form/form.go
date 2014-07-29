@@ -1,31 +1,20 @@
+// Package form implements a form renderer using Bootstrap.
+//
+// Importing this package will register Renderer as the default
+// form renderer, so users should usually import this package only
+// for its side-effects and use gnd.la/form directly.
+//
+//  import (
+//	_ "gnd.la/bootstrap/form"
+//  )
 package form
 
-import (
-	"gnd.la/app"
-	"gnd.la/form"
-)
+import "gnd.la/form"
 
-const (
-	// NotChosen is an alias form form.NotChosen, to
-	// avoid importing both packages.
-	NotChosen = form.NotChosen
-)
-
-var (
-	// Choose is an alias form form.Choose, to
-	// avoid importing both packages.
-	Choose = form.Choose
-)
-
-type Form struct {
-	*form.Form
+func newRenderer() form.Renderer {
+	return &Renderer{}
 }
 
-func (f *Form) Renderer() *Renderer {
-	return f.Form.Renderer().(*Renderer)
-}
-
-func New(ctx *app.Context, opt *Options, values ...interface{}) *Form {
-	r := &Renderer{}
-	return &Form{form.New(ctx, r, (*form.Options)(opt), values...)}
+func init() {
+	form.SetDefaultRenderer(newRenderer)
 }

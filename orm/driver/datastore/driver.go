@@ -90,6 +90,7 @@ func (d *Driver) Insert(m driver.Model, data interface{}) (driver.Result, error)
 		pkVal.SetInt(int64(id))
 	}
 	key := datastore.NewKey(d.c, name, "", id, parent)
+	log.Debugf("DATASTORE: put %s %v", key, data)
 	_, err = datastore.Put(d.c, key, data)
 	if err != nil {
 		return nil, err
@@ -248,6 +249,7 @@ func (d *Driver) applyQuery(m driver.Model, dq *datastore.Query, q query.Q) (*da
 				}
 			}
 		}
+		log.Debugf("DATASTORE: filter %s %s %v", m, name+op, field.Value)
 		dq = dq.Filter(name+op, field.Value)
 	}
 	return dq, nil

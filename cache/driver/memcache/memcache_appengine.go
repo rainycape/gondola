@@ -56,6 +56,10 @@ func (c *memcacheDriver) Connection() interface{} {
 	return c
 }
 
+func (c *memcacheDriver) Flush() error {
+	return memcache.Flush(c.c)
+}
+
 func (c *memcacheDriver) SetContext(ctx appengine.Context) {
 	c.c = ctx
 }

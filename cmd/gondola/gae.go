@@ -95,7 +95,6 @@ func watchAppResources(buildArgs []string, resources []string) error {
 			fmt.Println(ev)
 			name := filepath.Base(ev.Name)
 			if strings.HasPrefix(name, ".") || strings.HasSuffix(name, "~") || ev.IsAttrib() || ev.IsDelete() || ev.IsRename() {
-				fmt.Println("IGNORED", ev)
 				continue
 			}
 			makeAppAssets(buildArgs)

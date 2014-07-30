@@ -3,15 +3,12 @@
 package gcs
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"gnd.la/blobstore/driver"
 	"gnd.la/config"
-	"gnd.la/internal"
 
 	"appengine"
 	"appengine/blobstore"
@@ -19,7 +16,7 @@ import (
 )
 
 var (
-	errMissingBucketName = errors.New("missing bucket name and no default could be determined")
+	defaultBucketName string
 )
 
 type gcsDriver struct {
@@ -85,18 +82,20 @@ func (d *gcsDriver) Serve(w http.ResponseWriter, id string, rng driver.Range) (b
 
 func (d *gcsDriver) SetContext(ctx appengine.Context) {
 	d.c = ctx
+	if d.bucket == "" {
+		if defaultBucketName == "" {
+			bucket, err := file.DefaultBucketName(ctx)
+			if err != nil {
+				panic(fmt.Errorf("no GCS bucket specified and a default could not be found: %s", err))
+			}
+			defaultBucketName = bucket
+		}
+		d.bucket = defaultBucketName
+	}
 }
 
 func gcsOpener(url *config.URL) (driver.Driver, error) {
 	value := url.Value
-	if value == "" {
-		if h := internal.AppEngineAppHost(); h != "" {
-			value = strings.TrimPrefix(h, "http://")
-		}
-		if value == "" {
-			return nil, errMissingBucketName
-		}
-	}
 	return &gcsDriver{bucket: value}, nil
 }
 

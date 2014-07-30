@@ -197,6 +197,7 @@ type App struct {
 	c                  *Cache
 	o                  *Orm
 	store              *blobstore.Blobstore
+	prepared           bool
 
 	// Used for included apps
 	included  []*includedApp
@@ -1352,6 +1353,12 @@ func (app *App) Clone() *App {
 // to call it to set the App up without making it listen on
 // a port.
 func (app *App) Prepare() error {
+	// Make Prepare() idempotent. Otherwise the tester package
+	// would need a lot of extra logic to deal with GAE vs
+	// non-GAE environments.
+	if app.prepared {
+		return nil
+	}
 	// Initialize the ORM first, so admin commands
 	// run with the ORM ready to be used.
 	// Use openOrm() directly, since when running
@@ -1411,6 +1418,7 @@ func (app *App) Prepare() error {
 		}
 	}
 	if err == nil {
+		app.prepared = true
 		signal.Emit(DID_PREPARE, app)
 	}
 	return err

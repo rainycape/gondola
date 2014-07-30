@@ -893,7 +893,7 @@ func (d *Driver) Transaction(f func(driver.Driver) error) error {
 }
 
 func (d *Driver) Capabilities() driver.Capability {
-	return driver.CAP_JOIN | driver.CAP_TRANSACTION | driver.CAP_BEGIN |
+	return driver.CAP_JOIN | driver.CAP_OR | driver.CAP_TRANSACTION | driver.CAP_BEGIN |
 		driver.CAP_AUTO_ID | driver.CAP_AUTO_INCREMENT | driver.CAP_PK |
 		driver.CAP_COMPOSITE_PK | driver.CAP_UNIQUE | driver.CAP_DEFAULTS |
 		d.backend.Capabilities()

@@ -9,6 +9,8 @@ const (
 	CAP_NONE Capability = 0
 	// Can perform JOINs
 	CAP_JOIN = 1 << iota
+	// Can perform OR queries
+	CAP_OR
 	// Can create transactions
 	CAP_TRANSACTION
 	// Can begin/commit/rollback a transaction

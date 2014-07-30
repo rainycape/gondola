@@ -4,6 +4,8 @@ import (
 	"net"
 	"net/mail"
 	"strings"
+
+	"gnd.la/internal"
 )
 
 // Validate performs some basic email address validation on a given
@@ -17,13 +19,19 @@ import (
 // The returned string is the address part of the given string (e.g.
 // "Alberto G. Hierro <alberto@garciahierro.com>" would return
 // "alberto@garciahierro").
+//
+// Note for GAE: Due to the GAE runtime restrictions, there's no way to
+// perform DNS lookus, so the useNetwork parameter is ignored when running
+// on GAE.
 func Validate(address string, useNetwork bool) (email string, err error) {
 	var addr *mail.Address
 	addr, err = mail.ParseAddress(address)
 	if err != nil {
 		return
 	}
-	if useNetwork {
+	if useNetwork && !internal.InAppEngine() {
+		// App Engine does not provide any way to check DNS records.
+		// For now, always return true. TODO: Find a better solution
 		err = validateNetworkAddress(addr.Address)
 	}
 	if err == nil {

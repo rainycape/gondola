@@ -159,13 +159,23 @@ func gaeTestCommand(opts *gaeTestOptions) error {
 	return nil
 }
 
-func gaeDeployCommand() error {
+type gaeDeployOptions struct {
+	OAuth bool `help:"Use oAuth 2 authentication rather than password"`
+}
+
+func gaeDeployCommand(opts *gaeDeployOptions) error {
 	cmd := exec.Command("gondola", "rm-gen")
 	if err := runCmd(cmd); err != nil {
 		return err
 	}
 	makeAppAssets(nil)
-	deployCmd := exec.Command("goapp", "deploy")
+	// Remove the app binary, otherwise it gets uploaded to GAE
+	exec.Command("go", "clean").Run()
+	args := []string{"deploy"}
+	if opts.OAuth {
+		args = append(args, "-oauth")
+	}
+	deployCmd := exec.Command("goapp", args...)
 	if err := runCmd(deployCmd); err != nil {
 		return err
 	}

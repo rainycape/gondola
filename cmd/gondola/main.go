@@ -100,9 +100,10 @@ var (
 			Options: &gaeTestOptions{},
 		},
 		{
-			Name: "gae-deploy",
-			Help: "Deploy your application to App Engine",
-			Func: gaeDeployCommand,
+			Name:    "gae-deploy",
+			Help:    "Deploy your application to App Engine",
+			Func:    gaeDeployCommand,
+			Options: &gaeDeployOptions{},
 		},
 	}
 )

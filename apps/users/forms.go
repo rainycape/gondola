@@ -8,6 +8,7 @@ import (
 	"gnd.la/form"
 	"gnd.la/i18n"
 	"gnd.la/orm"
+	"gnd.la/orm/driver"
 )
 
 var (
@@ -59,10 +60,17 @@ type SignIn struct {
 func (s *SignIn) ValidateUsername(ctx *app.Context) error {
 	norm := Normalize(s.Username)
 	_, userVal := newEmptyUser()
-	ok, err := ctx.Orm().One(orm.Or(orm.Eq("User.NormalizedUsername", norm), orm.Eq("User.NormalizedEmail", norm)), userVal)
-	if err != nil {
-		// if err != nil, there was a programming error
-		panic(err)
+	var ok bool
+	o := ctx.Orm()
+	q1 := orm.Eq("User.NormalizedUsername", norm)
+	q2 := orm.Eq("User.NormalizedEmail", norm)
+	if o.Driver().Capabilities()&driver.CAP_OR != 0 {
+		ok = o.MustOne(orm.Or(q1, q2), userVal)
+	} else {
+		ok = o.MustOne(q1, userVal)
+		if !ok {
+			ok = o.MustOne(q2, userVal)
+		}
 	}
 	if !ok {
 		return ErrNoUser

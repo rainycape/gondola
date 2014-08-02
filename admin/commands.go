@@ -45,7 +45,7 @@ func makeAssets(ctx *app.Context) {
 		cfg.TemplateDebug = false
 	}
 	err := vfs.Walk(a.TemplatesFS(), "/", func(fs vfs.VFS, p string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+		if err != nil || info.IsDir() || p == "" || p[0] == '.' {
 			return err
 		}
 		if _, err := a.LoadTemplate(p); err != nil {

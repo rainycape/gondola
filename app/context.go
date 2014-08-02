@@ -16,6 +16,7 @@ import (
 	"gnd.la/blobstore"
 	"gnd.la/form/input"
 	"gnd.la/i18n/table"
+	"gnd.la/internal"
 	"gnd.la/net/urlutil"
 )
 
@@ -35,8 +36,6 @@ type Context struct {
 	R               *http.Request
 	provider        ContextProvider
 	reProvider      *regexpProvider
-	cached          bool
-	fromCache       bool
 	handlerName     string
 	app             *App
 	statusCode      int
@@ -53,8 +52,6 @@ type Context struct {
 func (c *Context) reset() {
 	c.ResponseWriter = nil
 	c.R = nil
-	c.cached = false
-	c.fromCache = false
 	c.statusCode = 0
 	c.started = time.Now()
 	c.cookies = nil
@@ -204,30 +201,23 @@ func (c *Context) Redirect(redir string, permanent bool) {
 	http.Redirect(c, c.R, redir, code)
 }
 
-// SetCached is used internaly by cache layers.
-// Don't call this method
-func (c *Context) SetCached(b bool) {
-	c.cached = b
+func (c *Context) boolValue(key string) bool {
+	if val, ok := c.values[key].(bool); ok {
+		return val
+	}
+	return false
 }
 
-// SetServedFromCache is used internally by cache layers.
-// Don't call this method
-func (c *Context) SetServedFromCache(b bool) {
-	c.fromCache = b
-}
-
-// Cached() returns true if the request was
-// cached by a cache layer
-// (see gnd.la/cache/layer)
+// Cached() returns true if the request was cached by a cache layer.
+// See gnd.la/cache/layer for more information.
 func (c *Context) Cached() bool {
-	return c.cached
+	return c.boolValue(internal.LayerCachedKey)
 }
 
-// ServedFromCache returns true if the request
-// was served by a cache layer
-// (see gnd.la/cache/layer)
+// ServedFromCache returns true if the request was served by a cache layer.
+// See gnd.la/cache/layer for more information.
 func (c *Context) ServedFromCache() bool {
-	return c.fromCache
+	return c.boolValue(internal.LayerServedFromCacheKey)
 }
 
 // HandlerName returns the name of the handler which

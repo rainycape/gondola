@@ -3,12 +3,14 @@ package layer
 import (
 	"encoding/gob"
 	"errors"
+	"net/http"
+	"os"
+
 	"gnd.la/app"
 	"gnd.la/cache"
 	"gnd.la/encoding/codec"
+	"gnd.la/internal"
 	"gnd.la/log"
-	"net/http"
-	"os"
 )
 
 var (
@@ -78,7 +80,7 @@ func (la *Layer) Wrap(handler app.Handler) app.Handler {
 			var response *cachedResponse
 			err := layerCodec.Decode(data, &response)
 			if err == nil {
-				ctx.SetServedFromCache(true)
+				ctx.Set(internal.LayerServedFromCacheKey, true)
 				header := ctx.Header()
 				for k, v := range response.Header {
 					header[k] = v
@@ -99,7 +101,7 @@ func (la *Layer) Wrap(handler app.Handler) app.Handler {
 			response := &cachedResponse{w.header, w.statusCode, w.buf.Bytes()}
 			data, err := layerCodec.Encode(response)
 			if err == nil {
-				ctx.SetCached(true)
+				ctx.Set(internal.LayerCachedKey, true)
 				expiration := la.mediator.Expires(ctx, w.statusCode, w.header)
 				la.cache.SetBytes(key, data, expiration)
 			} else {

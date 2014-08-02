@@ -9,6 +9,12 @@ import (
 	"gnd.la/util/yaml"
 )
 
+// Constants set by gnd.la/cache/layer, read by gnd.la/app.Context
+const (
+	LayerCachedKey          = "___gondola_cached"
+	LayerServedFromCacheKey = "___gondola_layer_served_from_cache"
+)
+
 var (
 	inTest      bool
 	goRun       bool

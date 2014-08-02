@@ -18,6 +18,7 @@ import (
 	"gnd.la/i18n/table"
 	"gnd.la/internal"
 	"gnd.la/net/urlutil"
+	"gnd.la/util/types"
 )
 
 var (
@@ -185,7 +186,14 @@ func (c *Context) StatusCode() int {
 }
 
 func (c *Context) parseTypedValue(val string, arg interface{}) bool {
-	return input.Parse(val, arg) == nil
+	if err := input.Parse(val, arg); err != nil {
+		if err == types.ErrCantSet {
+			// Programming error, user did not pass a pointer
+			panic(err)
+		}
+		return false
+	}
+	return true
 }
 
 // Redirect sends an HTTP redirect to the client,

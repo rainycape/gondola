@@ -2,13 +2,6 @@ package app
 
 import (
 	"fmt"
-	"gnd.la/app/cookies"
-	"gnd.la/app/profile"
-	"gnd.la/app/serialize"
-	"gnd.la/blobstore"
-	"gnd.la/form/input"
-	"gnd.la/i18n/table"
-	"gnd.la/net/urlutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -16,6 +9,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"gnd.la/app/cookies"
+	"gnd.la/app/profile"
+	"gnd.la/app/serialize"
+	"gnd.la/blobstore"
+	"gnd.la/form/input"
+	"gnd.la/i18n/table"
+	"gnd.la/net/urlutil"
 )
 
 var (

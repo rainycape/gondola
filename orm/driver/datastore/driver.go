@@ -19,8 +19,9 @@ import (
 )
 
 type Driver struct {
-	c      appengine.Context
-	logger *log.Logger
+	c             appengine.Context
+	logger        *log.Logger
+	inTransaction bool
 }
 
 func (d *Driver) Check() error {
@@ -113,10 +114,10 @@ func (d *Driver) Update(m driver.Model, q query.Q, data interface{}) (driver.Res
 	}
 	// Multi variants need to be run in transactions, otherwise some
 	// might fail while others succeed
-	err = datastore.RunInTransaction(d.c, func(c appengine.Context) error {
+	err = d.runInTransaction(func(c appengine.Context) error {
 		_, e := datastore.PutMulti(c, keys, src)
 		return e
-	}, nil)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -133,9 +134,9 @@ func (d *Driver) Delete(m driver.Model, q query.Q) (driver.Result, error) {
 		return nil, err
 	}
 	// See comment around PutMulti
-	err = datastore.RunInTransaction(d.c, func(c appengine.Context) error {
+	err = d.runInTransaction(func(c appengine.Context) error {
 		return datastore.DeleteMulti(c, keys)
-	}, nil)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -289,6 +290,15 @@ func (d *Driver) Rollback() error {
 	return driver.ErrNotInTransaction
 }
 
+func (d *Driver) runInTransaction(f func(c appengine.Context) error) error {
+	if d.inTransaction {
+		return f(d.c)
+	}
+	return d.Transaction(func(drv driver.Driver) error {
+		return f(drv.(*Driver).c)
+	})
+}
+
 func (d *Driver) Transaction(f func(driver.Driver) error) error {
 	// While not optimal, it's valid to request a cross group transaction
 	// when the transaction affects a single entity group. Since the ORM
@@ -299,6 +309,7 @@ func (d *Driver) Transaction(f func(driver.Driver) error) error {
 	return datastore.RunInTransaction(d.c, func(c appengine.Context) error {
 		drv := *d
 		drv.c = c
+		drv.inTransaction = true
 		return f(&drv)
 	}, &datastore.TransactionOptions{XG: true})
 }

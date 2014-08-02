@@ -290,11 +290,17 @@ func (d *Driver) Rollback() error {
 }
 
 func (d *Driver) Transaction(f func(driver.Driver) error) error {
+	// While not optimal, it's valid to request a cross group transaction
+	// when the transaction affects a single entity group. Since the ORM
+	// framework does not have an option for specifying if the transaction
+	// will affect multiple entities (and it's not clear if we should have
+	// it, since the datastore driver would be the only one using it), for
+	// now we have to make all transactions XG.
 	return datastore.RunInTransaction(d.c, func(c appengine.Context) error {
 		drv := *d
 		drv.c = c
 		return f(&drv)
-	}, nil)
+	}, &datastore.TransactionOptions{XG: true})
 }
 
 func (d *Driver) Capabilities() driver.Capability {

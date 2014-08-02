@@ -204,34 +204,6 @@ func (c *Context) Redirect(redir string, permanent bool) {
 	http.Redirect(c, c.R, redir, code)
 }
 
-// Error replies to the request with the specified
-// message and HTTP code. If an error handler
-// has been defined for the App, it will be
-// given the opportunity to intercept the
-// error and provide its own response.
-func (c *Context) Error(error string, code int) {
-	c.statusCode = -code
-	c.app.handleHTTPError(c, error, code)
-}
-
-// NotFound is equivalent to calling Error()
-// with http.StatusNotFound.
-func (c *Context) NotFound(error string) {
-	c.Error(error, http.StatusNotFound)
-}
-
-// Forbidden is equivalent to calling Error()
-// with http.StatusForbidden.
-func (c *Context) Forbidden(error string) {
-	c.Error(error, http.StatusForbidden)
-}
-
-// BadRequest is equivalent to calling Error()
-// with http.StatusBadRequest.
-func (c *Context) BadRequest(error string) {
-	c.Error(error, http.StatusBadRequest)
-}
-
 // SetCached is used internaly by cache layers.
 // Don't call this method
 func (c *Context) SetCached(b bool) {

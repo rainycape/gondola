@@ -767,7 +767,7 @@ func (app *App) Reverse(name string, args ...interface{}) (string, error) {
 
 func (app *App) reverse(name string, args []interface{}) (string, error) {
 	if name == "" {
-		return "", fmt.Errorf("no handler name specified")
+		return "", errors.New("can't reverse, no handler name specified")
 	}
 	found, s, err := app.reverseHandler(name, args)
 	if err != nil {

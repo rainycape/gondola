@@ -247,16 +247,30 @@ func (c *Context) Request() *http.Request {
 	return c.R
 }
 
-// MustReverse calls MustReverse on the App this context originated
-// from. See App.Reverse for details.
+// MustReverse is a shorthand for Context.Reverse which panics instead
+// of returning an error.
 func (c *Context) MustReverse(name string, args ...interface{}) string {
-	return c.app.MustReverse(name, args...)
+	r, err := c.Reverse(name, args...)
+	if err != nil {
+		panic(err)
+	}
+	return r
 }
 
-// Reverse calls Reverse on the App this context originated
-// from. See the App.Reverse for details.
+// Reverse calls Reverse on the App this context originated from. See
+// App.Reverse for details. Note that Context.Reverse might return a different
+// value than App.Reverse for host-specific handlers, since App.Reverse will
+// return a protocol-relative URL (e.g. //www.gondolaweb.com) while Context.Reverse
+// can return an absolute URL (e.g. http://www.gondolaweb.com) if the Context
+// has a Request associated with it.
 func (c *Context) Reverse(name string, args ...interface{}) (string, error) {
-	return c.app.Reverse(name, args...)
+	r, err := c.app.Reverse(name, args...)
+	if err == nil && strings.HasPrefix(r, "//") {
+		if s := c.requestScheme(); s != "" {
+			r = s + ":" + r
+		}
+	}
+	return r, err
 }
 
 // RedirectReverse calls Reverse to find the URL and then sends
@@ -304,17 +318,23 @@ func (c *Context) RedirectBack() {
 	}
 }
 
+func (c *Context) requestScheme() string {
+	if c.R != nil {
+		if c.R.TLS != nil {
+			return "https"
+		}
+		return "http"
+	}
+	return ""
+}
+
 // URL return the absolute URL for the current request.
 func (c *Context) URL() *url.URL {
 	if c.R != nil {
 		u := *c.R.URL
 		u.Host = c.R.Host
 		if u.Scheme == "" {
-			if c.R.TLS != nil {
-				u.Scheme = "https"
-			} else {
-				u.Scheme = "http"
-			}
+			u.Scheme = c.requestScheme()
 		}
 		return &u
 	}

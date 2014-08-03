@@ -48,11 +48,7 @@ func Filename() string {
 	return *configName
 }
 
-func fileParameterName(name string) string {
-	return stringutil.CamelCaseToLower(name, "_")
-}
-
-func flagParameterName(name string) string {
+func parameterName(name string) string {
 	return stringutil.CamelCaseToLower(name, "-")
 }
 
@@ -188,7 +184,7 @@ func parseReader(r io.Reader, fields fieldMap) error {
 	}
 	/* Now iterate over the fields and copy from the map */
 	for k, v := range fields {
-		name := fileParameterName(k)
+		name := parameterName(k)
 		if raw, ok := values[name]; ok && raw != "" {
 			err := parseValue(v.Value, raw)
 			if err != nil {
@@ -202,7 +198,7 @@ func parseReader(r io.Reader, fields fieldMap) error {
 func setupFlags(fields fieldMap) (varMap, error) {
 	m := make(varMap)
 	for k, v := range fields {
-		name := flagParameterName(k)
+		name := parameterName(k)
 		help := v.Tag.Get("help")
 		var p interface{}
 		val := v.Value
@@ -250,7 +246,7 @@ func copyFlagValues(fields fieldMap, values varMap) error {
 		setFlags[f.Name] = true
 	})
 	for k, v := range fields {
-		name := flagParameterName(k)
+		name := parameterName(k)
 		if !setFlags[name] {
 			continue
 		}

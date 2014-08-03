@@ -34,7 +34,7 @@ func Register(value interface{}) {
 //
 // Go's idiomatic camel-cased struct field names are mangled into lowercase words
 // to produce the flag names and config fields. e.g. a field named "FooBar" will
-// produce a "-foo-bar" flag and a "foo_bar" config key. Embedded struct are
+// produce a "-foo-bar" flag and a "foo-bar" config key. Embedded struct are
 // flattened, as if their fields were part of the container struct.
 //
 //  var MyConfig struct {
@@ -47,7 +47,7 @@ func Register(value interface{}) {
 //	config.MustParse()
 //  }
 //  // This config would define the flags -my-string-value and -my-int-value
-//  // as well as the config file keys my_string_value and my_int_value.
+//  // as well as the config file keys my-string-value and my-int-value.
 //
 // Note that registering several structs with the same field names will cause
 // Parse to return an error. Gondola itself registers a few flags. To see them

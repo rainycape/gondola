@@ -117,7 +117,7 @@ func (f *Form) makeField(name string) (*Field, error) {
 			} else {
 				if ml, ok := tag.MaxLength(); ok && ml > 0 {
 					typ = TEXT
-				} else if tag.Has("singleline") {
+				} else if tag.Has("singleline") || tag.Has("line") {
 					typ = TEXT
 				} else if tag.Has("password") {
 					typ = PASSWORD

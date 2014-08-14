@@ -89,9 +89,10 @@ var (
 			Options: &genOptions{Genfile: "genfile.yaml"},
 		},
 		{
-			Name: "gae-dev",
-			Help: "Start the Gondola App Engine development server",
-			Func: gaeDevCommand,
+			Name:    "gae-dev",
+			Help:    "Start the Gondola App Engine development server",
+			Func:    gaeDevCommand,
+			Options: &gaeDevOptions{Host: "localhost", Port: 8080, AdminPort: 8000},
 		},
 		{
 			Name:    "gae-test",

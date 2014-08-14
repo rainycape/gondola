@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"code.google.com/p/go.exp/fsnotify"
@@ -15,8 +16,19 @@ import (
 	"gnd.la/log"
 )
 
-func startServe(buildArgs []string) (*exec.Cmd, error) {
+func startServe(buildArgs []string, opts *gaeDevOptions) (*exec.Cmd, error) {
 	args := append([]string{"serve"}, buildArgs...)
+	if opts != nil {
+		if opts.Host != "" {
+			args = append(args, "-host", opts.Host)
+		}
+		if opts.Port > 0 {
+			args = append(args, "-port", strconv.Itoa(opts.Port))
+		}
+		if opts.AdminPort > 0 {
+			args = append(args, "-admin_port", strconv.Itoa(opts.AdminPort))
+		}
+	}
 	cmd := exec.Command("goapp", args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -103,7 +115,13 @@ func watchAppResources(buildArgs []string, resources []string) error {
 	return nil
 }
 
-func gaeDevCommand() error {
+type gaeDevOptions struct {
+	Host      string `help:"Host name to which application modules should bind"`
+	Port      int    `help:"Lowest port to which application modules should bind"`
+	AdminPort int    `help:"Port to which the admin server should bind"`
+}
+
+func gaeDevCommand(opts *gaeDevOptions) error {
 	log.Debugf("starting App Engine development server - press Control+C to stop")
 	var buildArgs []string
 	resources, err := makeAppAssets(buildArgs)
@@ -111,7 +129,7 @@ func gaeDevCommand() error {
 		return err
 	}
 	go watchAppResources(buildArgs, resources)
-	serveCmd, err := startServe(buildArgs)
+	serveCmd, err := startServe(buildArgs, opts)
 	if err != nil {
 		return err
 	}
@@ -139,7 +157,7 @@ type gaeTestOptions struct {
 func gaeTestCommand(opts *gaeTestOptions) error {
 	log.Debugf("starting App Engine tests")
 	var buildArgs []string
-	serveCmd, err := startServe(buildArgs)
+	serveCmd, err := startServe(buildArgs, nil)
 	if err != nil {
 		return err
 	}

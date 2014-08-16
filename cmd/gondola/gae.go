@@ -178,7 +178,7 @@ func gaeTestCommand(opts *gaeTestOptions) error {
 }
 
 type gaeDeployOptions struct {
-	OAuth bool `help:"Use oAuth 2 authentication rather than password"`
+	OAuth bool `name:"oauth" help:"Use oAuth 2 authentication rather than password"`
 }
 
 func gaeDeployCommand(opts *gaeDeployOptions) error {

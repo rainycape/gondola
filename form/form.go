@@ -644,7 +644,7 @@ func New(ctx *app.Context, values ...interface{}) *Form {
 // The values argument must contains pointers to structs.
 //
 // Since any error generated during form creation will be a programming error,
-// this function panics rather than returning it. This way chaining is also possible.
+// this function panics on errors.
 //
 // Consult the package documentation for the the tags parsed by the form library.
 func NewOpts(ctx *app.Context, opts *Options, values ...interface{}) *Form {

@@ -32,15 +32,16 @@ package json
 
 import (
 	"bytes"
-	"code.google.com/p/go.tools/go/types"
 	"fmt"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"code.google.com/p/go.tools/go/types"
 	"gnd.la/internal/gen/genutil"
 	"gnd.la/log"
 	"gnd.la/util/generic"
 	"gnd.la/util/structs"
-	"path/filepath"
-	"regexp"
-	"strings"
 )
 
 const (
@@ -119,12 +120,11 @@ func Gen(pkgName string, opts *Options) error {
 	buf.WriteString("var _ = io.ReadFull\n")
 	var include *regexp.Regexp
 	var exclude *regexp.Regexp
+	var names []string
 	if opts != nil {
 		include = opts.Include
 		exclude = opts.Exclude
-	}
-	var names []string
-	if opts != nil {
+
 		for k := range opts.TypeFields {
 			names = append(names, strings.Split(k, ".")...)
 		}
@@ -136,11 +136,11 @@ func Gen(pkgName string, opts *Options) error {
 	var methods bytes.Buffer
 	for _, v := range typs {
 		methods.Reset()
+		log.Debugf("generating JSON methods for %s", v.Obj().Name())
 		if err := jsonMarshal(v, opts, &methods); err != nil {
-			log.Warningf("Skipping type %s: %s", v.Obj().Name(), err)
-			continue
+			return fmt.Errorf("error in type %s: %s", v.Obj().Name(), err)
 		}
-		buf.WriteString(methods.String())
+		buf.Write(methods.Bytes())
 	}
 	buf.WriteString(encode_go)
 	bufSize := defaultBufSize
@@ -279,7 +279,39 @@ func appendType(typs []types.Type, typ types.Type) []types.Type {
 	return t
 }
 
-func jsonStructFields(st *types.Struct, opts *Options) []*Field {
+func expandStructFields(st *types.Struct, fields []*Field, opts *Options) ([]*Field, error) {
+	var newFields []*Field
+	keys := make(map[string]bool)
+	// First check if there's any expansion
+	for _, f := range fields {
+		if f.Key == "+" {
+			names := strings.Split(f.Name, ",")
+			for _, n := range names {
+				n = strings.TrimSpace(n)
+				switch strings.ToLower(n) {
+				case "fields":
+					newFields = append(newFields, defaultStructFields(st, opts)...)
+				default:
+					return nil, fmt.Errorf("unknown expansion %q", n)
+				}
+			}
+		}
+	}
+	if len(newFields) == 0 {
+		// no expansions or expansion without effect
+		return fields, nil
+	}
+	// Add remaining fields
+	for _, f := range fields {
+		if f.Key == "+" || keys[f.Key] {
+			continue
+		}
+		newFields = append(newFields, f)
+	}
+	return newFields, nil
+}
+
+func defaultStructFields(st *types.Struct, opts *Options) []*Field {
 	var fields []*Field
 	count := st.NumFields()
 	for ii := 0; ii < count; ii++ {
@@ -320,7 +352,13 @@ func jsonStruct(st *types.Struct, parents []types.Type, name string, opts *Optio
 		}
 	}
 	if fields == nil {
-		fields = jsonStructFields(st, opts)
+		fields = defaultStructFields(st, opts)
+	} else {
+		var err error
+		fields, err = expandStructFields(st, fields, opts)
+		if err != nil {
+			return fmt.Errorf("error expanding fields for type %s: %s", name, err)
+		}
 	}
 	typs := appendType(parents, st)
 	for ii, v := range fields {

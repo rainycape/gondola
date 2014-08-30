@@ -86,6 +86,7 @@ var (
 		{
 			Name:    "gen",
 			Help:    "Perform code generation in the current directory according the rules in the config file",
+			Func:    genCommand,
 			Options: &genOptions{Genfile: "genfile.yaml"},
 		},
 		{

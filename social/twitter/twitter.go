@@ -140,7 +140,7 @@ type twitterErrors struct {
 }
 
 func parseTwitterResponse(resp *httpclient.Response, out interface{}) error {
-	if resp.IsOK() {
+	if !resp.IsOK() {
 		var message string
 		var code int
 		var errs twitterErrors

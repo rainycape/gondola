@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -104,7 +103,6 @@ func watchAppResources(buildArgs []string, resources []string) error {
 		case e := <-w.Error:
 			return e
 		case ev := <-w.Event:
-			fmt.Println(ev)
 			name := filepath.Base(ev.Name)
 			if strings.HasPrefix(name, ".") || strings.HasSuffix(name, "~") || ev.IsAttrib() || ev.IsDelete() || ev.IsRename() {
 				continue

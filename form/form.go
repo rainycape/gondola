@@ -57,10 +57,23 @@ func (f *Form) validate() {
 			v.err = i18n.Errorfc("form", "You must choose a value").Err(f.ctx)
 			continue
 		}
-		if err := input.InputNamed(label, inp, v.SettableValue(), v.Tag(), true); err != nil {
-			v.err = i18n.TranslatedError(err, f.ctx)
-			f.invalid = true
-			continue
+		if v.Type == FILE {
+			file, header, err := f.ctx.R.FormFile(v.HTMLName)
+			if err != nil && !v.Tag().Optional() {
+				v.err = input.RequiredInputError(label)
+				f.invalid = true
+				continue
+			}
+			if file != nil && header != nil {
+				value := File([]interface{}{file, header})
+				v.value.Set(reflect.ValueOf(value))
+			}
+		} else {
+			if err := input.InputNamed(label, inp, v.SettableValue(), v.Tag(), true); err != nil {
+				v.err = i18n.TranslatedError(err, f.ctx)
+				f.invalid = true
+				continue
+			}
 		}
 		if err := structs.Validate(v.sval.Addr().Interface(), v.Name, f.ctx); err != nil {
 			v.err = i18n.TranslatedError(err, f.ctx)
@@ -132,6 +145,10 @@ func (f *Form) makeField(name string) (*Field, error) {
 			reflect.Float32, reflect.Float64:
 			typ = TEXT
 		default:
+			if s.Types[idx] == fileType {
+				typ = FILE
+				break
+			}
 			return nil, fmt.Errorf("field %q has invalid type %v", name, s.Types[idx])
 		}
 	}
@@ -323,6 +340,8 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 		err = f.writeInput(buf, "password", field)
 	case HIDDEN:
 		err = f.writeInput(buf, "hidden", field)
+	case FILE:
+		err = f.writeInput(buf, "file", field)
 	case TEXTAREA:
 		attrs := html.Attrs{
 			"id":   field.Id(),
@@ -471,6 +490,7 @@ func (f *Form) writeInput(buf *bytes.Buffer, itype string, field *Field) error {
 		if ml, ok := field.Tag().MaxLength(); ok {
 			attrs["maxlength"] = strconv.Itoa(ml)
 		}
+	case FILE:
 	default:
 		panic("unreachable")
 	}

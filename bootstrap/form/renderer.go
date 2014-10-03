@@ -143,7 +143,7 @@ func (r *Renderer) BeginInput(w io.Writer, field *form.Field, placeholder string
 }
 
 func (r *Renderer) FieldAttributes(field *form.Field, pos int) (html.Attrs, error) {
-	if field.Type == form.CHECKBOX || (field.Type == form.SELECT && pos != -1) || field.Type == form.RADIO {
+	if field.Type == form.CHECKBOX || (field.Type == form.SELECT && pos != -1) || field.Type == form.RADIO || field.Type == form.FILE {
 		return nil, nil
 	}
 	return html.Attrs{

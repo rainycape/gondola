@@ -1,16 +1,28 @@
 package input
 
 import (
+	"reflect"
+	"regexp"
+
 	"gnd.la/i18n"
 	"gnd.la/util/structs"
 	"gnd.la/util/types"
-	"reflect"
-	"regexp"
 )
 
 var (
 	alphanumericRe = regexp.MustCompile("^[a-zA-Z0-9]+$")
 )
+
+// RequiredInputError returns an error indicating that the parameter
+// with the given name is required but it's missing. Note that this function
+// is only exported to avoid user-visible string duplication and users should
+// not use it.
+func RequiredInputError(name string) error {
+	if name != "" {
+		return i18n.Errorfc("form", "%s is required", name)
+	}
+	return i18n.Errorfc("form", "required")
+}
 
 // InputNamed takes a (generally) user-provided input string and parses it into the out
 // parameter, which must be settable (this usually means you'll have to pass a pointer
@@ -36,10 +48,7 @@ func InputNamed(name string, input string, out interface{}, tag *structs.Tag, re
 	}
 	if v.Type().Kind() != reflect.Bool && tag != nil {
 		if ((required && !tag.Optional()) || tag.Required()) && input == "" {
-			if name != "" {
-				return i18n.Errorfc("form", "%s is required", name)
-			}
-			return i18n.Errorfc("form", "required")
+			return RequiredInputError(name)
 		}
 		if maxlen, ok := tag.MaxLength(); ok && len(input) > maxlen {
 			if name != "" {

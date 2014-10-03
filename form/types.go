@@ -17,6 +17,8 @@ const (
 	RADIO
 	// <select>
 	SELECT
+	// <input type="file">
+	FILE
 )
 
 // HasChoices returns wheter the type has multiple

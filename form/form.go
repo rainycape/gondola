@@ -32,7 +32,6 @@ type Form struct {
 	fields    []*Field
 	attrs     attrMap
 	options   *Options
-	invalid   bool
 	validated bool
 	// Don't include the field name in the error
 	NamelessErrors bool
@@ -61,7 +60,6 @@ func (f *Form) validate() {
 			file, header, err := f.ctx.R.FormFile(v.HTMLName)
 			if err != nil && !v.Tag().Optional() {
 				v.err = input.RequiredInputError(label)
-				f.invalid = true
 				continue
 			}
 			if file != nil && header != nil {
@@ -71,13 +69,11 @@ func (f *Form) validate() {
 		} else {
 			if err := input.InputNamed(label, inp, v.SettableValue(), v.Tag(), true); err != nil {
 				v.err = i18n.TranslatedError(err, f.ctx)
-				f.invalid = true
 				continue
 			}
 		}
 		if err := structs.Validate(v.sval.Addr().Interface(), v.Name, f.ctx); err != nil {
 			v.err = i18n.TranslatedError(err, f.ctx)
-			f.invalid = true
 			continue
 		}
 	}
@@ -212,6 +208,15 @@ func (f *Form) appendVal(val interface{}) error {
 	return nil
 }
 
+func (f *Form) valid() bool {
+	for _, f := range f.fields {
+		if f.err != nil {
+			return false
+		}
+	}
+	return true
+}
+
 func (f *Form) HasErrors() bool {
 	return f.Submitted() && !f.IsValid()
 }
@@ -225,7 +230,7 @@ func (f *Form) IsValid() bool {
 		f.validate()
 		f.validated = true
 	}
-	return !f.invalid
+	return f.valid()
 }
 
 func (f *Form) Fields() []*Field {

@@ -59,3 +59,33 @@ func Contains(iterable interface{}, val interface{}) bool {
 	}
 	return false
 }
+
+// Remove removes the first occurence of the given val. It returns true
+// if an element was removed, false otherwise. Note that the first argument
+// must a pointer to a slice, while the second one must be a valid element
+// of the slice. Otherwise, this function will panic.
+func Remove(slicePtr interface{}, val interface{}) bool {
+	s := reflect.ValueOf(slicePtr)
+	if s.Kind() != reflect.Ptr || s.Type().Elem().Kind() != reflect.Slice {
+		panic(fmt.Errorf("first argument to Remove must be pointer to slice, not %T", slicePtr))
+	}
+	if s.IsNil() {
+		return false
+	}
+	itr := s.Elem()
+	v := reflect.ValueOf(val)
+	if itr.Type().Elem() != v.Type() {
+		panic(fmt.Errorf("second argument to Remove must be %s, not %s", itr.Type().Elem(), v.Type()))
+	}
+	vi := v.Interface()
+	for ii := 0; ii < itr.Len(); ii++ {
+		if reflect.DeepEqual(itr.Index(ii).Interface(), vi) {
+			newSlice := reflect.MakeSlice(itr.Type(), itr.Len()-1, itr.Len()-1)
+			reflect.Copy(newSlice, itr.Slice(0, ii))
+			reflect.Copy(newSlice.Slice(ii, newSlice.Len()), itr.Slice(ii+1, itr.Len()))
+			s.Elem().Set(newSlice)
+			return true
+		}
+	}
+	return false
+}

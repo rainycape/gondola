@@ -52,9 +52,24 @@ func (f *Form) validate() {
 		if f.NamelessErrors {
 			label = ""
 		}
-		if v.Type.HasChoices() && inp == NotChosen {
-			v.err = i18n.Errorfc("form", "You must choose a value").Err(f.ctx)
-			continue
+		if v.Type.HasChoices() {
+			if inp == NotChosen {
+				v.err = i18n.Errorfc("form", "You must choose a value").Err(f.ctx)
+				continue
+			}
+			// Verify that the input mathces one of the available choices
+			choices := f.fieldChoices(v)
+			found := false
+			for _, c := range choices {
+				if inp == toHTMLValue(c.Value) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				v.err = i18n.Errorfc("form", "%v is not a valid choice", inp).Err(f.ctx)
+				continue
+			}
 		}
 		if v.Type == FILE {
 			file, header, err := f.ctx.R.FormFile(v.HTMLName)

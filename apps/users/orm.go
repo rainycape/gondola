@@ -16,3 +16,8 @@ func ByUsername(username string) query.Q {
 func ByEmail(email string) query.Q {
 	return orm.Eq("User.NormalizedEmail", Normalize(email))
 }
+
+// ById returns a query.Q which finds a user given its id.
+func ById(id int64) query.Q {
+	return orm.Eq("User.UserId", id)
+}

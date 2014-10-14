@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"time"
 
 	"gnd.la/log"
 
@@ -126,4 +127,8 @@ func main() {
 		},
 	}
 	command.Exit(command.RunOpts(nil, opts, commands))
+}
+
+func init() {
+	math.Seed(time.Now().Unix())
 }

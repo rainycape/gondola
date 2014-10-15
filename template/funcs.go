@@ -317,13 +317,13 @@ var templateFuncs = makeFuncMap(FuncMap{
 	"#gte": gte,
 	// Returns the JSON representation of the given argument as a string.
 	// Produces an error in the argument can't be converted to JSON.
-	"#json": _json,
+	"#jsons": jsons,
 	// Same as jsons, but returns a template.JS, which can be embedded in script
 	// sections of an HTML template without further escaping.
-	"#jsons": jsons,
-	"#nz":    nz,
-	"#join":  strings.Join,
-	"#map":   _map,
+	"#json": _json,
+	"#nz":   nz,
+	"#join": strings.Join,
+	"#map":  _map,
 	// Returns a slice with the given arguments.
 	"#slice":    _slice,
 	"#append":   _append,

@@ -17,6 +17,7 @@ import (
 	"gnd.la/form/input"
 	"gnd.la/i18n/table"
 	"gnd.la/internal"
+	"gnd.la/log"
 	"gnd.la/net/urlutil"
 	"gnd.la/util/types"
 )
@@ -558,6 +559,16 @@ func (c *Context) Set(key string, value interface{}) {
 		c.values = make(map[string]interface{})
 	}
 	c.values[key] = value
+}
+
+// Logger returns a Logger which allows logging mesages in several
+// levels. See gnd.la/log.Interface interface for more information.
+// Note that this function will always return non-nil even when logging
+// is disabled, so it's safe to call any gnd.la/log.Interface methods
+// unconditionally (i.e. don't check if the returned value is nil, it'll
+// never be).
+func (c *Context) Logger() log.Interface {
+	return c.logger()
 }
 
 // Intercept http.ResponseWriter calls to find response

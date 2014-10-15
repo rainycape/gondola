@@ -1050,7 +1050,7 @@ func (app *App) logError(ctx *Context, err interface{}) {
 			}
 		}
 	}
-	log.Error(buf.String())
+	ctx.Logger().Error(buf.String())
 	if app.cfg.Debug {
 		app.errorPage(ctx, elapsed, skip, stackSkip, req, err)
 	} else {
@@ -1190,12 +1190,14 @@ func (app *App) CloseContext(ctx *Context) {
 		// an email to the admin when running in production mode. If there
 		// was an error while processing this request, it has been already
 		// emailed to the admin, along the stack trace, in recover().
-		level := log.LInfo
+		logger := ctx.Logger()
+		message := strings.Join([]string{ctx.R.Method, ctx.R.RequestURI, ctx.RemoteAddress(),
+			strconv.Itoa(ctx.statusCode), ctx.Elapsed().String()}, " ")
 		if ctx.statusCode >= 400 {
-			level = log.LWarning
+			logger.Warning(message)
+		} else {
+			logger.Info(message)
 		}
-		app.Logger.Log(level, strings.Join([]string{ctx.R.Method, ctx.R.RequestURI, ctx.RemoteAddress(),
-			strconv.Itoa(ctx.statusCode), ctx.Elapsed().String()}, " "))
 	}
 
 }

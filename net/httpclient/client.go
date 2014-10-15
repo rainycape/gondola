@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gnd.la/app/profile"
+	"gnd.la/log"
 )
 
 const (
@@ -27,9 +28,14 @@ type Context interface {
 	Request() *http.Request
 }
 
+type logger interface {
+	Logger() log.Interface
+}
+
 type Client struct {
 	transport *transport
 	c         *http.Client
+	logger    log.Interface
 }
 
 // New returns a new *Client. The ctx parameter will usually be
@@ -45,6 +51,9 @@ func New(ctx Context) *Client {
 	}
 	client.SetUserAgent(DefaultUserAgent)
 	client.SetTimeout(DefaultTimeout)
+	if log, ok := ctx.(logger); ok {
+		client.logger = log.Logger()
+	}
 	return client
 }
 
@@ -59,6 +68,11 @@ func (c *Client) Clone(ctx Context) *Client {
 	}
 	if proxy := c.Proxy(); proxy != nil {
 		cp.SetProxy(proxy)
+	}
+	if log, ok := ctx.(logger); ok {
+		cp.logger = log.Logger()
+	} else {
+		cp.logger = nil
 	}
 	return cp
 }
@@ -107,6 +121,7 @@ func (c *Client) Get(url string) (*Response, error) {
 	if profile.On && profile.Profiling() {
 		defer profile.Start(profileName).Note("GET", url).End()
 	}
+	c.debugf("GET %s", url)
 	return makeResponse(c.c.Get(url))
 }
 
@@ -116,6 +131,7 @@ func (c *Client) Head(url string) (*Response, error) {
 	if profile.On && profile.Profiling() {
 		defer profile.Start(profileName).Note("HEAD", url).End()
 	}
+	c.debugf("HEAD %s", url)
 	return makeResponse(c.c.Head(url))
 }
 
@@ -139,6 +155,7 @@ func (c *Client) Post(url string, bodyType string, body io.Reader) (*Response, e
 	if profile.On && profile.Profiling() {
 		defer profile.Start(profileName).Note("POST", url).End()
 	}
+	c.debugf("POST %s", url)
 	return makeResponse(c.c.Post(url, bodyType, body))
 }
 
@@ -154,6 +171,7 @@ func (c *Client) Do(req *http.Request) (*Response, error) {
 	if profile.On && profile.Profiling() {
 		defer profile.Start(profileName).Note(req.Method, req.URL.String()).End()
 	}
+	c.debugf("DO %s %s", req.Method, req.URL)
 	return makeResponse(c.c.Do(req))
 }
 
@@ -164,6 +182,7 @@ func (c *Client) Trip(req *http.Request) (*Response, error) {
 	if profile.On && profile.Profiling() {
 		defer profile.Start(profileName).Note("TRIP-"+req.Method, req.URL.String()).End()
 	}
+	c.debugf("TRIP %s %s", req.Method, req.URL)
 	return makeResponse(c.transport.RoundTrip(req))
 }
 
@@ -199,6 +218,12 @@ func (c *Client) SupportsProxy() bool {
 // further details
 func (c *Client) Iter(req *http.Request) *Iter {
 	return &Iter{c: c, req: req}
+}
+
+func (c *Client) debugf(format string, args ...interface{}) {
+	if c.logger != nil {
+		c.logger.Debugf("[httpclient] "+format, args...)
+	}
 }
 
 func makeResponse(r *http.Response, err error) (*Response, error) {

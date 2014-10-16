@@ -24,11 +24,11 @@ type buildOptions struct {
 	Race       bool   `help:"Enable data race detection"`
 	Print      bool   `name:"x" help:"Print the commands"`
 	Verbose    bool   `name:"v" help:"Print the names of packages as they are compiled"`
-	CCFlags    string `help:"Arguments to pass on each 5c, 6c, or 8c compiler invocation"`
+	CCFlags    string `name:"ccflags" help:"Arguments to pass on each 5c, 6c, or 8c compiler invocation"`
 	Compiler   string `help:"Name of compiler to use, as in runtime.Compiler (gccgo or gc)"`
-	GccGoFlags string `help:"Arguments to pass on each gccgo compiler/linker invocation"`
-	GcFlags    string `help:"Arguments to pass on each 5g, 6g, or 8g compiler invocation"`
-	LDFlags    string `help:"Arguments to pass on each 5l, 6l, or 8l linker invocation"`
+	GccGoFlags string `name:"gccgoflags" help:"Arguments to pass on each gccgo compiler/linker invocation"`
+	GcFlags    string `name:"gcflags" help:"Arguments to pass on each 5g, 6g, or 8g compiler invocation"`
+	LDFlags    string `name:"ldflags" help:"Arguments to pass on each 5l, 6l, or 8l linker invocation"`
 	Tags       string `help:"A list of build tags to consider satisfied during the build"`
 }
 

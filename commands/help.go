@@ -1,4 +1,4 @@
-package admin
+package commands
 
 import (
 	"flag"
@@ -16,7 +16,7 @@ func init() {
 			cmds = append(cmds, k)
 		}
 		sort.Strings(cmds)
-		fmt.Fprintf(os.Stderr, "\nAvailable administrative commands:\n")
+		fmt.Fprintf(os.Stderr, "\nAvailable commands:\n")
 		for _, v := range cmds {
 			if v == "help" || commandIsHidden(v) {
 				continue

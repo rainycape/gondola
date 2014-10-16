@@ -1,4 +1,4 @@
-package admin
+package commands
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ import (
 	"gopkgs.com/vfs.v1"
 )
 
-// Builtin admin commands implemented here
+// Builtin commands implemented here
 // rathen than in other packages to avoid
 // import cycles.
 

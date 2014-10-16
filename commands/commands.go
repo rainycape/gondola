@@ -1,14 +1,9 @@
-package admin
+package commands
 
 import (
 	"bytes"
 	"flag"
 	"fmt"
-	"gnd.la/app"
-	"gnd.la/internal/runtimeutil"
-	"gnd.la/signal"
-	"gnd.la/tasks"
-	"gnd.la/util/stringutil"
 	"io"
 	"io/ioutil"
 	"os"
@@ -16,6 +11,12 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+
+	"gnd.la/app"
+	"gnd.la/internal/runtimeutil"
+	"gnd.la/signal"
+	"gnd.la/tasks"
+	"gnd.la/util/stringutil"
 )
 
 var (
@@ -30,7 +31,7 @@ type command struct {
 	flags   []*Flag
 }
 
-// Register registers a new admin command with the
+// Register registers a new command with the
 // given function and options (which might be nil).
 func Register(f app.Handler, o *Options) error {
 	var name string
@@ -181,7 +182,7 @@ func executeCommand(name string, cmd *command, args []string, a *app.App) (err e
 	return
 }
 
-// Execute tries to run an administrative command
+// Execute tries to run a command
 // reading the parameters from the command line. It returs
 // true if a command was executed and false if it wasn't.
 // Note that most users won't need to call this function
@@ -301,13 +302,13 @@ func help(ctx *app.Context) {
 	if cmd != "" {
 		c := strings.ToLower(cmd)
 		if _, ok := commands[c]; ok {
-			fmt.Fprintf(os.Stderr, "Help for administrative command %s:\n", c)
+			fmt.Fprintf(os.Stderr, "Help for command %s:\n", c)
 			commandHelp(c, -1, os.Stderr)
 		} else {
-			fmt.Fprintf(os.Stderr, "No such administrative command %q\n", cmd)
+			fmt.Fprintf(os.Stderr, "No such command %q\n", cmd)
 		}
 	} else {
-		fmt.Fprintf(os.Stderr, "Administrative commands:\n")
+		fmt.Fprintf(os.Stderr, "Commands:\n")
 		commandsHelp(os.Stderr)
 	}
 }

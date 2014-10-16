@@ -1,8 +1,8 @@
-// Package admin provides functions for registering and
+// Package commands provides functions for registering and
 // executing administrative commands.
 //
-// To create a new administrative command, start by writing
-// its function. Administrative functions take the same form
+// To create a new command, start by writing
+// its function. Command functions take the same form
 // as requests handlers e.g.:
 //
 //  func MyCommand(ctx *app.Context)
@@ -10,7 +10,7 @@
 // Then register it using Register() or MustRegister().
 //
 //  func init() {
-//	admin.MustRegister(MyCommand, nil)
+//	commands.MustRegister(MyCommand, nil)
 //  }
 //
 // This will create a command named my-comand. To specify additional
@@ -21,10 +21,10 @@
 //
 // If you're using gnd.la/app.App.ListenAndServe or gnd.la/app.App.MustListenAndServe,
 // then you don't need to do anything else, since those functions will check if
-// an administrative command was provided, run it and exit.
-// Alternatively, you can also call admin.Execute with a gnd.la/app.App
+// a command was provided, run it and exit.
+// Alternatively, you can also call commands.Execute with a gnd.la/app.App
 // instance manually if you're not using the functions previously mentioned
-// or, if for some reason, you want to check for administrative commands
+// or, if for some reason, you want to check for commands
 // sooner. e.g.
 //
 //  func main() {
@@ -32,27 +32,27 @@
 //	config.MustParse()
 //	a := app.New()
 //	// Set up context processors and finalizers, etc... on a
-//	// Now check if there's an admin command and run it
-//	if !admin.Execute(a) {
-//	    // No admin command supplied. Set up your handlers and
+//	// Now check if there's a command and run it
+//	if !commands.Execute(a) {
+//	    // No command supplied. Set up your handlers and
 //	    // start listening.
 //	    something := anExpensiveCalculationWhichTakesALotOfTime()
 //	    a.Handle("^/hello/$", HelloHandler)
 //	    a.MustListenAndServe(-1)
 //	}
-//	// Admin command was executed. Now just exit.
+//	// Command was executed. Now just exit.
 //  }
 //
-// Administrative commands might use the context methods ParamValue() to access flags
+// Commands might use the context methods ParamValue() to access flags
 // values. Methods built on top of ParamValue(), like ParseParamValue(), are also
 // supported.
 // Any additional non-flag arguments are passed to the command handler and might be
 // accessed using IndexValue() (0 represents the first non-flag argument). ParseIndexValue()
 // and related methods are also supported.
 //
-//  admin.MustRegister(FlagsCommand, &admin.Options{
+//  commands.MustRegister(FlagsCommand, &commands.Options{
 //	Help: "This command does nothing interesting",
-//	Flags: admin.Flags(admin.IntFlag("foo", 0, "Help for foo flag"), admin.BoolFlag("bar", false, "Help for bar flag")),
+//	Flags: commands.Flags(commands.IntFlag("foo", 0, "Help for foo flag"), commands.BoolFlag("bar", false, "Help for bar flag")),
 //  })
 //
 //  func FlagCommand(ctx *app.Context) {
@@ -63,7 +63,7 @@
 //	// foo and bar now contain the parameters received in the command line
 //  }
 //
-// Finally, to invoke and administrative command, pass it to your app binary e.g.
+// Finally, to invoke the command, pass it to your app binary e.g.
 //
 //  ./myapp my-command
 //
@@ -72,10 +72,10 @@
 //
 //  ./myapp -config=conf/production.conf my-command -mycommandflag=7
 //
-// To list all the available administrative commands together with their respective help, use
+// To list all the available commands together with their respective help, use
 // the help command:
 //
 //  ./myapp help
 //
 // NOTE: These examples assume a UNIX environment. If you're using Windows type "myapp.exe" rather than "./myapp".
-package admin
+package commands

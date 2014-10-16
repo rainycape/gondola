@@ -1,4 +1,4 @@
-package admin
+package commands
 
 type contextProvider struct {
 	args   []string

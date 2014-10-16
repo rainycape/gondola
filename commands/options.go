@@ -1,4 +1,4 @@
-package admin
+package commands
 
 const (
 	typBool = iota + 1

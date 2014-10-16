@@ -10,10 +10,19 @@ func TemplateHandler(name string, data interface{}) Handler {
 
 // RedirectHandler returns a handler which redirects to the given
 // url. The permanent argument indicates if the redirect should
-// be temporary or permanent.
+// be temporary or permanent. The destination string might contain
+// expanded replacements by using the ${x} notation. If x is a number,
+// the expression will expand to the value returned by ctx.IndexValue(x),
+// otherwise it will expand to the result of ctx.ParamValue(x).
 func RedirectHandler(destination string, permanent bool) Handler {
+	replacer := newReplacer(destination)
+	if replacer == nil {
+		return func(ctx *Context) {
+			ctx.Redirect(destination, permanent)
+		}
+	}
 	return func(ctx *Context) {
-		ctx.Redirect(destination, permanent)
+		ctx.Redirect(replacer.Replace(ctx.provider), permanent)
 	}
 }
 

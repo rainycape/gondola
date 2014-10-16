@@ -213,7 +213,7 @@ func (app *App) Handle(pattern string, handler Handler) {
 // HandleNamed is a shorthand for HandleOptions, passing an Options instance
 // with just the name set.
 func (app *App) HandleNamed(pattern string, handler Handler, name string) {
-	app.HandleOptions(pattern, handler, &Options{Name: name})
+	app.HandleOptions(pattern, handler, &HandlerOptions{Name: name})
 }
 
 // HandleOptions adds a new handler to the App. If the Options include a
@@ -221,7 +221,7 @@ func (app *App) HandleNamed(pattern string, handler Handler, name string) {
 // the "reverse" template function. To add a host-specific Handler,
 // set the Host field in Options to a non-empty string. Note that handler patterns
 // are tried in the same order that they were added to the App.
-func (app *App) HandleOptions(pattern string, handler Handler, opts *Options) {
+func (app *App) HandleOptions(pattern string, handler Handler, opts *HandlerOptions) {
 	if handler == nil {
 		panic(fmt.Errorf("handler for pattern %q can't be nil", pattern))
 	}

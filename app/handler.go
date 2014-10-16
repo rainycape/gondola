@@ -9,9 +9,9 @@ import "net/http"
 // (via gnd.la/admin) and tasks (via gnd.la/task).
 type Handler func(*Context)
 
-// Options represent the different options which might be
+// HandlerOptions represent the different options which might be
 // specified when registering a Handler in an App.
-type Options struct {
+type HandlerOptions struct {
 	// Name indicates the Handler's name, which might be used
 	// to reverse it with Context.Reverse of the "reverse"
 	// template function.
@@ -23,13 +23,13 @@ type Options struct {
 
 type HandlerInfo struct {
 	Handler Handler
-	Options *Options
+	Options *HandlerOptions
 }
 
 func NamedHandler(name string, handler Handler) *HandlerInfo {
 	return &HandlerInfo{
 		Handler: handler,
-		Options: &Options{
+		Options: &HandlerOptions{
 			Name: name,
 		},
 	}

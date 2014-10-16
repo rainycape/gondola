@@ -469,7 +469,7 @@ func (o *Orm) TypeTable(typ reflect.Type) *Table {
 
 // returns wheter the kind defaults to nullempty option
 func defaultsToNullEmpty(typ reflect.Type, t *structs.Tag) bool {
-	if t.Has("references") || t.Has("codec") || t.Has("notnull") {
+	if t.Has("references") || t.Has("codec") || (t.Has("notnull") && typ.Kind() != reflect.Bool) {
 		return true
 	}
 	switch typ.Kind() {
@@ -482,7 +482,7 @@ func defaultsToNullEmpty(typ reflect.Type, t *structs.Tag) bool {
 }
 
 func defaultsToOmitEmpty(typ reflect.Type, t *structs.Tag) bool {
-	return t.Has("auto_increment") || t.Has("default")
+	return t.Has("auto_increment") || (t.Has("default") && typ.Kind() != reflect.Bool)
 }
 
 // Returns the default table name for a type

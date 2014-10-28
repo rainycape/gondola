@@ -3,6 +3,7 @@ package httpclient
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -88,6 +89,14 @@ func (r *Response) DecodeJSON(out interface{}) error {
 		r.dec = json.NewDecoder(r.Body)
 	}
 	return r.dec.Decode(out)
+}
+
+// Read wraps r.Body.Read().
+func (r *Response) Read(p []byte) (int, error) {
+	if r != nil && r.Body != nil {
+		return r.Body.Read(p)
+	}
+	return 0, io.EOF
 }
 
 // Close is a shorthand for r.Body.Close()

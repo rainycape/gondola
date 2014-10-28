@@ -240,7 +240,7 @@ func (l *Logger) Infoln(v ...interface{}) {
 }
 
 func (l *Logger) Warningf(format string, v ...interface{}) {
-	l.writef(LWarning, 3, format, v)
+	l.writef(LWarning, 3, format, v...)
 }
 
 func (l *Logger) Warning(v ...interface{}) {

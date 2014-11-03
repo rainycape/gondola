@@ -486,7 +486,9 @@ func testCompositePrimaryKey(t *testing.T, o *Orm) {
 		comp2 = new(Composite)
 	}
 	comp2.Name = "Go!"
-	o.MustSave(comp2)
+	if _, err := o.Save(comp2); err != nil {
+		t.Error(err)
+	}
 	c2, err := o.Count(table, nil)
 	if err != nil {
 		t.Error(err)

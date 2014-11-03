@@ -42,7 +42,7 @@ type Eq struct {
 }
 
 func (e *Eq) String() string {
-	return qDesc(&e.Field, "=")
+	return qDesc(&e.Field, "= ")
 }
 
 type Neq struct {
@@ -50,7 +50,7 @@ type Neq struct {
 }
 
 func (n *Neq) String() string {
-	return qDesc(&n.Field, "!=")
+	return qDesc(&n.Field, "!= ")
 }
 
 type Lt struct {
@@ -58,7 +58,7 @@ type Lt struct {
 }
 
 func (l *Lt) String() string {
-	return qDesc(&l.Field, "<")
+	return qDesc(&l.Field, "< ")
 }
 
 type Lte struct {
@@ -66,7 +66,7 @@ type Lte struct {
 }
 
 func (l *Lte) String() string {
-	return qDesc(&l.Field, "<=")
+	return qDesc(&l.Field, "<= ")
 }
 
 type Gt struct {
@@ -74,7 +74,7 @@ type Gt struct {
 }
 
 func (g *Gt) String() string {
-	return qDesc(&g.Field, ">")
+	return qDesc(&g.Field, "> ")
 }
 
 type Gte struct {
@@ -82,7 +82,7 @@ type Gte struct {
 }
 
 func (g *Gte) String() string {
-	return qDesc(&g.Field, ">=")
+	return qDesc(&g.Field, ">= ")
 }
 
 type In struct {
@@ -133,7 +133,7 @@ func combDesc(c *Combinator, w string) string {
 
 func qDesc(f *Field, symb string) string {
 	if s, ok := f.Value.(string); ok {
-		return fmt.Sprintf("%q = %q", f.Field, s)
+		return fmt.Sprintf("%q %s%q", f.Field, symb, s)
 	}
-	return fmt.Sprintf("%q = %v", f.Field, f.Value)
+	return fmt.Sprintf("%q %s%v", f.Field, symb, f.Value)
 }

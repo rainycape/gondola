@@ -727,6 +727,8 @@ func (d *Driver) condition(buf *bytes.Buffer, params *[]interface{}, m driver.Mo
 		err = d.conditions(buf, params, m, x.Conditions, " AND ", begin)
 	case *query.Or:
 		err = d.conditions(buf, params, m, x.Conditions, " OR ", begin)
+	default:
+		err = fmt.Errorf("unhandled operand %T (%v)", x, x)
 	}
 	return err
 }

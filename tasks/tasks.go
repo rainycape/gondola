@@ -146,39 +146,41 @@ func afterTask(task *Task, started time.Time, terr *error) {
 		*terr = errors.New(buf.String())
 	}
 	end := time.Now()
-	log.Debugf("Finished task %s at %v (took %v)", name, end, end.Sub(started))
 	running.Lock()
 	defer running.Unlock()
-	c := running.tasks[task]
-	if c > 1 {
-		running.tasks[task] = c - 1
+	c := running.tasks[task] - 1
+	if c > 0 {
+		running.tasks[task] = c
 	} else {
 		delete(running.tasks, task)
 	}
+	log.Debugf("Finished task %s (%d instances now running) at %v (took %v)", name, c, end, end.Sub(started))
 }
 
-func canRunTask(task *Task) error {
+func numberOfInstances(task *Task) (int, error) {
 	running.Lock()
 	defer running.Unlock()
 	c := running.tasks[task]
 	if task.Options != nil && task.Options.MaxInstances > 0 {
 		if c >= task.Options.MaxInstances {
-			return fmt.Errorf("not starting task %s because it's already running %d instances", task.Name(), c)
+			return 0, fmt.Errorf("not starting task %s because it's already running %d instances", task.Name(), c)
 		}
 	}
 	if running.tasks == nil {
 		running.tasks = make(map[*Task]int)
 	}
-	running.tasks[task] = c + 1
-	return nil
+	c++
+	running.tasks[task] = c
+	return c, nil
 }
 
 func executeTask(ctx *app.Context, task *Task) (ran bool, err error) {
-	if err = canRunTask(task); err != nil {
+	var n int
+	if n, err = numberOfInstances(task); err != nil {
 		return
 	}
 	started := time.Now()
-	log.Debugf("Starting task %s at %v", task.Name(), started)
+	log.Debugf("Starting task %s (%d instances now running) at %v", task.Name(), n, started)
 	ran = true
 	defer afterTask(task, started, &err)
 	task.Handler(ctx)

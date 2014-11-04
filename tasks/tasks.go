@@ -91,7 +91,7 @@ func (t *Task) execute(now bool) {
 		c := t.ticker.C
 		select {
 		case <-c:
-			t.executeTask()
+			go t.executeTask()
 		case <-t.stop:
 			close(t.stop)
 			t.stop = nil

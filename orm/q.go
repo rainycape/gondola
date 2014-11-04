@@ -22,6 +22,15 @@ func Neq(field string, value interface{}) query.Q {
 	}
 }
 
+func Contains(field string, value interface{}) query.Q {
+	return &query.Contains{
+		Field: query.Field{
+			Field: field,
+			Value: value,
+		},
+	}
+}
+
 func Lt(field string, value interface{}) query.Q {
 	return &query.Lt{
 		Field: query.Field{

@@ -687,6 +687,8 @@ func (d *Driver) condition(buf *bytes.Buffer, params *[]interface{}, m driver.Mo
 		} else {
 			err = d.clause(buf, params, m, "%s != %s", &x.Field, begin)
 		}
+	case *query.Contains:
+		err = d.clause(buf, params, m, "%s LIKE '%%' || %s || '%%'", &x.Field, begin)
 	case *query.Lt:
 		err = d.clause(buf, params, m, "%s < %s", &x.Field, begin)
 	case *query.Lte:

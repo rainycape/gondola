@@ -53,6 +53,14 @@ func (n *Neq) String() string {
 	return qDesc(&n.Field, "!= ")
 }
 
+type Contains struct {
+	Field
+}
+
+func (c *Contains) String() string {
+	return qDesc(&c.Field, "CONTAINS (") + ")"
+}
+
 type Lt struct {
 	Field
 }

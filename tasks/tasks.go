@@ -12,7 +12,6 @@ import (
 
 	"gnd.la/app"
 	"gnd.la/internal/runtimeutil"
-	"gnd.la/log"
 	"gnd.la/signal"
 )
 
@@ -103,12 +102,6 @@ func (t *Task) execute(now bool) {
 	}
 }
 
-func (t *Task) executeTask() {
-	if err := startTask(t); err != nil {
-		log.Error(err)
-	}
-}
-
 // Options are used to specify task options when registering them.
 type Options struct {
 	// Name indicates the task name, used for checking the number
@@ -122,7 +115,7 @@ type Options struct {
 	MaxInstances int
 }
 
-func afterTask(task *Task, started time.Time, terr *error) {
+func afterTask(ctx *app.Context, task *Task, started time.Time, terr *error) {
 	name := task.Name()
 	if err := recover(); err != nil {
 		skip, stackSkip, _, _ := runtimeutil.GetPanic()
@@ -154,7 +147,7 @@ func afterTask(task *Task, started time.Time, terr *error) {
 	} else {
 		delete(running.tasks, task)
 	}
-	log.Debugf("Finished task %s (%d instances now running) at %v (took %v)", name, c, end, end.Sub(started))
+	ctx.Logger().Infof("Finished task %s (%d instances now running) at %v (took %v)", name, c, end, end.Sub(started))
 }
 
 func numberOfInstances(task *Task) (int, error) {
@@ -180,16 +173,17 @@ func executeTask(ctx *app.Context, task *Task) (ran bool, err error) {
 		return
 	}
 	started := time.Now()
-	log.Debugf("Starting task %s (%d instances now running) at %v", task.Name(), n, started)
+	ctx.Logger().Infof("Starting task %s (%d instances now running) at %v", task.Name(), n, started)
 	ran = true
-	defer afterTask(task, started, &err)
+	defer afterTask(ctx, task, started, &err)
 	task.Handler(ctx)
 	return
 }
 
 // Register registers a new task that might be run with Run, but
 // without scheduling it. If there was previously another task
-// registered with the same name, it will be deleted.
+// registered with the same name, it will panic (use Task.Delete
+// previously to remove it).
 func Register(m *app.App, task app.Handler, opts *Options) *Task {
 	t := &Task{App: m, Handler: task, Options: opts}
 	registered.Lock()
@@ -199,8 +193,7 @@ func Register(m *app.App, task app.Handler, opts *Options) *Task {
 	}
 	name := t.Name()
 	if prev := registered.tasks[name]; prev != nil {
-		log.Debugf("There's already a task registered as %s, deleting it", name)
-		prev.deleteLocked()
+		panic(fmt.Errorf("there's already a task registered as %s", name))
 	}
 	registered.tasks[name] = t
 	return t

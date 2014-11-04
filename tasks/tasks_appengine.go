@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"gnd.la/app"
-	"gnd.la/log"
 	"gnd.la/signal"
 )
 
@@ -15,11 +14,10 @@ var pendingTasks struct {
 	tasks []*Task
 }
 
-func startTask(task *Task) error {
+func (t *Task) executeTask() {
 	pendingTasks.Lock()
-	pendingTasks.tasks = append(pendingTasks.tasks, task)
+	pendingTasks.tasks = append(pendingTasks.tasks, t)
 	pendingTasks.Unlock()
-	return nil
 }
 
 func gondolaRunTasksHandler(ctx *app.Context) {
@@ -32,7 +30,7 @@ func gondolaRunTasksHandler(ctx *app.Context) {
 		task := v
 		ctx.Go(func(c *app.Context) {
 			if _, err := executeTask(c, task); err != nil {
-				log.Error(err)
+				ctx.Logger().Error(err)
 			}
 		})
 	}

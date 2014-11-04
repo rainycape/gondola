@@ -2,9 +2,11 @@
 
 package tasks
 
-func startTask(task *Task) error {
-	ctx := task.App.NewContext(contextProvider(0))
-	defer task.App.CloseContext(ctx)
-	_, err := executeTask(ctx, task)
-	return err
+func (t *Task) executeTask() {
+	ctx := t.App.NewContext(contextProvider(0))
+	defer t.App.CloseContext(ctx)
+	_, err := executeTask(ctx, t)
+	if err != nil {
+		ctx.Logger().Error(err)
+	}
 }

@@ -189,7 +189,7 @@ func executeCommand(name string, cmd *command, args []string, a *app.App) (err e
 // directly, since gndl.la/app.App will automatically call
 // it before listening (and exit after executing the command
 // if it was provided).
-func Execute(a *app.App) bool {
+func Execute(a *app.App) (bool, error) {
 	executed = true
 	if !flag.Parsed() {
 		flag.Parse()
@@ -205,11 +205,13 @@ func Execute(a *app.App) bool {
 						commandHelp(cmd, -1, os.Stderr)
 					}
 				}
-				return true
+				return true, nil
 			}
 		}
+		// Argument was given but it's not a command
+		return false, fmt.Errorf("%s is not a registered command", args[0])
 	}
-	return false
+	return false, nil
 }
 
 func execute(name string, obj interface{}) {
@@ -225,7 +227,13 @@ func execute(name string, obj interface{}) {
 	default:
 		panic("unreachable")
 	}
-	if Execute(a) {
+	done, err := Execute(a)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
+
+	if done {
 		os.Exit(0)
 	}
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"path/filepath"
 	"time"
+	"math/rand"
 
 	"gnd.la/log"
 
@@ -130,5 +131,5 @@ func main() {
 }
 
 func init() {
-	math.Seed(time.Now().Unix())
+	rand.Seed(time.Now().Unix())
 }

@@ -4,12 +4,13 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"gnd.la/util/yaml"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gnd.la/util/yaml"
 )
 
 const (

@@ -28,12 +28,15 @@ func totalSize(p string) int64 {
 	return total
 }
 
-func storeBinaries(t *testing.T, store *Blobstore, prepend []byte) int {
+func storeBinaries(t *testing.T, store *Blobstore, prepend []byte, count int) int {
 	// Store all files in /usr/bin
 	var stored int
 	err := filepath.Walk("/usr/bin", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+		if count > 0 && stored >= count {
+			return nil
 		}
 		if info.Mode().IsRegular() {
 			stored++
@@ -65,6 +68,10 @@ func storeBinaries(t *testing.T, store *Blobstore, prepend []byte) int {
 }
 
 func testSize(t *testing.T, drv string) {
+	count := 10
+	if os.Getenv("BLOBSTORE_TEST_ALL") != "" {
+		count = -1
+	}
 	if testing.Short() {
 		t.SkipNow()
 	}
@@ -84,8 +91,8 @@ func testSize(t *testing.T, drv string) {
 	}
 	defer store.Close()
 	start1 := time.Now()
-	stored := storeBinaries(t, store, nil)
-	stored += storeBinaries(t, store, make([]byte, 32))
+	stored := storeBinaries(t, store, nil, count)
+	stored += storeBinaries(t, store, make([]byte, 32), count)
 	t.Logf("took %s to store", time.Since(start1))
 	t.Logf("%s size is %s", drv, formatutil.Size(uint64(totalSize(dir))))
 	start2 := time.Now()

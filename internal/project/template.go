@@ -71,18 +71,21 @@ func (t *Template) Data(gae bool) ([]byte, error) {
 	var buf bytes.Buffer
 	zw, _ := gzip.NewWriterLevel(&buf, gzip.BestCompression)
 	tw := tar.NewWriter(zw)
-	if err := t.addFiles(tw, t.dir); err != nil {
-		return nil, err
+	// Add common files first
+	if filepath.Base(t.dir) != "blank" {
+		if err := t.addFilesFromSibling(tw, "_common"); err != nil {
+			return nil, err
+		}
 	}
+	// Then add gae-specific files, so they may overwrite the _common ones
 	if gae {
 		if err := t.addFilesFromSibling(tw, "_appengine"); err != nil {
 			return nil, err
 		}
 	}
-	if filepath.Base(t.dir) != "blank" {
-		if err := t.addFilesFromSibling(tw, "_common"); err != nil {
-			return nil, err
-		}
+	// Finally, add project specific files, so they overwrite anything else
+	if err := t.addFiles(tw, t.dir); err != nil {
+		return nil, err
 	}
 	if err := tw.Close(); err != nil {
 		return nil, err

@@ -487,6 +487,9 @@ func New(r Reporter, a *app.App) *Tester {
 			remoteHost = &h
 		} else if gaeRemote != nil && *gaeRemote {
 			h := internal.AppEngineAppHost()
+			if h == "" {
+				panic(errors.New("no application found in app.yaml - please, specify one to run remote tests"))
+			}
 			remoteHost = &h
 		}
 	}
@@ -578,9 +581,13 @@ func encode(params map[string]interface{}) string {
 func init() {
 	if internal.InTest() {
 		remoteHost = flag.String("H", "", "Host to run the test against")
-		if h := internal.AppEngineAppHost(); h != "" {
-			gaeRemote = flag.Bool("R", false, fmt.Sprintf("Run tests against %s", h))
-			gaeLocal = flag.Bool("L", false, fmt.Sprintf("Run tests against %s", gaeLocalHost))
+		if internal.InAppEngine() {
+			gaeHost := internal.AppEngineAppHost()
+			if gaeHost == "" {
+				gaeHost = "not found"
+			}
+			gaeRemote = flag.Bool("R", false, fmt.Sprintf("Run tests against remote GAE instance (%s)", gaeHost))
+			gaeLocal = flag.Bool("L", false, fmt.Sprintf("Run tests local GAE instance (%s)", gaeLocalHost))
 		}
 	}
 }

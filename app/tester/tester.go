@@ -34,9 +34,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"gnd.la/app"
-	"gnd.la/internal"
-	"gnd.la/util/types"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -47,6 +44,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gnd.la/app"
+	"gnd.la/internal"
+	"gnd.la/util/types"
 )
 
 const (

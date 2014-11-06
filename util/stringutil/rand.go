@@ -4,14 +4,14 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+
+	"github.com/dchest/uniuri"
 )
 
-const (
-	alphanumeric = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ0123456789"
-	printable    = "!\"#$%'()*+,-./0123456789:;<=>?@ABCDEFGHJKLMNPQRSTUVWXYZ[\\]^_`abcdefghjkmnpqrstuvwxyz"
+var (
+	alphanumeric = []byte("abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ0123456789")
+	printable    = []byte("!\"#$%'()*+,-./0123456789:;<=>?@ABCDEFGHJKLMNPQRSTUVWXYZ[\\]^_`abcdefghjkmnpqrstuvwxyz")
 )
-
-// Most code in this file is adapted from https://github.com/dchest/uniuri
 
 // Random returns a random string with the given length.
 // The alphabet used includes ASCII lowercase and uppercase
@@ -27,29 +27,8 @@ func RandomPrintable(length int) string {
 	return randomString(length, printable)
 }
 
-func randomString(length int, chars string) string {
-	b := make([]byte, length)
-	r := make([]byte, length+(length/4)) // storage for random bytes.
-	clen := byte(len(chars))
-	maxrb := byte(256 - (256 % len(chars)))
-	i := 0
-	for {
-		if _, err := io.ReadFull(rand.Reader, r); err != nil {
-			panic(fmt.Errorf("error reading from random source: %s", err))
-		}
-		for _, c := range r {
-			if c >= maxrb {
-				// Skip this number to avoid modulo bias.
-				continue
-			}
-			b[i] = chars[c%clen]
-			i++
-			if i == length {
-				return string(b)
-			}
-		}
-	}
-	panic("unreachable")
+func randomString(length int, chars []byte) string {
+	return uniuri.NewLenChars(length, chars)
 }
 
 // RandomBytes returns a slice of n random bytes.

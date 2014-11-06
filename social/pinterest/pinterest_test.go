@@ -20,7 +20,7 @@ func parseAccount(tb testing.TB) *Account {
 
 func TestSignIn(t *testing.T) {
 	acc := parseAccount(t)
-	sess, err := SignIn(acc)
+	sess, err := acc.SignIn()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestSignIn(t *testing.T) {
 
 func TestPost(t *testing.T) {
 	acc := parseAccount(t)
-	sess, err := SignIn(acc)
+	sess, err := acc.SignIn()
 	if err != nil {
 		t.Fatal(err)
 	}

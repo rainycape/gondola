@@ -6,7 +6,8 @@ import (
 
 func TestLinkStats(t *testing.T) {
 	links := []string{"http://www.facebook.com", "www.google.com"}
-	stats, err := GetLinksStats(links)
+	acc := &Account{}
+	stats, err := acc.Stats(links)
 	if err != nil {
 		t.Fatal(err)
 	}

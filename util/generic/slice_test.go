@@ -78,6 +78,55 @@ func TestRemove(t *testing.T) {
 	}
 }
 
+func TestBy(t *testing.T) {
+	type testStruct struct {
+		A int
+		B string
+		C float64
+	}
+	input := []*testStruct{
+		{1, "a", 1},
+		{1, "b", 2},
+	}
+	expects := []interface{}{
+		map[int]*testStruct{
+			1: input[1],
+		},
+		map[string]*testStruct{
+			"a": input[0],
+			"b": input[1],
+		},
+	}
+	groupExpects := []interface{}{
+		map[int][]*testStruct{
+			1: {input[0], input[1]},
+		},
+		map[string][]*testStruct{
+			"a": {input[0]},
+			"b": {input[1]},
+		},
+	}
+	outs := []interface{}{
+		By(input, "A").(map[int]*testStruct),
+		By(input, "B").(map[string]*testStruct),
+	}
+	groupOuts := []interface{}{
+		GroupsBy(input, "A").(map[int][]*testStruct),
+		GroupsBy(input, "B").(map[string][]*testStruct),
+	}
+	for ii, v := range expects {
+		if !reflect.DeepEqual(v, outs[ii]) {
+			t.Errorf("expecting By(%v) = %v, got %v instead", v, input[ii], outs[ii])
+		}
+	}
+	for ii, v := range groupExpects {
+		if !reflect.DeepEqual(v, groupOuts[ii]) {
+			t.Errorf("expecting GroupBy(%v) = %v, got %v instead", v, input[ii], groupOuts[ii])
+		}
+
+	}
+}
+
 func BenchmarkSelect(b *testing.B) {
 	b.ReportAllocs()
 	for ii := 0; ii < b.N; ii++ {

@@ -23,7 +23,7 @@ import (
 	"syscall"
 	"time"
 
-	"code.google.com/p/go.exp/fsnotify"
+	"github.com/go-fsnotify/fsnotify"
 	"gnd.la/app"
 	"gnd.la/config"
 	"gnd.la/internal/runtimeutil"
@@ -260,27 +260,20 @@ func (p *Project) StartMonitoring() error {
 		toWatch = generic.Map(pkgs, func(pkg *build.Package) string { return pkg.Dir }).([]string)
 	}
 	for _, v := range toWatch {
-		if err := watcher.Watch(v); err != nil {
+		if err := watcher.Add(v); err != nil {
 			return err
 		}
 	}
-	watcher.Watch(p.configPath)
+	watcher.Add(p.configPath)
 	p.watcher = watcher
 	go func() {
 		var t *time.Timer
 	finished:
 		for {
 			select {
-			case ev := <-watcher.Event:
-				if ev == nil {
-					// Closed
-					break finished
-				}
-				if ev.IsAttrib() {
-					break
-				}
+			case ev := <-watcher.Events:
 				if ev.Name == p.configPath {
-					if ev.IsDelete() {
+					if ev.Op == fsnotify.Remove {
 						// It seems the Watcher stops watching a file
 						// if it receives a DELETE event for it. For some
 						// reason, some editors generate a DELETE event
@@ -288,8 +281,8 @@ func (p *Project) StartMonitoring() error {
 						// file again. Since fsnotify is in exp/ and its
 						// API might change, remove the watch first, just
 						// in case.
-						watcher.RemoveWatch(ev.Name)
-						watcher.Watch(ev.Name)
+						watcher.Remove(ev.Name)
+						watcher.Add(ev.Name)
 					} else {
 						log.Infof("Config file %s changed, restarting...", p.configPath)
 						if err := p.Stop(); err != nil {
@@ -310,12 +303,15 @@ func (p *Project) StartMonitoring() error {
 						p.Build()
 					})
 				}
-			case err := <-watcher.Error:
+			case err := <-watcher.Errors:
 				if err == nil {
 					// Closed
 					break finished
 				}
 				log.Errorf("Error watching: %s", err)
+			default:
+				// Closed
+				break finished
 			}
 		}
 	}()

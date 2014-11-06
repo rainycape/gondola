@@ -2,4 +2,10 @@
 
 package log
 
-const ioctlReadTermios = 0
+import (
+	"io"
+)
+
+func isatty(w io.Writer) bool {
+	return false
+}

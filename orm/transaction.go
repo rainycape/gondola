@@ -89,3 +89,7 @@ func (t *Tx) Close() {
 		t.Rollback()
 	}
 }
+
+func (t *Tx) compileTimeInterfaceTest() Interface {
+	return t
+}

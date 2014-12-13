@@ -15,23 +15,19 @@ type Interface interface {
 	Exists(t *Table, q query.Q) (bool, error)
 	Count(t *Table, q query.Q) (uint64, error)
 	Query(q query.Q) *Query
-	One(q query.Q, out ...interface{}) error
+	One(q query.Q, out ...interface{}) (bool, error)
+	MustOne(q query.Q, out ...interface{}) bool
 	All() *Query
 	Insert(obj interface{}) (Result, error)
 	MustInsert(obj interface{}) Result
-	InsertInto(t *Table, obj interface{}) (Result, error)
-	MustInsertInto(t *Table, obj interface{}) Result
 	Update(q query.Q, obj interface{}) (Result, error)
 	MustUpdate(q query.Q, obj interface{}) Result
 	Upsert(q query.Q, obj interface{}) (Result, error)
 	MustUpsert(q query.Q, obj interface{}) Result
 	Save(obj interface{}) (Result, error)
 	MustSave(obj interface{}) Result
-	SaveInto(t *Table, obj interface{}) (Result, error)
-	MustSaveInto(t *Table, obj interface{}) Result
-	DeleteFromTable(t *Table, q query.Q) (Result, error)
+	DeleteFrom(t *Table, q query.Q) (Result, error)
 	Delete(obj interface{}) error
 	MustDelete(obj interface{})
-	DeleteFrom(t *Table, obj interface{}) error
 	Begin() (*Tx, error)
 }

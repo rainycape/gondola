@@ -591,6 +591,10 @@ func (o *Orm) compositePrimaryKey(f *driver.Fields, obj interface{}) ([]string, 
 	return names, values
 }
 
+func (o *Orm) compileTimeInterfaceTest() Interface {
+	return o
+}
+
 // Open creates a new ORM using the specified
 // configuration URL.
 func New(url *config.URL) (*Orm, error) {

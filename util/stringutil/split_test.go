@@ -116,3 +116,29 @@ func TestSplitLines(t *testing.T) {
 		}
 	}
 }
+
+func TestSplitCommonPrefix(t *testing.T) {
+	type splitTestCase struct {
+		input  []string
+		prefix string
+		output []string
+	}
+	cases := []splitTestCase{
+		{[]string{"a", "b", "c"}, "", []string{"a", "b", "c"}},
+		{[]string{"aa", "ab", "ac"}, "a", []string{"a", "b", "c"}},
+		{[]string{"aaaa", "aaaa", ""}, "", []string{"aaaa", "aaaa", ""}},
+		{[]string{"aaa", "ab", "ac"}, "a", []string{"aa", "b", "c"}},
+		{[]string{"", "", ""}, "", []string{"", "", ""}},
+		{[]string{"go"}, "go", []string{""}},
+		{nil, "", nil},
+	}
+	for _, v := range cases {
+		prefix, output := SplitCommonPrefix(v.input)
+		if prefix != v.prefix {
+			t.Errorf("expecting prefix %q from input %v, got %q instead", v.prefix, v.input, prefix)
+		}
+		if !reflect.DeepEqual(output, v.output) {
+			t.Errorf("expecting output %v from input %v, got %v instead", v.output, v.input, output)
+		}
+	}
+}

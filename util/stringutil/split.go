@@ -192,6 +192,38 @@ func SplitLines(text string) []string {
 	return strings.Split(text, "\n")
 }
 
+// SplitCommonPrefix returns the common prefix in values and slice
+// with each string in values with the common prefix removed.
+func SplitCommonPrefix(values []string) (string, []string) {
+	if len(values) == 0 {
+		return "", values
+	}
+	minSize := -1
+	for _, v := range values {
+		if minSize < 0 || len(v) < minSize {
+			minSize = len(v)
+		}
+	}
+	split := 0
+prefix:
+	for ; split < minSize; split++ {
+		ch := values[0][split]
+		for _, v := range values[1:] {
+			if v[split] != ch {
+				break prefix
+			}
+		}
+	}
+	if split == 0 {
+		return "", values
+	}
+	output := make([]string, len(values))
+	for ii, v := range values {
+		output[ii] = v[split:]
+	}
+	return values[0][:split], output
+}
+
 func makeRuneChecker(s string) func(rune) bool {
 	m := make(map[rune]struct{}, len(s))
 	for _, v := range s {

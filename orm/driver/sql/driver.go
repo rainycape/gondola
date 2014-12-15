@@ -697,6 +697,8 @@ func (d *Driver) condition(buf *bytes.Buffer, params *[]interface{}, m driver.Mo
 		err = d.clause(buf, params, m, "%s > %s", &x.Field, begin)
 	case *query.Gte:
 		err = d.clause(buf, params, m, "%s >= %s", &x.Field, begin)
+	case *query.Operator:
+		err = d.clause(buf, params, m, "%s "+x.Operator+" %s", &x.Field, begin)
 	case *query.In:
 		dbName, _, err := m.Map(x.Field.Field)
 		if err != nil {

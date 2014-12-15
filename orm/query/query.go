@@ -131,6 +131,19 @@ type Join struct {
 	Query Q
 }
 
+// Operator represents an arbitrary operator which is passed
+// as-is to the underlying database. It conforms to the
+// Q interface.
+type Operator struct {
+	Field
+	// The operator itself.
+	Operator string
+}
+
+func (o *Operator) String() string {
+	return qDesc(&o.Field, o.Operator+" ")
+}
+
 func combDesc(c *Combinator, w string) string {
 	qs := make([]string, len(c.Conditions))
 	for ii, v := range c.Conditions {

@@ -9,6 +9,21 @@ import (
 
 type Attrs map[string]string
 
+// Equal returns true iff both a and b have
+// the same attributes. Note that attributes are
+// tested using case sensitive comparison.
+func (a Attrs) Equal(b Attrs) bool {
+	if len(a) == len(b) {
+		for k, v := range a {
+			if b[k] != v {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
 func (a Attrs) Add(key, value string) {
 	if cur, ok := a[key]; ok {
 		a[key] = cur + " " + value

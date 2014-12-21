@@ -1,9 +1,10 @@
 package html
 
 import (
-	"gnd.la/util/types"
 	"io"
 	"strings"
+
+	"gnd.la/util/types"
 )
 
 type Attrs map[string]string

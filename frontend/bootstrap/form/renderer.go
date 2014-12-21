@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"gnd.la/bootstrap"
 	"gnd.la/form"
+	"gnd.la/frontend/bootstrap"
 	"gnd.la/html"
 )
 

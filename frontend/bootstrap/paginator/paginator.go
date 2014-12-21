@@ -1,10 +1,11 @@
 package paginator
 
 import (
-	"gnd.la/bootstrap"
+	"strings"
+
+	"gnd.la/frontend/bootstrap"
 	"gnd.la/html"
 	"gnd.la/html/paginator"
-	"strings"
 )
 
 var (

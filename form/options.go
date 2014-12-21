@@ -8,7 +8,7 @@ type Options struct {
 	// leave this field with a nil value, so the app user can import
 	// a package which redefines the default Renderer to use the
 	// frontend framework used in the final app
-	// (like e.g. gnd.la/bootstrap/form).
+	// (like e.g. gnd.la/frontend/bootstrap).
 	Renderer Renderer
 	// Fields lists the struct fields to include in the form. If empty,
 	// all exported fields are included.

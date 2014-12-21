@@ -5,7 +5,7 @@
 // for its side-effects and use gnd.la/form directly.
 //
 //  import (
-//	_ "gnd.la/bootstrap/form"
+//	_ "gnd.la/frontend/bootstrap/form"
 //  )
 package form
 

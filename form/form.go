@@ -679,7 +679,7 @@ func New(ctx *app.Context, values ...interface{}) *Form {
 //
 // If no Renderer is specified (either opts is nil or its Renderer field is
 // nil), DefaultRenderer will be used to instantiate a renderer. Some
-// packages, like gnd.la/bootstrap/form, override DefaultRenderer.
+// packages from gnd.la/frontend, override DefaultRenderer when imported.
 //
 // The values argument must contains pointers to structs.
 //

@@ -33,13 +33,14 @@ func makeMessagesCommand(opts *makeMessagesOptions) error {
 }
 
 type compileMessagesOptions struct {
-	Out     string `name:"o" help:"Output filename. Can't be empty."`
-	Context string `name:"ctx" help:"Default context for messages without it."`
+	Out      string `name:"o" help:"Output filename. Can't be empty."`
+	Context  string `name:"ctx" help:"Default context for messages without it."`
+	Messages string `name:"messages" help:"Message files (.po) directory."`
 }
 
 func compileMessagesCommand(opts *compileMessagesOptions) error {
 	var poFiles []string
-	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(opts.Messages, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

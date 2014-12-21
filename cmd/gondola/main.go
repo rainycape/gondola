@@ -83,7 +83,7 @@ var (
 			Name:    "compile-messages",
 			Help:    "Compiles all po files from the current directory and its subdirectories",
 			Func:    compileMessagesCommand,
-			Options: &compileMessagesOptions{Out: "messages.go"},
+			Options: &compileMessagesOptions{Out: "messages.go", Messages: "_messages"},
 		},
 		{
 			Name:    "gen",

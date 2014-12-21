@@ -18,7 +18,7 @@ func (n *Node) WriteTo(w io.Writer) (int, error) {
 func (n *Node) writeTo(w io.Writer) (int, error) {
 	t := 0
 	switch n.Type {
-	case TAG_NODE:
+	case TypeTag:
 		_, err := w.Write([]byte{'<'})
 		if err != nil {
 			return 0, err
@@ -65,7 +65,7 @@ func (n *Node) writeTo(w io.Writer) (int, error) {
 			}
 			t += 1
 		}
-	case TEXT_NODE:
+	case TypeText:
 		c, err := w.Write([]byte(n.Content))
 		if err != nil {
 			return 0, err
@@ -85,7 +85,7 @@ func (n *Node) writeTo(w io.Writer) (int, error) {
 func (n *Node) writeToStringWriter(w stringWriter) (int, error) {
 	t := 0
 	switch n.Type {
-	case TAG_NODE:
+	case TypeTag:
 		_, err := w.WriteString("<")
 		if err != nil {
 			return 0, err
@@ -132,7 +132,7 @@ func (n *Node) writeToStringWriter(w stringWriter) (int, error) {
 			}
 			t += 1
 		}
-	case TEXT_NODE:
+	case TypeText:
 		c, err := w.WriteString(n.Content)
 		if err != nil {
 			return 0, err

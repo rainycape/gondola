@@ -2,7 +2,7 @@ package html
 
 func container(tag string, children []*Node) *Node {
 	n := &Node{
-		Type: TAG_NODE,
+		Type: TypeTag,
 		Tag:  tag,
 	}
 	if len(children) > 0 {
@@ -16,7 +16,7 @@ func container(tag string, children []*Node) *Node {
 
 func tag(tag string, children *Node) *Node {
 	return &Node{
-		Type:     TAG_NODE,
+		Type:     TypeTag,
 		Tag:      tag,
 		Children: children,
 	}
@@ -26,13 +26,13 @@ func ttag(tag, text string) *Node {
 	var children *Node
 	if text != "" {
 		children = &Node{
-			Type:    TEXT_NODE,
+			Type:    TypeText,
 			Content: text,
 		}
 
 	}
 	return &Node{
-		Type:     TAG_NODE,
+		Type:     TypeTag,
 		Tag:      tag,
 		Children: children,
 	}
@@ -40,7 +40,7 @@ func ttag(tag, text string) *Node {
 
 func Text(text string) *Node {
 	return &Node{
-		Type:    TEXT_NODE,
+		Type:    TypeText,
 		Content: text,
 	}
 }
@@ -71,7 +71,7 @@ func Blockquote(text string) *Node {
 
 func Br() *Node {
 	return &Node{
-		Type: TAG_NODE,
+		Type: TypeTag,
 		Tag:  "br",
 		Open: true,
 	}

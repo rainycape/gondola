@@ -1,8 +1,9 @@
 package html
 
-type Type uint
+type Type int
 
 const (
-	TAG_NODE Type = iota
-	TEXT_NODE
+	TypeTag Type = iota
+	TypeText
+	TypeAny Type = -1
 )

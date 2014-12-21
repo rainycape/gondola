@@ -162,7 +162,7 @@ func (r *FormRenderer) EndInput(w io.Writer, field *form.Field, pos int) error {
 
 func (r *FormRenderer) WriteAddOn(w io.Writer, field *form.Field, addon *form.AddOn) error {
 	node := addon.Node
-	if node.Type == html.TEXT_NODE {
+	if node.Type == html.TypeText {
 		node = &html.Node{
 			Tag:      "span",
 			Attrs:    html.Attrs{"class": "input-group-addon"},

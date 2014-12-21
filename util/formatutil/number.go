@@ -3,12 +3,13 @@ package formatutil
 import (
 	"bytes"
 	"fmt"
-	"gnd.la/i18n"
-	"gnd.la/util/stringutil"
-	"gnd.la/util/types"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"gnd.la/i18n"
+	"gnd.la/util/stringutil"
+	"gnd.la/util/types"
 )
 
 func Number(lang i18n.Languager, number interface{}) (string, error) {

@@ -19,5 +19,6 @@ msgid "You must choose a value"
 msgstr ""
 
 #: csrf.go:139
+msgctxt "form"
 msgid "invalid CSRF token - please, submit the form again"
 msgstr ""

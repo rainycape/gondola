@@ -1,4 +1,4 @@
-package form
+package bootstrap
 
 import (
 	"bytes"
@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"gnd.la/form"
-	"gnd.la/frontend/bootstrap"
 	"gnd.la/html"
 )
 
@@ -14,27 +13,29 @@ const (
 	numCols = 12
 )
 
-type Renderer struct {
-	inputCols map[bootstrap.Size]int
+// FormRenderer implements a gnd.la/form renderer using
+// bootstrap.
+type FormRenderer struct {
+	inputCols map[Size]int
 }
 
 // SetInputColumns sets the number of grid columns used for the input
 // fields with the given size. This is frequently used in conjunction
 // with .form-horizontal.
-func (r *Renderer) SetInputColumns(size bootstrap.Size, columns int) {
+func (r *FormRenderer) SetInputColumns(size Size, columns int) {
 	if r.inputCols == nil {
-		r.inputCols = make(map[bootstrap.Size]int)
+		r.inputCols = make(map[Size]int)
 	}
 	r.inputCols[size] = columns
 }
 
 // InputColumns returns the number of input columns for the given
 // ize. See also SetInputColumns.
-func (r *Renderer) InputColumns(size bootstrap.Size) int {
+func (r *FormRenderer) InputColumns(size Size) int {
 	return r.inputCols[size]
 }
 
-func (r *Renderer) inlineLabelClass() string {
+func (r *FormRenderer) inlineLabelClass() string {
 	if len(r.inputCols) > 0 {
 		var buf bytes.Buffer
 		for k, v := range r.inputCols {
@@ -45,7 +46,7 @@ func (r *Renderer) inlineLabelClass() string {
 	return ""
 }
 
-func (r *Renderer) labelClass() string {
+func (r *FormRenderer) labelClass() string {
 	if len(r.inputCols) > 0 {
 		var buf bytes.Buffer
 		for k, v := range r.inputCols {
@@ -56,7 +57,7 @@ func (r *Renderer) labelClass() string {
 	return ""
 }
 
-func (r *Renderer) inputDivClass() string {
+func (r *FormRenderer) inputDivClass() string {
 	if len(r.inputCols) > 0 {
 		var buf bytes.Buffer
 		for k, v := range r.inputCols {
@@ -67,7 +68,7 @@ func (r *Renderer) inputDivClass() string {
 	return ""
 }
 
-func (r *Renderer) BeginField(w io.Writer, field *form.Field) error {
+func (r *FormRenderer) BeginField(w io.Writer, field *form.Field) error {
 	attrs := html.Attrs{"class": "form-group"}
 	if field.Err() != nil {
 		attrs["class"] += " has-error"
@@ -85,7 +86,7 @@ func (r *Renderer) BeginField(w io.Writer, field *form.Field) error {
 	return err
 }
 
-func (r *Renderer) BeginLabel(w io.Writer, field *form.Field, label string, pos int) error {
+func (r *FormRenderer) BeginLabel(w io.Writer, field *form.Field, label string, pos int) error {
 	var err error
 	if field.Type == form.CHECKBOX || field.Type == form.RADIO {
 		if c := r.inlineLabelClass(); c != "" {
@@ -104,7 +105,7 @@ func (r *Renderer) BeginLabel(w io.Writer, field *form.Field, label string, pos 
 	return err
 }
 
-func (r *Renderer) LabelAttributes(field *form.Field, pos int) (html.Attrs, error) {
+func (r *FormRenderer) LabelAttributes(field *form.Field, pos int) (html.Attrs, error) {
 	if field.Type != form.CHECKBOX && field.Type != form.RADIO {
 		if c := r.labelClass(); c != "" {
 			return html.Attrs{"class": c}, nil
@@ -113,7 +114,7 @@ func (r *Renderer) LabelAttributes(field *form.Field, pos int) (html.Attrs, erro
 	return nil, nil
 }
 
-func (r *Renderer) EndLabel(w io.Writer, field *form.Field, pos int) error {
+func (r *FormRenderer) EndLabel(w io.Writer, field *form.Field, pos int) error {
 	var err error
 	if field.Type == form.RADIO && pos >= 0 {
 		_, err = io.WriteString(w, "</div>")
@@ -131,7 +132,7 @@ func (r *Renderer) EndLabel(w io.Writer, field *form.Field, pos int) error {
 	return err
 }
 
-func (r *Renderer) BeginInput(w io.Writer, field *form.Field, placeholder string, pos int) error {
+func (r *FormRenderer) BeginInput(w io.Writer, field *form.Field, placeholder string, pos int) error {
 	var err error
 	if field.HasAddOns() && pos == -1 {
 		div := html.Div()
@@ -142,7 +143,7 @@ func (r *Renderer) BeginInput(w io.Writer, field *form.Field, placeholder string
 	return err
 }
 
-func (r *Renderer) FieldAttributes(field *form.Field, pos int) (html.Attrs, error) {
+func (r *FormRenderer) FieldAttributes(field *form.Field, pos int) (html.Attrs, error) {
 	if field.Type == form.CHECKBOX || (field.Type == form.SELECT && pos != -1) || field.Type == form.RADIO || field.Type == form.FILE {
 		return nil, nil
 	}
@@ -151,7 +152,7 @@ func (r *Renderer) FieldAttributes(field *form.Field, pos int) (html.Attrs, erro
 	}, nil
 }
 
-func (r *Renderer) EndInput(w io.Writer, field *form.Field, pos int) error {
+func (r *FormRenderer) EndInput(w io.Writer, field *form.Field, pos int) error {
 	var err error
 	if field.HasAddOns() && pos == -1 {
 		_, err = io.WriteString(w, "</div>")
@@ -159,7 +160,7 @@ func (r *Renderer) EndInput(w io.Writer, field *form.Field, pos int) error {
 	return err
 }
 
-func (r *Renderer) WriteAddOn(w io.Writer, field *form.Field, addon *form.AddOn) error {
+func (r *FormRenderer) WriteAddOn(w io.Writer, field *form.Field, addon *form.AddOn) error {
 	node := addon.Node
 	if node.Type == html.TEXT_NODE {
 		node = &html.Node{
@@ -172,21 +173,21 @@ func (r *Renderer) WriteAddOn(w io.Writer, field *form.Field, addon *form.AddOn)
 	return err
 }
 
-func (r *Renderer) WriteError(w io.Writer, field *form.Field, err error) error {
+func (r *FormRenderer) WriteError(w io.Writer, field *form.Field, err error) error {
 	span := html.Span(html.Text(err.Error()))
 	span.Attrs = html.Attrs{"class": "help-block"}
 	_, werr := span.WriteTo(w)
 	return werr
 }
 
-func (r *Renderer) WriteHelp(w io.Writer, field *form.Field, help string) error {
+func (r *FormRenderer) WriteHelp(w io.Writer, field *form.Field, help string) error {
 	span := html.Span(html.Text(help))
 	span.Attrs = html.Attrs{"class": "help-block"}
 	_, err := span.WriteTo(w)
 	return err
 }
 
-func (r *Renderer) EndField(w io.Writer, field *form.Field) error {
+func (r *FormRenderer) EndField(w io.Writer, field *form.Field) error {
 	_, err := io.WriteString(w, "</div>")
 	if err == nil && field.Type == form.CHECKBOX {
 		_, err = io.WriteString(w, "</div>")
@@ -195,4 +196,12 @@ func (r *Renderer) EndField(w io.Writer, field *form.Field) error {
 		_, err = io.WriteString(w, "</div>") // Close div with the columns
 	}
 	return err
+}
+
+func newRenderer() form.Renderer {
+	return &FormRenderer{}
+}
+
+func init() {
+	form.SetDefaultRenderer(newRenderer)
 }

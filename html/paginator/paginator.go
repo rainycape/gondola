@@ -1,115 +1,164 @@
 package paginator
 
 import (
-	"gnd.la/html"
+	"fmt"
 	"html/template"
 	"strconv"
+
+	"gnd.la/html"
 )
 
 var (
 	DefaultOffset = 5
 )
 
+const (
+	defaultPrevious  = "&laquo;"
+	defaultSeparator = "&hellip;"
+	defaultNext      = "&raquo;"
+)
+
+type Flags int
+
+const (
+	// FlagNoPrevNext removes the links to the previous and
+	// next page at the start and the end of the paginator.
+	FlagNoPrevNext = 1 << iota
+	// FlagNoBoundaries does not show the paginator boundaries.
+	// When showing the boundaries the first and the last page are
+	// always shown.
+	FlagNoBoundaries
+)
+
 type Paginator struct {
-	Base            string
-	Current         int
-	Count           int
-	Offset          int
-	Pager           Pager
-	AlwaysShowFirst bool
-	AlwaysShowLast  bool
+	// Count is the total number of pages
+	Count int
+	// Current represents the page number (1-indexed)
+	// to be rendered as the current page
+	Current int
+	// Offset is the number of pages shown at each
+	// side of the current one. Its default value
+	// is copied from DefaultOffset when a Paginator
+	// is created via New.
+	Offset int
+	// Flags control several aspects of the rendering.
+	// See the Flags type constants for the available ones.
+	Flags Flags
+	// Labels used in the paginator. If empty, their values
+	// will default to &laquo;, &hellip; and &raquo;, respectivelly.
+	Previous, Separator, Next string
+	// Interfaces used to render the HTML
+	Pager    Pager
+	Renderer Renderer
 }
 
-func (p *Paginator) pageHref(page int) string {
-	return p.Pager.Href(p.Base, page)
-}
-
-func (p *Paginator) appendNode(parent, cur *html.Node, page, flags int) {
-	node := p.Pager.Node(cur, page, flags)
-	if node != nil {
-		parent.AppendChild(node)
+func (p *Paginator) appendNode(parent *html.Node, page int, flags PageFlags) {
+	if page == p.Current {
+		flags |= PageCurrent
 	}
-}
-
-func (p *Paginator) appendPageNode(parent *html.Node, page int) {
-	node := &html.Node{
-		Tag:      "a",
-		Children: html.Text(strconv.Itoa(page)),
-		Attrs:    html.Attrs{"href": p.pageHref(page)},
+	node := p.Renderer.Node(page, flags)
+	var text string
+	switch {
+	case flags&PageSeparator != 0:
+		text = p.Separator
+		if text == "" {
+			text = defaultSeparator
+		}
+	case flags&PagePrevious != 0:
+		text = p.Previous
+		if text == "" {
+			text = defaultPrevious
+		}
+	case flags&PageNext != 0:
+		text = p.Next
+		if text == "" {
+			text = defaultNext
+		}
+	default:
+		text = strconv.Itoa(page)
 	}
-	p.appendNode(parent, node, page, 0)
+	anchor := node.Find(html.TypeAny, "a", nil)
+	if anchor == nil {
+		panic(fmt.Errorf("no anchor found in ElementRenderer's element %s", node))
+	}
+	anchor.Children = html.Text(text)
+	if page > 0 && page != p.Current && page <= p.Count {
+		anchor.SetAttr("href", p.Pager.URL(page))
+	}
+	parent.AppendChild(node)
 }
 
+// Render renders the Paginator as HTML. It's usually
+// called from a template e.g.
+//
+//  {{ with .Paginator }}
+//	{{ .Render }}
+//  {{ end }}
 func (p *Paginator) Render() template.HTML {
-	root := p.Pager.Root()
+	if p.Renderer == nil {
+		p.Renderer = DefaultRenderer()
+	}
+	root := p.Renderer.Root()
 	parent := root
 	for parent.Children != nil {
 		parent = parent.LastChild()
 	}
-	flags := PREVIOUS | DISABLED
-	prev := &html.Node{Tag: "a", Attrs: html.Attrs{}}
-	if p.Current > 1 {
-		prev.Attrs["href"] = p.pageHref(p.Current - 1)
-		flags &= ^DISABLED
+	var flags PageFlags
+	if p.Flags&FlagNoPrevNext == 0 {
+		flags = PagePrevious
+		if p.Current <= 1 {
+			flags |= PageDisabled
+		}
+		p.appendNode(parent, p.Current-1, flags)
 	}
-	p.appendNode(parent, prev, p.Current-1, flags)
 	left := p.Current - p.Offset
 	if left < 1 {
 		left = 1
 	}
-	if left > 1 {
-		cur := -1
-		if p.AlwaysShowFirst {
-			for cur = 1; cur < left && cur <= p.Offset; cur++ {
-				p.appendPageNode(parent, cur)
-			}
-		}
-		if left > cur {
-			p.appendNode(parent, &html.Node{Tag: "a"}, 0, SEPARATOR)
+	if left > 1 && p.Flags&FlagNoBoundaries == 0 {
+		p.appendNode(parent, 1, 0)
+		if left > 2 {
+			p.appendNode(parent, -1, PageSeparator|PageDisabled)
 		}
 	}
 	for ; left < p.Current; left++ {
-		p.appendPageNode(parent, left)
+		p.appendNode(parent, left, 0)
 	}
-	p.appendNode(parent, &html.Node{Tag: "a", Children: html.Text(strconv.Itoa(p.Current))}, p.Current, CURRENT)
+	p.appendNode(parent, p.Current, PageCurrent)
 	right := p.Current + p.Offset
 	if right > p.Count {
 		right = p.Count
 	}
 	for jj := p.Current + 1; jj <= right; jj++ {
-		p.appendPageNode(parent, jj)
+		p.appendNode(parent, jj, 0)
 	}
-	if right < p.Count {
-		if p.AlwaysShowLast {
-			cur := p.Count - p.Offset + 1
-			if cur <= right {
-				cur = right + 1
-			} else if cur > right+1 {
-				p.appendNode(parent, &html.Node{Tag: "a"}, 0, SEPARATOR)
-			}
-			for ; cur <= p.Count; cur++ {
-				p.appendPageNode(parent, cur)
-			}
-		} else {
-			p.appendNode(parent, &html.Node{Tag: "a"}, 0, SEPARATOR)
+	if right < p.Count && p.Flags&FlagNoBoundaries == 0 {
+		if right < p.Count-1 {
+			p.appendNode(parent, -1, PageSeparator|PageDisabled)
 		}
+		p.appendNode(parent, p.Count, 0)
 	}
-	flags = NEXT | DISABLED
-	next := &html.Node{Tag: "a", Attrs: html.Attrs{}}
-	if p.Current < p.Count {
-		next.Attrs["href"] = p.pageHref(p.Current + 1)
-		flags &= ^DISABLED
+	if p.Flags&FlagNoPrevNext == 0 {
+		flags = PageNext
+		if p.Current == p.Count {
+			flags |= PageDisabled
+		}
+		p.appendNode(parent, p.Current+1, flags)
 	}
-	p.appendNode(parent, next, p.Current+1, flags)
 	return root.HTML()
 }
 
-func New(base string, current, count int, pager Pager) *Paginator {
+// New returns a new Paginator with the given page count,
+// current page and Pager to obtain the URL for each page.
+// The returned Paginator will use the Renderer returned by
+// DefaultRenderer, but its Renderer attribute might be
+// modified at any time.
+func New(count int, current int, pager Pager) *Paginator {
 	return &Paginator{
-		Base:    base,
-		Current: current,
-		Count:   count,
-		Offset:  DefaultOffset,
-		Pager:   pager,
+		Count:    count,
+		Current:  current,
+		Offset:   DefaultOffset,
+		Pager:    pager,
+		Renderer: DefaultRenderer(),
 	}
 }

@@ -17,5 +17,6 @@
 // about template functions and the assets pipeline.
 //
 // Importing this package will also register FormRenderer as the default
-// form renderer.
+// gnd.la/form renderer and PaginatorRenderer as the default
+// gnd.la/html/paginator renderer.
 package bootstrap

@@ -21,7 +21,7 @@ import (
 // "alberto@garciahierro").
 //
 // Note for GAE: Due to the GAE runtime restrictions, there's no way to
-// perform DNS lookus, so the useNetwork parameter is ignored when running
+// perform DNS lookups, so the useNetwork parameter is ignored when running
 // on GAE.
 func Validate(address string, useNetwork bool) (email string, err error) {
 	var addr *mail.Address

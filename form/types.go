@@ -7,6 +7,8 @@ const (
 	TEXT Type = iota + 1
 	// <input type="password">
 	PASSWORD
+	// <input type="email">
+	EMAIL
 	// <input type="hidden">
 	HIDDEN
 	// <textarea>

@@ -12,6 +12,7 @@ import (
 	"gnd.la/form/input"
 	"gnd.la/html"
 	"gnd.la/i18n"
+	"gnd.la/net/mail"
 	"gnd.la/util/stringutil"
 	"gnd.la/util/structs"
 	"gnd.la/util/types"
@@ -86,6 +87,16 @@ func (f *Form) validate() {
 				v.err = i18n.TranslatedError(err, f.ctx)
 				continue
 			}
+			if v.Type == EMAIL && !v.Tag().Has("novalidate") {
+				// Don't validate empty emails. If we reached this point
+				// with an empty one, the field is optional.
+				if email, ok := v.Value().(string); ok && email != "" {
+					if _, err := mail.Validate(email, true); err != nil {
+						v.err = i18n.Errorfc("form", "%q is not a valid email address", email).Err(f.ctx)
+						continue
+					}
+				}
+			}
 		}
 		if err := structs.Validate(v.sval.Addr().Interface(), v.Name, f.ctx); err != nil {
 			v.err = i18n.TranslatedError(err, f.ctx)
@@ -138,6 +149,8 @@ func (f *Form) makeField(name string) (*Field, error) {
 		case reflect.String:
 			if s.Types[idx] == reflect.TypeOf(password.Password("")) || tag.Has("password") {
 				typ = PASSWORD
+			} else if tag.Has("email") {
+				typ = EMAIL
 			} else {
 				if ml, ok := tag.MaxLength(); ok && ml > 0 {
 					typ = TEXT
@@ -358,6 +371,8 @@ func (f *Form) writeField(buf *bytes.Buffer, field *Field) error {
 		err = f.writeInput(buf, "text", field)
 	case PASSWORD:
 		err = f.writeInput(buf, "password", field)
+	case EMAIL:
+		err = f.writeInput(buf, "email", field)
 	case HIDDEN:
 		err = f.writeInput(buf, "hidden", field)
 	case FILE:
@@ -502,7 +517,7 @@ func (f *Form) writeInput(buf *bytes.Buffer, itype string, field *Field) error {
 		if t, ok := types.IsTrue(field.value.Interface()); t && ok {
 			attrs["checked"] = "checked"
 		}
-	case TEXT, PASSWORD, HIDDEN:
+	case TEXT, PASSWORD, EMAIL, HIDDEN:
 		attrs["value"] = html.Escape(types.ToString(field.Value()))
 		if field.Placeholder != "" {
 			attrs["placeholder"] = html.Escape(field.Placeholder.TranslatedString(f.ctx))

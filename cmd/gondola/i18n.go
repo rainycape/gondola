@@ -7,6 +7,7 @@ import (
 
 	"gnd.la/i18n/messages"
 	"gnd.la/i18n/po"
+	"gnd.la/log"
 )
 
 type makeMessagesOptions struct {
@@ -45,6 +46,7 @@ func compileMessagesCommand(opts *compileMessagesOptions) error {
 			return err
 		}
 		if !info.IsDir() && strings.ToLower(filepath.Ext(path)) == ".po" {
+			log.Debugf("compiling po file %s", path)
 			poFiles = append(poFiles, path)
 		}
 		return nil

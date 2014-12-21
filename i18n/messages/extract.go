@@ -2,10 +2,6 @@ package messages
 
 import (
 	"fmt"
-	"gnd.la/internal/astutil"
-	"gnd.la/internal/pkgutil"
-	"gnd.la/internal/templateutil"
-	"gnd.la/log"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -14,6 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template/parse"
+
+	"gnd.la/internal/astutil"
+	"gnd.la/internal/pkgutil"
+	"gnd.la/internal/templateutil"
+	"gnd.la/log"
 )
 
 func DefaultFunctions() []*Function {

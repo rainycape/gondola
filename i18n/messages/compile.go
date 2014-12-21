@@ -3,11 +3,12 @@ package messages
 import (
 	"bytes"
 	"fmt"
+	"go/build"
+	"path/filepath"
+
 	"gnd.la/i18n/po"
 	"gnd.la/i18n/table"
 	"gnd.la/internal/gen/genutil"
-	"go/build"
-	"path/filepath"
 )
 
 type CompileOptions struct {

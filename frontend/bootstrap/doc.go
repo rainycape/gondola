@@ -15,4 +15,7 @@
 //
 // See gnd.la/template and gnd.la/template/assets for more information
 // about template functions and the assets pipeline.
+//
+// Importing this package will also register FormRenderer as the default
+// form renderer.
 package bootstrap

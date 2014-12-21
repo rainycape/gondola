@@ -136,7 +136,7 @@ func (c *csrf) error(ctx *app.Context, err error) error {
 	if _, err := c.generate(ctx); err != nil {
 		panic(err)
 	}
-	return i18n.NewError("invalid CSRF token - please, submit the form again").Err(ctx)
+	return i18n.Errorfc("form", "invalid CSRF token - please, submit the form again").Err(ctx)
 }
 
 func csrfEncryptSigner(ctx *app.Context, salt string) (*cryptoutil.EncryptSigner, error) {

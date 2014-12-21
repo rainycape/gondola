@@ -1,9 +1,23 @@
+#: form.go:95
+msgctxt "form"
+msgid "%q is not a valid email address"
+msgstr ""
+
+#: form.go:71
+msgctxt "form"
+msgid "%v is not a valid choice"
+msgstr ""
+
 #: choices.go:23
 msgctxt "form"
 msgid "Please, choose"
 msgstr ""
 
-#: form.go:48
+#: form.go:58
 msgctxt "form"
 msgid "You must choose a value"
+msgstr ""
+
+#: csrf.go:139
+msgid "invalid CSRF token - please, submit the form again"
 msgstr ""

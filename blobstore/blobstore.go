@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"gnd.la/blobstore/driver"
+	_ "gnd.la/blobstore/driver/file"
 	"gnd.la/config"
 )
 

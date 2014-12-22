@@ -14,11 +14,13 @@ import (
 	"gnd.la/app/profile"
 	"gnd.la/app/serialize"
 	"gnd.la/blobstore"
+	"gnd.la/cache"
 	"gnd.la/form/input"
 	"gnd.la/i18n/table"
 	"gnd.la/internal"
 	"gnd.la/log"
 	"gnd.la/net/urlutil"
+	"gnd.la/orm"
 	"gnd.la/util/types"
 )
 
@@ -364,7 +366,7 @@ func (c *Context) Cookies() *cookies.Cookies {
 
 // Cache is a shorthand for ctx.App().Cache(), but panics in case
 // of error, instead of returning it.
-func (c *Context) Cache() *Cache {
+func (c *Context) Cache() *cache.Cache {
 	return c.cache()
 }
 
@@ -376,7 +378,7 @@ func (c *Context) Blobstore() *blobstore.Blobstore {
 
 // Orm is a shorthand for ctx.App().Orm(), but panics in case
 // of error, rather than returning it.
-func (c *Context) Orm() *Orm {
+func (c *Context) Orm() *orm.Orm {
 	return c.orm()
 }
 

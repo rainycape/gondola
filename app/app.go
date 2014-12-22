@@ -24,6 +24,7 @@ import (
 	"gnd.la/app/cookies"
 	"gnd.la/app/profile"
 	"gnd.la/blobstore"
+	"gnd.la/cache"
 	"gnd.la/crypto/cryptoutil"
 	"gnd.la/crypto/hashutil"
 	"gnd.la/encoding/codec"
@@ -73,6 +74,7 @@ var (
 	errNoKey              = errors.New("app has no encryption key")
 	errNoDefaultDatabase  = errors.New("default database is not set")
 	errNoDefaultBlobstore = errors.New("default blobstore is not set")
+	errNoAppOrm           = errors.New("App.Orm() does not work on App Engine - use Context.Orm() instead")
 )
 
 type RecoverHandler func(*Context, interface{}) interface{}
@@ -194,8 +196,8 @@ type App struct {
 	started            time.Time
 	address            string
 	mu                 sync.Mutex
-	c                  *Cache
-	o                  *Orm
+	c                  *cache.Cache
+	o                  *orm.Orm
 	store              *blobstore.Blobstore
 	prepared           bool
 
@@ -857,7 +859,7 @@ func (app *App) MustListenAndServe() {
 // among all requests and tasks served from this app.
 // On App Engine, this method always returns an error. Use
 // Context.Cache instead.
-func (app *App) Cache() (*Cache, error) {
+func (app *App) Cache() (*cache.Cache, error) {
 	return app.cache()
 }
 
@@ -868,8 +870,33 @@ func (app *App) Cache() (*Cache, error) {
 // tasks served from this app. On App Engine, this method always
 // returns an error. Use Context.Orm instead. To perform ORM
 // initialization, use App.Once.
-func (app *App) Orm() (*Orm, error) {
+func (app *App) Orm() (*orm.Orm, error) {
 	return app.orm()
+}
+
+// prepareOrm must be called only in App instances without a
+// parent. If it doesn't fail, it sets the o field in the App.
+func (app *App) prepareOrm() error {
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	if app.o != nil {
+		return nil
+	}
+	if app.parent != nil {
+		var err error
+		app.o, err = app.parent.orm()
+		return err
+	}
+	o, err := app.openOrm()
+	if err != nil {
+		return err
+	}
+	if err := o.Initialize(); err != nil {
+		o.Close()
+		return err
+	}
+	app.o = o
+	return nil
 }
 
 func (app *App) openOrm() (*orm.Orm, error) {
@@ -1266,6 +1293,12 @@ func (app *App) importAssets(included *includedApp) error {
 	return nil
 }
 
+func (app *App) locked(f func()) {
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	f()
+}
+
 // Signer returns a *cryptoutil.Signer using the given salt and
 // the App Hasher and Secret to sign values. If salt is smaller
 // than 16 bytes or the App has no Secret, an error is returned.
@@ -1363,21 +1396,9 @@ func (app *App) Prepare() error {
 	}
 	// Initialize the ORM first, so admin commands
 	// run with the ORM ready to be used.
-	// Use openOrm() directly, since when running
-	// on GAE with the datastore, app.Orm will return an
-	// error.
-	var err error
-	o, err := app.openOrm()
-	if err != nil {
-		if err != errNoDefaultDatabase {
-			return err
-		}
-		err = nil
-	}
-	if o != nil {
-		err = o.Initialize()
-		o.Close()
-		if err != nil {
+	if app.parent == nil {
+		err := app.prepareOrm()
+		if err != nil && err != errNoDefaultDatabase && err != errNoAppOrm {
 			return err
 		}
 	}
@@ -1419,11 +1440,9 @@ func (app *App) Prepare() error {
 			}
 		}
 	}
-	if err == nil {
-		app.prepared = true
-		signal.Emit(DID_PREPARE, app)
-	}
-	return err
+	app.prepared = true
+	signal.Emit(DID_PREPARE, app)
+	return nil
 }
 
 // Config returns the App configuration, which will always

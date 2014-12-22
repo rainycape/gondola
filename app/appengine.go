@@ -16,7 +16,6 @@ import (
 
 var (
 	errNoAppCache     = errors.New("App.Cache() does not work on App Engine - use Context.Cache() instead")
-	errNoAppOrm       = errors.New("App.Orm() does not work on App Engine - use Context.Orm() instead")
 	errNoAppBlobstore = errors.New("App.Blobstore() does not work on App Engine - use Context.Blobstore() instead")
 )
 
@@ -24,16 +23,14 @@ type contextSetter interface {
 	SetContext(appengine.Context)
 }
 
-func (app *App) cache() (*Cache, error) {
+func (app *App) cache() (*cache.Cache, error) {
 	return nil, errNoAppCache
 }
 
-func (app *App) orm() (*Orm, error) {
+func (app *App) orm() (*orm.Orm, error) {
 	// When using GCSQL, there's no need for
 	// an appengine.Context to connect to the
 	// Orm backend, so the App can provide an *Orm.
-	// This is useful for automatically calling
-	// Initialize() on the Orm in App.Prepare().
 	//
 	// Don't document this fact, just in case this
 	// behavior changes in the future. Finding another
@@ -48,24 +45,10 @@ func (app *App) orm() (*Orm, error) {
 		return nil, errNoAppOrm
 	}
 	// Using GCSQL
-	o, err := app.openOrm()
-	if err != nil {
+	if err := app.prepareOrm(); err != nil {
 		return nil, err
 	}
-	return app.setOrm(o), nil
-}
-
-func (app *App) setOrm(o *orm.Orm) *Orm {
-	app.mu.Lock()
-	defer app.mu.Unlock()
-	if app.o == nil {
-		app.o = &Orm{Orm: o}
-	} else {
-		// Another goroutine set the ORM before us, just close
-		// this one.
-		o.Close()
-	}
-	return app.o
+	return app.o, nil
 }
 
 func (app *App) blobstore() (*blobstore.Blobstore, error) {
@@ -76,7 +59,7 @@ func (app *App) checkPort() error {
 	return nil
 }
 
-func (c *Context) cache() *Cache {
+func (c *Context) cache() *cache.Cache {
 	ca, err := cache.New(c.app.cfg.Cache)
 	if err != nil {
 		panic(err)
@@ -85,12 +68,13 @@ func (c *Context) cache() *Cache {
 		ctx := appengine.NewContext(c.R)
 		conn.SetContext(ctx)
 	}
-	return &Cache{Cache: ca}
+	return ca
 }
 
-func (c *Context) orm() *Orm {
+func (c *Context) orm() *orm.Orm {
 	// When using GCSQL, the Orm can be shared
-	// among all requests.
+	// among all requests and must have been
+	// initialized from App.Prepare
 	if o := c.app.o; o != nil {
 		return o
 	}
@@ -100,10 +84,8 @@ func (c *Context) orm() *Orm {
 	}
 	if drv, ok := o.Driver().(*datastore.Driver); ok {
 		drv.SetContext(appengine.NewContext(c.R))
-		return &Orm{Orm: o}
 	}
-	// We're using GCSQL backend
-	return c.app.setOrm(o)
+	return o
 }
 
 func (c *Context) blobstore() *blobstore.Blobstore {

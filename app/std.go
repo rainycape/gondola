@@ -8,51 +8,35 @@ import (
 	"gnd.la/blobstore"
 	"gnd.la/cache"
 	"gnd.la/net/mail"
+	"gnd.la/orm"
 )
 
 // Methods that need to be redefined on appengine
 
-func (app *App) cache() (*Cache, error) {
+func (app *App) cache() (*cache.Cache, error) {
 	if app.c == nil {
-		app.mu.Lock()
-		defer app.mu.Unlock()
-		if app.c == nil {
-			if app.parent != nil {
-				var err error
-				app.c, err = app.parent.Cache()
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				c, err := cache.New(app.cfg.Cache)
-				if err != nil {
-					return nil, err
-				}
-				app.c = &Cache{Cache: c}
+		var err error
+		app.locked(func() {
+			if app.c != nil {
+				return
 			}
+			if app.parent != nil {
+				app.c, err = app.parent.cache()
+				return
+			}
+			app.c, err = cache.New(app.cfg.Cache)
+		})
+		if err != nil {
+			return nil, err
 		}
 	}
 	return app.c, nil
 }
 
-func (app *App) orm() (*Orm, error) {
+func (app *App) orm() (*orm.Orm, error) {
 	if app.o == nil {
-		app.mu.Lock()
-		defer app.mu.Unlock()
-		if app.o == nil {
-			if app.parent != nil {
-				var err error
-				app.o, err = app.parent.Orm()
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				o, err := app.openOrm()
-				if err != nil {
-					return nil, err
-				}
-				app.o = &Orm{Orm: o}
-			}
+		if err := app.prepareOrm(); err != nil {
+			return nil, err
 		}
 	}
 	return app.o, nil
@@ -60,22 +44,24 @@ func (app *App) orm() (*Orm, error) {
 
 func (app *App) blobstore() (*blobstore.Blobstore, error) {
 	if app.store == nil {
-		app.mu.Lock()
-		defer app.mu.Unlock()
-		if app.store == nil {
-			var err error
+		var err error
+		app.locked(func() {
+			if app.store != nil {
+				return
+			}
 			if app.parent != nil {
-				app.store, err = app.parent.Blobstore()
-			} else {
-				bs := app.cfg.Blobstore
-				if bs == nil {
-					return nil, errNoDefaultBlobstore
-				}
-				app.store, err = blobstore.New(bs)
+				app.store, err = app.parent.blobstore()
+				return
 			}
-			if err != nil {
-				return nil, err
+			bs := app.cfg.Blobstore
+			if bs == nil {
+				err = errNoDefaultBlobstore
+				return
 			}
+			app.store, err = blobstore.New(bs)
+		})
+		if err != nil {
+			return nil, err
 		}
 	}
 	return app.store, nil
@@ -88,7 +74,7 @@ func (app *App) checkPort() error {
 	return nil
 }
 
-func (c *Context) cache() *Cache {
+func (c *Context) cache() *cache.Cache {
 	if c.app.c == nil {
 		if _, err := c.app.Cache(); err != nil {
 			panic(err)
@@ -97,9 +83,9 @@ func (c *Context) cache() *Cache {
 	return c.app.c
 }
 
-func (c *Context) orm() *Orm {
+func (c *Context) orm() *orm.Orm {
 	if c.app.o == nil {
-		if _, err := c.app.Orm(); err != nil {
+		if _, err := c.app.orm(); err != nil {
 			panic(err)
 		}
 	}

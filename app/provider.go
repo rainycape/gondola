@@ -16,6 +16,9 @@ type ContextProvider interface {
 	// Param returns the parameter named with the given
 	// name or the empty string if there's no such parameter.
 	Param(name string) string
+	// Params returns the names of the available parameters,
+	// in the order they were specified.
+	Params() []string
 }
 
 type regexpProvider struct {
@@ -67,6 +70,16 @@ func (r *regexpProvider) Param(name string) string {
 		}
 	}
 	return ""
+}
+
+func (r *regexpProvider) Params() []string {
+	var names []string
+	for _, v := range r.re.SubexpNames() {
+		if v != "" {
+			names = append(names, v)
+		}
+	}
+	return names
 }
 
 func (r *regexpProvider) reset(re *regexp.Regexp, path string, matches []int) {

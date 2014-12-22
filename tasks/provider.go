@@ -16,3 +16,7 @@ func (c contextProvider) Arg(i int) string {
 func (c contextProvider) Param(name string) string {
 	return ""
 }
+
+func (c contextProvider) Params() []string {
+	return nil
+}

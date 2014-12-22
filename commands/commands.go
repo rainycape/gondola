@@ -156,13 +156,16 @@ func executeCommand(name string, cmd *command, args []string, a *app.App) (err e
 		}
 		return err
 	}
-	params := map[string]string{}
+	var params []string
+	paramValues := make(map[string]string)
 	for _, arg := range cmd.flags {
-		params[arg.name] = fmt.Sprintf("%v", reflect.ValueOf(flags[arg.name]).Elem().Interface())
+		params = append(params, arg.name)
+		paramValues[arg.name] = fmt.Sprintf("%v", reflect.ValueOf(flags[arg.name]).Elem().Interface())
 	}
 	provider := &contextProvider{
-		args:   set.Args(),
-		params: params,
+		args:        set.Args(),
+		params:      params,
+		paramValues: paramValues,
 	}
 	defer func() {
 		if r := recover(); r != nil {

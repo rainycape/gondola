@@ -1,8 +1,9 @@
 package commands
 
 type contextProvider struct {
-	args   []string
-	params map[string]string
+	args        []string
+	params      []string
+	paramValues map[string]string
 }
 
 func (c *contextProvider) Count() int {
@@ -17,5 +18,9 @@ func (c *contextProvider) Arg(i int) string {
 }
 
 func (c *contextProvider) Param(name string) string {
-	return c.params[name]
+	return c.paramValues[name]
+}
+
+func (c *contextProvider) Params() []string {
+	return c.params
 }

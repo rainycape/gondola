@@ -180,6 +180,13 @@ func (c *Context) mustParseValue(name string, idx int, val string, arg interface
 	}
 }
 
+// Params returns the parameter names provided to the Context. In the
+// case of URL handlers, the parameter names are the named capture
+// groups in the URL pattern.
+func (c *Context) Params() []string {
+	return c.provider.Params()
+}
+
 // StatusCode returns the response status code. If the headers
 // haven't been written yet, it returns 0
 func (c *Context) StatusCode() int {

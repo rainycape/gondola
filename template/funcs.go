@@ -369,14 +369,16 @@ var templateFuncs = makeFuncMap(FuncMap{
 	// Return the negation of the truth value of the given argument.
 	"#not": not,
 	// Return the current time.Time in the local timezone.
-	"now":       now,
-	"#int":      types.ToInt,
-	"#float":    types.ToFloat,
-	"#split":    strings.Split,
-	"#split_n":  strings.SplitN,
-	"#to_lower": strings.ToLower,
-	"#to_title": strings.ToTitle,
-	"#to_upper": strings.ToUpper,
+	"now":         now,
+	"#int":        types.ToInt,
+	"#float":      types.ToFloat,
+	"#split":      strings.Split,
+	"#split_n":    strings.SplitN,
+	"#to_lower":   strings.ToLower,
+	"#to_title":   strings.ToTitle,
+	"#to_upper":   strings.ToUpper,
+	"#has_prefix": strings.HasPrefix,
+	"#has_suffix": strings.HasSuffix,
 	// Converts plain text to HTML by escaping it and replacing
 	// newlines with <br> tags.
 	"#to_html": toHtml,

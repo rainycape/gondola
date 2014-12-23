@@ -35,50 +35,53 @@ func (n *NotFoundError) Error() string {
 // Indicates that a required parameter is mising. Its
 // status code is 400.
 type MissingParameterError struct {
+	// The parameter index if it was requested
+	// via its index (e.g. ParseIndexValue)
+	Index int
+	// The parameter name if it was requested via
+	// form name or parameter name (e.g. ParseFormValue
+	// or ParseParamValue).
 	Name string
 }
 
-func (m *MissingParameterError) StatusCode() int {
+func (e *MissingParameterError) StatusCode() int {
 	return http.StatusBadRequest
 }
 
-func (m *MissingParameterError) Error() string {
-	return fmt.Sprintf("Missing required parameter \"%s\"", m.Name)
+func (e *MissingParameterError) Error() string {
+	if e.Name != "" {
+		return fmt.Sprintf("missing required parameter %q", e.Name)
+	}
+	return fmt.Sprintf("missing required parameter at index %d", e.Index)
 }
 
 // Indicates that a parameter does not have the required type
 // (e.g. an int was requested but a string was provided). Its
 // status code is 400.
-type InvalidParameterTypeError struct {
-	*MissingParameterError
+type InvalidParameterError struct {
+	// The parameter index if it was requested
+	// via its index (e.g. ParseIndexValue)
+	Index int
+	// The parameter name if it was requested via
+	// form name or parameter name (e.g. ParseFormValue
+	// or ParseParamValue).
+	Name string
+	// The type expected to be able to parse the value
+	// into.
 	Type reflect.Type
+	// The underlying error. Might be nil.
+	Err error
 }
 
-func (i *InvalidParameterTypeError) Error() string {
-	return fmt.Sprintf("Required parameter %q must be of type %v", i.Name, i.Type)
+func (e *InvalidParameterError) StatusCode() int {
+	return http.StatusBadRequest
 }
 
-// NotFound panics with NotFoundError.
-func NotFound() {
-	KindNotFound("")
-}
-
-// KindNotFound panics with a NotFoundError indicating
-// what was not found (.e.g "Article not found).
-func KindNotFound(kind string) {
-	panic(&NotFoundError{kind})
-}
-
-// MissingParameter panics with a MissingParameterError, using
-// the given parameter name.
-func MissingParameter(name string) {
-	panic(&MissingParameterError{name})
-}
-
-// InvalidParameterType panics with an InvalidParameterTypeError
-// using the given parameter name and type.
-func InvalidParameterType(name string, typ reflect.Type) {
-	panic(&InvalidParameterTypeError{&MissingParameterError{name}, typ})
+func (e *InvalidParameterError) Error() string {
+	if e.Name != "" {
+		return fmt.Sprintf("can't parse parameter %q as %s", e.Name, e.Type)
+	}
+	return fmt.Sprintf("can't parse parameter at index %d as %s", e.Index, e.Type)
 }
 
 func isIgnorable(err interface{}) bool {

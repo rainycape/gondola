@@ -1,7 +1,6 @@
 package app
 
 import (
-	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -80,36 +79,32 @@ func (c *Context) IndexValue(idx int) string {
 	return val
 }
 
-// RequireIndexValue works like IndexValue, but raises
-// a MissingParameter error if the value is not present
+// RequireIndexValue works like IndexValue, but panics
+// with a MissingParameter error if the value is not present
 // or empty.
 func (c *Context) RequireIndexValue(idx int) string {
 	val := c.IndexValue(idx)
 	if val == "" {
-		MissingParameter(fmt.Sprintf("at index %d", idx))
+		panic(&MissingParameterError{Index: idx})
 	}
 	return val
 }
 
 // ParseIndexValue uses the captured parameter
 // at the given index and tries to parse it
-// into the given argument. See ParseFormValue
-// for examples as well as the supported types.
-func (c *Context) ParseIndexValue(idx int, arg interface{}) bool {
+// into the given argument. See Context.ParseFormValue
+// for more details.
+func (c *Context) ParseIndexValue(idx int, arg interface{}) error {
 	val, found := c.provider.Arg(idx)
-	if !found {
-		return false
-	}
-	return c.parseTypedValue(val, arg)
+	return c.parseTypedValue(idx, "", val, found, arg)
 }
 
-// MustParseIndexValue works like ParseIndexValue but raises a
-// MissingParameterError if the parameter is missing or an
-// InvalidParameterTypeError if the parameter does not have the
-// required type
+// MustParseIndexValue works like ParseIndexValue but panics in
+// case of error.
 func (c *Context) MustParseIndexValue(idx int, arg interface{}) {
-	val := c.RequireIndexValue(idx)
-	c.mustParseValue("", idx, val, arg)
+	if err := c.ParseIndexValue(idx, arg); err != nil {
+		panic(err)
+	}
 }
 
 // ParamValue returns the named captured parameter
@@ -122,15 +117,11 @@ func (c *Context) ParamValue(name string) string {
 
 // ParseParamValue uses the named captured parameter
 // with the given name and tries to parse it into
-// the given argument. If the parameter was not provided,
-// arg is not altered. See ParseFormValue for examples as well
-// as the supported types.
-func (c *Context) ParseParamValue(name string, arg interface{}) bool {
+// the given argument. See Context.ParseFormValue
+// for more details.
+func (c *Context) ParseParamValue(name string, arg interface{}) error {
 	val, found := c.provider.Param(name)
-	if !found {
-		return false
-	}
-	return c.parseTypedValue(val, arg)
+	return c.parseTypedValue(-1, name, val, found, arg)
 }
 
 // FormValue returns the result of performing
@@ -144,59 +135,54 @@ func (c *Context) FormValue(name string) string {
 	return ""
 }
 
-// RequireFormValue works like FormValue, but raises
+// RequireFormValue works like FormValue, but panics with
 // a MissingParameter error if the value is not present
 // or empty.
 func (c *Context) RequireFormValue(name string) string {
 	val := c.FormValue(name)
 	if val == "" {
-		MissingParameter(name)
+		panic(&MissingParameterError{Name: name})
 	}
 	return val
 }
 
 // ParseFormValue tries to parse the named form value into the given
-// arg e.g.
-// var f float32
-// ctx.ParseFormValue("quality", &f)
-// var width uint
-// ctx.ParseFormValue("width", &width)
+// arg. If the value is not present, a MissingParameterError is
+// returned. If the value is present but it fails to parse, it
+// returns an InvalidParameterError.
+//
 // Supported types are: bool, u?int(8|16|32|64)? and float(32|64)
 // Internally, ParseFormValue uses gnd.la/form/input to parse
-// its arguments.
-// Note that arg is not altered if the form value with the given
-// name was not provided.
-func (c *Context) ParseFormValue(name string, arg interface{}) bool {
+// its arguments, so any type implementing gnd.la/form/input.Parser
+// can be used too.
+//
+// Note that arg is not altered the returned error is non-nil.
+//
+// Some examples (with error handling omitted):
+//
+//  var f float32
+//  ctx.ParseFormValue("quality", &f)
+//
+//  var width uint
+//  ctx.ParseFormValue("width", &width)
+func (c *Context) ParseFormValue(name string, arg interface{}) error {
 	val := c.FormValue(name)
+	found := true
 	if val == "" && c.R != nil {
 		// Check if the value was really provided
 		if vs := c.R.Form[name]; len(vs) == 0 {
-			// Parameter not provided, do nothing
-			return false
+			// Parameter not provided
+			found = false
 		}
 	}
-	return c.parseTypedValue(val, arg)
+	return c.parseTypedValue(-1, name, val, found, arg)
 }
 
-// MustParseFormValue works like ParseFormValue but raises a
-// MissingParameterError if the parameter is missing or an
-// InvalidParameterTypeError if the parameter does not have the
-// required type
+// MustParseFormValue works like ParseFormValue but panics if
+// there's an error.
 func (c *Context) MustParseFormValue(name string, arg interface{}) {
-	val := c.RequireFormValue(name)
-	c.mustParseValue(name, -1, val, arg)
-}
-
-func (c *Context) mustParseValue(name string, idx int, val string, arg interface{}) {
-	if !c.parseTypedValue(val, arg) {
-		t := reflect.TypeOf(arg)
-		for t.Kind() == reflect.Ptr {
-			t = t.Elem()
-		}
-		if name == "" {
-			name = fmt.Sprintf("at index %d", idx)
-		}
-		InvalidParameterType(name, t)
+	if err := c.ParseFormValue(name, arg); err != nil {
+		panic(err)
 	}
 }
 
@@ -212,15 +198,23 @@ func (c *Context) StatusCode() int {
 	return c.statusCode
 }
 
-func (c *Context) parseTypedValue(val string, arg interface{}) bool {
+func (c *Context) parseTypedValue(idx int, name string, val string, found bool, arg interface{}) error {
+	if !found {
+		return &MissingParameterError{Index: idx, Name: name}
+	}
 	if err := input.Parse(val, arg); err != nil {
 		if err == types.ErrCantSet {
 			// Programming error, user did not pass a pointer
 			panic(err)
 		}
-		return false
+		return &InvalidParameterError{
+			Index: idx,
+			Name:  name,
+			Type:  reflect.TypeOf(arg),
+			Err:   err,
+		}
 	}
-	return true
+	return nil
 }
 
 // Redirect sends an HTTP redirect to the client,

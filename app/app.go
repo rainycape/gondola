@@ -1463,13 +1463,21 @@ func (app *App) Transform(tr Transformer) {
 	}
 }
 
-// New returns a new App initialized with the given config. If config
+// New returns a new App initialized with the default config.
+func New() *App {
+	return NewWithConfig(nil)
+}
+
+// NewWithConfig returns a new App initialized with the given config. If config
 // is nil, the default configuration (exposed via gnd.la/config) is
 // used instead.
-func New() *App {
-	// Make a copy of the configuration
-	cc := defaultConfig
-	cfg := &cc
+func NewWithConfig(config *Config) *App {
+	cfg := config
+	if cfg == nil {
+		// Make a copy of the configuration
+		cc := defaultConfig
+		cfg = &cc
+	}
 	a := &App{
 		Logger:         log.Std,
 		cfg:            cfg,

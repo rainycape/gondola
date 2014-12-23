@@ -76,7 +76,8 @@ func (c *Context) Count() int {
 // such parameter exists. Pass -1 to obtain
 // the whole match.
 func (c *Context) IndexValue(idx int) string {
-	return c.provider.Arg(idx)
+	val, _ := c.provider.Arg(idx)
+	return val
 }
 
 // RequireIndexValue works like IndexValue, but raises
@@ -95,7 +96,10 @@ func (c *Context) RequireIndexValue(idx int) string {
 // into the given argument. See ParseFormValue
 // for examples as well as the supported types.
 func (c *Context) ParseIndexValue(idx int, arg interface{}) bool {
-	val := c.IndexValue(idx)
+	val, found := c.provider.Arg(idx)
+	if !found {
+		return false
+	}
 	return c.parseTypedValue(val, arg)
 }
 
@@ -112,15 +116,20 @@ func (c *Context) MustParseIndexValue(idx int, arg interface{}) {
 // with the given name or an empty string if it
 // does not exist.
 func (c *Context) ParamValue(name string) string {
-	return c.provider.Param(name)
+	val, _ := c.provider.Param(name)
+	return val
 }
 
 // ParseParamValue uses the named captured parameter
 // with the given name and tries to parse it into
-// the given argument. See ParseFormValue
-// for examples as well as the supported types.
+// the given argument. If the parameter was not provided,
+// arg is not altered. See ParseFormValue for examples as well
+// as the supported types.
 func (c *Context) ParseParamValue(name string, arg interface{}) bool {
-	val := c.ParamValue(name)
+	val, found := c.provider.Param(name)
+	if !found {
+		return false
+	}
 	return c.parseTypedValue(val, arg)
 }
 
@@ -155,8 +164,17 @@ func (c *Context) RequireFormValue(name string) string {
 // Supported types are: bool, u?int(8|16|32|64)? and float(32|64)
 // Internally, ParseFormValue uses gnd.la/form/input to parse
 // its arguments.
+// Note that arg is not altered if the form value with the given
+// name was not provided.
 func (c *Context) ParseFormValue(name string, arg interface{}) bool {
 	val := c.FormValue(name)
+	if val == "" && c.R != nil {
+		// Check if the value was really provided
+		if vs := c.R.Form[name]; len(vs) == 0 {
+			// Parameter not provided, do nothing
+			return false
+		}
+	}
 	return c.parseTypedValue(val, arg)
 }
 
@@ -182,11 +200,10 @@ func (c *Context) mustParseValue(name string, idx int, val string, arg interface
 	}
 }
 
-// Params returns the parameter names provided to the Context. In the
-// case of URL handlers, the parameter names are the named capture
-// groups in the URL pattern.
-func (c *Context) Params() []string {
-	return c.provider.Params()
+// Provider returns the Provider which the Context uses
+// to retrieve its arguments.
+func (c *Context) Provider() ContextProvider {
+	return c.provider
 }
 
 // StatusCode returns the response status code. If the headers

@@ -13,12 +13,16 @@ func (f *fakeProvider) Count() int {
 	return 9001
 }
 
-func (f *fakeProvider) Arg(ii int) string {
-	return strconv.Itoa(ii)
+func (f *fakeProvider) Arg(ii int) (string, bool) {
+	return strconv.Itoa(ii), true
 }
 
-func (f *fakeProvider) Param(name string) string {
-	return name
+func (f *fakeProvider) Param(name string) (string, bool) {
+	return name, true
+}
+
+func (f *fakeProvider) ParamNames() []string {
+	return nil
 }
 
 func TestReplacer(t *testing.T) {

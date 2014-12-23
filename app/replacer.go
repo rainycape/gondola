@@ -69,9 +69,11 @@ func (r *replacer) Replace(provider ContextProvider) string {
 		buf.WriteString(r.pattern[ii:v.start])
 		switch x := v.source.(type) {
 		case int:
-			buf.WriteString(provider.Arg(x))
+			arg, _ := provider.Arg(x)
+			buf.WriteString(arg)
 		case string:
-			buf.WriteString(provider.Param(x))
+			arg, _ := provider.Param(x)
+			buf.WriteString(arg)
 		default:
 			panic("unreachable")
 		}

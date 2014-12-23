@@ -148,15 +148,20 @@ func (p *Paginator) Render() template.HTML {
 	return root.HTML()
 }
 
-// New returns a new Paginator with the given page count,
-// current page and Pager to obtain the URL for each page.
+// New returns a new Paginator with the given item count,
+// items per page, the current page and Pager to obtain the
+// URL for each page. Note that the number of pages is not
+// explicitely provided, but calculated from the number of
+// items and the items per page.
+//
 // The returned Paginator will use the Renderer returned by
 // DefaultRenderer, but its Renderer attribute might be
 // modified at any time.
-func New(count int, current int, pager Pager) *Paginator {
+func New(itemCount int, itemsPerPage int, currentPage int, pager Pager) *Paginator {
+	count := ((itemCount - 1) / itemsPerPage) + 1
 	return &Paginator{
 		Count:    count,
-		Current:  current,
+		Current:  currentPage,
 		Offset:   DefaultOffset,
 		Pager:    pager,
 		Renderer: DefaultRenderer(),

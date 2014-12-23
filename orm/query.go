@@ -2,10 +2,11 @@ package orm
 
 import (
 	"fmt"
+	"reflect"
+
 	"gnd.la/app/profile"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/query"
-	"reflect"
 )
 
 type Query struct {

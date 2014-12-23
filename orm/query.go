@@ -78,6 +78,13 @@ func (q *Query) Offset(offset int) *Query {
 	return q
 }
 
+// Page is a shorthand for q.Limit(perPage).Offset((page - 1) * perPage).
+// Note that page numbers start at 1 and passing a zero to this function
+// will have undefined results, since it will result in a negative offset.
+func (q *Query) Page(page int, perPage int) *Query {
+	return q.Limit(perPage).Offset((page - 1) * perPage)
+}
+
 // Sort sets the field and direction used for sorting
 // this query. To Sort by multiple fields, call Sort
 // multiple times.

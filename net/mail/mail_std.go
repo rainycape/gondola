@@ -84,6 +84,14 @@ func sendMail(to []string, cc []string, bcc []string, msg *Message) error {
 		if err != nil {
 			return err
 		}
+		for ii, v := range to {
+			if v == Admin {
+				if Config.AdminEmail == "" {
+					return errNoAdminEmail
+				}
+				to[ii] = Config.AdminEmail
+			}
+		}
 	}
 	if len(cc) > 0 {
 		headers["Cc"], err = joinAddrs(cc)

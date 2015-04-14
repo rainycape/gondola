@@ -3,13 +3,15 @@ package strings
 
 import (
 	"bytes"
-	"code.google.com/p/go.tools/go/types"
 	"fmt"
-	"gnd.la/internal/gen/genutil"
-	"gnd.la/log"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"golang.org/x/tools/go/types"
+
+	"gnd.la/internal/gen/genutil"
+	"gnd.la/log"
 )
 
 type Transform int

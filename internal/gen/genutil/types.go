@@ -15,7 +15,7 @@ import (
 
 	"gnd.la/internal/importer"
 
-	"code.google.com/p/go.tools/go/types"
+	"golang.org/x/tools/go/types"
 )
 
 // Package represents a parsed package with all its

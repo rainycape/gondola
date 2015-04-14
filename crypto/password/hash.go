@@ -1,7 +1,6 @@
 package password
 
 import (
-	"code.google.com/p/go.crypto/pbkdf2"
 	"crypto"
 	_ "crypto/sha1"
 	_ "crypto/sha256"
@@ -9,6 +8,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+
+	"golang.org/x/crypto/pbkdf2"
 )
 
 // Type Hash represents a hash algorithm for hashing passwords.

@@ -37,7 +37,8 @@ import (
 	"regexp"
 	"strings"
 
-	"code.google.com/p/go.tools/go/types"
+	"golang.org/x/tools/go/types"
+
 	"gnd.la/internal/gen/genutil"
 	"gnd.la/log"
 	"gnd.la/util/generic"

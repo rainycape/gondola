@@ -14,7 +14,7 @@ import (
 	"gnd.la/log"
 	"gnd.la/util/yaml"
 
-	"code.google.com/p/go.tools/go/types"
+	"golang.org/x/tools/go/types"
 )
 
 const appFilename = "appfile.yaml"

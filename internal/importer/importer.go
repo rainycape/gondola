@@ -7,9 +7,9 @@ import (
 	"go/build"
 	"path/filepath"
 
-	"code.google.com/p/go.tools/go/gcimporter"
-	"code.google.com/p/go.tools/go/loader"
-	"code.google.com/p/go.tools/go/types"
+	"golang.org/x/tools/go/gcimporter"
+	"golang.org/x/tools/go/loader"
+	"golang.org/x/tools/go/types"
 )
 
 type Importer struct {
@@ -67,10 +67,7 @@ func (imp *Importer) Import(imports map[string]*types.Package, path string) (*ty
 	if bpkg.Name == "main" {
 		name = "main"
 	}
-	err = loader.CreateFromFilenames(name, gofiles...)
-	if err != nil {
-		return nil, err
-	}
+	loader.CreateFromFilenames(name, gofiles...)
 	if err := importImports(loader, imports, bpkg.Imports); err != nil {
 		return nil, err
 	}

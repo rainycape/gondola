@@ -162,7 +162,7 @@ func (b *SqlBackend) Inspect(db *DB, m driver.Model, schema string) (*Table, err
 	cq := fmt.Sprintf("SELECT C.CONSTRAINT_NAME, CONSTRAINT_TYPE, COLUMN_NAME "+
 		"FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS C JOIN "+
 		"INFORMATION_SCHEMA.KEY_COLUMN_USAGE K ON C.CONSTRAINT_NAME = "+
-		"K.CONSTRAINT_NAME WHERE C.TABLE_NAME = %s AND K.TABLE_NAME = %s"+
+		"K.CONSTRAINT_NAME WHERE C.TABLE_NAME = %s AND K.TABLE_NAME = %s "+
 		"AND C.TABLE_SCHEMA = %s", name, name, s)
 	rows, err = db.Query(cq)
 	if err != nil {

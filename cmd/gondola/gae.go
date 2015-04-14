@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"code.google.com/p/go.exp/fsnotify"
+	"gopkg.in/fsnotify.v1"
 
 	"gnd.la/log"
 )
@@ -96,15 +96,15 @@ func watchAppResources(buildArgs []string, resources []string) error {
 		return err
 	}
 	for _, v := range resources {
-		w.Watch(v)
+		w.Add(v)
 	}
 	for {
 		select {
-		case e := <-w.Error:
+		case e := <-w.Errors:
 			return e
-		case ev := <-w.Event:
+		case ev := <-w.Events:
 			name := filepath.Base(ev.Name)
-			if strings.HasPrefix(name, ".") || strings.HasSuffix(name, "~") || ev.IsAttrib() || ev.IsDelete() || ev.IsRename() {
+			if strings.HasPrefix(name, ".") || strings.HasSuffix(name, "~") || ev.Op == fsnotify.Chmod || ev.Op == fsnotify.Remove || ev.Op == fsnotify.Rename {
 				continue
 			}
 			makeAppAssets(buildArgs)

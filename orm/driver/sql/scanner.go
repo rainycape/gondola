@@ -32,11 +32,11 @@ func (s *scanner) Scan(src interface{}) error {
 		s.Out.Set(reflect.Zero(s.Out.Type()))
 		return nil
 	case int64:
-		return s.Backend.ScanInt(x, s.Out, s.Tag)
+		return s.Backend.ScanInt(x, s.nonPtrOut(s.Out), s.Tag)
 	case float64:
-		return s.Backend.ScanFloat(x, s.Out, s.Tag)
+		return s.Backend.ScanFloat(x, s.nonPtrOut(s.Out), s.Tag)
 	case bool:
-		return s.Backend.ScanBool(x, s.Out, s.Tag)
+		return s.Backend.ScanBool(x, s.nonPtrOut(s.Out), s.Tag)
 	case []byte:
 		s.Nil = len(x) == 0
 		if c := codec.FromTag(s.Tag); c != nil {
@@ -52,11 +52,20 @@ func (s *scanner) Scan(src interface{}) error {
 
 		return s.Backend.ScanByteSlice(x, s.Out, s.Tag)
 	case string:
-		return s.Backend.ScanString(x, s.Out, s.Tag)
+		return s.Backend.ScanString(x, s.nonPtrOut(s.Out), s.Tag)
 	case time.Time:
-		return s.Backend.ScanTime(&x, s.Out, s.Tag)
+		return s.Backend.ScanTime(&x, s.nonPtrOut(s.Out), s.Tag)
 	}
 	return fmt.Errorf("can't scan value %v (%T)", src, src)
+}
+
+func (s *scanner) nonPtrOut(out *reflect.Value) *reflect.Value {
+	if out.Kind() == reflect.Ptr {
+		out.Set(reflect.New(out.Type().Elem()))
+		val := out.Elem()
+		return &val
+	}
+	return out
 }
 
 func newScanner(val *reflect.Value, t *structs.Tag, backend Backend) *scanner {

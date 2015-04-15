@@ -29,7 +29,7 @@ func (g *gaeLogger) Error(args ...interface{})                 { g.c.Errorf("%s"
 func (g *gaeLogger) Errorf(format string, args ...interface{}) { g.c.Errorf(format, args...) }
 
 func (c *Context) logger() log.Interface {
-	if c.R == nil {
+	if c == nil || c.R == nil {
 		return nullLogger{}
 	}
 	if internal.InAppEngineDevServer() {

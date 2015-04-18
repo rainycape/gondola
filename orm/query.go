@@ -15,10 +15,17 @@ type Query struct {
 	methods []*driver.Methods
 	jtype   JoinType
 	q       query.Q
-	sort    []driver.Sort
-	limit   int
-	offset  int
+	opts    driver.QueryOptions
 	err     error
+}
+
+func newQuery(o *Orm, q query.Q, model *joinModel) *Query {
+	return &Query{
+		orm:   o,
+		q:     q,
+		model: model,
+		opts:  driver.QueryOptions{Limit: -1, Offset: -1},
+	}
 }
 
 func (q *Query) ensureTable(f string) error {
@@ -68,13 +75,13 @@ func (q *Query) Filter(qu query.Q) *Query {
 // Limit sets the maximum number of results
 // for the query.
 func (q *Query) Limit(limit int) *Query {
-	q.limit = limit
+	q.opts.Limit = limit
 	return q
 }
 
 // Offset sets the offset for the query.
 func (q *Query) Offset(offset int) *Query {
-	q.offset = offset
+	q.opts.Offset = offset
 	return q
 }
 
@@ -89,7 +96,7 @@ func (q *Query) Page(page int, perPage int) *Query {
 // this query. To Sort by multiple fields, call Sort
 // multiple times.
 func (q *Query) Sort(field string, dir Sort) *Query {
-	q.sort = append(q.sort, &querySort{
+	q.opts.Sort = append(q.opts.Sort, &querySort{
 		field: field,
 		dir:   driver.SortDirection(dir),
 	})
@@ -99,7 +106,8 @@ func (q *Query) Sort(field string, dir Sort) *Query {
 // One fetches the first result for this query. The first
 // return value indicates if a result was found.
 func (q *Query) One(out ...interface{}) (bool, error) {
-	iter := q.iter(1)
+	limit := 1
+	iter := q.iter(&limit)
 	if iter.Next(out...) {
 		// Must close the iter manually, because we're not
 		// reaching the end.
@@ -137,7 +145,7 @@ func (q *Query) Exists() (bool, error) {
 // iterate over the results produced by the
 // query.
 func (q *Query) Iter() *Iter {
-	return q.iter(q.limit)
+	return q.iter(nil)
 }
 
 // All returns all results for this query in slices. Arguments
@@ -201,7 +209,7 @@ func (q *Query) Count() (uint64, error) {
 	if profile.On && profile.Profiling() {
 		defer profile.Start(orm).Note("count", q.model.String()).End()
 	}
-	return q.orm.driver.Count(q.model, q.q, q.limit, q.offset)
+	return q.orm.driver.Count(q.model, q.q, q.opts)
 }
 
 // MustCount works like Count, but panics if there's an error.
@@ -216,17 +224,15 @@ func (q *Query) MustCount() uint64 {
 // Clone returns a copy of the query.
 func (q *Query) Clone() *Query {
 	return &Query{
-		orm:    q.orm,
-		model:  q.model,
-		q:      q.q,
-		sort:   q.sort,
-		limit:  q.limit,
-		offset: q.offset,
-		err:    q.err,
+		orm:   q.orm,
+		model: q.model,
+		q:     q.q,
+		opts:  q.opts,
+		err:   q.err,
 	}
 }
 
-func (q *Query) iter(limit int) *Iter {
+func (q *Query) iter(limit *int) *Iter {
 	return &Iter{
 		q:     q,
 		limit: limit,
@@ -234,11 +240,15 @@ func (q *Query) iter(limit int) *Iter {
 	}
 }
 
-func (q *Query) exec(limit int) driver.Iter {
+func (q *Query) exec(limit *int) driver.Iter {
 	if profile.On && profile.Profiling() {
 		defer profile.Start(orm).Note("query", q.model.String()).End()
 	}
-	return q.orm.conn.Query(q.model, q.q, q.sort, limit, q.offset)
+	opts := q.opts
+	if limit != nil {
+		opts.Limit = *limit
+	}
+	return q.orm.conn.Query(q.model, q.q, opts)
 }
 
 // Field is a conveniency function which returns a reference to a field

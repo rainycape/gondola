@@ -52,12 +52,7 @@ type Orm struct {
 // need to obtain a Table from a model type or name, see Orm.TypeTable
 // and orm.NamedTable.
 func (o *Orm) Table(t *Table) *Query {
-	return &Query{
-		orm:    o,
-		model:  t.model,
-		limit:  -1,
-		offset: -1,
-	}
+	return newQuery(o, nil, t.model)
 }
 
 // Exists is a shorthand for Table(t).Filter(q).Exists()
@@ -80,12 +75,7 @@ func (o *Orm) Count(t *Table, q query.Q) (uint64, error) {
 // Table() (and you most do so for Count() and other functions
 // which don't take objects).
 func (o *Orm) Query(q query.Q) *Query {
-	return &Query{
-		orm:    o,
-		q:      q,
-		limit:  -1,
-		offset: -1,
-	}
+	return newQuery(o, q, nil)
 }
 
 // One is a shorthand for Query(q).One(&out)

@@ -151,8 +151,8 @@ func (d *Driver) indexName(m driver.Model, idx *index.Index) (string, error) {
 	return s, nil
 }
 
-func (d *Driver) Query(m driver.Model, q query.Q, sort []driver.Sort, limit int, offset int) driver.Iter {
-	query, params, err := d.Select(nil, true, m, q, sort, limit, offset)
+func (d *Driver) Query(m driver.Model, q query.Q, opts driver.QueryOptions) driver.Iter {
+	query, params, err := d.Select(nil, true, m, q, opts)
 	if err != nil {
 		return &Iter{err: err}
 	}
@@ -163,9 +163,9 @@ func (d *Driver) Query(m driver.Model, q query.Q, sort []driver.Sort, limit int,
 	return &Iter{model: m, rows: rows, driver: d}
 }
 
-func (d *Driver) Count(m driver.Model, q query.Q, limit int, offset int) (uint64, error) {
+func (d *Driver) Count(m driver.Model, q query.Q, opts driver.QueryOptions) (uint64, error) {
 	var count uint64
-	query, params, err := d.Select([]string{"COUNT(*)"}, false, m, q, nil, limit, offset)
+	query, params, err := d.Select([]string{"COUNT(*)"}, false, m, q, opts)
 	if err != nil {
 		return 0, err
 	}
@@ -175,7 +175,7 @@ func (d *Driver) Count(m driver.Model, q query.Q, limit int, offset int) (uint64
 }
 
 func (d *Driver) Exists(m driver.Model, q query.Q) (bool, error) {
-	query, params, err := d.Select([]string{"1"}, false, m, q, nil, -1, -1)
+	query, params, err := d.Select([]string{"1"}, false, m, q, driver.QueryOptions{Limit: -1, Offset: -1})
 	if err != nil {
 		return false, err
 	}
@@ -838,7 +838,7 @@ func (d *Driver) SelectStmt(buf *bytes.Buffer, params *[]interface{}, fields []s
 	return nil
 }
 
-func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, sort []driver.Sort, limit int, offset int) (*bytes.Buffer, []interface{}, error) {
+func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, opts driver.QueryOptions) (*bytes.Buffer, []interface{}, error) {
 	buf := getBuffer()
 	var params []interface{}
 	if err := d.SelectStmt(buf, &params, fields, quote, m); err != nil {
@@ -849,9 +849,9 @@ func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, 
 		return nil, nil, err
 	}
 	params = append(params, qParams...)
-	if len(sort) > 0 {
+	if len(opts.Sort) > 0 {
 		buf.WriteString(" ORDER BY ")
-		for _, v := range sort {
+		for _, v := range opts.Sort {
 			dbName, _, err := m.Map(v.Field())
 			if err != nil {
 				return nil, nil, err
@@ -864,13 +864,13 @@ func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, 
 		}
 		buf.Truncate(buf.Len() - 1)
 	}
-	if limit >= 0 {
+	if opts.Limit >= 0 {
 		buf.WriteString(" LIMIT ")
-		buf.WriteString(strconv.Itoa(limit))
+		buf.WriteString(strconv.Itoa(opts.Limit))
 	}
-	if offset >= 0 {
+	if opts.Offset >= 0 {
 		buf.WriteString(" OFFSET ")
-		buf.WriteString(strconv.Itoa(offset))
+		buf.WriteString(strconv.Itoa(opts.Offset))
 	}
 	return buf, params, nil
 }

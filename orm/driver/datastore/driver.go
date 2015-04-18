@@ -34,16 +34,16 @@ func (d *Driver) Initialize(ms []driver.Model) error {
 	return nil
 }
 
-func (d *Driver) Query(m driver.Model, q query.Q, sort []driver.Sort, limit int, offset int) driver.Iter {
-	dq, err := d.makeQuery(m, q, sort, limit, offset)
+func (d *Driver) Query(m driver.Model, q query.Q, opts driver.QueryOptions) driver.Iter {
+	dq, err := d.makeQuery(m, q, &opts)
 	if err != nil {
 		return &Iter{err: err}
 	}
 	return &Iter{iter: dq.Run(d.c)}
 }
 
-func (d *Driver) Count(m driver.Model, q query.Q, limit int, offset int) (uint64, error) {
-	dq, err := d.makeQuery(m, q, nil, limit, offset)
+func (d *Driver) Count(m driver.Model, q query.Q, opts driver.QueryOptions) (uint64, error) {
+	dq, err := d.makeQuery(m, q, &opts)
 	if err != nil {
 		return 0, err
 	}
@@ -52,7 +52,7 @@ func (d *Driver) Count(m driver.Model, q query.Q, limit int, offset int) (uint64
 }
 
 func (d *Driver) Exists(m driver.Model, q query.Q) (bool, error) {
-	dq, err := d.makeQuery(m, q, nil, 1, -1)
+	dq, err := d.makeQuery(m, q, nil)
 	if err != nil {
 		return false, err
 	}
@@ -144,7 +144,7 @@ func (d *Driver) Delete(m driver.Model, q query.Q) (driver.Result, error) {
 }
 
 func (d *Driver) getKeys(m driver.Model, q query.Q) ([]*datastore.Key, error) {
-	dq, err := d.makeQuery(m, q, nil, -1, -1)
+	dq, err := d.makeQuery(m, q, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func (d *Driver) getKeys(m driver.Model, q query.Q) ([]*datastore.Key, error) {
 	return keys, nil
 }
 
-func (d *Driver) makeQuery(m driver.Model, q query.Q, sort []driver.Sort, limit int, offset int) (*datastore.Query, error) {
+func (d *Driver) makeQuery(m driver.Model, q query.Q, opts *driver.QueryOptions) (*datastore.Query, error) {
 	if m.Join() != nil {
 		return nil, errJoinNotSupported
 	}
@@ -172,18 +172,20 @@ func (d *Driver) makeQuery(m driver.Model, q query.Q, sort []driver.Sort, limit 
 	if dq, err = d.applyQuery(m, dq, q); err != nil {
 		return nil, err
 	}
-	for _, v := range sort {
-		field := v.Field()
-		if v.Direction() == driver.DESC {
-			field = "-" + field
+	if opts != nil {
+		for _, v := range opt.Sort {
+			field := v.Field()
+			if v.Direction() == driver.DESC {
+				field = "-" + field
+			}
+			dq = dq.Order(field)
 		}
-		dq = dq.Order(field)
-	}
-	if limit >= 0 {
-		dq = dq.Limit(limit)
-	}
-	if offset > 0 {
-		dq = dq.Offset(limit)
+		if opts.Limit >= 0 {
+			dq = dq.Limit(limit)
+		}
+		if opts.Offset > 0 {
+			dq = dq.Offset(limit)
+		}
 	}
 	return dq, nil
 }

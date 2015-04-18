@@ -72,6 +72,13 @@ func (q *Query) Filter(qu query.Q) *Query {
 	return q
 }
 
+// Distinct makes the query return only distinct values, filtering
+// out any duplicates.
+func (q *Query) Distinct() *Query {
+	q.opts.Distinct = true
+	return q
+}
+
 // Limit sets the maximum number of results
 // for the query.
 func (q *Query) Limit(limit int) *Query {

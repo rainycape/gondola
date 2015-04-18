@@ -777,8 +777,11 @@ func (d *Driver) conditions(buf *bytes.Buffer, params *[]interface{}, m driver.M
 	return nil
 }
 
-func (d *Driver) SelectStmt(buf *bytes.Buffer, params *[]interface{}, fields []string, quote bool, m driver.Model) error {
+func (d *Driver) selectStmt(buf *bytes.Buffer, params *[]interface{}, fields []string, quote bool, m driver.Model, opts driver.QueryOptions) error {
 	buf.WriteString("SELECT ")
+	if opts.Distinct {
+		buf.WriteString("DISTINCT ")
+	}
 	if fields != nil {
 		if quote {
 			for _, v := range fields {
@@ -841,7 +844,7 @@ func (d *Driver) SelectStmt(buf *bytes.Buffer, params *[]interface{}, fields []s
 func (d *Driver) Select(fields []string, quote bool, m driver.Model, q query.Q, opts driver.QueryOptions) (*bytes.Buffer, []interface{}, error) {
 	buf := getBuffer()
 	var params []interface{}
-	if err := d.SelectStmt(buf, &params, fields, quote, m); err != nil {
+	if err := d.selectStmt(buf, &params, fields, quote, m, opts); err != nil {
 		return nil, nil, err
 	}
 	qParams, err := d.where(buf, m, q, 0)

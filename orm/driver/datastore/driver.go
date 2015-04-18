@@ -173,6 +173,9 @@ func (d *Driver) makeQuery(m driver.Model, q query.Q, opts *driver.QueryOptions)
 		return nil, err
 	}
 	if opts != nil {
+		if opts.Distinct {
+			dq = dq.Distinct()
+		}
 		for _, v := range opt.Sort {
 			field := v.Field()
 			if v.Direction() == driver.DESC {

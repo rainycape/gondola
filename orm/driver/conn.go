@@ -6,9 +6,10 @@ import (
 )
 
 type QueryOptions struct {
-	Limit  int
-	Offset int
-	Sort   []Sort
+	Limit    int
+	Offset   int
+	Sort     []Sort
+	Distinct bool
 }
 
 type Conn interface {

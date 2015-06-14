@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"PO-Revision-Date: 2013-10-27 22:57+0100\n"
+"Project-Id-Version: \n"
+"PO-Revision-Date: 2015-06-14 17:53-0000\n"
 "Last-Translator: fiam <alberto@garciahierro.com>\n"
 "Language-Team: French\n"
 "Language: fr\n"
@@ -9,23 +9,30 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"POT-Creation-Date: \n"
+"X-Generator: Poedit 1.7.5\n"
 
 #: captcha.go:28
+msgctxt "formutil"
 msgid "Are you human?"
 msgstr "Êtes-vous une personne physique ?"
 
 #: captcha.go:28
+msgctxt "formutil"
 msgid "Result"
 msgstr "Résultat"
 
 #: captcha.go:28
+msgctxt "formutil"
 msgid "This is used to prevent spam"
 msgstr "Mesure de prévention contre le spam"
 
 #: captcha.go:41
+msgctxt "formutil"
 msgid "incorrect result"
 msgstr "résultat incorrect"
 
 #: captcha.go:33
+msgctxt "formutil"
 msgid "please, enter the result of the operation"
 msgstr "veuillez saisir le résultat de l'opération"

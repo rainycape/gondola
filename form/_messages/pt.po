@@ -1,0 +1,38 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"PO-Revision-Date: 2015-06-14 18:29-0000\n"
+"Last-Translator: Alberto GH <fiam@ubuntu>\n"
+"Language-Team: Portuguese\n"
+"Language: pt\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"POT-Creation-Date: \n"
+"X-Generator: Poedit 1.7.5\n"
+
+#: form.go:95
+msgctxt "form"
+msgid "%q is not a valid email address"
+msgstr "%q não é um endereço de email válido"
+
+#: form.go:71
+msgctxt "form"
+msgid "%v is not a valid choice"
+msgstr "%v não é uma opção válida"
+
+#: choices.go:23
+msgctxt "form"
+msgid "Please, choose"
+msgstr "Por favor,  escolha"
+
+#: form.go:58
+msgctxt "form"
+msgid "You must choose a value"
+msgstr "É obrigatório escolher uma opção"
+
+#: csrf.go:139
+msgctxt "form"
+msgid "invalid CSRF token - please, submit the form again"
+msgstr "erro de validação do CSRF - por favor, envie novamente o formulário"

@@ -1,0 +1,36 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"PO-Revision-Date: 2015-06-15 17:36+0100\n"
+"Last-Translator: Alberto GH <fiam@ubuntu>\n"
+"Language-Team: Japanese\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: captcha.go:28
+msgctxt "formutil"
+msgid "Are you human?"
+msgstr "あなたは人間ですか？"
+
+#: captcha.go:28
+msgctxt "formutil"
+msgid "Result"
+msgstr "結果"
+
+#: captcha.go:28
+msgctxt "formutil"
+msgid "This is used to prevent spam"
+msgstr "これはスパム予防です"
+
+#: captcha.go:41
+msgctxt "formutil"
+msgid "incorrect result"
+msgstr "間違った結果"
+
+#: captcha.go:33
+msgctxt "formutil"
+msgid "please, enter the result of the operation"
+msgstr "この操作の結果を入力してください"

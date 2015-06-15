@@ -1,0 +1,36 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"PO-Revision-Date: 2015-06-15 17:37+0100\n"
+"Last-Translator: Alberto GH <fiam@ubuntu>\n"
+"Language-Team: Arabic\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5);\n"
+
+#: captcha.go:28
+msgctxt "formutil"
+msgid "Are you human?"
+msgstr "هل أنت بشري؟"
+
+#: captcha.go:28
+msgctxt "formutil"
+msgid "Result"
+msgstr "النتيجة"
+
+#: captcha.go:28
+msgctxt "formutil"
+msgid "This is used to prevent spam"
+msgstr "هذا يستخدم لمنع الرسائل المزعجة"
+
+#: captcha.go:41
+msgctxt "formutil"
+msgid "incorrect result"
+msgstr "نتيجة غير صحيحة"
+
+#: captcha.go:33
+msgctxt "formutil"
+msgid "please, enter the result of the operation"
+msgstr "برجاء إدخال نتيجة العملية"

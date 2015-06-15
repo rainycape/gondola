@@ -1,0 +1,36 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"PO-Revision-Date: 2015-06-15 18:01+0100\n"
+"Last-Translator: Alberto GH <fiam@ubuntu>\n"
+"Language-Team: Arabic\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5);\n"
+
+#: form.go:95
+msgctxt "form"
+msgid "%q is not a valid email address"
+msgstr "%q ليس عنوان بريد إلكتروني صالح"
+
+#: form.go:71
+msgctxt "form"
+msgid "%v is not a valid choice"
+msgstr "%v ليس اختيارًا صالحًا"
+
+#: choices.go:23
+msgctxt "form"
+msgid "Please, choose"
+msgstr "برجاء الاختيار"
+
+#: form.go:58
+msgctxt "form"
+msgid "You must choose a value"
+msgstr "ينبغي عليك اختيار قيمة"
+
+#: csrf.go:139
+msgctxt "form"
+msgid "invalid CSRF token - please, submit the form again"
+msgstr "رمز CSRF مميز غير صالح - برجاء إرسال النموذج مرة أخرى"

@@ -1,0 +1,36 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"PO-Revision-Date: 2015-06-18 15:20+0100\n"
+"Last-Translator: Alberto GH <fiam@ubuntu>\n"
+"Language-Team: Chinese (traditional)\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ASCII\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: form.go:95
+msgctxt "form"
+msgid "%q is not a valid email address"
+msgstr ""
+
+#: form.go:71
+msgctxt "form"
+msgid "%v is not a valid choice"
+msgstr ""
+
+#: choices.go:23
+msgctxt "form"
+msgid "Please, choose"
+msgstr ""
+
+#: form.go:58
+msgctxt "form"
+msgid "You must choose a value"
+msgstr ""
+
+#: csrf.go:139
+msgctxt "form"
+msgid "invalid CSRF token - please, submit the form again"
+msgstr ""

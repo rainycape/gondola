@@ -1,10 +1,10 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"PO-Revision-Date: 2015-06-15 17:33+0100\n"
+"PO-Revision-Date: 2015-06-18 15:08+0100\n"
 "Last-Translator: Alberto GH <fiam@ubuntu>\n"
-"Language-Team: Italian\n"
-"Language: it\n"
+"Language-Team: German\n"
+"Language: de\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -13,24 +13,24 @@ msgstr ""
 #: captcha.go:28
 msgctxt "formutil"
 msgid "Are you human?"
-msgstr "Sei un essere umano?"
+msgstr "Sind Sie ein Mensch?"
 
 #: captcha.go:28
 msgctxt "formutil"
 msgid "Result"
-msgstr "Risultato"
+msgstr "Ergebnis"
 
 #: captcha.go:28
 msgctxt "formutil"
 msgid "This is used to prevent spam"
-msgstr "Serve per evitare lo spam"
+msgstr "Dies wird verwendet, um Spam zu verhindern"
 
 #: captcha.go:41
 msgctxt "formutil"
 msgid "incorrect result"
-msgstr "Il risultato è sbagliato"
+msgstr "Falsches Ergebnis"
 
 #: captcha.go:33
 msgctxt "formutil"
 msgid "please, enter the result of the operation"
-msgstr "Inserisci il risultato dell'operazione"
+msgstr "Bitte geben Sie das Ergebnis der Operation ein"

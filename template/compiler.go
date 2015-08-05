@@ -254,6 +254,10 @@ func (s *State) Var(name string) (reflect.Value, bool) {
 	return val, err == nil
 }
 
+func (s *State) Template() *Template {
+	return s.p.tmpl
+}
+
 func (s *State) reset() {
 	s.vars = s.vars[:0]
 	s.stack = s.stack[:0]

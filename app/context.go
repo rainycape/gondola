@@ -192,10 +192,20 @@ func (c *Context) Provider() ContextProvider {
 	return c.provider
 }
 
-// StatusCode returns the response status code. If the headers
-// haven't been written yet, it returns 0
+// StatusCode returns the response status code. If no status code
+// has been set yet, it returns the OK code (200).
 func (c *Context) StatusCode() int {
+	if c.statusCode < 0 {
+		return -c.statusCode
+	}
+	if c.statusCode == 0 {
+		return http.StatusOK
+	}
 	return c.statusCode
+}
+
+func (c *Context) SetStatusCode(code int) {
+	c.statusCode = -code
 }
 
 func (c *Context) parseTypedValue(idx int, name string, val string, found bool, arg interface{}) error {

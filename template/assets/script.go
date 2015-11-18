@@ -90,12 +90,18 @@ func scriptParser(m *Manager, names []string, options Options) ([]*Asset, error)
 		position = Top
 	}
 	async := options.Async()
+	deferred := options.Defer()
 	for ii, v := range names {
 		asset := Script(v)
 		asset.Position = position
+		attrs := Attributes{}
 		if async {
-			asset.Attributes = Attributes{"async": "async"}
+			attrs["async"] = "async"
 		}
+		if deferred {
+			attrs["defer"] = "defer"
+		}
+		asset.Attributes = attrs
 		assets[ii] = asset
 	}
 	return assets, nil

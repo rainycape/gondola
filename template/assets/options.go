@@ -74,6 +74,10 @@ func (o Options) Async() bool {
 	return o.BoolOpt("async")
 }
 
+func (o Options) Defer() bool {
+	return o.BoolOpt("defer")
+}
+
 func (o Options) Bundle() bool {
 	return o.BoolOpt("bundle")
 }

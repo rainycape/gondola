@@ -10,7 +10,7 @@ import (
 	"gnd.la/cache/driver"
 	"gnd.la/config"
 
-	"gopkgs.com/memcache.v2"
+	"github.com/rainycape/memcache"
 )
 
 type memcacheDriver struct {

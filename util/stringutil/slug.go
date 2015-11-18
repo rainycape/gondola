@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"gopkgs.com/unidecode.v1"
+	"github.com/rainycape/unidecode"
 )
 
 var (

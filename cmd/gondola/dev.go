@@ -31,7 +31,7 @@ import (
 	"gnd.la/log"
 	"gnd.la/util/generic"
 
-	"gopkgs.com/browser.v1"
+	"github.com/rainycape/browser"
 )
 
 const (

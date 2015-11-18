@@ -1,9 +1,29 @@
-#: number.go:41
+#. THOUSANDS SEPARATOR
+#: number.go:42
 msgctxt "formautil"
 msgid ","
 msgstr ""
 
-#: number.go:55
+#. DECIMAL SEPARATOR
+#: number.go:56
 msgctxt "formautil"
 msgid "."
+msgstr ""
+
+#. DEFAULT DATE FORMAT
+#: time.go:21
+msgctxt "formatutil"
+msgid "02/01/2006"
+msgstr ""
+
+#. TODAY
+#: time.go:32
+msgctxt "formatutil"
+msgid "today"
+msgstr ""
+
+#. YESTERDAY
+#: time.go:37
+msgctxt "formatutil"
+msgid "yesterday"
 msgstr ""

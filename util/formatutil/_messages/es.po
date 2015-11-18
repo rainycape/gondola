@@ -6,16 +6,36 @@ msgstr ""
 "Language-Team: Spanish\n"
 "Language: es\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=ASCII\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: number.go:41
+#. THOUSANDS SEPARATOR
+#: number.go:42
 msgctxt "formautil"
 msgid ","
 msgstr "."
 
-#: number.go:55
+#. DECIMAL SEPARATOR
+#: number.go:56
 msgctxt "formautil"
 msgid "."
 msgstr ","
+
+#. DEFAULT DATE FORMAT
+#: time.go:21
+msgctxt "formatutil"
+msgid "02/01/2006"
+msgstr "01/02/2006"
+
+#. TODAY
+#: time.go:32
+msgctxt "formatutil"
+msgid "today"
+msgstr "hoy"
+
+#. YESTERDAY
+#: time.go:37
+msgctxt "formatutil"
+msgid "yesterday"
+msgstr "ayer"

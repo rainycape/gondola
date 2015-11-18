@@ -38,7 +38,7 @@ func formatStringNumber(lang i18n.Languager, s string) string {
 }
 
 func formatNumber(lang i18n.Languager, integer string, decimal string) string {
-	// THOUSANDS SEPARATOR
+	/// THOUSANDS SEPARATOR
 	tSep := i18n.Tc(lang, "formautil", ",")
 	var buf bytes.Buffer
 	ii := 0
@@ -52,7 +52,7 @@ func formatNumber(lang i18n.Languager, integer string, decimal string) string {
 	}
 	s := stringutil.Reverse(buf.String())
 	if decimal != "" {
-		// DECIMAL SEPARATOR
+		/// DECIMAL SEPARATOR
 		dSep := i18n.Tc(lang, "formautil", ".")
 		return s + dSep + decimal
 	}

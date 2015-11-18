@@ -5,7 +5,7 @@ import (
 
 	"gnd.la/template/assets"
 
-	"gopkgs.com/semver.v1"
+	"github.com/rainycape/semver"
 )
 
 const (

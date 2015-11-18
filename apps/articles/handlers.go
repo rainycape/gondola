@@ -10,7 +10,7 @@ import (
 
 	"gnd.la/apps/articles/article"
 
-	"gopkgs.com/vfs.v1"
+	"github.com/rainycape/vfs"
 )
 
 const (

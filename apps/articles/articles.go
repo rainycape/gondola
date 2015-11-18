@@ -8,7 +8,7 @@ import (
 	"gnd.la/apps/articles/article"
 	"gnd.la/util/generic"
 
-	"gopkgs.com/vfs.v1"
+	"github.com/rainycape/vfs"
 )
 
 const (

@@ -11,7 +11,7 @@ import (
 	"gnd.la/app"
 	"gnd.la/log"
 
-	"gopkgs.com/vfs.v1"
+	"github.com/rainycape/vfs"
 )
 
 // Builtin commands implemented here

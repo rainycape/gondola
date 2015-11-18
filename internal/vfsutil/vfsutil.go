@@ -10,8 +10,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/rainycape/vfs"
 	"gnd.la/log"
-	"gopkgs.com/vfs.v1"
 )
 
 func MemFromDir(dir string) vfs.VFS {

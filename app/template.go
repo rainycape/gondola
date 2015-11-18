@@ -10,7 +10,7 @@ import (
 	"gnd.la/template"
 	"gnd.la/template/assets"
 
-	"gopkgs.com/vfs.v1"
+	"github.com/rainycape/vfs"
 )
 
 var (

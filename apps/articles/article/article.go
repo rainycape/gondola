@@ -16,7 +16,7 @@ import (
 	"gnd.la/form/input"
 	"gnd.la/util/stringutil"
 
-	"gopkgs.com/vfs.v1"
+	"github.com/rainycape/vfs"
 )
 
 var (

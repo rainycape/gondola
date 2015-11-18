@@ -39,7 +39,7 @@ import (
 	"gnd.la/template/assets"
 	"gnd.la/util/stringutil"
 
-	"gopkgs.com/vfs.v1"
+	"github.com/rainycape/vfs"
 )
 
 const (

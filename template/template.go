@@ -26,7 +26,7 @@ import (
 	"gnd.la/util/pathutil"
 	"gnd.la/util/stringutil"
 
-	"gopkgs.com/vfs.v1"
+	"github.com/rainycape/vfs"
 )
 
 type FuncMap map[string]interface{}
@@ -1146,7 +1146,7 @@ func DefaultVFS() vfs.VFS {
 }
 
 // New returns a new template with the given VFS and assets
-// manager. Please, refer to the documention in gopkgs.com/vfs.v1
+// manager. Please, refer to the documention in github.com/rainycape/vfs
 // and gnd.la/template/assets for further information in those types.
 // If the fs is nil, DefaultVFS() will be used.
 func New(fs vfs.VFS, manager *assets.Manager) *Template {

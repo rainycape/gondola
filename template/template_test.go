@@ -11,7 +11,7 @@ import (
 
 	"gnd.la/template/assets"
 
-	"gopkgs.com/vfs.v1"
+	"github.com/rainycape/vfs"
 )
 
 type templateTest struct {

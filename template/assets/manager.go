@@ -11,7 +11,7 @@ import (
 	"gnd.la/crypto/hashutil"
 	"gnd.la/net/urlutil"
 
-	"gopkgs.com/vfs.v1"
+	"github.com/rainycape/vfs"
 )
 
 type Manager struct {

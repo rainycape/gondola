@@ -3,6 +3,7 @@ package leveldb
 import (
 	"crypto/sha1"
 	"errors"
+	"sync"
 
 	"gnd.la/blobstore/chunk"
 	"gnd.la/blobstore/chunk/fixed"
@@ -10,7 +11,6 @@ import (
 	"gnd.la/internal"
 
 	"github.com/syndtr/goleveldb/leveldb"
-	"gopkgs.com/pool.v1"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 
 var (
 	littleEndian = binary.LittleEndian
-	wfilesPool   = pool.New(0)
+	wfilesPool   sync.Pool
 )
 
 type wfile struct {

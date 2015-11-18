@@ -3,17 +3,16 @@ package sql
 import (
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"gnd.la/encoding/codec"
 	"gnd.la/encoding/pipe"
 	"gnd.la/util/structs"
-
-	"gopkgs.com/pool.v1"
 )
 
 var (
-	scannerPool = pool.New(64)
+	scannerPool sync.Pool
 )
 
 type scanner struct {

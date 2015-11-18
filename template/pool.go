@@ -2,13 +2,12 @@ package template
 
 import (
 	"bytes"
-
-	"gopkgs.com/pool.v1"
+	"sync"
 )
 
 var (
-	statePool = pool.New(0)
-	bufPool   = pool.New(0)
+	statePool sync.Pool
+	bufPool   sync.Pool
 )
 
 func getState() *State {

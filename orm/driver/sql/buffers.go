@@ -2,12 +2,11 @@ package sql
 
 import (
 	"bytes"
-
-	"gopkgs.com/pool.v1"
+	"sync"
 )
 
 var (
-	bufferPool = pool.New(0)
+	bufferPool sync.Pool
 )
 
 func getBuffer() *bytes.Buffer {

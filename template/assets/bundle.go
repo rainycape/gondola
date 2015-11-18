@@ -128,9 +128,10 @@ func Bundle(groups []*Group, opts Options) (*Asset, error) {
 		}
 	}
 	return &Asset{
-		Name:     name,
-		Type:     assetType,
-		Position: groups[0].Assets[0].Position,
+		Name:       name,
+		Type:       assetType,
+		Attributes: groups[0].Assets[0].Attributes,
+		Position:   groups[0].Assets[0].Position,
 	}, nil
 }
 

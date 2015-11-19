@@ -7,7 +7,7 @@ import (
 
 	"gnd.la/log"
 
-	"gopkgs.com/command.v1"
+	"github.com/rainycape/command"
 )
 
 var (
@@ -119,12 +119,14 @@ type commonOptions struct {
 func main() {
 	opts := &command.Options{
 		Options: &commonOptions{},
-		Func: func(opts *commonOptions) {
-			if opts.Quiet {
+		Func: func(_ *command.Cmd, opts *command.Options) error {
+			copts := opts.Options.(*commonOptions)
+			if copts.Quiet {
 				log.SetLevel(log.LError)
 			} else {
 				log.SetLevel(log.LDebug)
 			}
+			return nil
 		},
 	}
 	command.Exit(command.RunOpts(nil, opts, commands))

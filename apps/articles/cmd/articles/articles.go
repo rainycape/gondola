@@ -16,7 +16,7 @@ import (
 
 	"gnd.la/apps/articles/article"
 
-	"gopkgs.com/command.v1"
+	"github.com/rainycape/command"
 )
 
 func openArticle(p string) (*article.Article, error) {

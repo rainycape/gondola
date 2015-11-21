@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/rainycape/command"
+
 	"gopkg.in/fsnotify.v1"
 
 	"gnd.la/log"
@@ -119,7 +121,7 @@ type gaeDevOptions struct {
 	AdminPort int    `help:"Port to which the admin server should bind"`
 }
 
-func gaeDevCommand(opts *gaeDevOptions) error {
+func gaeDevCommand(_ *command.Args, opts *gaeDevOptions) error {
 	log.Debugf("starting App Engine development server - press Control+C to stop")
 	var buildArgs []string
 	resources, err := makeAppAssets(buildArgs)
@@ -152,7 +154,7 @@ type gaeTestOptions struct {
 	Verbose bool `name:"v" help:"Enable verbose tests"`
 }
 
-func gaeTestCommand(opts *gaeTestOptions) error {
+func gaeTestCommand(_ *command.Args, opts *gaeTestOptions) error {
 	log.Debugf("starting App Engine tests")
 	var buildArgs []string
 	serveCmd, err := startServe(buildArgs, nil)
@@ -179,7 +181,7 @@ type gaeDeployOptions struct {
 	OAuth bool `name:"oauth" help:"Use oAuth 2 authentication rather than password"`
 }
 
-func gaeDeployCommand(opts *gaeDeployOptions) error {
+func gaeDeployCommand(_ *command.Args, opts *gaeDeployOptions) error {
 	cmd := exec.Command("gondola", "rm-gen")
 	if err := runCmd(cmd); err != nil {
 		return err

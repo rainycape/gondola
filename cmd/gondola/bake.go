@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/rainycape/command"
+
 	"gnd.la/internal/gen/genutil"
 	"gnd.la/internal/vfsutil"
 	"gnd.la/log"
@@ -20,7 +22,7 @@ type bakeOptions struct {
 	Extensions string `name:"ext" help:"Additional extensions (besides html, css and js) to include, separated by commas"`
 }
 
-func bakeCommand(opts *bakeOptions) error {
+func bakeCommand(_ *command.Args, opts *bakeOptions) error {
 	extensions := []string{".html", ".css", ".js"}
 	if opts.Dir == "" {
 		return errors.New("dir can't be empty")

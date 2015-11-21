@@ -32,6 +32,7 @@ import (
 	"gnd.la/util/generic"
 
 	"github.com/rainycape/browser"
+	"github.com/rainycape/command"
 )
 
 const (
@@ -680,7 +681,7 @@ type devOptions struct {
 	Verbose   bool   `name:"v" help:"Enable verbose output"`
 }
 
-func devCommand(opts *devOptions) error {
+func devCommand(args *command.Args, opts *devOptions) error {
 	if !opts.Verbose {
 		log.SetLevel(log.LInfo)
 	}

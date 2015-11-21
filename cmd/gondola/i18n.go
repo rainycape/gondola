@@ -8,13 +8,15 @@ import (
 	"gnd.la/i18n/messages"
 	"gnd.la/i18n/po"
 	"gnd.la/log"
+
+	"github.com/rainycape/command"
 )
 
 type makeMessagesOptions struct {
 	Out string `name:"o" help:"Output filename. If empty, messages are printed to stdout."`
 }
 
-func makeMessagesCommand(opts *makeMessagesOptions) error {
+func makeMessagesCommand(_ *command.Args, opts *makeMessagesOptions) error {
 	m, err := messages.Extract(".", nil)
 	if err != nil {
 		return err
@@ -39,7 +41,7 @@ type compileMessagesOptions struct {
 	Messages string `name:"messages" help:"Message files (.po) directory."`
 }
 
-func compileMessagesCommand(opts *compileMessagesOptions) error {
+func compileMessagesCommand(_ *command.Args, opts *compileMessagesOptions) error {
 	var poFiles []string
 	err := filepath.Walk(opts.Messages, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

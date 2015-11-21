@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"gnd.la/util/stringutil"
+
+	"github.com/rainycape/command"
 )
 
 const (
@@ -14,6 +16,6 @@ type randomStringOptions struct {
 	Length int `help:"Length of the generated random string"`
 }
 
-func randomStringCommand(opts *randomStringOptions) {
+func randomStringCommand(_ *command.Args, opts *randomStringOptions) {
 	fmt.Println(stringutil.RandomPrintable(opts.Length))
 }

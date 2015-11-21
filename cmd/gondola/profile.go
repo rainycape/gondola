@@ -19,6 +19,7 @@ import (
 	"gnd.la/util/stringutil"
 
 	"github.com/howeyc/gopass"
+	"github.com/rainycape/command"
 )
 
 var (
@@ -105,11 +106,11 @@ type profileOptions struct {
 	Data   string `help:"Optional data to be sent in the request in the form k1=v1&k2=v2..."`
 }
 
-func profileCommand(args []string, opts *profileOptions) error {
-	if len(args) == 0 {
+func profileCommand(args *command.Args, opts *profileOptions) error {
+	if len(args.Args()) == 0 {
 		return errors.New("url can't be empty")
 	}
-	u := args[0]
+	u := args.Args()[0]
 	var values url.Values
 	if opts.Data != "" {
 		vals, err := url.ParseQuery(opts.Data)

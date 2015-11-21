@@ -6,13 +6,15 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/rainycape/command"
+
 	"gnd.la/log"
 )
 
-func rmGenCommand(args []string) error {
+func rmGenCommand(args *command.Args) error {
 	dir := "."
-	if len(args) > 0 {
-		dir = args[0]
+	if len(args.Args()) > 0 {
+		dir = args.Args()[0]
 	}
 	re := regexp.MustCompile("(?i).+\\.gen\\..+")
 	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

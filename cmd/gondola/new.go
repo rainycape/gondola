@@ -23,6 +23,8 @@ import (
 	"gnd.la/util/fileutil"
 	"gnd.la/util/generic"
 	"gnd.la/util/stringutil"
+
+	"github.com/rainycape/command"
 )
 
 const (
@@ -86,7 +88,7 @@ type newOptions struct {
 	Gae      bool   `help:"Create an App Engine hybrid project"`
 }
 
-func newCommand(args []string, opts *newOptions) error {
+func newCommand(args *command.Args, opts *newOptions) error {
 	tmpls, err := getAvailableTemplates()
 	if err != nil {
 		return err
@@ -98,10 +100,10 @@ func newCommand(args []string, opts *newOptions) error {
 		}
 		return w.Flush()
 	}
-	if len(args) == 0 {
+	if len(args.Args()) == 0 {
 		return errors.New("missing directory name")
 	}
-	name := args[0]
+	name := args.Args()[0]
 	for _, v := range tmpls {
 		if v.Name == opts.Template {
 			if exists, _ := fileutil.Exists(name); exists && !isEmptyDir(name) {

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/rainycape/command"
+
 	"gnd.la/log"
 )
 
@@ -109,10 +111,10 @@ func clean(dir string) error {
 	return cmd.Run()
 }
 
-func cleanCommand(args []string) error {
+func cleanCommand(args *command.Args) error {
 	dir := "."
-	if len(args) > 0 {
-		dir = args[0]
+	if len(args.Args()) > 0 {
+		dir = args.Args()[0]
 	}
 	return clean(dir)
 }

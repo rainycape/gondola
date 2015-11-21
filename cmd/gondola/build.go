@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"reflect"
 	"strings"
+
+	"github.com/rainycape/command"
 )
 
 const (
@@ -140,15 +142,16 @@ func checkImports(pkg string, opts *buildOptions, cache map[string]error) error 
 // don't use gnd.la/log in this command, since it prints to os.Stderr
 // and it gets the log output mixed with any potential errors from go build
 
-func buildCommand(args []string, opts *buildOptions) error {
-	if len(args) == 0 {
-		args = []string{"."}
+func buildCommand(args *command.Args, opts *buildOptions) error {
+	cmdArgs := args.Args()
+	if len(cmdArgs) == 0 {
+		cmdArgs = []string{"."}
 	}
 	if opts.Go == "" {
 		opts.Go = "go"
 	}
 	cache := make(map[string]error)
-	for _, v := range args {
+	for _, v := range cmdArgs {
 		if err := checkImports(v, opts, cache); err != nil {
 			return fmt.Errorf("error getting %s dependencies: %s", v, err)
 		}

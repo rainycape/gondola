@@ -110,6 +110,9 @@ func LoadTemplates(dir string) ([]*Template, error) {
 		if s := v.Name()[0]; s == '.' || s == '_' {
 			continue
 		}
+		if !v.IsDir() {
+			continue
+		}
 		tmplDir := filepath.Join(dir, v.Name())
 		var tmpl Template
 		meta := filepath.Join(tmplDir, metaFile)

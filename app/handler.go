@@ -21,17 +21,26 @@ type HandlerOptions struct {
 	Host string
 }
 
-type HandlerInfo struct {
-	Handler Handler
-	Options *HandlerOptions
+// A HandlerOption represents a function which receives a
+// HandlerOptions, modifies and returns them. They're used
+// in App.Handle() to set the options for a given handler.
+type HandlerOption func(HandlerOptions) HandlerOptions
+
+// NamedHandler sets the HandlerOptions.Name field. See HandlerOptions
+// for more information.
+func NamedHandler(name string) HandlerOption {
+	return func(opts HandlerOptions) HandlerOptions {
+		opts.Name = name
+		return opts
+	}
 }
 
-func NamedHandler(name string, handler Handler) *HandlerInfo {
-	return &HandlerInfo{
-		Handler: handler,
-		Options: &HandlerOptions{
-			Name: name,
-		},
+// HostHandler sets the HandlerOptions.Host field. See HandlerOptions
+// for more information.
+func HostHandler(host string) HandlerOption {
+	return func(opts HandlerOptions) HandlerOptions {
+		opts.Host = host
+		return opts
 	}
 }
 

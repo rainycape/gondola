@@ -207,36 +207,25 @@ type App struct {
 	childInfo *includedApp
 }
 
-// Handle is a shorthand for HandleOptions, passing nil as the Options.
-func (app *App) Handle(pattern string, handler Handler) {
-	app.HandleOptions(pattern, handler, nil)
-}
-
-// HandleNamed is a shorthand for HandleOptions, passing an Options instance
-// with just the name set.
-func (app *App) HandleNamed(pattern string, handler Handler, name string) {
-	app.HandleOptions(pattern, handler, &HandlerOptions{Name: name})
-}
-
-// HandleOptions adds a new handler to the App. If the Options include a
-// non-empty name, it can be be reversed using Context.Reverse or
-// the "reverse" template function. To add a host-specific Handler,
-// set the Host field in Options to a non-empty string. Note that handler patterns
-// are tried in the same order that they were added to the App.
-func (app *App) HandleOptions(pattern string, handler Handler, opts *HandlerOptions) {
+// Handle adds a new handler to the App. See the available HandlerOption functions
+// and the HandlerOptions type for the available handler options.
+//
+// A named handler can be be reversed using Context.Reverse or
+// the "reverse" template function. Use NamedHandler() to set a name.
+//
+// To add a host-specific Handler, use HostHandler().
+func (app *App) Handle(pattern string, handler Handler, opts ...HandlerOption) {
 	if handler == nil {
 		panic(fmt.Errorf("handler for pattern %q can't be nil", pattern))
 	}
 	re := regexp.MustCompile(pattern)
-	var host string
-	var name string
-	if opts != nil {
-		host = opts.Host
-		name = opts.Name
+	handlerOpts := HandlerOptions{}
+	for _, v := range opts {
+		handlerOpts = v(handlerOpts)
 	}
 	info := &handlerInfo{
-		host:    host,
-		name:    name,
+		host:    handlerOpts.Host,
+		name:    handlerOpts.Name,
 		re:      re,
 		rc:      newRegexpCache(re),
 		handler: handler,
@@ -375,7 +364,7 @@ func (app *App) include(prefix string, child *App, containerTemplate string) err
 		}
 	}
 	// All checks passed, add the included app handler
-	app.HandleOptions("^"+prefix, includedAppHandler(child, prefix), nil)
+	app.Handle("^"+prefix, includedAppHandler(child, prefix))
 	return nil
 }
 

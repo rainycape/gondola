@@ -17,9 +17,10 @@ package fontawesome
 
 import (
 	"fmt"
-	"semver"
 
 	"gnd.la/template/assets"
+
+	"github.com/rainycape/semver"
 )
 
 const (

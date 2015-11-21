@@ -32,7 +32,7 @@ var (
 	}
 )
 
-func sourceHandler(ctx *app.Context) {
+func SourceHandler(ctx *app.Context) {
 	dctx := docContext(ctx)
 	rel := ctx.IndexValue(0)
 	p := dctx.FromSlash(rel)

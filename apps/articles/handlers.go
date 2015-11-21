@@ -18,12 +18,7 @@ const (
 	ArticleListHandlerName = "articles-list"
 )
 
-var (
-	ArticleHandler     = app.NamedHandler(ArticleHandlerName, articleHandler)
-	ArticleListHandler = app.NamedHandler(ArticleListHandlerName, articleListHandler)
-)
-
-func articleHandler(ctx *app.Context) {
+func ArticleHandler(ctx *app.Context) {
 	slug := ctx.IndexValue(0)
 	var art *article.Article
 	articles := AppArticles(ctx.App())
@@ -37,7 +32,7 @@ func articleHandler(ctx *app.Context) {
 		for _, v := range articles {
 			for _, s := range v.AllSlugs() {
 				if s == slug {
-					ctx.MustRedirectReverse(true, ArticleHandlerName, s)
+					ctx.MustRedirectReverse(true, ctx.HandlerName(), s)
 					return
 				}
 			}
@@ -71,7 +66,7 @@ func articleHandler(ctx *app.Context) {
 	ctx.MustExecute("article.html", data)
 }
 
-func articleListHandler(ctx *app.Context) {
+func ArticleListHandler(ctx *app.Context) {
 	data := map[string]interface{}{
 		"Articles": AppArticles(ctx.App()),
 		"Title":    ctx.App().Name(),

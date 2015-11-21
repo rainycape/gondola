@@ -1,0 +1,43 @@
+name = "Docs"
+
+[assets]
+path = "assets"
+
+[templates]
+path = "tmpl"
+
+[[handlers]]
+path = "^/$"
+handler = "ListHandler"
+name = "ListHandlerName"
+
+[[handlers]]
+path = "^/pkg/std/?"
+handler = "StdListHandler"
+name = "StdListHandlerName"
+
+[[handlers]]
+path = "^/pkg/(.+)"
+handler = "PackageHandler"
+name = "PackageHandlerName"
+
+[[handlers]]
+path = "^/src/(.+)"
+handler = "SourceHandler"
+name = "SourceHandlerName"
+
+[[vars]]
+name = "List"
+value = "ListHandlerName"
+
+[[vars]]
+name = "StdList"
+value = "StdListHandlerName"
+
+[[vars]]
+name = "Package"
+value = "PackageHandlerName"
+
+[[vars]]
+name = "Source"
+value = "SourceHandlerName"

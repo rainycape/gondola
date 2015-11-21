@@ -1,0 +1,22 @@
+name = "Articles"
+
+[templates]
+path = "tmpl"
+
+[[handlers]]
+path = "^/(.+)/$"
+handler = "ArticleHandler"
+name = "ArticleHandlerName"
+
+[[handlers]]
+path = "^/$"
+handler = "ArticleListHandler"
+name = "ArticleListHandlerName"
+
+[[vars]]
+name = "Article"
+value = "ArticleHandlerName"
+
+[[vars]]
+name = "List"
+value = "ArticleListHandlerName"

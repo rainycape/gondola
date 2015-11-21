@@ -6,37 +6,52 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 
 	"gnd.la/internal/gen/genutil"
 	"gnd.la/internal/vfsutil"
 	"gnd.la/log"
-	"gnd.la/util/yaml"
 
 	"golang.org/x/tools/go/types"
+
+	"github.com/BurntSushi/toml"
 )
 
-const appFilename = "appfile.yaml"
+const appFilename = "appfile.toml"
+
+type Assets struct {
+	Path string `toml:"path"`
+}
 
 type Templates struct {
-	Path      string            `yaml:"path"`
-	Functions map[string]string `yaml:"functions"`
-	Hooks     map[string]string `yaml:"hooks"`
+	Path      string            `toml:"path"`
+	Functions map[string]string `toml:"functions"`
+	Hooks     map[string]string `toml:"hooks"`
 }
 
 type Translations struct {
-	Context string `yaml:"context"`
+	Context string `toml:"context"`
+}
+
+type Handler struct {
+	Path    string `toml:"path"`
+	Handler string `toml:"handler"`
+	Name    string `toml:"name"`
+}
+
+type Var struct {
+	Name  string `toml:"name"`
+	Value string `toml:"value"`
 }
 
 type App struct {
 	Dir          string
-	Name         string                 `yaml:"name"`
-	Handlers     map[string]string      `yaml:"handlers"`
-	Vars         map[string]interface{} `yaml:"vars"`
-	Templates    *Templates             `yaml:"templates"`
-	Translations *Translations          `yaml:"translations"`
-	Assets       string                 `yaml:"assets"`
+	Name         string        `toml:"name"`
+	Handlers     []Handler     `toml:"handlers"`
+	Vars         []Var         `toml:"vars"`
+	Templates    *Templates    `toml:"templates"`
+	Translations *Translations `toml:"translations"`
+	Assets       *Assets       `toml:"assets"`
 }
 
 func (app *App) writeFS(buf *bytes.Buffer, dir string, release bool) error {
@@ -49,6 +64,13 @@ func (app *App) writeFS(buf *bytes.Buffer, dir string, release bool) error {
 	}
 	fmt.Fprintf(buf, "vfsutil.MemFromDir(%q)\n", abs)
 	return nil
+}
+
+func (app *App) assetsPath() string {
+	if app.Assets != nil {
+		return app.Assets.Path
+	}
+	return ""
 }
 
 func (app *App) Gen(release bool) error {
@@ -74,12 +96,12 @@ func (app *App) Gen(release bool) error {
 		fmt.Fprintf(&buf, "App.TranslationContext = %q\n", app.Translations.Context)
 	}*/
 	fmt.Fprintf(&buf, "App.SetName(%q)\n", app.Name)
-	if app.Assets != "" || (app.Templates != nil && app.Templates.Path != "" && len(app.Templates.Hooks) > 0) {
+	if app.assetsPath() != "" || (app.Templates != nil && app.Templates.Path != "" && len(app.Templates.Hooks) > 0) {
 		buf.WriteString("var manager *assets.Manager\n")
 	}
-	if app.Assets != "" {
+	if app.assetsPath() != "" {
 		buf.WriteString("assetsFS := ")
-		if err := app.writeFS(&buf, filepath.Join(app.Dir, app.Assets), release); err != nil {
+		if err := app.writeFS(&buf, filepath.Join(app.Dir, app.assetsPath()), release); err != nil {
 			return err
 		}
 		buf.WriteString("const prefix = \"/assets/\"\n")
@@ -89,55 +111,37 @@ func (app *App) Gen(release bool) error {
 	}
 	scope := pkg.Scope()
 	if len(app.Vars) > 0 {
-		var varNames []string
-		for k := range app.Vars {
-			varNames = append(varNames, k)
-		}
-		sort.Strings(varNames)
 		buf.WriteString("App.AddTemplateVars(map[string]interface{}{\n")
-		for _, k := range varNames {
-			v := app.Vars[k]
-			ident := k
-			name := v
-			if name == "" || name == nil {
-				name = ident
-			}
-			obj := scope.Lookup(ident)
+		for _, v := range app.Vars {
+			obj := scope.Lookup(v.Value)
 			if obj == nil {
-				return fmt.Errorf("could not find identifier named %q", ident)
+				return fmt.Errorf("could not find identifier named %q", v.Value)
 			}
-			rhs := ident
+			rhs := v.Value
 			if va, ok := obj.(*types.Var); ok {
 				tn := va.Type().String()
 				if strings.Contains(tn, ".") {
 					tn = "interface{}"
 				}
-				rhs = fmt.Sprintf("func() %s { return %s }", tn, ident)
+				rhs = fmt.Sprintf("func() %s { return %s }", tn, v.Value)
 			}
-			fmt.Fprintf(&buf, "%q: %s,\n", name, rhs)
+			fmt.Fprintf(&buf, "%q: %s,\n", v.Name, rhs)
 		}
 		buf.WriteString("})\n")
 	}
-	var handlerNames []string
-	for k := range app.Handlers {
-		handlerNames = append(handlerNames, k)
-	}
-	sort.Strings(handlerNames)
-	for _, k := range handlerNames {
-		v := app.Handlers[k]
-		obj := scope.Lookup(k)
+	for _, v := range app.Handlers {
+		handlerFunc := v.Handler
+		if handlerFunc == "" {
+			panic(fmt.Errorf("missing handler in %+v", v))
+		}
+		obj := scope.Lookup(handlerFunc)
 		if obj == nil {
-			return fmt.Errorf("could not find handler named %q", k)
+			return fmt.Errorf("could not find handler named %q", handlerFunc)
 		}
-		if _, err := regexp.Compile(v); err != nil {
-			return fmt.Errorf("invalid pattern %q: %s", v, err)
+		if _, err := regexp.Compile(v.Path); err != nil {
+			return fmt.Errorf("invalid pattern %q: %s", v.Path, err)
 		}
-		switch obj.Type().String() {
-		case "*gnd.la/app.HandlerInfo", "gnd.la/app.HandlerInfo":
-			fmt.Fprintf(&buf, "App.HandleOptions(%q, %s.Handler, %s.Options)\n", v, obj.Name(), obj.Name())
-		default:
-			return fmt.Errorf("invalid handler type %s", obj.Type())
-		}
+		fmt.Fprintf(&buf, "App.Handle(%q, %s, app.NamedHandler(%s))\n", v.Path, handlerFunc, v.Name)
 	}
 	if app.Templates != nil {
 		if len(app.Templates.Functions) > 0 {
@@ -197,7 +201,7 @@ func Parse(dir string) (*App, error) {
 		return nil, fmt.Errorf("error reading %s: %s", appFilename, err)
 	}
 	var app *App
-	if err := yaml.Unmarshal(data, &app); err != nil {
+	if err := toml.Unmarshal(data, &app); err != nil {
 		return nil, err
 	}
 	app.Dir = dir

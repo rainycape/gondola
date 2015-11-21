@@ -20,11 +20,6 @@ var (
 	PackageTemplateName  = "package.html"
 	PackagesTemplateName = "packages.html"
 	SourceTemplateName   = "source.html"
-
-	ListHandler    = app.NamedHandler(ListHandlerName, listHandler)
-	StdListHandler = app.NamedHandler(StdListHandlerName, stdListHandler)
-	PackageHandler = app.NamedHandler(PackageHandlerName, packageHandler)
-	SourceHandler  = app.NamedHandler(SourceHandlerName, sourceHandler)
 )
 
 type breadcrumb struct {
@@ -41,7 +36,7 @@ func docContext(ctx *app.Context) doc.Context {
 	return doc.DefaultContext
 }
 
-func listHandler(ctx *app.Context) {
+func ListHandler(ctx *app.Context) {
 	var groups []*packageGroup
 	dctx := docContext(ctx)
 	for _, gr := range Groups {
@@ -74,7 +69,7 @@ func listHandler(ctx *app.Context) {
 	ctx.MustExecute(PackagesTemplateName, data)
 }
 
-func stdListHandler(ctx *app.Context) {
+func StdListHandler(ctx *app.Context) {
 	dctx := docContext(ctx)
 	allPkgs, err := dctx.ImportPackages(dctx.Join(dctx.GOROOT, "src"))
 	if err != nil {
@@ -102,7 +97,7 @@ func stdListHandler(ctx *app.Context) {
 	ctx.MustExecute(PackagesTemplateName, data)
 }
 
-func packageHandler(ctx *app.Context) {
+func PackageHandler(ctx *app.Context) {
 	dctx := docContext(ctx)
 	rel := ctx.IndexValue(0)
 	if rel[len(rel)-1] == '/' {

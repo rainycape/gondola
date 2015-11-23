@@ -5,6 +5,12 @@ path = "assets"
 
 [templates]
 path = "tmpl"
+vars = [
+    { name = "List", value = "ListHandlerName" },
+    { name = "StdList", value = "StdListHandlerName" },
+    { name = "Package", value = "PackageHandlerName" },
+    { name = "Source", value = "SourceHandlerName" },
+]
 
 [[handlers]]
 path = "^/$"
@@ -25,19 +31,3 @@ name = "PackageHandlerName"
 path = "^/src/(.+)"
 handler = "SourceHandler"
 name = "SourceHandlerName"
-
-[[vars]]
-name = "List"
-value = "ListHandlerName"
-
-[[vars]]
-name = "StdList"
-value = "StdListHandlerName"
-
-[[vars]]
-name = "Package"
-value = "PackageHandlerName"
-
-[[vars]]
-name = "Source"
-value = "SourceHandlerName"

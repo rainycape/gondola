@@ -14,7 +14,7 @@ import (
 
 	"golang.org/x/tools/go/types"
 
-	"github.com/BurntSushi/toml"
+	"github.com/naoina/toml"
 )
 
 const appFilename = "appfile.toml"
@@ -23,10 +23,16 @@ type Assets struct {
 	Path string `toml:"path"`
 }
 
+type Var struct {
+	Name  string `toml:"name"`
+	Value string `toml:"value"`
+}
+
 type Templates struct {
 	Path      string            `toml:"path"`
 	Functions map[string]string `toml:"functions"`
 	Hooks     map[string]string `toml:"hooks"`
+	Vars      []Var             `toml:"vars"`
 }
 
 type Translations struct {
@@ -39,16 +45,10 @@ type Handler struct {
 	Name    string `toml:"name"`
 }
 
-type Var struct {
-	Name  string `toml:"name"`
-	Value string `toml:"value"`
-}
-
 type App struct {
 	Dir          string
 	Name         string        `toml:"name"`
 	Handlers     []Handler     `toml:"handlers"`
-	Vars         []Var         `toml:"vars"`
 	Templates    *Templates    `toml:"templates"`
 	Translations *Translations `toml:"translations"`
 	Assets       *Assets       `toml:"assets"`
@@ -110,20 +110,27 @@ func (app *App) Gen(release bool) error {
 		buf.WriteString("App.Handle(\"^\"+prefix, app.HandlerFromHTTPFunc(manager.Handler()))\n")
 	}
 	scope := pkg.Scope()
-	if len(app.Vars) > 0 {
+	if app.Templates != nil && len(app.Templates.Vars) > 0 {
 		buf.WriteString("App.AddTemplateVars(map[string]interface{}{\n")
-		for _, v := range app.Vars {
-			obj := scope.Lookup(v.Value)
-			if obj == nil {
-				return fmt.Errorf("could not find identifier named %q", v.Value)
+		for _, v := range app.Templates.Vars {
+			if v.Name == "" {
+				return fmt.Errorf("missing var name in %v", v)
 			}
-			rhs := v.Value
+			value := v.Value
+			if value == "" {
+				value = v.Name
+			}
+			obj := scope.Lookup(value)
+			if obj == nil {
+				return fmt.Errorf("could not find identifier named %q", value)
+			}
+			rhs := value
 			if va, ok := obj.(*types.Var); ok {
 				tn := va.Type().String()
 				if strings.Contains(tn, ".") {
 					tn = "interface{}"
 				}
-				rhs = fmt.Sprintf("func() %s { return %s }", tn, v.Value)
+				rhs = fmt.Sprintf("func() %s { return %s }", tn, value)
 			}
 			fmt.Fprintf(&buf, "%q: %s,\n", v.Name, rhs)
 		}
@@ -200,10 +207,10 @@ func Parse(dir string) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading %s: %s", appFilename, err)
 	}
-	var app *App
+	var app App
 	if err := toml.Unmarshal(data, &app); err != nil {
 		return nil, err
 	}
 	app.Dir = dir
-	return app, nil
+	return &app, nil
 }

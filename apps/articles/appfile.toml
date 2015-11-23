@@ -2,6 +2,10 @@ name = "Articles"
 
 [templates]
 path = "tmpl"
+vars = [
+    { name = "Article", value = "ArticleHandlerName" },
+    { name = "List", value = "ArticleListHandlerName" },
+]
 
 [[handlers]]
 path = "^/(.+)/$"
@@ -12,11 +16,3 @@ name = "ArticleHandlerName"
 path = "^/$"
 handler = "ArticleListHandler"
 name = "ArticleListHandlerName"
-
-[[vars]]
-name = "Article"
-value = "ArticleHandlerName"
-
-[[vars]]
-name = "List"
-value = "ArticleListHandlerName"

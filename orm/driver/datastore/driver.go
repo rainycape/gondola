@@ -176,7 +176,7 @@ func (d *Driver) makeQuery(m driver.Model, q query.Q, opts *driver.QueryOptions)
 		if opts.Distinct {
 			dq = dq.Distinct()
 		}
-		for _, v := range opt.Sort {
+		for _, v := range opts.Sort {
 			field := v.Field()
 			if v.Direction() == driver.DESC {
 				field = "-" + field
@@ -184,10 +184,10 @@ func (d *Driver) makeQuery(m driver.Model, q query.Q, opts *driver.QueryOptions)
 			dq = dq.Order(field)
 		}
 		if opts.Limit >= 0 {
-			dq = dq.Limit(limit)
+			dq = dq.Limit(opts.Limit)
 		}
 		if opts.Offset > 0 {
-			dq = dq.Offset(limit)
+			dq = dq.Offset(opts.Offset)
 		}
 	}
 	return dq, nil

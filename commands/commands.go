@@ -250,7 +250,7 @@ func commandHelp(name string, maxLen int, w io.Writer) {
 	fmt.Fprintf(w, "%s:%s%s\n", name, strings.Repeat(" ", maxLen-len(name)), commands[name].help)
 	indent := strings.Repeat(" ", maxLen+1)
 	if usage := commands[name].usage; usage != "" {
-		fmt.Fprintf(w, "\n%sUsage: gondola %s %s\n", indent, name, usage)
+		fmt.Fprintf(w, "\n%sUsage: %s %s %s\n", indent, os.Args[0], name, usage)
 	}
 	if flags := commands[name].flags; len(flags) > 0 {
 		fmt.Fprintf(w, "\n%sAvailable flags for %v:\n", indent, name)

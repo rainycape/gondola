@@ -11,11 +11,12 @@ package cookies
 
 import (
 	"errors"
+	"net/http"
+	"time"
+
 	"gnd.la/crypto/cryptoutil"
 	"gnd.la/encoding/base64"
 	"gnd.la/encoding/codec"
-	"net/http"
-	"time"
 )
 
 const (

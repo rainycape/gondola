@@ -79,11 +79,10 @@ type transformer func([]byte) ([]byte, error)
 // Note that users will probably want to use gnd.la/app.Context.Cookies
 // rather than this function to create a Cookies instance.
 //
-// The secret parameter is used for secure (signed) cookies, while
-// encryptionKey is also used for encrypted cookies. If you don't use
-// secure nor encrypted cookies, you might leave both parameters empty.
-// If you only need signed cookies, you might leave encryptionKey
-// empty.
+// The signer parameter is used for secure (signed) cookies, while
+// encrypter is also used for encrypted cookies. If you don't use
+// secure nor encrypted cookies, you might pass nil both parameters.
+// If you only need signed cookies, you might pass nil for encrypter.
 //
 // The default parameter specifies the default Options for the funcions
 // which only take a name and a value. If you pass nil, Defaults will

@@ -31,7 +31,7 @@ func setupReverseTest() (*App, map[string]string) {
 	for ii, v := range regexpTests {
 		if _, ok := m[v.pattern]; !ok {
 			name := strconv.Itoa(ii)
-			a.HandleOptions(v.pattern, helloHandler, &HandlerOptions{Name: name})
+			a.Handle(v.pattern, helloHandler, NamedHandler(name))
 			m[v.pattern] = name
 		}
 	}

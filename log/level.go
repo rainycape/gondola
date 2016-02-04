@@ -68,3 +68,40 @@ func (l LLevel) Colorcode() string {
 	}
 	return "1;37" // White
 }
+
+var (
+	colorDebug   []byte
+	colorInfo    []byte
+	colorWarning []byte
+	colorError   []byte
+	colorPanic   []byte
+	colorWhite   []byte
+)
+
+func (l LLevel) colorBeginBytes() []byte {
+	switch l {
+	case LDebug:
+		return colorDebug
+	case LInfo:
+		return colorInfo
+	case LWarning:
+		return colorWarning
+	case LError:
+		return colorError
+	case LPanic, LFatal:
+		return colorPanic
+	}
+	return colorWhite
+}
+
+func init() {
+	makeColor := func(l LLevel) []byte {
+		return []byte("\x1b\x5b" + l.Colorcode() + "m")
+	}
+	colorDebug = makeColor(LDebug)
+	colorInfo = makeColor(LInfo)
+	colorWarning = makeColor(LWarning)
+	colorError = makeColor(LError)
+	colorPanic = makeColor(LPanic)
+	colorWhite = makeColor(LNone)
+}

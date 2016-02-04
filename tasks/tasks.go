@@ -32,13 +32,14 @@ var onListenTasks struct {
 
 // Task represent a scheduled task.
 type Task struct {
-	App      *app.App
-	Handler  app.Handler
-	Interval time.Duration
-	Options  *Options
-	ticker   *time.Ticker
-	stop     chan struct{}
-	stopped  chan struct{}
+	App          *app.App
+	Handler      app.Handler
+	Interval     time.Duration
+	MaxInstances int
+	name         string
+	ticker       *time.Ticker
+	stop         chan struct{}
+	stopped      chan struct{}
 }
 
 // Stop de-schedules the task. After stopping the task, it
@@ -63,8 +64,8 @@ func (t *Task) Resume(now bool) {
 
 // Name returns the task name.
 func (t *Task) Name() string {
-	if t.Options != nil && t.Options.Name != "" {
-		return t.Options.Name
+	if t.name != "" {
+		return t.name
 	}
 	return runtimeutil.FuncName(t.Handler)
 }
@@ -100,19 +101,6 @@ func (t *Task) execute(now bool) {
 			return
 		}
 	}
-}
-
-// Options are used to specify task options when registering them.
-type Options struct {
-	// Name indicates the task name, used for checking the number
-	// of instances running. If the task name is not provided, it's
-	// derived from the function. Two tasks with the same name are
-	// considered as equal, even if their functions are different.
-	Name string
-	// MaxInstances indicates the maximum number of instances of
-	// this function that can be simultaneously running. If zero,
-	// there is no limit.
-	MaxInstances int
 }
 
 func afterTask(ctx *app.Context, task *Task, started time.Time, terr *error) {
@@ -154,10 +142,8 @@ func numberOfInstances(task *Task) (int, error) {
 	running.Lock()
 	defer running.Unlock()
 	c := running.tasks[task]
-	if task.Options != nil && task.Options.MaxInstances > 0 {
-		if c >= task.Options.MaxInstances {
-			return 0, fmt.Errorf("not starting task %s because it's already running %d instances", task.Name(), c)
-		}
+	if task.MaxInstances > 0 && c >= task.MaxInstances {
+		return 0, fmt.Errorf("not starting task %s because it's already running %d instances", task.Name(), c)
 	}
 	if running.tasks == nil {
 		running.tasks = make(map[*Task]int)
@@ -184,8 +170,12 @@ func executeTask(ctx *app.Context, task *Task) (ran bool, err error) {
 // without scheduling it. If there was previously another task
 // registered with the same name, it will panic (use Task.Delete
 // previously to remove it).
-func Register(m *app.App, task app.Handler, opts *Options) *Task {
-	t := &Task{App: m, Handler: task, Options: opts}
+func Register(m *app.App, task app.Handler, opts ...optsFunc) *Task {
+	return register(m, task, prepareOptions(opts))
+}
+
+func register(m *app.App, task app.Handler, opts options) *Task {
+	t := &Task{App: m, Handler: task, MaxInstances: opts.MaxInstances, name: opts.Name}
 	registered.Lock()
 	defer registered.Unlock()
 	if registered.tasks == nil {
@@ -201,18 +191,19 @@ func Register(m *app.App, task app.Handler, opts *Options) *Task {
 
 // Schedule registers and schedules a task to be run at the given
 // interval. If interval is 0, the task is only registered, but not
-// scheduled. The onListen argument indicates if the task should also run
-// (in its own goroutine) as soon as the app starts listening rather than
-// waiting until interval for the first run. Note that on App Engine, the task
-// will be started when the first cron request comes in (these are usually scheduled
-// to run once a minute).
+// scheduled.
+//
+// Note that a scheduled task is run for the first time when interval passes.
+// If you want the task to be run when the *app.App starts listening, use
+// the RunOnListen option function.
 //
 // Schedule returns a Task instance, which might be used to stop, resume or delete a it.
-func Schedule(m *app.App, task app.Handler, opts *Options, interval time.Duration, onListen bool) *Task {
-	t := Register(m, task, opts)
+func Schedule(m *app.App, task app.Handler, interval time.Duration, opts ...optsFunc) *Task {
+	o := prepareOptions(opts)
+	t := register(m, task, o)
 	t.Interval = interval
 	go t.Resume(false)
-	if onListen {
+	if o.RunOnListen {
 		onListenTasks.Lock()
 		onListenTasks.tasks = append(onListenTasks.tasks, t)
 		onListenTasks.Unlock()

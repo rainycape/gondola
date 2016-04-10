@@ -12,6 +12,7 @@ import (
 	"gnd.la/blobstore/driver"
 	_ "gnd.la/blobstore/driver/file"
 	"gnd.la/config"
+	"gnd.la/log"
 )
 
 var (
@@ -110,6 +111,7 @@ func (s *Blobstore) CreateId(id string) (*WFile, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Debugf("[BLOBSTORE]: Created %v", id)
 	return &WFile{
 		id:       id,
 		file:     w,
@@ -167,7 +169,11 @@ func (s *Blobstore) StoreId(id string, b []byte, meta interface{}) (string, erro
 // Remove deletes the file with the given id.
 func (s *Blobstore) Remove(id string) error {
 	s.drv.Remove(s.metaName(id))
-	return s.drv.Remove(id)
+	err := s.drv.Remove(id)
+	if err == nil {
+		log.Debugf("[BLOBSTORE]: Removed %v", id)
+	}
+	return err
 }
 
 // Driver returns the underlying driver

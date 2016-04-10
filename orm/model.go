@@ -103,6 +103,9 @@ func (m *model) Map(qname string) (string, reflect.Type, error) {
 	if n, ok := m.fields.QNameMap[qname]; ok {
 		return m.fields.QuotedNames[n], m.fields.Types[n], nil
 	}
+	if qname != "" && unicode.IsLower(rune(qname[0])) {
+		return qname, nil, nil
+	}
 	return "", nil, errCantMap(qname)
 }
 

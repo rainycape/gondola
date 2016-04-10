@@ -2,11 +2,13 @@ package orm
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
+	"unicode"
+
 	"gnd.la/orm/driver"
 	"gnd.la/orm/index"
 	"gnd.la/orm/query"
-	"reflect"
-	"strings"
 )
 
 type JoinType int

@@ -3,9 +3,11 @@ package table
 import (
 	"bytes"
 	"compress/gzip"
-	"gnd.la/encoding/binary"
+	"fmt"
 	"io"
 	"strings"
+
+	"gnd.la/encoding/binary"
 )
 
 type Formula func(n int) int

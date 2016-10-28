@@ -67,6 +67,10 @@ func (t *Table) Encode() (string, error) {
 	if err := w.Close(); err != nil {
 		return "", err
 	}
+	_, err = Decode(buf.String())
+	if err != nil {
+		return "", fmt.Errorf("error testing encoding table data: %v", err)
+	}
 	return buf.String(), nil
 }
 

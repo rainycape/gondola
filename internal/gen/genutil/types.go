@@ -7,15 +7,12 @@ import (
 	"go/build"
 	"go/parser"
 	"go/token"
+	"go/types"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"gnd.la/internal/importer"
-
-	"golang.org/x/tools/go/types"
 )
 
 // Package represents a parsed package with all its
@@ -159,12 +156,9 @@ func NewPackage(path string) (*Package, error) {
 		p.files[v] = f
 		p.astFiles[ii] = f.ast
 	}
-	imp := importer.New()
-	imp.TypeCheckFuncBodies = func(_ string) bool { return false }
 	context := &types.Config{
 		IgnoreFuncBodies: true,
 		FakeImportC:      true,
-		Import:           imp.Import,
 		Error:            errorHandler,
 	}
 	ipath := pkg.ImportPath

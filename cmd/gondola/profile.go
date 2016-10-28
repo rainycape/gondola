@@ -133,13 +133,13 @@ func profileCommand(args *command.Args, opts *profileOptions) error {
 		}
 		if err == errAuthRequired {
 			fmt.Printf("Enter secret for %s: ", host)
-			secret = string(gopass.GetPasswd())
+			secret = getPasswd()
 			fmt.Println("")
 			continue
 		}
 		if err == errAuthFailed {
 			fmt.Printf("Incorrect secret\nEnter secret for %s: ", host)
-			secret = string(gopass.GetPasswd())
+			secret = getPasswd()
 			fmt.Println("")
 			continue
 		}
@@ -179,6 +179,14 @@ func pad(s string, width int) string {
 		return s + strings.Repeat(" ", width-len(s))
 	}
 	return s
+}
+
+func getPasswd() string {
+	p, err := gopass.GetPasswd()
+	if err != nil {
+		panic(err)
+	}
+	return string(p)
 }
 
 func formatNotes(notes []*profile.Note, width int) []string {

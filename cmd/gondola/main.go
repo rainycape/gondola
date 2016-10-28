@@ -29,19 +29,6 @@ var (
 			Options: &newOptions{Template: "hello"},
 		},
 		{
-			Name:     "build",
-			Help:     "Build packages",
-			Usage:    "[package-1] [package-2] ... [package-n]",
-			LongHelp: buildHelp,
-			Func:     buildCommand,
-			Options:  &buildOptions{Go: "go"},
-		},
-		{
-			Name: "clean",
-			Help: "Cleans any Gondola packages which use conditional compilation - DO THIS BEFORE BUILDING A BINARY FOR DEPLOYMENT - see golang.org/issue/3172",
-			Func: cleanCommand,
-		},
-		{
 			Name:    "profile",
 			Help:    "Show profiling information for a remote server running a Gondola app",
 			Usage:   "<url>",
@@ -84,12 +71,6 @@ var (
 			Help:    "Compiles all po files from the current directory and its subdirectories",
 			Func:    compileMessagesCommand,
 			Options: &compileMessagesOptions{Out: "messages.go", Messages: "_messages"},
-		},
-		{
-			Name:    "gen",
-			Help:    "Perform code generation in the current directory according the rules in the config file",
-			Func:    genCommand,
-			Options: &genOptions{Genfile: "genfile.yaml"},
 		},
 		{
 			Name:    "gae-dev",

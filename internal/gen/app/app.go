@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"fmt"
+	"go/types"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
@@ -11,8 +12,6 @@ import (
 	"gnd.la/internal/gen/genutil"
 	"gnd.la/internal/vfsutil"
 	"gnd.la/log"
-
-	"golang.org/x/tools/go/types"
 
 	"github.com/naoina/toml"
 )
@@ -28,11 +27,21 @@ type Var struct {
 	Value string `toml:"value"`
 }
 
+type Hook struct {
+	Name     string `toml:"name"`
+	Position string `toml:"position"`
+}
+
+type TemplateFunc struct {
+	Name   string `toml:"name"`
+	GoFunc string `toml:"fn"`
+}
+
 type Templates struct {
-	Path      string            `toml:"path"`
-	Functions map[string]string `toml:"functions"`
-	Hooks     map[string]string `toml:"hooks"`
-	Vars      []Var             `toml:"vars"`
+	Path      string         `toml:"path"`
+	Functions []TemplateFunc `toml:"functions"`
+	Hooks     []Hook         `toml:"hooks"`
+	Vars      []Var          `toml:"vars"`
 }
 
 type Translations struct {
@@ -148,17 +157,21 @@ func (app *App) Gen(release bool) error {
 		if _, err := regexp.Compile(v.Path); err != nil {
 			return fmt.Errorf("invalid pattern %q: %s", v.Path, err)
 		}
-		fmt.Fprintf(&buf, "App.Handle(%q, %s, app.NamedHandler(%s))\n", v.Path, handlerFunc, v.Name)
+		handlerName := v.Name
+		if handlerName == "" {
+			handlerName = handlerFunc + "Name"
+		}
+		fmt.Fprintf(&buf, "App.Handle(%q, %s, app.NamedHandler(%s))\n", v.Path, handlerFunc, handlerName)
 	}
 	if app.Templates != nil {
 		if len(app.Templates.Functions) > 0 {
 			buf.WriteString("template.AddFuncs(template.FuncMap{\n")
-			for k, v := range app.Templates.Functions {
-				obj := scope.Lookup(v)
+			for _, v := range app.Templates.Functions {
+				obj := scope.Lookup(v.GoFunc)
 				if obj == nil {
-					return fmt.Errorf("could not find function named %q for template function %q", v, k)
+					return fmt.Errorf("could not find function named %q for template function %q", v.GoFunc, v.Name)
 				}
-				fmt.Fprintf(&buf, "%q: %s,\n", k, v)
+				fmt.Fprintf(&buf, "%q: %s,\n", v.Name, v.GoFunc)
 			}
 			buf.WriteString("})\n")
 		}
@@ -169,9 +182,9 @@ func (app *App) Gen(release bool) error {
 			}
 			buf.WriteString("App.SetTemplatesFS(templatesFS)\n")
 			re := regexp.MustCompile("\\W")
-			for k, v := range app.Templates.Hooks {
+			for _, v := range app.Templates.Hooks {
 				var pos string
-				switch strings.ToLower(v) {
+				switch strings.ToLower(v.Position) {
 				case "top":
 					pos = "assets.Top"
 				case "bottom":
@@ -179,9 +192,9 @@ func (app *App) Gen(release bool) error {
 				case "none":
 					pos = "assets.None"
 				default:
-					return fmt.Errorf("invalid hook position %q", v)
+					return fmt.Errorf("invalid hook position %q", v.Position)
 				}
-				suffix := re.ReplaceAllString(k, "_")
+				suffix := re.ReplaceAllString(v.Name, "_")
 				name := fmt.Sprintf("tmpl_%s", suffix)
 				fmt.Fprintf(&buf, "%s := template.New(templatesFS, manager)\n", name)
 				fmt.Fprintf(&buf, "%s.Funcs(map[string]interface{}{\n", name)
@@ -190,7 +203,7 @@ func (app *App) Gen(release bool) error {
 					fmt.Fprintf(&buf, "\"%s\": func(_ ...interface{}) interface{} { return nil },\n", v)
 				}
 				buf.WriteString("})\n")
-				fmt.Fprintf(&buf, "if err := %s.Parse(%q); err != nil {\npanic(err)\n}\n", name, k)
+				fmt.Fprintf(&buf, "if err := %s.Parse(%q); err != nil {\npanic(err)\n}\n", name, v.Name)
 				fmt.Fprintf(&buf, "App.AddHook(&template.Hook{Template: %s, Position: %s})\n", name, pos)
 			}
 		}

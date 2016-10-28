@@ -30,6 +30,7 @@ import (
 	"gnd.la/internal/runtimeutil"
 	"gnd.la/log"
 	"gnd.la/util/generic"
+	"gnd.la/util/stringutil"
 
 	"github.com/rainycape/browser"
 	"github.com/rainycape/command"
@@ -80,10 +81,6 @@ func exitStatus(p *os.ProcessState) int {
 
 func cmdString(cmd *exec.Cmd) string {
 	return strings.Join(cmd.Args, " ")
-}
-
-func supportsRace() bool {
-	return runtime.GOARCH == "amd64" && (runtime.GOOS == "linux" || runtime.GOOS == "darwin" || runtime.GOOS == "windows")
 }
 
 func randomFreePort() int {
@@ -147,7 +144,7 @@ type Project struct {
 	dir          string
 	configPath   string
 	tags         string
-	race         bool
+	goFlags      string
 	noDebug      bool
 	noCache      bool
 	profile      bool
@@ -430,17 +427,36 @@ func (p *Project) GoCmd(args ...string) *exec.Cmd {
 
 func (p *Project) CompilerCmd() *exec.Cmd {
 	// -e reports all the errors
-	args := []string{"build", "-gcflags", "-e"}
-	if p.race && supportsRace() {
-		args = append(args, "-race")
+	gcflags := []string{"-e"}
+	args := []string{"build"}
+	if p.goFlags != "" {
+		fields, err := stringutil.SplitFields(p.goFlags, " ")
+		if err != nil {
+			panic(fmt.Errorf("error parsing -goflags: %v", err))
+		}
+		for ii := 0; ii < len(fields); ii++ {
+			field := fields[ii]
+			if field == "-gcflags" {
+				subFields, err := stringutil.SplitFields(fields[ii+1], " ")
+				if err != nil {
+					panic(fmt.Errorf("error parsing -gcflags: %v", err))
+				}
+				gcflags = append(gcflags, subFields...)
+				ii++
+				continue
+			}
+			args = append(args, field)
+		}
 	}
+	args = append(args, "-gcflags")
+	args = append(args, strings.Join(gcflags, " "))
 	args = append(args, p.buildTags()...)
 	lib := filepath.Join(p.dir, "lib")
 	if st, err := os.Stat(lib); err == nil && st.IsDir() {
 		// If there's a lib directory, add it to rpath
 		args = append(args, []string{"-ldflags", "-r lib"}...)
 	}
-	cmd := exec.Command("gondola", args...)
+	cmd := exec.Command("go", args...)
 	cmd.Dir = p.dir
 	return cmd
 }
@@ -469,7 +485,9 @@ func (p *Project) Build() {
 		log.Infof("Building %s (%s)", p.Name(), cmdString(cmd))
 	}
 	var buf bytes.Buffer
-	cmd.Stderr = &buf
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = io.MultiWriter(&buf, os.Stderr)
 	err := p.buildCmd.Run()
 	p.Lock()
 	defer p.Unlock()
@@ -479,7 +497,6 @@ func (p *Project) Build() {
 	}
 	p.buildCmd = nil
 	p.built = time.Now().UTC()
-	os.Stderr.Write(buf.Bytes())
 	if err != nil {
 		exitErr, ok := err.(*exec.ExitError)
 		if !ok {
@@ -499,9 +516,21 @@ func (p *Project) Build() {
 				}
 				log.Panic(err)
 			}
-			if strings.HasPrefix(eline, "#") {
+			var be *BuildError
+			switch {
+			case strings.HasPrefix(eline, "package "):
+				// package level error, like cyclic or non-allowed
+				// (e.g. internal) imports. We need to create an error
+				// now, since this line will usually be followed by
+				// lines starting with \t
+				pkg = strings.TrimSpace(eline[len("package"):])
+				be = &BuildError{
+					Error: strings.TrimSpace(eline),
+				}
+			case strings.HasPrefix(eline, "#"):
+				// Package name before file level errors
 				pkg = strings.TrimSpace(eline[1:])
-			} else if strings.HasPrefix(eline, "\t") {
+			case strings.HasPrefix(eline, "\t"):
 				// Info related to the previous error. Let it
 				// crash if we don't have a previous error, just
 				// in case there are any circumstances where a line
@@ -509,23 +538,33 @@ func (p *Project) Build() {
 				// This way the problem will be easier to catch.
 				be := p.errors[len(p.errors)-1]
 				be.Error += fmt.Sprintf(" (%s)", strings.TrimSpace(eline))
-			} else {
+			default:
 				parts := strings.SplitN(eline, ":", 3)
-				filename := filepath.Clean(filepath.Join(p.dir, parts[0]))
-				line, err := strconv.Atoi(parts[1])
-				if err != nil {
-					// Not a line number, show error message
-					p.errors = append(p.errors, &BuildError{
-						Error: eline,
-					})
-					continue
+				if len(parts) == 3 {
+					// file level error => filename:line:error
+					filename := filepath.Clean(filepath.Join(p.dir, parts[0]))
+					line, err := strconv.Atoi(parts[1])
+					if err != nil {
+						// Not a line number, show error message
+						be = &BuildError{
+							Error: strings.TrimSpace(eline),
+						}
+						break
+					}
+					be = &BuildError{
+						Filename: filename,
+						Line:     line,
+						Error:    strings.TrimSpace(parts[2]),
+					}
+				} else {
+					// Unknown error, just show the error message
+					be = &BuildError{
+						Error: strings.TrimSpace(eline),
+					}
 				}
-				be := &BuildError{
-					Package:  pkg,
-					Filename: filename,
-					Line:     line,
-					Error:    strings.TrimSpace(parts[2]),
-				}
+			}
+			if be != nil {
+				be.Package = pkg
 				p.errors = append(p.errors, be)
 			}
 		}
@@ -545,9 +584,6 @@ func (p *Project) Build() {
 	go func() {
 		args := []string{"test", "-i"}
 		args = append(args, p.buildTags()...)
-		if p.race && supportsRace() {
-			args = append(args, "-race")
-		}
 		p.GoCmd(args...).Run()
 	}()
 }
@@ -676,9 +712,9 @@ type devOptions struct {
 	NoDebug   bool   `name:"no-debug" help:"Disable AppDebug, TemplateDebug and LogDebug - see gnd.la/config for details"`
 	NoCache   bool   `name:"no-cache" help:"Disables the cache when running the project"`
 	Profile   bool   `help:"Compiles and runs the project with profiling enabled"`
-	Race      bool   `help:"Enable -race when building. If the platform does not support -race, this option is ignored"`
 	NoBrowser bool   `name:"no-browser" help:"Don't open the default browser when starting the development server"`
 	Verbose   bool   `name:"v" help:"Enable verbose output"`
+	GoFlags   string `name:"goflags" help:"Extra flags to pass to the go command when building the app"`
 }
 
 func devCommand(args *command.Args, opts *devOptions) error {
@@ -705,11 +741,10 @@ func devCommand(args *command.Args, opts *devOptions) error {
 	p := NewProject(path, configPath)
 	p.port = opts.Port
 	p.tags = opts.Tags
-	p.race = opts.Race
+	p.goFlags = opts.GoFlags
 	p.noDebug = opts.NoDebug
 	p.noCache = opts.NoCache
 	p.profile = opts.Profile
-	clean(dir)
 	go p.Build()
 	eof := "C"
 	if runtime.GOOS == "windows" {

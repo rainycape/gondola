@@ -9,6 +9,8 @@ import (
 	"gnd.la/util/types"
 )
 
+//go:generate gondola compile-messages
+
 var (
 	alphanumericRe = regexp.MustCompile("^[a-zA-Z0-9]+$")
 )

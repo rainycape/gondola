@@ -18,6 +18,8 @@ import (
 	"gnd.la/util/types"
 )
 
+//go:generate gondola compile-messages
+
 var (
 	formTags = []string{"form", "gondola"}
 )

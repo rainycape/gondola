@@ -36,12 +36,6 @@ var (
 			Options: &profileOptions{Method: "GET"},
 		},
 		{
-			Name:    "gen-app",
-			Help:    "Generate boilerplate code for a Gondola app from the appfile.yaml file",
-			Func:    genAppCommand,
-			Options: &genAppOptions{},
-		},
-		{
 			Name:    "bake",
 			Help:    "Converts all assets in <dir> into Go code and generates a VFS named with <name>",
 			Usage:   "-dir=<dir> -name=<name> ... additional flags",

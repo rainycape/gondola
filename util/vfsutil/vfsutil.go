@@ -1,10 +1,9 @@
-// Package vfsutil implements utility functions for working
-// with virtual filesystems.
+// Package vfsutil contains small utility functions for working with
+// virtual filesystems. See the docs for github.com/rainycape/vfs
+// for more information.
 package vfsutil
 
 import (
-	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"path"
@@ -14,7 +13,13 @@ import (
 	"gnd.la/log"
 )
 
-func MemFromDir(dir string) vfs.VFS {
+// VFS is just an alias for github.com/rainycape/vfs.VFS, to
+// avoid importing the latter.
+type VFS interface {
+	vfs.VFS
+}
+
+func MemFromDir(dir string) VFS {
 	fs, err := vfs.FS(dir)
 	if err != nil {
 		panic(err)
@@ -26,24 +31,24 @@ func MemFromDir(dir string) vfs.VFS {
 	return mem
 }
 
-func OpenBaked(s string) vfs.VFS {
-	fs, err := vfs.TarGzip(strings.NewReader(s))
+// OpenBaked opens a VFS baked into a string using gondola bake
+func OpenBaked(s string) (VFS, error) {
+	return vfs.TarGzip(strings.NewReader(s))
+}
+
+// MustOpenBaked is a shorthand for OpenBaked() which panics.
+func MustOpenBaked(s string) VFS {
+	fs, err := OpenBaked(s)
 	if err != nil {
 		panic(err)
 	}
 	return fs
 }
 
-func BakedFS(w io.Writer, dir string, extensions []string) error {
-	var buf bytes.Buffer
-	if err := Bake(&buf, dir, extensions); err != nil {
-		return err
-	}
-	_, err := fmt.Fprintf(w, "vfsutil.OpenBaked(%q)\n", buf.String())
-	return err
-
-}
-
+// Bake writes the data for a VFS generated from dir to the given
+// io.Writer. The extensions argument can be used to limit the
+// files included in the VFS by their extension. If empty, all
+// files are included.
 func Bake(w io.Writer, dir string, extensions []string) error {
 	fs, err := vfs.FS(dir)
 	if err != nil {

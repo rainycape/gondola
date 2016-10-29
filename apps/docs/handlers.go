@@ -172,9 +172,3 @@ func packageDir(dctx doc.Context, p string) string {
 	}
 	return dctx.Join(dctx.GOROOT, "src", "pkg", p)
 }
-
-func init() {
-	doc.DefaultContext.App = App
-	doc.DefaultContext.DocHandlerName = PackageHandlerName
-	doc.DefaultContext.SourceHandlerName = SourceHandlerName
-}

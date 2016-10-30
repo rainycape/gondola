@@ -1,5 +1,7 @@
 package main
 
+//go:generate gondola bake -vfs -dir ../../app/_assets
+
 import (
 	"bufio"
 	"bytes"
@@ -128,7 +130,7 @@ func NewProject(dir string, config string) *Project {
 	a := app.New()
 	a.Config().Port = 8888
 	a.Logger = nil
-	a.SetTemplatesFS(devAssets)
+	a.SetTemplatesFS(_assetsFS)
 	a.Handle("/_gondola_dev_server_status", p.StatusHandler)
 	a.Handle("/", p.Handler)
 	p.App = a

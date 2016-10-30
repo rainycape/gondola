@@ -40,6 +40,8 @@ func bakeCommand(_ *command.Args, opts *bakeOptions) error {
 	if opts.Out == "" {
 		opts.Out = filepath.Base(opts.Dir) + "_baked.go"
 	}
+	// go ignores files starting with _
+	opts.Out = strings.TrimLeft(opts.Out, "_")
 	extensions = append(extensions, strings.Split(opts.Extensions, ",")...)
 	var buf bytes.Buffer
 	odir := filepath.Dir(opts.Out)

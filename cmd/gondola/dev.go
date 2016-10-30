@@ -763,7 +763,10 @@ func devCommand(args *command.Args, opts *devOptions) error {
 					}
 				}
 			}
-			browser.Open(fmt.Sprintf("http://%s:%d", host, p.port))
+			url := fmt.Sprintf("http://%s:%d", host, p.port)
+			if err := browser.Open(url); err != nil {
+				log.Errorf("error opening browser: open %s manually (error was %s)", url, err)
+			}
 		})
 	}
 	p.Listen()

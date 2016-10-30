@@ -18,7 +18,7 @@ import (
 
 type bakeOptions struct {
 	Dir        string `help:"Root directory with the files to bake"`
-	Name       string `help:"Variable name of the baked files. If empty, defaults to <dir>Data."`
+	Name       string `help:"Variable name of the baked files. If empty, defaults to <dir>Data for data or <dir>FS for VFS."`
 	VFS        bool   `help:"Wheter to generate a vfs.VFS variable or just an string which can be passed to VFS related functions" name:"vfs"`
 	Out        string `name:"o" help:"Output filename. If empty, defaults to <dir>_baked.go"`
 	Extensions string `name:"ext" help:"Additional extensions (besides html, css and js) to include, separated by commas"`
@@ -30,7 +30,12 @@ func bakeCommand(_ *command.Args, opts *bakeOptions) error {
 		return errors.New("dir can't be empty")
 	}
 	if opts.Name == "" {
-		opts.Name = filepath.Base(opts.Dir) + "Data"
+		base := filepath.Base(opts.Dir)
+		if opts.VFS {
+			opts.Name = base + "FS"
+		} else {
+			opts.Name = base + "Data"
+		}
 	}
 	if opts.Out == "" {
 		opts.Out = filepath.Base(opts.Dir) + "_baked.go"

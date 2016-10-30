@@ -23,13 +23,10 @@ import (
 	"syscall"
 	"time"
 
-	"gopkg.in/fsnotify.v1"
-
 	"gnd.la/app"
 	"gnd.la/config"
 	"gnd.la/internal/runtimeutil"
 	"gnd.la/log"
-	"gnd.la/util/generic"
 	"gnd.la/util/stringutil"
 
 	"github.com/rainycape/browser"
@@ -154,7 +151,7 @@ type Project struct {
 	buildCmd     *exec.Cmd
 	errors       []*BuildError
 	cmd          *exec.Cmd
-	watcher      *fsnotify.Watcher
+	watcher      *fsWatcher
 	built        time.Time
 	started      time.Time
 	// runtime info
@@ -238,86 +235,38 @@ func (p *Project) StopMonitoring() {
 }
 
 func (p *Project) StartMonitoring() error {
-	watcher, err := fsnotify.NewWatcher()
+	watcher, err := newFSWatcher()
 	if err != nil {
 		return err
 	}
-	var toWatch []string
-	switch runtime.GOOS {
-	case "darwin":
-		// Watch GOROOT, GOPATH and the project dir. Any modification
-		// to those dirs is likely to require a rebuild. The reason we
-		// don't watch each pkg dir is because watch events are recursive
-		// in OS X and watching all dirs will cause the process to open too many files.
-		toWatch = []string{build.Default.GOROOT, build.Default.GOPATH, p.dir}
-	default:
-		pkgs, err := p.Packages()
-		if err != nil && len(pkgs) == 0 {
-			// TODO: Show the packages which failed to be monitored
-			return err
-		}
-		toWatch = generic.Map(pkgs, func(pkg *build.Package) string { return pkg.Dir }).([]string)
+	pkgs, err := p.Packages()
+	if err != nil && len(pkgs) == 0 {
+		// TODO: Show the packages which failed to be monitored
+		return err
 	}
-	for _, v := range toWatch {
-		if err := watcher.Add(v); err != nil {
-			return err
-		}
+	watcher.IsValidFile = func(path string) bool {
+		return path == p.configPath || isSource(path)
 	}
-	watcher.Add(p.configPath)
-	p.watcher = watcher
-	go func() {
-		var t *time.Timer
-	finished:
-		for {
-			select {
-			case ev, ok := <-watcher.Events:
-				if !ok {
-					// Closed
-					break finished
-				}
-				if ev.Op == fsnotify.Chmod {
-					break
-				}
-				if ev.Name == p.configPath {
-					if ev.Op == fsnotify.Remove {
-						// It seems the Watcher stops watching a file
-						// if it receives a DELETE event for it. For some
-						// reason, some editors generate a DELETE event
-						// for a file when saving it, so we must watch the
-						// file again. Since fsnotify is in exp/ and its
-						// API might change, remove the watch first, just
-						// in case.
-						watcher.Remove(ev.Name)
-						watcher.Add(ev.Name)
-					} else {
-						log.Infof("Config file %s changed, restarting...", p.configPath)
-						if err := p.Stop(); err != nil {
-							log.Errorf("Error stopping %s: %s", p.Name(), err)
-							break
-						}
-						if err := p.Start(); err != nil {
-							log.Panicf("Error starting %s: %s", p.Name(), err)
-						}
-					}
-					break
-				}
-				if isSource(ev.Name) {
-					if t != nil {
-						t.Stop()
-					}
-					t = time.AfterFunc(50*time.Millisecond, func() {
-						p.Build()
-					})
-				}
-			case err := <-watcher.Errors:
-				if err == nil {
-					// Closed
-					break finished
-				}
-				log.Errorf("Error watching: %s", err)
+	watcher.Changed = func(path string) {
+		if path == p.configPath {
+			log.Infof("Config file %s changed, restarting...", p.configPath)
+			if err := p.Stop(); err != nil {
+				log.Errorf("Error stopping %s: %s", p.Name(), err)
 			}
+			if err := p.Start(); err != nil {
+				log.Panicf("Error starting %s: %s", p.Name(), err)
+			}
+		} else {
+			p.Build()
 		}
-	}()
+	}
+	if err := watcher.AddPackages(pkgs); err != nil {
+		return err
+	}
+	if err := watcher.Add(p.configPath); err != nil {
+		return err
+	}
+	p.watcher = watcher
 	return nil
 }
 

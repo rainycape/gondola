@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"go/build"
 	"io/ioutil"
 	"os"
@@ -153,11 +152,6 @@ func (w *fsWatcher) poll() {
 }
 
 func (w *fsWatcher) doPolling() {
-	a := time.Now()
-	fmt.Println("WILL POLL", a)
-	defer func() {
-		fmt.Println("DID POLL", time.Now().Sub(a))
-	}()
 	// Copy the map, since we might add entries to
 	// it while iterating
 	watched := make(map[string]time.Time)

@@ -39,7 +39,7 @@ type DocsApp struct {
 
 func New() *DocsApp {
 	a := &DocsApp{
-		ReusableApp: apputil.NewReusableApp("Docs"),
+		ReusableApp: apputil.NewReusableApp(appName),
 	}
 	a.Prefix = "/doc/"
 	reverseDoc := func(s string) string { return a.MustReverse(PackageHandlerName, s) }

@@ -17,6 +17,7 @@ import (
 	"gnd.la/form/input"
 	"gnd.la/i18n/table"
 	"gnd.la/internal"
+	"gnd.la/kvs"
 	"gnd.la/log"
 	"gnd.la/net/urlutil"
 	"gnd.la/orm"
@@ -49,7 +50,7 @@ type Context struct {
 	hasTranslations bool
 	background      bool
 	wg              *sync.WaitGroup
-	values          map[string]interface{}
+	kv              kvs.KVS
 }
 
 func (c *Context) reset() {
@@ -61,7 +62,7 @@ func (c *Context) reset() {
 	c.user = nil
 	c.translations = nil
 	c.hasTranslations = false
-	c.values = nil
+	c.kv.Clear()
 }
 
 // Count returns the number of elements captured
@@ -241,7 +242,7 @@ func (c *Context) Redirect(redir string, permanent bool) {
 }
 
 func (c *Context) boolValue(key string) bool {
-	if val, ok := c.values[key].(bool); ok {
+	if val, ok := c.kv.Get(key).(bool); ok {
 		return val
 	}
 	return false
@@ -570,25 +571,6 @@ func (c *Context) Wait() {
 	if c.wg != nil {
 		c.wg.Wait()
 	}
-}
-
-// Get returns the value for the given key, previously stored
-// with Set.
-func (c *Context) Get(key string) interface{} {
-	return c.values[key]
-}
-
-// Set stores an arbitraty value associated with the given
-// key.
-//
-// Note that any keys used internally by Gondola will
-// have the __gondola prefix, so users should not use keys
-// starting with that string.
-func (c *Context) Set(key string, value interface{}) {
-	if c.values == nil {
-		c.values = make(map[string]interface{})
-	}
-	c.values[key] = value
 }
 
 // Logger returns a Logger which allows logging mesages in several

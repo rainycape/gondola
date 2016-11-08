@@ -31,6 +31,7 @@ import (
 	"gnd.la/internal"
 	"gnd.la/internal/runtimeutil"
 	"gnd.la/internal/templateutil"
+	"gnd.la/kvs"
 	"gnd.la/log"
 	"gnd.la/net/mail"
 	"gnd.la/orm"
@@ -176,8 +177,6 @@ type App struct {
 
 	// config received in New or defaultConfig, never nil
 	cfg *Config
-	// used for Get/Set
-	values map[string]interface{}
 
 	handlers           []*handlerInfo
 	trustXHeaders      bool
@@ -199,6 +198,7 @@ type App struct {
 	c                  *cache.Cache
 	o                  *orm.Orm
 	store              *blobstore.Blobstore
+	kv                 kvs.KVS
 	prepared           bool
 
 	// Used for included apps
@@ -1337,26 +1337,6 @@ func (app *App) EncryptSigner(salt []byte) (*cryptoutil.EncryptSigner, error) {
 	}, nil
 }
 
-// Get returns the value for the given key, previously stored
-// with Set.
-func (app *App) Get(key string) interface{} {
-	return app.values[key]
-}
-
-// Set stores an arbitraty value associated with the given
-// key. This is mainly used for reusable apps which require
-// storing some global state related to the app.
-//
-// Note that any keys used internally by Gondola will
-// have the __gondola prefix, so users should not use keys
-// starting with that string.
-func (app *App) Set(key string, value interface{}) {
-	if app.values == nil {
-		app.values = make(map[string]interface{})
-	}
-	app.values[key] = value
-}
-
 // Clone returns a copy of the *App. This is mainly useful for including an
 // app multiple times. Note that cloning an App which has been already included
 // is considered a programming error and will result in a panic.
@@ -1365,10 +1345,7 @@ func (app *App) Clone() *App {
 		panic(fmt.Errorf("can't clone app %s, it has been already included", app.name))
 	}
 	a := *app
-	a.values = make(map[string]interface{}, len(app.values))
-	for k, v := range app.values {
-		a.values[k] = v
-	}
+	a.kv = *(a.kv.Copy())
 	return &a
 }
 

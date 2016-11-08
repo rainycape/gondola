@@ -248,7 +248,7 @@ func (c *Context) boolValue(key string) bool {
 	return false
 }
 
-// Cached() returns true if the request was cached by a cache layer.
+// Cached returns true if the request was cached by a cache layer.
 // See gnd.la/cache/layer for more information.
 func (c *Context) Cached() bool {
 	return c.boolValue(internal.LayerCachedKey)

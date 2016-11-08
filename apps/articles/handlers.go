@@ -21,7 +21,7 @@ const (
 func ArticleHandler(ctx *app.Context) {
 	slug := ctx.IndexValue(0)
 	var art *article.Article
-	articles := AppArticles(ctx.App())
+	articles := getArticles(ctx)
 	for _, v := range articles {
 		if v.Slug() == slug {
 			art = v
@@ -68,7 +68,7 @@ func ArticleHandler(ctx *app.Context) {
 
 func ArticleListHandler(ctx *app.Context) {
 	data := map[string]interface{}{
-		"Articles": AppArticles(ctx.App()),
+		"Articles": getArticles(ctx),
 		"Title":    ctx.App().Name(),
 	}
 	ctx.MustExecute("list.html", data)

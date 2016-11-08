@@ -32,7 +32,10 @@ func reverseAppArticle(a *app.App, article interface{}) (string, error) {
 
 func reverseAppsArticle(a *app.App, art interface{}, checked map[*app.App]bool) (string, error) {
 	checked[a] = true
-	articles := AppArticles(a)
+	var articles []*article.Article
+	if aa := getArticlesApp(a); aa != nil {
+		articles = aa.Articles
+	}
 	switch x := art.(type) {
 	case string:
 		for _, v := range articles {

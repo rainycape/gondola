@@ -23,17 +23,6 @@ var (
 	}
 )
 
-// AppArticles returns the articles loaded into the given App, or
-// nil if no articles were loaded into it.
-func AppArticles(a *app.App) []*article.Article {
-	articles, _ := a.Get(articlesKey).([]*article.Article)
-	return articles
-}
-
-func setAppArticles(a *app.App, articles []*article.Article) {
-	a.Set(articlesKey, articles)
-}
-
 // List returns the articles found in the given directory in
 // the fs argument, recursively.
 func List(fs vfs.VFS, dir string) ([]*article.Article, error) {
@@ -62,6 +51,33 @@ func List(fs vfs.VFS, dir string) ([]*article.Article, error) {
 		}
 		articles = append(articles, article)
 	}
+	sortArticles(articles)
+	return articles, nil
+}
+
+// Load loads articles from the given directory in the given fs
+// into the given app.
+func (a *ArticlesApp) Load(fs vfs.VFS, dir string) ([]*article.Article, error) {
+	articles, err := List(fs, dir)
+	if err != nil {
+		return nil, err
+	}
+	a.Articles = append(a.Articles, articles...)
+	sortArticles(a.Articles)
+	return articles, nil
+}
+
+// LoadDir works like Load, but loads the articles from the given directory
+// in the local filesystem.
+func (a *ArticlesApp) LoadDir(dir string) ([]*article.Article, error) {
+	fs, err := vfs.FS(dir)
+	if err != nil {
+		return nil, err
+	}
+	return a.Load(fs, "/")
+}
+
+func sortArticles(articles []*article.Article) {
 	generic.SortFunc(articles, func(a1, a2 *article.Article) bool {
 		if a1.Priority < a2.Priority {
 			return true
@@ -71,26 +87,11 @@ func List(fs vfs.VFS, dir string) ([]*article.Article, error) {
 		}
 		return a1.Title() < a2.Title()
 	})
-	return articles, nil
 }
 
-// Load loads articles from the given directory in the given fs
-// into the given app.
-func Load(a *app.App, fs vfs.VFS, dir string) ([]*article.Article, error) {
-	articles, err := List(fs, dir)
-	if err != nil {
-		return nil, err
+func getArticles(ctx *app.Context) []*article.Article {
+	if a := getArticlesApp(ctx.App()); a != nil {
+		return a.Articles
 	}
-	setAppArticles(a, articles)
-	return articles, nil
-}
-
-// LoadDir works like Load, but loads the articles from the given directory
-// in the local filesystem.
-func LoadDir(a *app.App, dir string) ([]*article.Article, error) {
-	fs, err := vfs.FS(dir)
-	if err != nil {
-		return nil, err
-	}
-	return Load(a, fs, "/")
+	return nil
 }

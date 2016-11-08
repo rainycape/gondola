@@ -10,7 +10,7 @@
 // import gnd.la/template/markdown, like e.g.
 //
 //  import (
-//	_ "gnd.la/template/markdown"
+//	    _ "gnd.la/template/markdown"
 //  )
 //
 // Each file is composed of first the article text and then a set of properties
@@ -40,30 +40,15 @@
 // This package also adds a template function named reverse_article. It can be used to find the
 // URL of an article from its id. e.g.
 //
-//  {{ reverse_article "article-id" }}
+//      {{ reverse_article "article-id" }}
 //
 // The typical usage of this application is as follows:
 //
-//  myapp.Include("/articles/", articles.App, "articles-base.html")
-//  if _, err := articles.LoadDir(articles.App, pathutil.Relative("articles")); err != nil {
-//	panic(err)
-//  }
+//      articlesApp := articles.New()
+//      if _, err := articlesApp.LoadDir(pathutil.Relative("articles")); err != nil {
+//          panic(err)
+//      }
 //
-// Also, this app can be included multiple times by cloning it:
+//      myapp.Include("/articles/", articlesApp.App, "articles-base.html")
 //
-//  articlesApp := articles.App.Clone()
-//  myapp.Include("/articles/", articlesApp, "articles-base.html")
-//  // Load articles from the "articles" dir
-//  if _, err := articles.LoadDir(articlesApp, pathutil.Relative("articles")); err != nil {
-//	panic(err)
-//  }
-//
-//  // included a second time
-//  tutorialsApp := articles.App.Clone()
-//  tutorialsApp.SetName("Tutorials") // Set the listing title to Tutorials
-//  myapp.Include("/tutorials/", tutorialsApp, "articles-base.html")
-//  // Load articles from the "tutorials" dir
-//  if _, err := articles.LoadDir(tutorialsApp, pathutil.Relative("tutorials")); err != nil {
-//	panic(err)
-//  }
 package articles

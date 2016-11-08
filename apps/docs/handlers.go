@@ -32,14 +32,10 @@ type packageGroup struct {
 	Packages []*doc.Package
 }
 
-func docContext(ctx *app.Context) doc.Context {
-	return doc.DefaultContext
-}
-
 func ListHandler(ctx *app.Context) {
 	var groups []*packageGroup
-	dctx := docContext(ctx)
-	for _, gr := range Groups {
+	dctx := doc.GetEnvironment(ctx.App())
+	for _, gr := range getDocsApp(ctx.App()).Groups {
 		var groupPackages []*doc.Package
 		for _, v := range gr.Packages {
 			pkgs, err := dctx.ImportPackages(packageDir(dctx, v))
@@ -70,8 +66,8 @@ func ListHandler(ctx *app.Context) {
 }
 
 func StdListHandler(ctx *app.Context) {
-	dctx := docContext(ctx)
-	allPkgs, err := dctx.ImportPackages(dctx.Join(dctx.GOROOT, "src"))
+	dctx := doc.GetEnvironment(ctx.App())
+	allPkgs, err := dctx.ImportPackages(dctx.Join(dctx.Context.GOROOT, "src"))
 	if err != nil {
 		panic(err)
 	}
@@ -98,7 +94,7 @@ func StdListHandler(ctx *app.Context) {
 }
 
 func PackageHandler(ctx *app.Context) {
-	dctx := docContext(ctx)
+	dctx := doc.GetEnvironment(ctx.App())
 	rel := ctx.IndexValue(0)
 	if rel[len(rel)-1] == '/' {
 		ctx.MustRedirectReverse(true, PackageHandlerName, rel[:len(rel)-1])
@@ -161,14 +157,19 @@ func PackageHandler(ctx *app.Context) {
 	ctx.MustExecute("package.html", data)
 }
 
-func packageDir(dctx doc.Context, p string) string {
+func packageDir(dctx *doc.Environment, p string) string {
 	if strings.IndexByte(p, '.') > 0 {
 		// Non std package
-		return dctx.Join(dctx.GOPATH, "src", p)
+		return dctx.Join(dctx.Context.GOPATH, "src", p)
 	}
-	// Std pckage
+	// Std package
 	if strings.HasPrefix(p, "cmd") {
-		return dctx.Join(dctx.GOROOT, "src", p)
+		return dctx.Join(dctx.Context.GOROOT, "src", p)
 	}
-	return dctx.Join(dctx.GOROOT, "src", "pkg", p)
+	// pkg was removed from path to the source around go 1.4
+	stdSrc := dctx.Join(dctx.Context.GOROOT, "src", "pkg")
+	if !dctx.IsDir(stdSrc) {
+		stdSrc = dctx.Join(dctx.Context.GOROOT, "src")
+	}
+	return dctx.Join(stdSrc, p)
 }

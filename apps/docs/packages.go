@@ -7,37 +7,28 @@ import (
 	"strings"
 	"time"
 
+	"gnd.la/apps/docs/doc"
 	"gnd.la/log"
 )
 
 var (
 	// Groups includes the packages to list in the package index.
 	// See the Group struct for further information.
-	Groups []*Group
 	ticker *time.Ticker
 )
-
-// Group represents a group of packages to be displayed under the same
-// title. Note that all subpackages of any included package will also
-// be listed. Packages must be referred by their import path (e.g.
-// example.com/pkg).
-type Group struct {
-	Title    string
-	Packages []string
-}
 
 // StartUpdatingPackages starts regularly updating the packages listed
 // in Groups at the given interval. Note that for updating packages, the
 // system should have installed the client for the SCM systems used by
 // them (e.g. git, hg, etc...). A working Go installation on the host
 // is also required, since go get will be used to download them.
-func StartUpdatingPackages(interval time.Duration) {
+func StartUpdatingPackages(ctx *doc.Environment, interval time.Duration) {
 	StopUpdatingPackages()
-	go updatePackages()
+	go updatePackages(ctx)
 	ticker = time.NewTicker(interval)
 	go func() {
 		for _ = range ticker.C {
-			updatePackages()
+			updatePackages(ctx)
 		}
 	}()
 }
@@ -51,17 +42,17 @@ func StopUpdatingPackages() {
 	}
 }
 
-func updatePackages() {
-	for _, gr := range Groups {
+func updatePackages(e *doc.Environment) {
+	for _, gr := range getDocsApp(e).Groups {
 		for _, pkg := range gr.Packages {
-			if err := updatePackage(pkg); err != nil {
+			if err := updatePackage(e, pkg); err != nil {
 				log.Errorf("error updating %s: %s", pkg, err)
 			}
 		}
 	}
 }
 
-func updatePackage(pkg string) error {
+func updatePackage(e *doc.Environment, pkg string) error {
 	if strings.HasSuffix(pkg, "/") {
 		pkg += "..."
 	}
@@ -72,11 +63,11 @@ func updatePackage(pkg string) error {
 			env[v[:eq]] = v[eq+1:]
 		}
 	}
-	if goRoot := DefaultContext.GOROOT; goRoot != "" {
+	if goRoot := e.Context.GOROOT; goRoot != "" {
 		goBin = filepath.Join(goRoot, "bin", "go")
 		env["GOROOT"] = goRoot
 	}
-	if goPath := DefaultContext.GOPATH; goPath != "" {
+	if goPath := e.Context.GOPATH; goPath != "" {
 		env["GOPATH"] = goPath
 	}
 	cmd := exec.Command(goBin, "get", "-u", "-v", pkg)

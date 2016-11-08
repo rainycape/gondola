@@ -46,7 +46,7 @@ type Package struct {
 	Packages      []*Package
 	examples      []*Example
 	examplesByKey map[string][]*Example
-	ctx           Context
+	env           Environment
 }
 
 func (p *Package) symbolHref(symbol string) string {
@@ -101,16 +101,16 @@ func (p *Package) href(word string, scope string) string {
 			if pn[0] == '*' {
 				pn = pn[1:]
 			}
-			if pkg, err := p.ctx.ImportPackage(pn); err == nil {
+			if pkg, err := p.env.ImportPackage(pn); err == nil {
 				if sr := pkg.symbolHref(tn); sr != "" {
-					return p.ctx.App.MustReverse(p.ctx.DocHandlerName, pn) + sr
+					return p.env.reverseDoc(pn) + sr
 				}
 			}
 			if pn == p.dpkg.Name {
 				return p.symbolHref(tn)
 			}
-		} else if _, err := p.ctx.Context.Import(word, "", build.FindOnly); err == nil {
-			return p.ctx.App.MustReverse(p.ctx.DocHandlerName, word)
+		} else if _, err := p.env.Context.Import(word, "", build.FindOnly); err == nil {
+			return p.env.reverseDoc(word)
 		}
 	}
 	if dot > 0 {
@@ -214,7 +214,7 @@ func (p *Package) FileSet() *token.FileSet {
 
 func (p *Package) File(name string) *ast.File {
 	if p.apkg != nil {
-		return p.apkg.Files[p.ctx.Join(p.bpkg.Dir, name)]
+		return p.apkg.Files[p.env.Join(p.bpkg.Dir, name)]
 	}
 	return nil
 }
@@ -244,11 +244,11 @@ func (p *Package) ImportPath() string {
 	if p.bpkg != nil {
 		path := p.bpkg.ImportPath
 		if path == "." {
-			if gr := p.ctx.GOROOT; strings.HasPrefix(p.bpkg.Dir, gr) {
+			if gr := p.env.Context.GOROOT; strings.HasPrefix(p.bpkg.Dir, gr) {
 				path = p.bpkg.Dir[len(gr)+5:]
 			}
 		}
-		if gp := p.ctx.GOPATH; strings.HasPrefix(path, gp) {
+		if gp := p.env.Context.GOPATH; strings.HasPrefix(path, gp) {
 			// Skip src/ after GOPATH
 			path = path[len(gp)+4:]
 		}
@@ -258,7 +258,7 @@ func (p *Package) ImportPath() string {
 }
 
 func (p *Package) IsStd() bool {
-	return strings.HasPrefix(p.Dir(), p.ctx.GOROOT+p.ctx.Separator)
+	return strings.HasPrefix(p.Dir(), p.env.Context.GOROOT+p.env.Separator)
 }
 
 func (p *Package) IsMain() bool {
@@ -349,7 +349,7 @@ func (p *Package) ReverseFilenameLine(filename string, line int) string {
 func (p *Package) ReverseFilename(filename string) string {
 	filename = path.Base(filename)
 	rel := path.Join(p.ImportPath(), filename)
-	return p.ctx.App.MustReverse(p.ctx.SourceHandlerName, rel)
+	return p.env.reverseSource(rel)
 }
 
 func (p *Package) FuncLink(fn *ast.FuncDecl) string {
@@ -411,7 +411,7 @@ func (p *Package) Examples() []*Example {
 	var files []*ast.File
 	for _, val := range [][]string{p.bpkg.TestGoFiles, p.bpkg.XTestGoFiles} {
 		for _, v := range val {
-			f, err := parser.ParseFile(fset, p.ctx.Join(p.Dir(), v), nil, parser.ParseComments)
+			f, err := parser.ParseFile(fset, p.env.Join(p.Dir(), v), nil, parser.ParseComments)
 			if err == nil {
 				files = append(files, f)
 			}
@@ -511,55 +511,55 @@ func (p *Package) HTMLDecl(node interface{}) (template.HTML, error) {
 	return template.HTML(s), err
 }
 
-func (c Context) importBuildPackage(p string) (*build.Package, error) {
-	b, err := c.Context.Import(p, "", 0)
+func (e Environment) importBuildPackage(p string) (*build.Package, error) {
+	b, err := e.Context.Import(p, "", 0)
 	if err != nil && !noBuildable(err) {
-		b, err = c.Context.ImportDir(p, 0)
+		b, err = e.Context.ImportDir(p, 0)
 		if err != nil && !noBuildable(err) {
 			// Go standard command?
-			cmdDir := c.Join(c.GOROOT, "src", p)
-			b, err = c.Context.ImportDir(cmdDir, 0)
+			cmdDir := e.Join(e.Context.GOROOT, "src", p)
+			b, err = e.Context.ImportDir(cmdDir, 0)
 		}
 	}
 	return b, err
 }
 
-func (c Context) importSubpackages(p string) (string, []*Package, error) {
-	if !c.IsAbs(p) {
-		dir := c.Join(c.GOPATH, "src", p)
-		if s, err := c.ImportPackages(dir); err == nil {
+func (e Environment) importSubpackages(p string) (string, []*Package, error) {
+	if !e.IsAbs(p) {
+		dir := e.Join(e.Context.GOPATH, "src", p)
+		if s, err := e.ImportPackages(dir); err == nil {
 			return dir, s, nil
 		}
-		dir = c.Join(c.GOROOT, "src", "pkg", p)
-		if s, err := c.ImportPackages(dir); err == nil {
+		dir = e.Join(e.Context.GOROOT, "src", "pkg", p)
+		if s, err := e.ImportPackages(dir); err == nil {
 			return dir, s, nil
 		}
-		dir = c.Join(c.GOROOT, "src", p)
-		if s, err := c.ImportPackages(dir); err == nil {
+		dir = e.Join(e.Context.GOROOT, "src", p)
+		if s, err := e.ImportPackages(dir); err == nil {
 			return dir, s, nil
 		}
 	}
-	sub, err := c.ImportPackages(p)
+	sub, err := e.ImportPackages(p)
 	return p, sub, err
 }
 
-func (c Context) ImportPackage(p string) (*Package, error) {
-	return c.importPackage(p, false)
+func (e Environment) ImportPackage(p string) (*Package, error) {
+	return e.importPackage(p, false)
 }
 
-func (c Context) ImportPackageOpts(p string, opts *ImportOptions) (*Package, error) {
+func (e Environment) ImportPackageOpts(p string, opts *ImportOptions) (*Package, error) {
 	shallow := false
 	if opts != nil {
 		shallow = opts.Shallow
 	}
-	return c.importPackage(p, shallow)
+	return e.importPackage(p, shallow)
 }
 
-func (c Context) parseFiles(fset *token.FileSet, dir string, names []string, mode parser.Mode) (map[string]*ast.File, error) {
+func (e Environment) parseFiles(fset *token.FileSet, dir string, names []string, mode parser.Mode) (map[string]*ast.File, error) {
 	files := make(map[string]*ast.File)
 	for _, v := range names {
-		filename := c.Join(dir, v)
-		f, err := c.OpenFile(filename)
+		filename := e.Join(dir, v)
+		f, err := e.OpenFile(filename)
 		if err != nil {
 			return nil, err
 		}
@@ -573,36 +573,36 @@ func (c Context) parseFiles(fset *token.FileSet, dir string, names []string, mod
 	return files, nil
 }
 
-func (c Context) importPackage(p string, shallow bool) (*Package, error) {
-	if val, ok := c.cache[p]; ok {
+func (e Environment) importPackage(p string, shallow bool) (*Package, error) {
+	if val, ok := e.cache[p]; ok {
 		if p, ok := val.(*Package); ok {
 			return p, nil
 		}
 		return nil, val.(error)
 	}
-	pkg, err := c._importPackage(p, shallow)
+	pkg, err := e._importPackage(p, shallow)
 	if !shallow || true {
-		if c.cache == nil {
-			c.cache = make(map[string]interface{})
+		if e.cache == nil {
+			e.cache = make(map[string]interface{})
 		}
 		if err != nil {
-			c.cache[p] = err
+			e.cache[p] = err
 		} else {
-			c.cache[p] = pkg
+			e.cache[p] = pkg
 		}
 	}
 	return pkg, err
 }
 
-func (c Context) _importPackage(p string, shallow bool) (*Package, error) {
-	b, err := c.importBuildPackage(p)
+func (e Environment) _importPackage(p string, shallow bool) (*Package, error) {
+	b, err := e.importBuildPackage(p)
 	if err != nil {
 		if noBuildable(err) && !shallow {
-			dir, sub, err := c.importSubpackages(p)
+			dir, sub, err := e.importSubpackages(p)
 			if err != nil {
 				return nil, err
 			}
-			return &Package{name: path.Base(p), dir: dir, Packages: sub, ctx: c}, nil
+			return &Package{name: path.Base(p), dir: dir, Packages: sub, env: e}, nil
 
 		}
 	}
@@ -610,7 +610,7 @@ func (c Context) _importPackage(p string, shallow bool) (*Package, error) {
 	var names []string
 	names = append(names, b.GoFiles...)
 	names = append(names, b.CgoFiles...)
-	files, err := c.parseFiles(fset, b.Dir, names, parser.ParseComments)
+	files, err := e.parseFiles(fset, b.Dir, names, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
@@ -635,10 +635,10 @@ func (c Context) _importPackage(p string, shallow bool) (*Package, error) {
 		apkg:   a,
 		dpkg:   doc.New(a, b.ImportPath, flags),
 		bodies: bodies,
-		ctx:    c,
+		env:    e,
 	}
 	if !shallow {
-		sub, err := c.ImportPackages(b.Dir)
+		sub, err := e.ImportPackages(b.Dir)
 		if err != nil {
 			return nil, err
 		}
@@ -647,9 +647,9 @@ func (c Context) _importPackage(p string, shallow bool) (*Package, error) {
 	return pkg, nil
 }
 
-func (c Context) ImportPackages(dir string) ([]*Package, error) {
+func (e Environment) ImportPackages(dir string) ([]*Package, error) {
 	var pkgs []*Package
-	files, err := c.ReadDir(dir)
+	files, err := e.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -658,12 +658,12 @@ func (c Context) ImportPackages(dir string) ([]*Package, error) {
 		if n == "test_data" || n == "testdata" || n[0] == '.' || n[0] == '_' {
 			continue
 		}
-		abs := c.Join(dir, n)
-		if c.IsDir(abs) {
-			pkg, err := c.ImportPackage(abs)
+		abs := e.Join(dir, n)
+		if e.IsDir(abs) {
+			pkg, err := e.ImportPackage(abs)
 			if err != nil {
 				if noBuildable(err) {
-					sub, err := c.ImportPackages(abs)
+					sub, err := e.ImportPackages(abs)
 					if err != nil {
 						return nil, err
 					}

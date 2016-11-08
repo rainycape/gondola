@@ -3,6 +3,7 @@ package docs
 import (
 	"gnd.la/app"
 	"gnd.la/apps/docs/doc"
+	"gnd.la/kvs"
 	"gnd.la/template/assets"
 	"gnd.la/util/apputil"
 )
@@ -15,11 +16,37 @@ const (
 var (
 	assetsFS    = apputil.MustOpenVFS(appName, "assets", assetsData)
 	templatesFS = apputil.MustOpenVFS(appName, "tmpl", tmplData)
+
+	getDocsApp func(kvs.Storage) *DocsApp
+	setDocsApp func(kvs.Storage, *DocsApp)
 )
 
-func New() *app.App {
-	a := app.New()
-	doc.DefaultContext.App = a
+// Group represents a group of packages to be displayed under the same
+// title. Note that all subpackages of any included package will also
+// be listed. Packages must be referred by their import path (e.g.
+// example.com/pkg).
+type Group struct {
+	Title    string
+	Packages []string
+}
+
+type DocsApp struct {
+	*apputil.ReusableApp
+	Groups      []*Group
+	Environment *doc.Environment
+}
+
+func New() *DocsApp {
+	a := &DocsApp{
+		ReusableApp: apputil.NewReusableApp("Docs"),
+	}
+	a.Prefix = "/doc/"
+	reverseDoc := func(s string) string { return a.MustReverse(PackageHandlerName, s) }
+	reverseSource := func(s string) string { return a.MustReverse(SourceHandlerName, s) }
+	a.Environment = doc.NewEnvironment(reverseDoc, reverseSource)
+	doc.SetEnvironment(a, a.Environment)
+	setDocsApp(a, a)
+	setDocsApp(a.Environment, a)
 	a.SetName(appName)
 	manager := assets.New(assetsFS, assetsPrefix)
 	a.SetAssetsManager(manager)
@@ -39,6 +66,5 @@ func New() *app.App {
 }
 
 func init() {
-	doc.DefaultContext.DocHandlerName = PackageHandlerName
-	doc.DefaultContext.SourceHandlerName = SourceHandlerName
+	kvs.TypeFuncs(&getDocsApp, &setDocsApp)
 }

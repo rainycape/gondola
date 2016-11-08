@@ -6,8 +6,7 @@
 // Additionaly, a working Go installation is required to automatically
 // download and update packages.
 //
-// To configure the packages to list in the index, use the Groups
-// variable.
+// To configure the packages to list in the index, use DocsApp.Groups.
 //
 // This application can also automatically fetch and update the packages
 // listed in the index. See StartUpdatingPackages and StopUpdatingPackages.

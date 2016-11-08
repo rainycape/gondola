@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"gnd.la/app"
+	"gnd.la/apps/docs/doc"
 	"gnd.la/html"
 	"gnd.la/log"
 )
@@ -33,13 +34,18 @@ var (
 )
 
 func SourceHandler(ctx *app.Context) {
-	dctx := docContext(ctx)
+	dctx := doc.GetEnvironment(ctx.App())
 	rel := ctx.IndexValue(0)
 	p := dctx.FromSlash(rel)
 	pDir := dctx.Dir(p)
-	dir := packageDir(dctx, dctx.Dir(p))
+	if pDir == "." {
+		pDir = p
+	} else {
+
+	}
+	dir := packageDir(dctx, pDir)
 	filePath := dir
-	if pDir+dctx.Separator != p {
+	if pDir+dctx.Separator != p && pDir != p {
 		filePath = dctx.Join(dir, dctx.Base(p))
 	}
 	log.Debugf("Loading source from %s", filePath)

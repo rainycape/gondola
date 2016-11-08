@@ -203,7 +203,7 @@ type variable struct {
 
 // State represents the execution state of a template.
 // Users should never create a State manually, but can
-// access its methods via template stat functions.
+// access its methods via template state functions.
 type State struct {
 	p         *program
 	w         *bytes.Buffer

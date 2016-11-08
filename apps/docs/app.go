@@ -5,6 +5,7 @@ import (
 	"gnd.la/apps/docs/doc"
 	"gnd.la/kvs"
 	"gnd.la/template/assets"
+	_ "gnd.la/template/assets/sass"
 	"gnd.la/util/apputil"
 )
 

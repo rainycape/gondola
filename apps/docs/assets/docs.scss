@@ -1,5 +1,4 @@
-@barcolor: #333;
-@translucentBarcolor: fade(@barcolor, 90%);
+$barcolor: #333;
 
 .label-inverse {
     background: #333;

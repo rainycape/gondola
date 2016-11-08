@@ -83,6 +83,15 @@ func (p *Package) symbolHref(symbol string) string {
 							return "#" + MethodId(tn, fn)
 						}
 					}
+					// Interface types don't populate the Methods field,
+					// so we need to link to the type itself.
+					if len(v.Decl.Specs) > 0 {
+						if spec, ok := v.Decl.Specs[0].(*ast.TypeSpec); ok {
+							if _, ok := spec.Type.(*ast.InterfaceType); ok {
+								return p.symbolHref(tn)
+							}
+						}
+					}
 					return ""
 				}
 			}

@@ -258,7 +258,10 @@ func (p *Package) ImportPath() string {
 }
 
 func (p *Package) IsStd() bool {
-	return strings.HasPrefix(p.Dir(), p.env.Context.GOROOT+p.env.Separator)
+	if p.env.Context.GOROOT != "" {
+		return strings.HasPrefix(p.Dir(), p.env.Context.GOROOT+p.env.Separator)
+	}
+	return p.bpkg.Goroot
 }
 
 func (p *Package) IsMain() bool {

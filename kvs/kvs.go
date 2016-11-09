@@ -62,7 +62,9 @@ func (k *KVS) Copy() *KVS {
 // storing arbitrary values. The lifetime of the values as well of
 // the thread safety of the storage is dependent on the implementation.
 type Storage interface {
+	// Get returns the value assocciated with key
 	Get(key interface{}) interface{}
+	// Set sets the value assocciated with key to value
 	Set(key interface{}, value interface{})
 }
 

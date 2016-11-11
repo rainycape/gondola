@@ -66,8 +66,8 @@ func reverseAppsArticle(a *app.App, art interface{}, checked map[*app.App]bool) 
 }
 
 func init() {
-	template.AddFuncs(template.FuncMap{
-		"!reverse_article":    reverseArticle,
-		"reverse_app_article": reverseAppArticle,
+	template.AddFuncs([]*template.Func{
+		{Name: "reverse_article", Fn: reverseArticle, Traits: template.FuncTraitContext},
+		{Name: "reverse_app_article", Fn: reverseAppArticle},
 	})
 }

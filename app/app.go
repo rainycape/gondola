@@ -545,9 +545,13 @@ func (app *App) LoadTemplate(name string) (*Template, error) {
 		if err != nil {
 			return nil, err
 		}
-		funcs := make(template.FuncMap)
+		var funcs []*template.Func
 		for _, v := range app.included {
-			funcs[v.assetFuncName()] = v.assetFunc(tmpl.tmpl)
+			funcs = append(funcs, &template.Func{
+				Name:   v.assetFuncName(),
+				Fn:     v.assetFunc(tmpl.tmpl),
+				Traits: template.FuncTraitPure,
+			})
 		}
 		tmpl.tmpl.Funcs(funcs)
 		for _, v := range app.hooks {

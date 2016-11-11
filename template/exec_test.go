@@ -574,7 +574,7 @@ func mapOfThree() interface{} {
 
 func testExecute(execTests []execTest, template *Template, t *testing.T) {
 	b := new(bytes.Buffer)
-	funcs := FuncMap{
+	funcs := map[string]interface{}{
 		"add":        add,
 		"count":      count,
 		"dddArg":     dddArg,

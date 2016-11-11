@@ -19,14 +19,14 @@ var (
 	profileHook           *template.Hook
 	errNoLoadedTemplate   = errors.New("this template was not loaded from App.LoadTemplate nor NewTemplate")
 
-	templateFuncs = template.FuncMap{
-		"!t":   template_t,
-		"!tn":  template_tn,
-		"!tc":  template_tc,
-		"!tnc": template_tnc,
-		"app":  nop,
-		templateutil.BeginTranslatableBlock: nop,
-		templateutil.EndTranslatableBlock:   nop,
+	templateFuncs = []*template.Func{
+		{Name: "t", Fn: template_t, Traits: template.FuncTraitContext},
+		{Name: "tn", Fn: template_tn, Traits: template.FuncTraitContext},
+		{Name: "tc", Fn: template_tc, Traits: template.FuncTraitContext},
+		{Name: "tnc", Fn: template_tnc, Traits: template.FuncTraitContext},
+		{Name: "app", Fn: nop},
+		{Name: templateutil.BeginTranslatableBlock, Fn: nop},
+		{Name: templateutil.EndTranslatableBlock, Fn: nop},
 	}
 )
 
@@ -131,7 +131,9 @@ func newTemplate(app *App, fs vfs.VFS, manager *assets.Manager) *Template {
 	if app.cfg != nil {
 		t.tmpl.Debug = app.cfg.TemplateDebug
 	}
-	t.tmpl.Funcs(templateFuncs).Funcs(template.FuncMap{"#reverse": t.reverse})
+	t.tmpl.Funcs(templateFuncs).Funcs([]*template.Func{
+		{Name: "reverse", Fn: t.reverse, Traits: template.FuncTraitPure},
+	})
 	return t
 }
 
@@ -163,11 +165,11 @@ func init() {
 		inDevServer = os.Getenv("GONDOLA_DEV_SERVER") != ""
 		if inDevServer {
 			t := newInternalTemplate(&App{})
-			t.tmpl.Funcs(template.FuncMap{
-				"_gondola_profile_info": getProfileInfo,
-				"_gondola_internal_asset": func(arg string) string {
+			t.tmpl.Funcs([]*template.Func{
+				{Name: "_gondola_profile_info", Fn: getProfileInfo},
+				{Name: "_gondola_internal_asset", Fn: func(arg string) string {
 					return internalAssetsManager.URL(arg)
-				},
+				}},
 			})
 			if err := t.parse("profile.html", nil); err != nil {
 				panic(err)

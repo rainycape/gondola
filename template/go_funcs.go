@@ -69,6 +69,9 @@ func length(item interface{}) (int, error) {
 
 func call(fn interface{}, args ...interface{}) (interface{}, error) {
 	v := reflect.ValueOf(fn)
+	if !v.IsValid() {
+		return nil, fmt.Errorf("invalid func %v", v)
+	}
 	typ := v.Type()
 	if typ.Kind() != reflect.Func {
 		return nil, fmt.Errorf("non-function of type %s", typ)

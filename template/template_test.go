@@ -110,8 +110,8 @@ func parseNamedText(tb testing.TB, name string, text string, funcs map[string]in
 		tb.Fatal(err)
 	}
 	tmpl := New(fs, nil)
-	tmpl.Funcs(funcs)
-	tmpl.Funcs(FuncMap{"#t": func(s string) string { return s }})
+	tmpl.RawFuncs(funcs)
+	tmpl.RawFuncs(map[string]interface{}{"t": func(s string) string { return s }})
 	tmpl.contentType = contentType
 	err = tmpl.Parse(name)
 	if err != nil {
@@ -135,7 +135,7 @@ func parseTestTemplate(tb testing.TB, name string) *Template {
 		tb.Fatal(err)
 	}
 	tmpl := New(fs, assets.New(fs, ""))
-	tmpl.Funcs(FuncMap{"#t": func(s string) string { return s }})
+	tmpl.RawFuncs(map[string]interface{}{"t": func(s string) string { return s }})
 	if err := tmpl.Parse(name); err != nil {
 		tb.Errorf("error parsing %q: %s", name, err)
 		return nil
@@ -330,8 +330,8 @@ func rangeTests() []*templateTest {
 
 func TestContextFunc(t *testing.T) {
 	tmpl := parseNamedText(t, "context", "{{ f_interface }} - {{ f_int }}", map[string]interface{}{
-		"!f_interface": func(ctx interface{}) int { return ctx.(int) },
-		"!f_int":       func(ctx int) int { return ctx },
+		"f_interface": &Func{Fn: func(ctx interface{}) int { return ctx.(int) }, Traits: FuncTraitContext},
+		"f_int":       &Func{Fn: func(ctx int) int { return ctx }, Traits: FuncTraitContext},
 	}, "text/plain")
 
 	ctx := 42
@@ -347,7 +347,7 @@ func TestContextFunc(t *testing.T) {
 
 func TestBadContextFunc(t *testing.T) {
 	tmpl := parseNamedText(t, "context", "{{ f_float64 }}", map[string]interface{}{
-		"!f_float64": func(ctx float64) float64 { return ctx },
+		"f_float64": &Func{Fn: func(ctx float64) float64 { return ctx }, Traits: FuncTraitContext},
 	}, "text/plain")
 	err := tmpl.ExecuteContext(ioutil.Discard, nil, int(42), nil)
 	if err == nil {

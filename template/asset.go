@@ -17,9 +17,9 @@ func executeAsset(t *Template, p *Template, vars VarMap, m *assets.Manager, asse
 	name := asset.TemplateName()
 	log.Debugf("executing asset template %s (from %s)", name, t.name)
 	tmpl := New(m.VFS(), nil)
-	tmpl.Funcs(t.funcMap.asFuncMap())
+	tmpl.addFuncMap(t.funcMap, true)
 	if p != nil {
-		tmpl.Funcs(p.funcMap.asFuncMap())
+		tmpl.addFuncMap(p.funcMap, true)
 	}
 	if err := tmpl.Parse(name); err != nil {
 		return "", err

@@ -29,71 +29,6 @@ import (
 	"github.com/rainycape/vfs"
 )
 
-type FuncMap map[string]interface{}
-
-type funcTrait int
-
-const (
-	funcTraitPure = 1 << iota
-	funcTraitContext
-	funcTraitState
-)
-
-type funcInfo struct {
-	f      interface{}
-	traits funcTrait
-}
-
-type funcMap map[string]*funcInfo
-
-func makeFuncMap(fns FuncMap) funcMap {
-	f := make(funcMap, len(fns))
-	for k, v := range fns {
-		info := &funcInfo{f: v}
-		for len(k) > 0 {
-			if k[0] == '!' {
-				k = k[1:]
-				info.traits |= funcTraitContext
-			} else if k[0] == '#' {
-				k = k[1:]
-				info.traits |= funcTraitPure
-			} else if k[0] == '@' {
-				k = k[1:]
-				info.traits |= funcTraitState
-			} else {
-				break
-			}
-		}
-		f[k] = info
-	}
-	return f
-}
-
-func (f funcMap) asFuncMap() FuncMap {
-	fns := make(FuncMap, len(f))
-	for k, v := range f {
-		if v.traits&funcTraitPure != 0 {
-			k = "#" + k
-		}
-		if v.traits&funcTraitContext != 0 {
-			k = "!" + k
-		}
-		if v.traits&funcTraitState != 0 {
-			k = "@" + k
-		}
-		fns[k] = v.f
-	}
-	return fns
-}
-
-func (f funcMap) asTemplateFuncMap() itemplate.FuncMap {
-	fns := make(itemplate.FuncMap, len(f))
-	for k, v := range f {
-		fns[k] = v.f
-	}
-	return fns
-}
-
 type VarMap map[string]interface{}
 
 func (v VarMap) unpack(ns string) VarMap {
@@ -175,7 +110,7 @@ type Template struct {
 	trees         map[string]*parse.Tree
 	offsets       map[*parse.Tree]map[int]int
 	final         bool
-	funcMap       funcMap
+	funcMap       FuncMap
 	vars          VarMap
 	root          string
 	assetGroups   []*assets.Group
@@ -192,12 +127,12 @@ func (t *Template) init() {
 	// This is required so text/template calls t.init()
 	// and initializes the common data structure
 	t.tmpl.New("")
-	funcs := FuncMap{
-		topAssetsFuncName:    nop,
-		bottomAssetsFuncName: nop,
-		"#" + AssetFuncName:  t.Asset,
+	funcs := []*Func{
+		nopFunc(topAssetsFuncName, 0),
+		nopFunc(bottomAssetsFuncName, 0),
+		&Func{Name: AssetFuncName, Fn: t.Asset, Traits: FuncTraitPure},
 	}
-	t.Funcs(funcs).Funcs(templateFuncs.asFuncMap())
+	t.Funcs(funcs).addFuncMap(templateFuncs, true)
 }
 
 func (t *Template) rebuild() error {
@@ -279,14 +214,7 @@ func (t *Template) Hook(hook *Hook) error {
 	if err := t.importTrees(hook.Template, ""); err != nil {
 		return err
 	}
-	for k, v := range hook.Template.funcMap {
-		if t.funcMap == nil {
-			t.funcMap = make(funcMap)
-		}
-		if t.funcMap[k] == nil {
-			t.funcMap[k] = v
-		}
-	}
+	t.addFuncMap(hook.Template.funcMap, false)
 	t.hooks = append(t.hooks, hook)
 	return nil
 }
@@ -1005,7 +933,7 @@ func (t *Template) addHtmlHooks() {
 func (t *Template) addHtmlEscaping() {
 	t.addHtmlHooks()
 	// Add escaping functions
-	t.Funcs(htmlEscapeFuncs)
+	t.addFuncMap(htmlEscapeFuncs, true)
 	// html/template might introduce new trees. it renames the
 	// template invocations, but we must add the trees ourselves
 	for _, v := range t.tmpl.Templates() {
@@ -1017,15 +945,25 @@ func (t *Template) addHtmlEscaping() {
 	}
 }
 
-func (t *Template) Funcs(funcs FuncMap) *Template {
+func (t *Template) RawFuncs(funcs map[string]interface{}) *Template {
+	return t.addFuncMap(convertTemplateFuncMap(funcs), true)
+}
+
+func (t *Template) Funcs(funcs []*Func) *Template {
+	return t.addFuncMap(makeFuncMap(funcs), true)
+}
+
+func (t *Template) addFuncMap(m FuncMap, overwrite bool) *Template {
 	if t.funcMap == nil {
-		t.funcMap = make(funcMap)
+		t.funcMap = make(FuncMap)
 	}
-	fns := makeFuncMap(funcs)
-	for k, v := range fns {
-		t.funcMap[k] = v
+	for k, v := range m {
+		if overwrite || t.funcMap[k] == nil {
+			v.mustInitialize()
+			t.funcMap[k] = v
+		}
 	}
-	t.tmpl.Funcs(fns.asTemplateFuncMap())
+	t.tmpl.Funcs(m.asTemplateFuncMap())
 	return t
 }
 
@@ -1127,10 +1065,16 @@ func (t *Template) ExecuteContext(w io.Writer, data interface{}, context interfa
 // the templates. Please, note that you must register the functions
 // before compiling a template that uses them, otherwise the template
 // parser will return an error.
-func AddFuncs(f FuncMap) {
-	for k, v := range makeFuncMap(f) {
+func AddFuncs(fn []*Func) {
+	// Call makeFuncMap to panic on duplicates
+	for k, v := range makeFuncMap(fn) {
 		templateFuncs[k] = v
 	}
+}
+
+func AddFunc(fn *Func) {
+	fn.mustInitialize()
+	templateFuncs[fn.Name] = fn
 }
 
 // DefaultVFS returns a VFS which loads templates from
@@ -1279,17 +1223,6 @@ func splitErrorContext(loc string) (string, int, int, bool) {
 	return "", 0, 0, false
 }
 
-func traitsArgumentCount(traits funcTrait) int {
-	c := 0
-	if traits&funcTraitContext != 0 {
-		c++
-	}
-	if traits&funcTraitState != 0 {
-		c++
-	}
-	return c
-}
-
 func NamespacedName(ns []string, name string) string {
 	if len(ns) > 0 {
 		return strings.Join(ns, nsSep) + nsMark + name
@@ -1298,3 +1231,13 @@ func NamespacedName(ns []string, name string) string {
 }
 
 func nop() interface{} { return nil }
+
+func nopFunc(name string, traits FuncTrait) *Func {
+	f := &Func{
+		Name:   name,
+		Fn:     nop,
+		Traits: traits,
+	}
+	f.mustInitialize()
+	return f
+}

@@ -3,13 +3,14 @@ package doc
 import (
 	"bytes"
 	"fmt"
-	"gnd.la/internal/astutil"
-	"gnd.la/template"
 	"go/ast"
 	"go/doc"
 	"go/printer"
 	"go/token"
 	"strings"
+
+	"gnd.la/internal/astutil"
+	"gnd.la/template"
 )
 
 const (
@@ -137,13 +138,13 @@ func funcListName(fn *ast.FuncDecl) string {
 }
 
 func init() {
-	template.AddFuncs(template.FuncMap{
-		"func_id":          funcId,
-		"func_name":        funcName,
-		"type_id":          typeId,
-		"issues_color":     issuesColor,
-		"complexity_color": complexityColor,
-		"bootstrap_color":  bootstrapColor,
-		"func_list_name":   funcListName,
+	template.AddFuncs([]*template.Func{
+		{Name: "func_id", Fn: funcId},
+		{Name: "func_name", Fn: funcName},
+		{Name: "type_id", Fn: typeId},
+		{Name: "issues_color", Fn: issuesColor},
+		{Name: "complexity_color", Fn: complexityColor},
+		{Name: "bootstrap_color", Fn: bootstrapColor},
+		{Name: "func_list_name", Fn: funcListName},
 	})
 }

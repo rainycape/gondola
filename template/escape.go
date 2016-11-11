@@ -1,8 +1,9 @@
 package template
 
 import (
-	itemplate "gnd.la/internal/template"
 	"html/template"
+
+	itemplate "gnd.la/internal/template"
 )
 
 type (
@@ -15,5 +16,5 @@ type (
 )
 
 var (
-	htmlEscapeFuncs = FuncMap(itemplate.EscapeFuncMap)
+	htmlEscapeFuncs = convertTemplateFuncMap(itemplate.EscapeFuncMap)
 )

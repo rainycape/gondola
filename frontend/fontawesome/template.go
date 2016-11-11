@@ -11,7 +11,5 @@ func fa(s string) htemplate.HTML {
 }
 
 func init() {
-	template.AddFuncs(template.FuncMap{
-		"fa": fa,
-	})
+	template.AddFunc(&template.Func{Name: "fa", Fn: fa})
 }

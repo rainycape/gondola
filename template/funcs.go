@@ -166,6 +166,9 @@ func _append(items interface{}, args ...interface{}) (string, error) {
 
 func _indirect(arg interface{}) interface{} {
 	v := reflect.ValueOf(arg)
+	if !v.IsValid() {
+		return nil
+	}
 	for v.Kind() == reflect.Ptr {
 		if v.IsNil() {
 			v = reflect.New(v.Type().Elem())
@@ -296,117 +299,118 @@ func getVar(s *State, name string) interface{} {
 	return v.Interface()
 }
 
-var templateFuncs = makeFuncMap(FuncMap{
+var templateFuncs = makeFuncMap([]*Func{
 	// Returns true iff the first argument is equal to any of the
 	// following ones.
-	"#eq": eq,
+	makePureFunc(eq),
 	// Returns true iff the first argument is different to all the following
 	// ones.
-	"#neq": neq,
+	makePureFunc(neq),
 	// Returns true iff arg1 < arg2. Produces an error if arguments are of
 	// different types of if its type is not comparable.
-	"#lt": lt,
+	makePureFunc(lt),
 	// Returns true iff arg1 <= arg2. Produces an error if arguments are of
 	// different types of if its type is not comparable.
-	"#lte": lte,
+	makePureFunc(lte),
 	// Returns true iff arg1 > arg2. Produces an error if arguments are of
 	// different types of if its type is not comparable.
-	"#gt": gt,
+	makePureFunc(gt),
 	// Returns true iff arg1 >= arg2. Produces an error if arguments are of
 	// different types of if its type is not comparable.
-	"#gte": gte,
+	makePureFunc(gte),
 	// Returns the JSON representation of the given argument as a string.
 	// Produces an error in the argument can't be converted to JSON.
-	"#jsons": jsons,
+	makePureFunc(jsons),
 	// Same as jsons, but returns a template.JS, which can be embedded in script
 	// sections of an HTML template without further escaping.
-	"#json": _json,
-	"#nz":   nz,
-	"#join": strings.Join,
-	"#map":  _map,
+	makeNamedFunc(_json, "json", FuncTraitPure),
+	// Returns true iff the argument is non-zero
+	makePureFunc(nz),
+	makeNamedFunc(strings.Join, "join", FuncTraitPure),
+	makeNamedFunc(_map, "map", FuncTraitPure),
 	// Returns a slice with the given arguments.
-	"#slice":    _slice,
-	"#append":   _append,
-	"#indirect": _indirect,
+	makeNamedFunc(_slice, "slice", FuncTraitPure),
+	makeNamedFunc(_append, "append", FuncTraitPure),
+	makeNamedFunc(_indirect, "indirect", FuncTraitPure),
 	// Add all the arguments, returning a float64.
-	"#addf": addf,
+	makeNamedFunc(addf, "addf", FuncTraitPure),
 	// Add all the arguments, returning either an int (if the result does not
 	// have a decimal part) or a float64.
-	"#add": add,
+	makeNamedFunc(add, "add", FuncTraitPure),
 	// Add all the arguments, returning a int. If the result has a decimal part,
 	// it's truncated.
-	"#addi": addi,
+	makeNamedFunc(addi, "addi", FuncTraitPure),
 	// Substract all the arguments in the given order, from left to right, returning a float64.
-	"#subf": subf,
+	makeNamedFunc(subf, "subf", FuncTraitPure),
 	// Substract all the arguments in the given order, from left to right, returning either an int
 	// (if the result does not have a decimal part) or a float64.
-	"#sub": sub,
+	makeNamedFunc(sub, "sub", FuncTraitPure),
 	// Substract all the arguments in the given order, from left to right, returning a int. If the
 	// result has a decimal part, it's truncated.
-	"#subi": subi,
+	makeNamedFunc(subi, "subi", FuncTraitPure),
 	// Multiply all the arguments, returning a float64.
-	"#mulf": mulf,
+	makeNamedFunc(mulf, "mulf", FuncTraitPure),
 	// Multiply all the arguments, returning either an int (if the result does not
 	// have a decimal part) or a float64.
-	"#mul": mul,
+	makeNamedFunc(mul, "mul", FuncTraitPure),
 	// Multiply all the arguments, returning a int. If the result has a decimal part,
 	// it's truncated.
-	"#muli": muli,
+	makeNamedFunc(muli, "muli", FuncTraitPure),
 	// Returns true if the first argument is divisible by the second one.
-	"#divisible": divisible,
+	makePureFunc(divisible),
 	// An alias for divisible(arg, 2)
-	"#even": even,
+	makePureFunc(even),
 	// An alias for not divisible(arg, 2)
-	"#odd": odd,
+	makePureFunc(odd),
 	// Return the result of concatenating all the arguments.
-	"#concat": concat,
+	makePureFunc(concat),
 	// Return the last argument of the given ones if all of them are true. Otherwise,
 	// return the first non-true one.
-	"#and": and,
+	makePureFunc(and),
 	// Return the first true argument of the given ones. If none of them is true,
 	// return false.
-	"#or": or,
+	makePureFunc(or),
 	// Return the negation of the truth value of the given argument.
-	"#not": not,
+	makePureFunc(not),
 	// Return the current time.Time in the local timezone.
-	"now":         now,
-	"#int":        types.ToInt,
-	"#float":      types.ToFloat,
-	"#split":      strings.Split,
-	"#split_n":    strings.SplitN,
-	"#to_lower":   strings.ToLower,
-	"#to_title":   strings.ToTitle,
-	"#to_upper":   strings.ToUpper,
-	"#has_prefix": strings.HasPrefix,
-	"#has_suffix": strings.HasSuffix,
+	makeFunc(now, 0),
+	makeNamedFunc(types.ToInt, "int", FuncTraitPure),
+	makeNamedFunc(types.ToFloat, "float", FuncTraitPure),
+	makeNamedFunc(strings.Split, "split", FuncTraitPure),
+	makeNamedFunc(strings.SplitN, "split_n", FuncTraitPure),
+	makeNamedFunc(strings.ToLower, "to_lower", FuncTraitPure),
+	makeNamedFunc(strings.ToTitle, "to_title", FuncTraitPure),
+	makeNamedFunc(strings.ToUpper, "to_upper", FuncTraitPure),
+	makeNamedFunc(strings.HasPrefix, "has_prefix", FuncTraitPure),
+	makeNamedFunc(strings.HasSuffix, "has_suffix", FuncTraitPure),
 	// Converts plain text to HTML by escaping it and replacing
 	// newlines with <br> tags.
-	"#to_html": toHtml,
+	makeNamedFunc(toHtml, "to_html", FuncTraitPure),
 
 	// !state manipulation functions
 
 	// Return the value of the given variable, or an empty
 	// value if no such variable exists.
-	"@var": getVar,
+	makeNamedFunc(getVar, "var", FuncTraitState),
 
 	// !Go builtins
-	"call":  call,
-	"#html": template.HTMLEscaper,
+	makeFunc(call, 0),
+	makeNamedFunc(template.HTMLEscaper, "html", FuncTraitPure),
 	// Return the result of indexing into the first argument, which must be a map or slice,
 	// using the second one (i.e. item[idx]).
-	"#index": index,
-	"#js":    template.JSEscaper,
+	makePureFunc(index),
+	makeNamedFunc(template.JSEscaper, "js", FuncTraitPure),
 	// Return the length of the argument, which must be map, slice or array.
-	"#len":      length,
-	"#print":    fmt.Sprint,
-	"#printf":   fmt.Sprintf,
-	"#println":  fmt.Sprintln,
-	"#urlquery": template.URLQueryEscaper,
+	makeNamedFunc(length, "len", FuncTraitPure),
+	makeNamedFunc(fmt.Sprint, "print", FuncTraitPure),
+	makeNamedFunc(fmt.Sprintf, "printf", FuncTraitPure),
+	makeNamedFunc(fmt.Sprintln, "println", FuncTraitPure),
+	makeNamedFunc(template.URLQueryEscaper, "urlquery", FuncTraitPure),
 
 	// !Pseudo-functions which act as custom tags
-	"extend": nop,
+	makeNamedFunc(nop, "extend", 0),
 	// !Used to make the parser parse undefined
 	// variables, since we allow variable
 	// inheritance to subtemplates
-	varNop: nop,
+	makeNamedFunc(nop, varNop, 0),
 })

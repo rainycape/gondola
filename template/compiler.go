@@ -346,7 +346,7 @@ func (s *State) varValue(name string) (reflect.Value, error) {
 }
 
 // call fn, remove its args from the stack and push the result
-func (s *State) call(fn reflect.Value, name string, args int, traits funcTrait, fp fastPath) error {
+func (s *State) call(fn reflect.Value, name string, args int, traits FuncTrait, fp fastPath) error {
 	pos := len(s.stack) - args
 	in := s.stack[pos : pos+args]
 	ftyp := fn.Type()
@@ -358,16 +358,18 @@ func (s *State) call(fn reflect.Value, name string, args int, traits funcTrait, 
 		if args < last {
 			// Show the number of passed arguments without the context
 			// in the error, otherwise it can be confusing for the user.
-			last -= traitsArgumentCount(traits)
-			args -= traitsArgumentCount(traits)
-			return fmt.Errorf("function %q requires at least %d arguments, %d given", name, last, args)
+			tn := traits.nTraitArgs()
+			last -= tn
+			args -= tn
+			return fmt.Errorf("function %q requires at least %d arguments, %d given", funcDebugName(name, fn), last, args)
 		}
 	} else {
 		if args != numIn {
 			// See comment after the previous args < last
-			last -= traitsArgumentCount(traits)
-			args -= traitsArgumentCount(traits)
-			return fmt.Errorf("function %q requires exactly %d arguments, %d given", name, numIn, args)
+			tn := traits.nTraitArgs()
+			last -= tn
+			args -= tn
+			return fmt.Errorf("function %q requires exactly %d arguments, %d given", funcDebugName(name, fn), numIn, args)
 		}
 	}
 	// arguments are in reverse order
@@ -398,7 +400,7 @@ func (s *State) call(fn reflect.Value, name string, args int, traits funcTrait, 
 				in[ii] = v.Addr()
 				continue
 			}
-			if ii == 0 && traits&funcTraitContext != 0 {
+			if ii == 0 && traits.HasTrait(FuncTraitContext) {
 				return fmt.Errorf("context function %q requires a context of type %s, not %s", name, ityp, vtyp)
 			}
 			return fmt.Errorf("can't call %q with %s as argument %d, need %s", name, vtyp, ii+1, ityp)
@@ -550,7 +552,7 @@ func (s *State) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 			args, i := decodeVal(v.val)
 			// function existence is checked at compile time
 			fn := s.p.funcs[i]
-			if err := s.call(fn.val, fn.name, args, fn.traits, fn.fp); err != nil {
+			if err := s.call(fn.fval, fn.Name, args, fn.Traits, fn.fp); err != nil {
 				return s.formatErr(pc, tmpl, err)
 			}
 		case opVAR:
@@ -659,33 +661,6 @@ func (s *State) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 		}
 	}
 	return nil
-}
-
-type fn struct {
-	name     string
-	val      reflect.Value
-	variadic bool
-	numIn    int
-	fp       fastPath
-	traits   funcTrait
-}
-
-func newFn(info *funcInfo, name string) *fn {
-	v := reflect.ValueOf(info.f)
-	if v.Kind() != reflect.Func {
-		panic(fmt.Errorf("template function %q is not a function, it's %s", name, v.Type))
-	}
-	typ := v.Type()
-	variadic := typ.IsVariadic()
-	numIn := typ.NumIn()
-	return &fn{
-		name:     name,
-		val:      v,
-		variadic: variadic,
-		numIn:    numIn,
-		fp:       newFastPath(v),
-		traits:   info.traits,
-	}
 }
 
 type context struct {
@@ -858,7 +833,7 @@ func (s *scratch) clear() {
 
 type program struct {
 	tmpl     *Template
-	funcs    []*fn
+	funcs    []*Func
 	strings  []string
 	rstrings []reflect.Value
 	values   []reflect.Value
@@ -884,13 +859,14 @@ func (p *program) addString(s string) valType {
 	return valType(len(p.strings) - 1)
 }
 
-func (p *program) addFunc(info *funcInfo, name string) valType {
+func (p *program) addFunc(f *Func) valType {
+	f.mustInitialize()
 	for ii, v := range p.funcs {
-		if v.name == name {
+		if v.Name == f.Name {
 			return valType(ii)
 		}
 	}
-	p.funcs = append(p.funcs, newFn(info, name))
+	p.funcs = append(p.funcs, f)
 	return valType(len(p.funcs) - 1)
 }
 
@@ -931,7 +907,7 @@ func (p *program) prevFuncReturnType() reflect.Type {
 		if in := p.s.buf[len(p.s.buf)-1]; in.op == opFUNC {
 			_, i := decodeVal(in.val)
 			fn := p.funcs[i]
-			return fn.val.Type().Out(0)
+			return fn.fval.Type().Out(0)
 		}
 	}
 	return nil
@@ -1178,15 +1154,15 @@ func (p *program) walk(n parse.Node) error {
 			return fmt.Errorf("undefined function %q", name)
 		}
 		argc := p.s.argc()
-		if info.traits&funcTraitContext != 0 {
+		if info.Traits.HasTrait(FuncTraitContext) {
 			p.inst(opCONTEXT, 0)
 			argc++
 		}
-		if info.traits&funcTraitState != 0 {
+		if info.Traits.HasTrait(FuncTraitState) {
 			p.inst(opSTATE, 0)
 			argc++
 		}
-		p.inst(opFUNC, encodeVal(argc, p.addFunc(info, name)))
+		p.inst(opFUNC, encodeVal(argc, p.addFunc(info)))
 	case *parse.IfNode:
 		if err := p.walkBranch(parse.NodeIf, &x.BranchNode); err != nil {
 			return err
@@ -1295,11 +1271,11 @@ func (p *program) fnIsPure(idx int) bool {
 	if fn == nil {
 		return false
 	}
-	if htmlEscapeFuncs[fn.name] != nil {
+	if htmlEscapeFuncs[fn.Name] != nil {
 		return true
 	}
-	if info := p.tmpl.funcMap[fn.name]; info != nil {
-		return info.traits&funcTraitPure != 0
+	if info := p.tmpl.funcMap[fn.Name]; info != nil {
+		return info.Traits.HasTrait(FuncTraitPure)
 	}
 	return false
 }

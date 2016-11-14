@@ -161,8 +161,9 @@ func makePureFunc(fn interface{}) *Func {
 
 func makeNamedFunc(fn interface{}, name string, traits FuncTrait) *Func {
 	f := &Func{
-		Name: name,
-		Fn:   fn,
+		Name:   name,
+		Fn:     fn,
+		Traits: traits,
 	}
 	f.mustInitialize()
 	return f

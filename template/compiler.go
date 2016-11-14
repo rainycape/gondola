@@ -345,13 +345,10 @@ func (s *State) varValue(name string) (reflect.Value, error) {
 }
 
 // call fn, remove its args from the stack and push the result
-func (s *State) call(fn reflect.Value, name string, args int, traits FuncTrait, fp fastPath) error {
+func (s *State) call(fn reflect.Value, ftyp reflect.Type, numIn int, isVariadic bool, name string, args int, traits FuncTrait, fp fastPath) error {
 	pos := len(s.stack) - args
 	in := s.stack[pos : pos+args]
-	ftyp := fn.Type()
-	numIn := ftyp.NumIn()
 	last := numIn
-	isVariadic := ftyp.IsVariadic()
 	if isVariadic {
 		last--
 		if args < last {
@@ -514,7 +511,8 @@ func (s *State) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 					// the dot or the result of the last field lookup, so
 					// we have to remove it.
 					s.stack = s.stack[:p]
-					if err := s.call(fn, name, args, 0, nil); err != nil {
+					ftyp := fn.Type()
+					if err := s.call(fn, ftyp, ftyp.NumIn(), ftyp.IsVariadic(), name, args, 0, nil); err != nil {
 						return err
 					}
 					// s.call already puts the result in the stack
@@ -551,7 +549,7 @@ func (s *State) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 			args, i := decodeVal(v.val)
 			// function existence is checked at compile time
 			fn := s.p.funcs[i]
-			if err := s.call(fn.fval, fn.Name, args, fn.Traits, fn.fp); err != nil {
+			if err := s.call(fn.fval, fn.ftype, fn.numIn, fn.variadic, fn.Name, args, fn.Traits, fn.fp); err != nil {
 				return s.formatErr(pc, tmpl, err)
 			}
 		case opVAR:

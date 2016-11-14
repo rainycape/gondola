@@ -64,6 +64,7 @@ type Func struct {
 	Fn       interface{}
 	Traits   FuncTrait
 	fval     reflect.Value
+	ftype    reflect.Type
 	variadic bool
 	numIn    int
 	fp       fastPath
@@ -85,9 +86,9 @@ func (f *Func) initialize() error {
 		return fmt.Errorf("template function %q is not a function, it's %s", f.Name, v.Type())
 	}
 	f.fval = v
-	typ := v.Type()
-	f.variadic = typ.IsVariadic()
-	f.numIn = typ.NumIn()
+	f.ftype = v.Type()
+	f.variadic = f.ftype.IsVariadic()
+	f.numIn = f.ftype.NumIn()
 	f.fp = newFastPath(v)
 	return nil
 }

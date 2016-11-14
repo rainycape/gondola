@@ -68,35 +68,40 @@ type inst struct {
 	val valType
 }
 
-type instructions []inst
+// pushes returns the number of values pushed to the stack by inst
+func (i inst) pushes() int {
+	switch i.op {
+	case opSTRING, opDOT, opVAL, opVAR, opFUNC, opCONTEXT, opSTATE:
+		return 1
+	case opNEXT:
+		return 2
+	case opFIELD:
+		// can't know in advance, since it might
+		// overwrite when there's a lookup or
+		// might reduce the number of arguments
+		// if it's a function call
+		return -1
+	}
+	return 0
+}
 
-func (i instructions) replace(idx int, count int, repl []inst) []inst {
-	// look for jumps before the block which need to be adjusted
-	for ii, v := range i[:idx] {
-		switch v.op {
-		case opJMP, opJMPT, opJMPF, opNEXT:
-			val := int(int32(v.val))
-			if ii+val > idx {
-				i[ii] = inst{v.op, valType(int32(val + len(repl) - count))}
-			}
-		}
+// pops returns the number of values popped from the stack by inst
+func (i inst) pops() int {
+	switch i.op {
+	case opPOP:
+		return int(i.val)
+	case opSETVAR:
+		return 1
+	case opFIELD:
+		// See i.pushes()
+		return -1
+	case opFUNC:
+		// opFUNC removes its arguments from the stack, leaving
+		// just its return value
+		nargs, _ := decodeVal(i.val)
+		return nargs
 	}
-	// look for jumps after the block which need to be adjusted
-	start := idx + count
-	for ii, v := range i[start:] {
-		switch v.op {
-		case opJMP, opJMPT, opJMPF, opNEXT:
-			val := int(int32(v.val))
-			if ii+val < 0 {
-				i[ii+start] = inst{v.op, valType(int32(val - len(repl) + count))}
-			}
-		}
-	}
-	var ret []inst
-	ret = append(ret, i[:idx]...)
-	ret = append(ret, repl...)
-	ret = append(ret, i[idx+count:]...)
-	return ret
+	return 0
 }
 
 func encodeVal(high int, low valType) valType {
@@ -650,7 +655,7 @@ func (s *State) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 		case opSTRING:
 			s.stack = append(s.stack, s.p.rstrings[int(v.val)])
 		case opWB:
-			if _, err := s.w.Write(s.p.bs[int(v.val)]); err != nil {
+			if _, err := s.w.Write(s.p.bytesValue(v.val)); err != nil {
 				return s.formatErr(pc, tmpl, err)
 			}
 		default:
@@ -742,17 +747,12 @@ func (s *scratch) pushes() int {
 	}
 	pushes := 0
 	for _, v := range s.buf {
-		switch v.op {
-		case opSTRING, opDOT, opVAL, opVAR, opFUNC, opCONTEXT, opSTATE:
-			pushes++
-		case opNEXT:
-			pushes += 2
-		case opFIELD:
-			// can't know in advance, since it might
-			// overwrite when there's a lookup or
-			// might reduce the number of arguments
-			// if it's a function call
-			return -1
+		if p := v.pushes(); p >= 0 {
+			pushes += p
+		} else {
+			// < 0, which means the compiler can't know
+			// it in advance
+			return p
 		}
 	}
 	return pushes
@@ -764,14 +764,11 @@ func (s *scratch) pops() int {
 	}
 	pops := 0
 	for _, v := range s.buf {
-		switch v.op {
-		case opPOP:
-			pops += int(v.val)
-		case opSETVAR:
-			pops++
-		case opFUNC:
-			args, _ := decodeVal(v.val)
-			pops += args
+		if p := v.pops(); p >= 0 {
+			pops += p
+		} else {
+			// Unknown
+			return p
 		}
 	}
 	return pops
@@ -872,10 +869,15 @@ func (p *program) addValue(v interface{}) valType {
 	return valType(len(p.values) - 1)
 }
 
-func (p *program) addWB(b []byte) {
+func (p *program) internBytes(b []byte) valType {
 	pos := len(p.bs)
 	p.bs = append(p.bs, b)
-	p.inst(opWB, valType(pos))
+	return valType(pos)
+}
+
+func (p *program) addWB(b []byte) {
+	val := p.internBytes(b)
+	p.inst(opWB, val)
 }
 
 func (p *program) addSTRING(s string) {
@@ -1314,33 +1316,6 @@ func (p *program) executeScratch(s *scratch) (*State, error) {
 	return st, nil
 }
 
-func (p *program) stitchTree(name string) {
-	// TODO: Save the name of the original template somewhere
-	// so we can recover it for error messages. Until we fix
-	// that problem we're only stitching trees which are just
-	// a WB. In most cases, this will inline the top and bottom
-	// hooks, giving already a nice performance boost.
-	code := p.code[name]
-	for ii := 0; ii < len(code); ii++ {
-		v := code[ii]
-		if v.op == opTEMPLATE {
-			_, t := decodeVal(v.val)
-			tmpl := p.strings[t]
-			repl := p.code[tmpl]
-			if len(repl) == 1 && repl[0].op == opWB {
-				// replace the tree
-				code = instructions(code).replace(ii, 1, repl)
-				ii--
-			}
-		}
-	}
-	p.code[name] = code
-}
-
-func (p *program) stitch() {
-	p.stitchTree(p.tmpl.root)
-}
-
 func (p *program) execute(w *bytes.Buffer, name string, data interface{}, context interface{}, vars VarMap) error {
 	s := newState(p, w)
 	s.context = reflect.ValueOf(context)
@@ -1348,6 +1323,10 @@ func (p *program) execute(w *bytes.Buffer, name string, data interface{}, contex
 	err := s.execute(name, "", reflect.ValueOf(data))
 	putState(s)
 	return err
+}
+
+func (p *program) bytesValue(val valType) []byte {
+	return p.bs[int(val)]
 }
 
 func compileTemplate(p *program, tmpl *Template) error {
@@ -1372,7 +1351,7 @@ func newProgram(tmpl *Template) (*program, error) {
 	if err := compileTemplate(p, tmpl); err != nil {
 		return nil, err
 	}
-	p.stitch()
+	p.optimize()
 	return p, nil
 }
 

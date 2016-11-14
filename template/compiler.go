@@ -217,6 +217,7 @@ type State struct {
 	dot       []reflect.Value
 	iterators []iterator
 	scratch   []interface{}   // used for calling variadic functions with ...interface{}
+	rscratch  reflect.Value   // = reflect.ValueOf(scratch)
 	res       []reflect.Value // used for storing return values in fast paths
 	resPtr    *reflect.Value
 	context   reflect.Value
@@ -229,13 +230,17 @@ func newState(p *program, w *bytes.Buffer) *State {
 		s.w = w
 		return s
 	}
+	scratch := make([]interface{}, 0, 1)
+	rscratch := reflect.ValueOf(scratch)
 	res := make([]reflect.Value, 1)
 	resPtr := &res[0]
 	return &State{
-		p:      p,
-		w:      w,
-		res:    res,
-		resPtr: resPtr,
+		p:        p,
+		w:        w,
+		scratch:  scratch,
+		rscratch: rscratch,
+		res:      res,
+		resPtr:   resPtr,
 	}
 }
 
@@ -432,7 +437,7 @@ func (s *State) call(fn reflect.Value, ftyp reflect.Type, numIn int, isVariadic 
 				in = append(in, reflect.Value{})
 			}
 			if lastType == emptyType {
-				in[last] = reflect.ValueOf(s.scratch)
+				in[last] = s.rscratch
 			} else {
 				lastSlice := reflect.MakeSlice(ftyp.In(last), len(s.scratch), len(s.scratch))
 				for ii, v := range s.scratch {

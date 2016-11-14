@@ -547,8 +547,8 @@ func (s *State) execute(tmpl string, ns string, dot reflect.Value) (err error) {
 					return s.errorf(pc, tmpl, "%q is not a field of struct type %T", name, top.Interface())
 				}
 			}
-			// opFIELD overwrites the stack
 		endopFIELD:
+			// opFIELD overwrites the stack
 			s.stack[p] = res
 		case opFUNC:
 			args, i := decodeVal(v.val)

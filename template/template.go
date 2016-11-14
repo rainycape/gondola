@@ -1118,6 +1118,17 @@ func Parse(fs vfs.VFS, manager *assets.Manager, name string) (*Template, error) 
 	return t, nil
 }
 
+// ParseFromDir is a conveniency function which creates a vfs.VFS rooted at dir
+// and creates a new template from the file with the given name. It's equivalent
+// to Parse(vfs.FS(dir), manager, name) (minus error handling).
+func ParseFromDir(manager *assets.Manager, dir string, name string) (*Template, error) {
+	fs, err := vfs.FS(dir)
+	if err != nil {
+		return nil, err
+	}
+	return Parse(fs, manager, name)
+}
+
 // MustParse works like parse, but panics if there's an error
 func MustParse(fs vfs.VFS, manager *assets.Manager, name string) *Template {
 	t, err := Parse(fs, manager, name)

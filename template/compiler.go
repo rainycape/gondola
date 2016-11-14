@@ -408,7 +408,7 @@ func (s *State) call(fn reflect.Value, ftyp reflect.Type, numIn int, isVariadic 
 		}
 	}
 	var res []reflect.Value
-	if isVariadic && lastType == emptyType {
+	if isVariadic {
 		// empty the scratch here, so it's only pointless
 		// the first time. the alternative would be emptying it
 		// after the call and in reset(), because CallSlice can end
@@ -425,12 +425,33 @@ func (s *State) call(fn reflect.Value, ftyp reflect.Type, numIn int, isVariadic 
 			}
 			res = s.res
 		} else {
-			in[last] = reflect.ValueOf(s.scratch)
+			if len(in) <= last {
+				// no varargs provided by the call, but
+				// CallSlice requires an empty slice at
+				// the end.
+				in = append(in, reflect.Value{})
+			}
+			if lastType == emptyType {
+				in[last] = reflect.ValueOf(s.scratch)
+			} else {
+				lastSlice := reflect.MakeSlice(ftyp.In(last), len(s.scratch), len(s.scratch))
+				for ii, v := range s.scratch {
+					lastSlice.Index(ii).Set(reflect.ValueOf(v))
+				}
+				in[last] = lastSlice
+			}
 			in = in[:last+1]
 			res = fn.CallSlice(in)
 		}
 	} else {
-		res = fn.Call(in)
+		if fp != nil {
+			if err := fp(in, nil, s.resPtr); err != nil {
+				return fmt.Errorf("%q returned an error: %s", name, err)
+			}
+			res = s.res
+		} else {
+			res = fn.Call(in)
+		}
 	}
 	if len(res) == 2 && !res[1].IsNil() {
 		return fmt.Errorf("%q returned an error: %s", name, res[1].Interface())

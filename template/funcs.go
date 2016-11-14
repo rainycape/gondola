@@ -178,10 +178,6 @@ func _indirect(arg interface{}) interface{} {
 	return v.Interface()
 }
 
-type numericFloatFunc func(args ...interface{}) (float64, error)
-type numericIntFunc func(args ...interface{}) (int, error)
-type numericIfaceFunc func(args ...interface{}) (interface{}, error)
-
 type operator func(float64, float64) float64
 
 func numberToIface(f float64) interface{} {
@@ -191,7 +187,12 @@ func numberToIface(f float64) interface{} {
 	return f
 }
 
-func numericFunctions(n float64, op operator) (numericFloatFunc, numericIntFunc, numericIfaceFunc) {
+// don't use named types for the return values, otherwise the type switch in fast_path.go
+// won't match.
+func numericFunctions(n float64, op operator) (func(args ...interface{}) (float64, error),
+	func(args ...interface{}) (int, error),
+	func(args ...interface{}) (interface{}, error)) {
+
 	floatFunc := func(args ...interface{}) (float64, error) {
 		if len(args) == 0 {
 			return n, nil

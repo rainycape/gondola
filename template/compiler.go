@@ -166,12 +166,6 @@ func (it *chanIterator) Next() (bool, reflect.Value, reflect.Value) {
 }
 
 func newIterator(v reflect.Value) (iterator, error) {
-	for v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
-		if v.IsNil() {
-			return &nilIterator{}, nil
-		}
-		v = v.Elem()
-	}
 	switch v.Kind() {
 	case reflect.Slice, reflect.Array:
 		if v.Len() == 0 {
@@ -192,6 +186,11 @@ func newIterator(v reflect.Value) (iterator, error) {
 		return &chanIterator{val: v}, nil
 	case reflect.Invalid:
 		return &nilIterator{}, nil
+	case reflect.Ptr, reflect.Interface:
+		if v.IsNil() {
+			return &nilIterator{}, nil
+		}
+		return newIterator(v.Elem())
 	}
 	return nil, fmt.Errorf("can't range over %T", v.Interface())
 }

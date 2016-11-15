@@ -1171,7 +1171,7 @@ func (p *program) walk(n parse.Node) error {
 			// Function optimized away
 			break
 		}
-		// check for the stable function first
+		// check if the function exists
 		info := p.tmpl.funcMap[name]
 		if info == nil {
 			return fmt.Errorf("undefined function %q", name)

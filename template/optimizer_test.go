@@ -1,8 +1,10 @@
 package template
 
-import "testing"
-import "reflect"
-import "bytes"
+import (
+	"bytes"
+	"reflect"
+	"testing"
+)
 
 type optimizerTest struct {
 	Text         string

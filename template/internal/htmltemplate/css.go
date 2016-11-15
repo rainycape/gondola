@@ -216,7 +216,7 @@ var mozBindingBytes = []byte("mozbinding")
 // and anything that might execute scripts.
 func cssValueFilter(args ...interface{}) string {
 	s, t := stringify(args...)
-	if t == contentTypeCSS {
+	if t == ContentTypeCSS {
 		return s
 	}
 	b, id := decodeCSS([]byte(s)), make([]byte, 0, 64)

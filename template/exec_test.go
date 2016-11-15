@@ -588,7 +588,7 @@ func testExecute(execTests []execTest, template *Template, t *testing.T) {
 		"zeroArgs":   zeroArgs,
 	}
 	for _, test := range execTests {
-		tmpl := parseNamedText(t, test.name, test.input, funcs, "text/plain")
+		tmpl := parseNamedText(t, test.name, test.input, funcs, "text/plain", nil)
 		if tmpl == nil {
 			continue
 		}

@@ -104,7 +104,8 @@ var (
 	}
 )
 
-func parseNamedText(tb testing.TB, name string, text string, funcs map[string]interface{}, contentType string) *Template {
+func parseNamedText(tb testing.TB, name string, text string, funcs map[string]interface{}, contentType string,
+	beforeCompile func(*Template)) *Template {
 	fs, err := vfs.Map(map[string]*vfs.File{name: &vfs.File{Data: []byte(text)}})
 	if err != nil {
 		tb.Fatal(err)
@@ -118,6 +119,9 @@ func parseNamedText(tb testing.TB, name string, text string, funcs map[string]in
 		tb.Errorf("error parsing %q: %s", text, err)
 		return nil
 	}
+	if beforeCompile != nil {
+		beforeCompile(tmpl)
+	}
 	if err := tmpl.Compile(); err != nil {
 		tb.Errorf("error compiling %q: %s", text, err)
 		return nil
@@ -126,7 +130,7 @@ func parseNamedText(tb testing.TB, name string, text string, funcs map[string]in
 }
 
 func parseText(tb testing.TB, text string) *Template {
-	return parseNamedText(tb, "template.html", text, nil, "")
+	return parseNamedText(tb, "template.html", text, nil, "", nil)
 }
 
 func parseTestTemplate(tb testing.TB, name string) *Template {
@@ -332,7 +336,7 @@ func TestContextFunc(t *testing.T) {
 	tmpl := parseNamedText(t, "context", "{{ f_interface }} - {{ f_int }}", map[string]interface{}{
 		"f_interface": &Func{Fn: func(ctx interface{}) int { return ctx.(int) }, Traits: FuncTraitContext},
 		"f_int":       &Func{Fn: func(ctx int) int { return ctx }, Traits: FuncTraitContext},
-	}, "text/plain")
+	}, "text/plain", nil)
 
 	ctx := 42
 	expected := fmt.Sprintf("%d - %d", ctx, ctx)
@@ -348,7 +352,7 @@ func TestContextFunc(t *testing.T) {
 func TestBadContextFunc(t *testing.T) {
 	tmpl := parseNamedText(t, "context", "{{ f_float64 }}", map[string]interface{}{
 		"f_float64": &Func{Fn: func(ctx float64) float64 { return ctx }, Traits: FuncTraitContext},
-	}, "text/plain")
+	}, "text/plain", nil)
 	err := tmpl.ExecuteContext(ioutil.Discard, nil, int(42), nil)
 	if err == nil {
 		t.Error("expecting an error when executing bad context function")
@@ -361,7 +365,7 @@ func TestBadContextFunc(t *testing.T) {
 }
 
 func TestTemplateNoPipeMissedInstructions(t *testing.T) {
-	tmpl := parseNamedText(t, "template-nopipe", "{{ define \"foo\" }}2{{ end }}1 {{ template \"foo\" }}", nil, "text/plain")
+	tmpl := parseNamedText(t, "template-nopipe", "{{ define \"foo\" }}2{{ end }}1 {{ template \"foo\" }}", nil, "text/plain", nil)
 	expected := "1 2"
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, nil); err != nil {

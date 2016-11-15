@@ -220,7 +220,7 @@ func jsValEscaper(args ...interface{}) string {
 // or in an HTML5 event handler attribute such as onclick.
 func jsStrEscaper(args ...interface{}) string {
 	s, t := stringify(args...)
-	if t == contentTypeJSStr {
+	if t == ContentTypeJSStr {
 		return replace(s, jsStrNormReplacementTable)
 	}
 	return replace(s, jsStrReplacementTable)

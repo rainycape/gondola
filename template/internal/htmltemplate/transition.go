@@ -106,11 +106,11 @@ func tTag(c context, s []byte) (context, int) {
 		}, len(s)
 	}
 	switch attrType(string(s[i:j])) {
-	case contentTypeURL:
+	case ContentTypeURL:
 		attr = attrURL
-	case contentTypeCSS:
+	case ContentTypeCSS:
 		attr = attrStyle
-	case contentTypeJS:
+	case ContentTypeJS:
 		attr = attrScript
 	}
 	if j == len(s) {

@@ -10,21 +10,26 @@ import (
 	"reflect"
 )
 
-type contentType uint8
+type ContentType uint8
 
 const (
-	contentTypePlain contentType = iota
-	contentTypeCSS
-	contentTypeHTML
-	contentTypeHTMLAttr
-	contentTypeJS
-	contentTypeJSStr
-	contentTypeURL
+	ContentTypePlain ContentType = iota
+	ContentTypeCSS
+	ContentTypeHTML
+	ContentTypeHTMLAttr
+	ContentTypeJS
+	ContentTypeJSStr
+	ContentTypeURL
 	// contentTypeUnsafe is used in attr.go for values that affect how
 	// embedded content and network messages are formed, vetted,
 	// or interpreted; or which credentials network messages carry.
 	contentTypeUnsafe
 )
+
+type contentTyper interface {
+	String() string
+	ContentType() ContentType
+}
 
 // indirect returns the value, after dereferencing as many times
 // as necessary to reach the base type (or nil).
@@ -64,27 +69,29 @@ func indirectToStringerOrError(a interface{}) interface{} {
 
 // stringify converts its arguments to a string and the type of the content.
 // All pointers are dereferenced, as in the text/template package.
-func stringify(args ...interface{}) (string, contentType) {
+func stringify(args ...interface{}) (string, ContentType) {
 	if len(args) == 1 {
 		switch s := indirect(args[0]).(type) {
 		case string:
-			return s, contentTypePlain
+			return s, ContentTypePlain
 		case template.CSS:
-			return string(s), contentTypeCSS
+			return string(s), ContentTypeCSS
 		case template.HTML:
-			return string(s), contentTypeHTML
+			return string(s), ContentTypeHTML
 		case template.HTMLAttr:
-			return string(s), contentTypeHTMLAttr
+			return string(s), ContentTypeHTMLAttr
 		case template.JS:
-			return string(s), contentTypeJS
+			return string(s), ContentTypeJS
 		case template.JSStr:
-			return string(s), contentTypeJSStr
+			return string(s), ContentTypeJSStr
 		case template.URL:
-			return string(s), contentTypeURL
+			return string(s), ContentTypeURL
+		case contentTyper:
+			return s.String(), s.ContentType()
 		}
 	}
 	for i, arg := range args {
 		args[i] = indirectToStringerOrError(arg)
 	}
-	return fmt.Sprint(args...), contentTypePlain
+	return fmt.Sprint(args...), ContentTypePlain
 }

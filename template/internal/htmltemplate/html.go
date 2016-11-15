@@ -14,7 +14,7 @@ import (
 // htmlNospaceEscaper escapes for inclusion in unquoted attribute values.
 func htmlNospaceEscaper(args ...interface{}) string {
 	s, t := stringify(args...)
-	if t == contentTypeHTML {
+	if t == ContentTypeHTML {
 		return htmlReplacer(stripTags(s), htmlNospaceNormReplacementTable, false)
 	}
 	return htmlReplacer(s, htmlNospaceReplacementTable, false)
@@ -23,7 +23,7 @@ func htmlNospaceEscaper(args ...interface{}) string {
 // attrEscaper escapes for inclusion in quoted attribute values.
 func attrEscaper(args ...interface{}) string {
 	s, t := stringify(args...)
-	if t == contentTypeHTML {
+	if t == ContentTypeHTML {
 		return htmlReplacer(stripTags(s), htmlNormReplacementTable, true)
 	}
 	return htmlReplacer(s, htmlReplacementTable, true)
@@ -32,7 +32,7 @@ func attrEscaper(args ...interface{}) string {
 // rcdataEscaper escapes for inclusion in an RCDATA element body.
 func rcdataEscaper(args ...interface{}) string {
 	s, t := stringify(args...)
-	if t == contentTypeHTML {
+	if t == ContentTypeHTML {
 		return htmlReplacer(s, htmlNormReplacementTable, true)
 	}
 	return htmlReplacer(s, htmlReplacementTable, true)
@@ -41,7 +41,7 @@ func rcdataEscaper(args ...interface{}) string {
 // htmlEscaper escapes for inclusion in HTML text.
 func htmlEscaper(args ...interface{}) string {
 	s, t := stringify(args...)
-	if t == contentTypeHTML {
+	if t == ContentTypeHTML {
 		return s
 	}
 	return htmlReplacer(s, htmlReplacementTable, true)
@@ -221,7 +221,7 @@ func stripTags(html string) string {
 // a known-safe HTML attribute.
 func htmlNameFilter(args ...interface{}) string {
 	s, t := stringify(args...)
-	if t == contentTypeHTMLAttr {
+	if t == ContentTypeHTMLAttr {
 		return s
 	}
 	if len(s) == 0 {
@@ -233,7 +233,7 @@ func htmlNameFilter(args ...interface{}) string {
 		return filterFailsafe
 	}
 	s = strings.ToLower(s)
-	if t := attrType(s); t != contentTypePlain {
+	if t := attrType(s); t != ContentTypePlain {
 		// TODO: Split attr and element name part filters so we can whitelist
 		// attributes.
 		return filterFailsafe

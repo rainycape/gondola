@@ -14,7 +14,7 @@ import (
 // case it defangs the entire URL.
 func urlFilter(args ...interface{}) string {
 	s, t := stringify(args...)
-	if t == contentTypeURL {
+	if t == ContentTypeURL {
 		return s
 	}
 	if i := strings.IndexRune(s, ':'); i >= 0 && !strings.ContainsRune(s[:i], '/') {
@@ -45,7 +45,7 @@ func urlNormalizer(args ...interface{}) string {
 // a valid hierarchical or opaque URL part.
 func urlProcessor(norm bool, args ...interface{}) string {
 	s, t := stringify(args...)
-	if t == contentTypeURL {
+	if t == ContentTypeURL {
 		norm = true
 	}
 	var b bytes.Buffer

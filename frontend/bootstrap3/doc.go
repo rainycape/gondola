@@ -1,5 +1,5 @@
-// Package bootstrap implements some helper functions intended
-// to be used with the Bootstrap front-end framework.
+// Package bootstrap3 implements some helper functions intended
+// to be used with the Bootstrap front-end framework, version 3.
 // See http://twitter.github.io/bootstrap/ for more details.
 //
 // This package defines the "bootstrap" asset, which serves bootstrap
@@ -11,7 +11,7 @@
 // This asset also supports the following options:
 //
 //  nojs (bool): disables loading bootstrap's javascript library
-//  e.g. bootstrap|nojs: 2.3.2
+//  e.g. bootstrap|nojs: 3.0.0
 //
 // See gnd.la/template and gnd.la/template/assets for more information
 // about template functions and the assets pipeline.
@@ -19,4 +19,4 @@
 // Importing this package will also register FormRenderer as the default
 // gnd.la/form renderer and PaginatorRenderer as the default
 // gnd.la/html/paginator renderer.
-package bootstrap
+package bootstrap3

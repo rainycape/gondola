@@ -1132,11 +1132,6 @@ func (p *program) walk(n parse.Node) error {
 				// and translated to a opWB
 				break
 			}
-			if isTemplateHTMLCommentEscaperFunc(name) && !p.tmpl.DropComments {
-				// Don't remove HTML comments, that's an idiotic
-				// behavior from html/template
-				break
-			}
 			// Check if the input of this function is a string or template.HTML
 			// and either use the specialized function or remove the escaping
 			// entirely when possible.
@@ -1394,10 +1389,6 @@ func isTemplateHTMLHTMLEscaperFunc(name string) bool {
 
 func isTemplateHTMLJSEscaperFunc(name string) bool {
 	return name == "_html_template_jsvalescaper"
-}
-
-func isTemplateHTMLCommentEscaperFunc(name string) bool {
-	return name == "_html_template_commentescaper"
 }
 
 func printableValue(v reflect.Value) (interface{}, bool, bool) {

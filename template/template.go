@@ -101,7 +101,6 @@ type Hook struct {
 type Template struct {
 	AssetsManager *assets.Manager
 	Minify        bool
-	DropComments  bool
 	namespace     []string
 	tmpl          *htmltemplate.Template
 	prog          *program

@@ -102,7 +102,7 @@ func tTag(c context, s []byte) (context, int) {
 	if i == j {
 		return context{
 			state: stateError,
-			err:   errorf(ErrBadHTML, 0, "expected space, attr name, or end of tag, but got %q", s[i:]),
+			err:   errorf(ErrBadHTML, nil, 0, "expected space, attr name, or end of tag, but got %q", s[i:]),
 		}, len(s)
 	}
 	switch attrType(string(s[i:j])) {
@@ -169,7 +169,7 @@ func tBeforeValue(c context, s []byte) (context, int) {
 	case '"':
 		delim, i = delimDoubleQuote, i+1
 	}
-	c.state, c.delim, c.attr = attrStartStates[c.attr], delim, attrNone
+	c.state, c.delim = attrStartStates[c.attr], delim
 	return c, i
 }
 
@@ -183,22 +183,52 @@ func tHTMLCmt(c context, s []byte) (context, int) {
 
 // specialTagEndMarkers maps element types to the character sequence that
 // case-insensitively signals the end of the special tag body.
-var specialTagEndMarkers = [...]string{
-	elementScript:   "</script",
-	elementStyle:    "</style",
-	elementTextarea: "</textarea",
-	elementTitle:    "</title",
+var specialTagEndMarkers = [...][]byte{
+	elementScript:   []byte("script"),
+	elementStyle:    []byte("style"),
+	elementTextarea: []byte("textarea"),
+	elementTitle:    []byte("title"),
 }
+
+var (
+	specialTagEndPrefix = []byte("</")
+	tagEndSeparators    = []byte("> \t\n\f/")
+)
 
 // tSpecialTagEnd is the context transition function for raw text and RCDATA
 // element states.
 func tSpecialTagEnd(c context, s []byte) (context, int) {
 	if c.element != elementNone {
-		if i := strings.Index(strings.ToLower(string(s)), specialTagEndMarkers[c.element]); i != -1 {
+		if i := indexTagEnd(s, specialTagEndMarkers[c.element]); i != -1 {
 			return context{}, i
 		}
 	}
 	return c, len(s)
+}
+
+// indexTagEnd finds the index of a special tag end in a case insensitive way, or returns -1
+func indexTagEnd(s []byte, tag []byte) int {
+	res := 0
+	plen := len(specialTagEndPrefix)
+	for len(s) > 0 {
+		// Try to find the tag end prefix first
+		i := bytes.Index(s, specialTagEndPrefix)
+		if i == -1 {
+			return i
+		}
+		s = s[i+plen:]
+		// Try to match the actual tag if there is still space for it
+		if len(tag) <= len(s) && bytes.EqualFold(tag, s[:len(tag)]) {
+			s = s[len(tag):]
+			// Check the tag is followed by a proper separator
+			if len(s) > 0 && bytes.IndexByte(tagEndSeparators, s[0]) != -1 {
+				return res + i
+			}
+			res += len(tag)
+		}
+		res += i + plen
+	}
+	return -1
 }
 
 // tAttr is the context transition function for the attribute state.
@@ -245,7 +275,7 @@ func tJS(c context, s []byte) (context, int) {
 		default:
 			return context{
 				state: stateError,
-				err:   errorf(ErrSlashAmbig, 0, "'/' could start a division or regexp: %.32q", s[i:]),
+				err:   errorf(ErrSlashAmbig, nil, 0, "'/' could start a division or regexp: %.32q", s[i:]),
 			}, len(s)
 		}
 	default:
@@ -277,7 +307,7 @@ func tJSDelimited(c context, s []byte) (context, int) {
 			if i == len(s) {
 				return context{
 					state: stateError,
-					err:   errorf(ErrPartialEscape, 0, "unfinished escape sequence in JS string: %q", s),
+					err:   errorf(ErrPartialEscape, nil, 0, "unfinished escape sequence in JS string: %q", s),
 				}, len(s)
 			}
 		case '[':
@@ -299,7 +329,7 @@ func tJSDelimited(c context, s []byte) (context, int) {
 		// into charsets is desired.
 		return context{
 			state: stateError,
-			err:   errorf(ErrPartialCharset, 0, "unfinished JS regexp charset: %q", s),
+			err:   errorf(ErrPartialCharset, nil, 0, "unfinished JS regexp charset: %q", s),
 		}, len(s)
 	}
 
@@ -459,7 +489,7 @@ func tCSSStr(c context, s []byte) (context, int) {
 			if i == len(s) {
 				return context{
 					state: stateError,
-					err:   errorf(ErrPartialEscape, 0, "unfinished escape sequence in CSS string: %q", s),
+					err:   errorf(ErrPartialEscape, nil, 0, "unfinished escape sequence in CSS string: %q", s),
 				}, len(s)
 			}
 		} else {
@@ -489,7 +519,7 @@ func eatAttrName(s []byte, i int) (int, *Error) {
 			// These result in a parse warning in HTML5 and are
 			// indicative of serious problems if seen in an attr
 			// name in a template.
-			return -1, errorf(ErrBadHTML, 0, "%q in attribute name: %.32q", s[j:j+1], s)
+			return -1, errorf(ErrBadHTML, nil, 0, "%q in attribute name: %.32q", s[j:j+1], s)
 		default:
 			// No-op.
 		}

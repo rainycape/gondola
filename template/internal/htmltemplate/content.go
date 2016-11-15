@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html/template"
 	"reflect"
-	"strconv"
 )
 
 type contentType uint8
@@ -67,8 +66,7 @@ func indirectToStringerOrError(a interface{}) interface{} {
 // All pointers are dereferenced, as in the text/template package.
 func stringify(args ...interface{}) (string, contentType) {
 	if len(args) == 1 {
-		v := indirect(args[0])
-		switch s := v.(type) {
+		switch s := indirect(args[0]).(type) {
 		case string:
 			return s, contentTypePlain
 		case template.CSS:
@@ -83,27 +81,10 @@ func stringify(args ...interface{}) (string, contentType) {
 			return string(s), contentTypeJSStr
 		case template.URL:
 			return string(s), contentTypeURL
-		case int:
-			// return contentTypeHTML, since this does not
-			// need escaping and is the most common context
-			// in templates
-			return strconv.Itoa(s), contentTypeHTML
-		case float64:
-			return strconv.FormatFloat(s, 'g', -1, 64), contentTypeHTML
 		}
-		val := ""
-		if v != nil {
-			val = fmt.Sprint(indirectToStringerOrError(v))
-		}
-		return val, contentTypePlain
 	}
 	for i, arg := range args {
-		val := indirectToStringerOrError(arg)
-		if val != nil {
-			args[i] = val
-		} else {
-			args[i] = ""
-		}
+		args[i] = indirectToStringerOrError(arg)
 	}
 	return fmt.Sprint(args...), contentTypePlain
 }

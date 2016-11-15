@@ -25,12 +25,6 @@ var (
 	zero             = reflect.Zero(emptyType)
 )
 
-const (
-	templateHtmlEscaper    = "html_template_htmlescaper"
-	templateJsEscaper      = "html_template_jsvalescaper"
-	templateCommentEscaper = "html_template_commentescaper"
-)
-
 // TODO: Remove variables inside if or with when exiting the scope
 
 type opcode uint8
@@ -1132,13 +1126,13 @@ func (p *program) walk(n parse.Node) error {
 			break
 		}
 		name := x.Ident
-		if strings.HasPrefix(name, "html_") {
+		if isTemplateHTMLEscaperFunc(name) {
 			if p.s.noPrint {
 				// previous pipeline was precomputed
 				// and translated to a opWB
 				break
 			}
-			if name == templateCommentEscaper && !p.tmpl.tmpl.DropComments {
+			if isTemplateHTMLCommentEscaperFunc(name) && !p.tmpl.DropComments {
 				// Don't remove HTML comments, that's an idiotic
 				// behavior from html/template
 				break
@@ -1153,16 +1147,20 @@ func (p *program) walk(n parse.Node) error {
 				case typ.Kind() == reflect.String:
 					switch typ {
 					case stringType:
-						if name == templateHtmlEscaper {
-							// specialized to avoid type assertions
-							name = "html_template_htmlstringescaper"
-						}
+						/*
+							XXX: Decide if the performance improvement is worth
+							the maintenance cost.
+
+							if isTemplateHTMLHTMLEscaperFunc(name) {
+								// specialized to avoid type assertions
+								name = "html_template_htmlstringescaper"
+							}*/
 					case htmlType, templateHtmlType:
-						if name == templateHtmlEscaper {
+						if isTemplateHTMLHTMLEscaperFunc(name) {
 							name = ""
 						}
 					case jsType, templateJsType:
-						if name == templateJsEscaper {
+						if isTemplateHTMLJSEscaperFunc(name) {
 							name = ""
 						}
 					}
@@ -1270,7 +1268,7 @@ func (p *program) walk(n parse.Node) error {
 		p.s.addPop(pop)
 	case *parse.TextNode:
 		text := x.Text
-		if len(p.s.buf) == 0 && len(x.Text) > 1 && strings.Contains(p.tmpl.contentType, "html") && x.Text[0] == '\n' && x.Text[1] == '<' {
+		if len(p.s.buf) == 0 && len(x.Text) > 1 && p.tmpl.contentTypeIsHTML() && x.Text[0] == '\n' && x.Text[1] == '<' {
 			text = text[1:]
 		}
 		if len(text) > 0 {
@@ -1370,7 +1368,7 @@ func compileTemplate(p *program, tmpl *Template) error {
 }
 
 func newProgram(tmpl *Template) (*program, error) {
-	if strings.Contains(tmpl.contentType, "html") {
+	if tmpl.contentTypeIsHTML() {
 		tmpl.addHtmlEscaping()
 	}
 	p := &program{tmpl: tmpl, code: make(map[string][]inst), context: make(map[string][]*context)}
@@ -1384,6 +1382,22 @@ func newProgram(tmpl *Template) (*program, error) {
 func isTrue(v reflect.Value) bool {
 	t, _ := types.IsTrueVal(v)
 	return t
+}
+
+func isTemplateHTMLEscaperFunc(name string) bool {
+	return htmlEscapeFuncs[name] != nil
+}
+
+func isTemplateHTMLHTMLEscaperFunc(name string) bool {
+	return name == "_html_template_htmlescaper"
+}
+
+func isTemplateHTMLJSEscaperFunc(name string) bool {
+	return name == "_html_template_jsvalescaper"
+}
+
+func isTemplateHTMLCommentEscaperFunc(name string) bool {
+	return name == "_html_template_commentescaper"
 }
 
 func printableValue(v reflect.Value) (interface{}, bool, bool) {

@@ -6,12 +6,16 @@ package template
 
 import (
 	"fmt"
+	"text/template/parse"
 )
 
 // Error describes a problem encountered during template Escaping.
 type Error struct {
 	// ErrorCode describes the kind of error.
 	ErrorCode ErrorCode
+	// Node is the node that caused the problem, if known.
+	// If not nil, it overrides Name and Line.
+	Node parse.Node
 	// Name is the name of the template in which the error was encountered.
 	Name string
 	// Line is the line number of the error in the template source or 0.
@@ -160,7 +164,7 @@ const (
 	//   different context than an earlier pass, there is no single context.
 	//   In the example, there is missing a quote, so it is not clear
 	//   whether {{.}} is meant to be inside a JS string or in a JS value
-	//   context.  The second iteration would produce something like
+	//   context. The second iteration would produce something like
 	//
 	//     <script>var x = ['firstValue,'secondValue]</script>
 	ErrRangeLoopReentry
@@ -182,9 +186,13 @@ const (
 )
 
 func (e *Error) Error() string {
-	if e.Line != 0 {
+	switch {
+	case e.Node != nil:
+		loc, _ := (*parse.Tree)(nil).ErrorContext(e.Node)
+		return fmt.Sprintf("html/template:%s: %s", loc, e.Description)
+	case e.Line != 0:
 		return fmt.Sprintf("html/template:%s:%d: %s", e.Name, e.Line, e.Description)
-	} else if e.Name != "" {
+	case e.Name != "":
 		return fmt.Sprintf("html/template:%s: %s", e.Name, e.Description)
 	}
 	return "html/template: " + e.Description
@@ -192,6 +200,6 @@ func (e *Error) Error() string {
 
 // errorf creates an error given a format string f and args.
 // The template Name still needs to be supplied.
-func errorf(k ErrorCode, line int, f string, args ...interface{}) *Error {
-	return &Error{k, "", line, fmt.Sprintf(f, args...)}
+func errorf(k ErrorCode, node parse.Node, line int, f string, args ...interface{}) *Error {
+	return &Error{k, node, "", line, fmt.Sprintf(f, args...)}
 }

@@ -19,10 +19,10 @@ import (
 
 	"gnd.la/app/profile"
 	"gnd.la/html"
-	itemplate "gnd.la/internal/template"
 	"gnd.la/internal/templateutil"
 	"gnd.la/log"
 	"gnd.la/template/assets"
+	htmltemplate "gnd.la/template/internal/htmltemplate"
 	"gnd.la/util/pathutil"
 	"gnd.la/util/stringutil"
 
@@ -101,8 +101,9 @@ type Hook struct {
 type Template struct {
 	AssetsManager *assets.Manager
 	Minify        bool
+	DropComments  bool
 	namespace     []string
-	tmpl          *itemplate.Template
+	tmpl          *htmltemplate.Template
 	prog          *program
 	name          string
 	Debug         bool
@@ -123,7 +124,7 @@ type Template struct {
 }
 
 func (t *Template) init() {
-	t.tmpl = itemplate.New("")
+	t.tmpl = htmltemplate.New("")
 	// This is required so text/template calls t.init()
 	// and initializes the common data structure
 	t.tmpl.New("")
@@ -219,14 +220,6 @@ func (t *Template) Hook(hook *Hook) error {
 	return nil
 }
 
-func (t *Template) SetDropComments(drop bool) error {
-	if err := t.noCompiled("can't change wheter to drop comments"); err != nil {
-		return err
-	}
-	t.tmpl.DropComments = drop
-	return nil
-}
-
 func (t *Template) Compile() error {
 	if err := t.noCompiled("can't compile"); err != nil {
 		return err
@@ -248,6 +241,7 @@ func (t *Template) Compile() error {
 	if err != nil {
 		return err
 	}
+	prog.debugDump()
 	t.prog = prog
 	return nil
 }
@@ -354,6 +348,10 @@ func (t *Template) preparedAssetsGroups(vars VarMap, parent *Template, groups []
 		}
 	}
 	return groups, nil
+}
+
+func (t *Template) contentTypeIsHTML() bool {
+	return strings.Contains(t.contentType, "html")
 }
 
 type groupsByPriority []*assets.Group
@@ -920,14 +918,20 @@ func (t *Template) addHtmlHooks() {
 	defer func() {
 		recover()
 	}()
-	// Add the root template when the name "", so html/template
+	// Add the root template with the name "", so html/template
 	// can find it and escape all the trees from it
 	if _, ok := t.trees[""]; !ok && t.root != "" {
-		t.tmpl.AddParseTree("", t.trees[t.root])
+		tt, err := t.tmpl.AddParseTree("", t.trees[t.root])
+		if err != nil {
+			panic(err)
+		}
+		t.tmpl = tt
 	}
 	// Need to execute it once, for html/template to add
 	// the escaping hooks.
-	t.tmpl.Execute(ioutil.Discard, nil)
+	if err := t.tmpl.Execute(ioutil.Discard, nil); err != nil {
+		panic(err)
+	}
 }
 
 func (t *Template) addHtmlEscaping() {

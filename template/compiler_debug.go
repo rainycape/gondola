@@ -7,6 +7,10 @@ import (
 	"os"
 )
 
+func (p *program) debugDump() {
+	p.dumpAllTemplates(nil)
+}
+
 func compilerDebugf(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, args...)
 }

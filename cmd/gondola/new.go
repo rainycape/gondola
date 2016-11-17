@@ -128,7 +128,12 @@ func (t *Template) ExpandInto(dir string, gae bool) error {
 	if err != nil {
 		return err
 	}
-	r := tar.NewReader(bytes.NewReader(data))
+	zr, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	defer zr.Close()
+	r := tar.NewReader(zr)
 
 	hdr, err := r.Next()
 	if err != nil {

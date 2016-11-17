@@ -229,7 +229,6 @@ func updateTemplates(dir string, etagFile string) error {
 			etagData, _ := ioutil.ReadFile(etagFile)
 			if string(etagData) == etag {
 				// Up to date
-				fmt.Println("UPTODATE")
 				return nil
 			}
 		}

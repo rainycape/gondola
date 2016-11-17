@@ -141,9 +141,11 @@ func (t *Template) ExpandInto(dir string, gae bool) error {
 	}
 	// Data to pass to templates
 	tmplData := map[string]interface{}{
-		"Port":      10000 + rand.Intn(20001), // random port between 10k and 30k
-		"AppSecret": stringutil.RandomPrintable(64),
-		"DevSecret": stringutil.RandomPrintable(64),
+		"Port":             10000 + rand.Intn(20001), // random port between 10k and 30k
+		"AppSecret":        stringutil.RandomPrintable(64),
+		"AppEncryptionKey": stringutil.RandomPrintable(32),
+		"DevSecret":        stringutil.RandomPrintable(64),
+		"DevEncryptionKey": stringutil.RandomPrintable(32),
 	}
 	for hdr != nil {
 		p := filepath.Join(dir, filepath.FromSlash(hdr.Name))

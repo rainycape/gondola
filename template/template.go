@@ -666,17 +666,17 @@ func (t *Template) parseComment(name string, comment string, file string, includ
 func (t *Template) loadText(name string) (string, error) {
 	f, err := t.fs.Open(name)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error opening template file %q: %v", name, err)
 	}
 	defer f.Close()
 	b, err := ioutil.ReadAll(f)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error reading template file %q: %v", name, err)
 	}
 	if conv := converters[strings.ToLower(path.Ext(name))]; conv != nil {
 		b, err = conv(b)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("error converting template file %q: %v", name, err)
 		}
 	}
 	s := string(b)

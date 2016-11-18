@@ -932,6 +932,15 @@ func (t *Template) addHtmlHooks() {
 	if err := t.tmpl.Execute(ioutil.Discard, nil); err != nil {
 		panic(err)
 	}
+	// Note we're calling the added method which allows us
+	// to retrieve the underlying text/template and list
+	// all its trees.
+	for _, v := range t.tmpl.Text().Templates() {
+		if t.trees[v.Name()] == nil {
+			// New tree created by html/template escaping
+			t.trees[v.Name()] = v.Tree
+		}
+	}
 }
 
 func (t *Template) addHtmlEscaping() {

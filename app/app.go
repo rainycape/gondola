@@ -32,6 +32,7 @@ import (
 	"gnd.la/crypto/hashutil"
 	"gnd.la/encoding/codec"
 	"gnd.la/internal"
+	"gnd.la/internal/devutil/devserver"
 	"gnd.la/internal/runtimeutil"
 	"gnd.la/internal/templateutil"
 	"gnd.la/kvs"
@@ -42,6 +43,8 @@ import (
 	"gnd.la/template"
 	"gnd.la/template/assets"
 	"gnd.la/util/stringutil"
+
+	"path/filepath"
 
 	"github.com/rainycape/vfs"
 )
@@ -131,7 +134,6 @@ const (
 )
 
 var (
-	devStatusPage  = "/_gondola_dev_server_status"
 	monitorPage    = "/_gondola_monitor"
 	monitorAPIPage = "/_gondola_monitor_api"
 	assetsPrefix   = "/_gondola_assets"
@@ -851,11 +853,18 @@ func (app *App) ListenAndServe() error {
 	}
 	signal.Emit(WILL_LISTEN, app)
 	app.started = time.Now().UTC()
-	if app.Logger != nil && os.Getenv("GONDOLA_DEV_SERVER") == "" {
-		if app.address != "" {
-			app.Logger.Infof("Listening on %s, port %d", app.address, app.cfg.Port)
-		} else {
-			app.Logger.Infof("Listening on port %d", app.cfg.Port)
+	if devserver.IsActive() {
+		// Attach the automatic reload hook to automatically
+		// reload the page when the server restarts
+		app.AddTemplateVars(devserver.TemplateVars(&Context{}))
+		app.AddHook(devserver.ReloadHook())
+	} else {
+		if app.Logger != nil {
+			if app.address != "" {
+				app.Logger.Infof("Listening on %s, port %d", app.address, app.cfg.Port)
+			} else {
+				app.Logger.Infof("Listening on port %d", app.cfg.Port)
+			}
 		}
 	}
 	var err error
@@ -1111,8 +1120,11 @@ func (app *App) logError(ctx *Context, err interface{}) {
 
 func (app *App) errorPage(ctx *Context, elapsed time.Duration, skip int, stackSkip int, req string, err interface{}) {
 	t := newInternalTemplate(app)
-	if terr := t.parse("panic.html", nil); terr != nil {
+	if terr := t.parse("panic.html", devserver.TemplateVars(&Context{})); terr != nil {
 		panic(terr)
+	}
+	if devserver.IsActive() {
+		t.tmpl.Hook(devserver.ReloadHook())
 	}
 	if terr := t.prepare(); terr != nil {
 		panic(terr)
@@ -1121,12 +1133,14 @@ func (app *App) errorPage(ctx *Context, elapsed time.Duration, skip int, stackSk
 	location, code := runtimeutil.FormatCallerHTML(skip+1, 5, true, true)
 	ctx.statusCode = -http.StatusInternalServerError
 	data := map[string]interface{}{
-		"Error":    fmt.Sprintf("%v", err),
-		"Subtitle": fmt.Sprintf("(after %s)", elapsed),
-		"Location": location,
-		"Code":     code,
-		"Stack":    stack,
-		"Request":  req,
+		"Error":       fmt.Sprintf("%v", err),
+		"Subtitle":    fmt.Sprintf("(after %s)", elapsed),
+		"Location":    location,
+		"Code":        code,
+		"Stack":       stack,
+		"Request":     req,
+		"Name":        filepath.Base(os.Args[0]),
+		"IsDevServer": devserver.IsDevServer(app),
 	}
 	if err := t.Execute(ctx, data); err != nil {
 		panic(err)
@@ -1236,7 +1250,7 @@ func (app *App) CloseContext(ctx *Context) {
 		v(ctx)
 	}
 	ctx.Close()
-	if !ctx.background && app.Logger != nil && ctx.R != nil && ctx.R.URL.Path != devStatusPage && ctx.R.URL.Path != monitorAPIPage {
+	if !ctx.background && app.Logger != nil && ctx.R != nil && ctx.R.URL.Path != monitorAPIPage {
 		// Log at most with Warning level, to avoid potentially generating
 		// an email to the admin when running in production mode. If there
 		// was an error while processing this request, it has been already
@@ -1404,12 +1418,9 @@ func (app *App) Prepare() error {
 		}
 	}
 	signal.Emit(WILL_PREPARE, app)
-	if s := app.cfg.Secret; s != "" && len(s) < 32 && os.Getenv("GONDOLA_ALLOW_SHORT_SECRET") == "" {
-		if os.Getenv("GONDOLA_IS_DEV_SERVER") != "" {
-			os.Setenv("GONDOLA_IS_DEV_SERVER", "")
-		} else {
-			return fmt.Errorf("secret %q is too short, must be at least 32 characters - use gondola random-string to generate one", s)
-		}
+	if s := app.cfg.Secret; s != "" && len(s) < 32 &&
+		os.Getenv("GONDOLA_ALLOW_SHORT_SECRET") == "" && !devserver.IsDevServer(app) {
+		return fmt.Errorf("secret %q is too short, must be at least 32 characters - use gondola random-string to generate one", s)
 	}
 	for _, v := range app.included {
 		child := v.app
@@ -1492,12 +1503,6 @@ func NewWithConfig(config *Config) *App {
 		a.Handle("^/debug/pprof/profile", wrap(pprof.Profile))
 		a.Handle("^/debug/pprof", wrap(pprof.Index))
 		a.Handle("^/debug/profile", profileInfoHandler)
-		a.Handle(devStatusPage, func(ctx *Context) {
-			ctx.WriteJSON(map[string]interface{}{
-				"built":   nil,
-				"started": strconv.FormatInt(a.started.Unix(), 10),
-			})
-		})
 		a.Handle(monitorAPIPage, monitorAPIHandler)
 		a.Handle(monitorPage, monitorHandler)
 		a.addAssetsManager(internalAssetsManager, false)

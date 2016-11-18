@@ -1,7 +1,5 @@
 package main
 
-//go:generate gondola bake -vfs -dir ../../app/_assets
-
 import (
 	"bufio"
 	"bytes"
@@ -27,12 +25,15 @@ import (
 
 	"gnd.la/app"
 	"gnd.la/config"
+	"gnd.la/internal/devutil"
 	"gnd.la/internal/runtimeutil"
 	"gnd.la/log"
 	"gnd.la/util/stringutil"
 
 	"github.com/rainycape/browser"
 	"github.com/rainycape/command"
+	"gnd.la/internal/devutil/devassets"
+	"gnd.la/internal/devutil/devserver"
 )
 
 const (
@@ -64,13 +65,6 @@ func isSource(filename string) bool {
 		}
 	}
 	return false
-}
-
-func formatTime(t time.Time) interface{} {
-	if t.IsZero() {
-		return nil
-	}
-	return strconv.FormatInt(t.Unix(), 10)
 }
 
 func exitStatus(p *os.ProcessState) int {
@@ -127,11 +121,14 @@ func NewProject(dir string, config string) *Project {
 		dir:        dir,
 		configPath: config,
 	}
-	a := app.New()
-	a.Config().Port = 8888
+	a := app.NewWithConfig(&app.Config{
+		Port:  8888,
+		Debug: true,
+	})
+	devserver.SetIsDevServer(a, true)
 	a.Logger = nil
-	a.SetTemplatesFS(_assetsFS)
-	a.Handle("/_gondola_dev_server_status", p.StatusHandler)
+	a.SetTemplatesFS(devassets.AssetsFS)
+	p.broadcaster.Attach(a)
 	a.Handle("/", p.Handler)
 	p.App = a
 	return p
@@ -160,6 +157,8 @@ type Project struct {
 	out      bytes.Buffer
 	runError error
 	exitCode int
+	// used for telling the browser to reload
+	broadcaster devutil.Broadcaster
 }
 
 func (p *Project) Listen() {
@@ -296,7 +295,7 @@ func (p *Project) ProjectCmd() *exec.Cmd {
 	cmd.Stderr = io.MultiWriter(os.Stderr, &p.out)
 	cmd.Dir = p.dir
 	cmd.Env = append(cmd.Env, os.Environ()...)
-	cmd.Env = append(cmd.Env, "GONDOLA_DEV_SERVER=1")
+	cmd.Env = append(cmd.Env, devserver.EnvVar+"=1")
 	cmd.Env = append(cmd.Env, "GONDOLA_FORCE_TTY=1")
 	if p.profile {
 		cmd.Env = append(cmd.Env, "GONDOLA_NO_CACHE_LAYER=1")
@@ -347,6 +346,7 @@ func (p *Project) projectStarted() {
 	p.proxyChecked = false
 	p.proxy = httputil.NewSingleHostReverseProxy(u)
 	p.started = time.Now().UTC()
+	p.reloadClients()
 }
 
 func (p *Project) Stop() error {
@@ -527,6 +527,7 @@ func (p *Project) Build() {
 		}
 	} else {
 		log.Errorf("%d errors building %s", c, p.Name())
+		p.reloadClients()
 	}
 	if err := p.StartMonitoring(); err != nil {
 		log.Errorf("Error monitoring files for project %s: %s. Development server must be manually restarted.", p.Name(), err)
@@ -567,7 +568,7 @@ func (p *Project) Handler(ctx *app.Context) {
 	}
 	if p.proxy == nil {
 		// Building
-		if ctx.R.Method != "POST" || ctx.R.Method != "PUT" {
+		if ctx.R.Method == "GET" {
 			data := map[string]interface{}{
 				"Project": p,
 				"Name":    p.Name(),
@@ -598,21 +599,8 @@ func (p *Project) Handler(ctx *app.Context) {
 	p.proxy.ServeHTTP(ctx, ctx.R)
 }
 
-func (p *Project) StatusHandler(ctx *app.Context) {
-	built := formatTime(p.built)
-	started := formatTime(p.started)
-	if p.proxy == nil {
-		// Building - this waits until the app is restarted for reloading
-		// or compilation fails with an error
-		if p.built.IsZero() {
-			built = "1"
-		}
-		started = "1"
-	}
-	ctx.WriteJSON(map[string]interface{}{
-		"built":   built,
-		"started": started,
-	})
+func (p *Project) reloadClients() {
+	p.broadcaster.BroadcastReload()
 }
 
 func (p *Project) waitForBuild() {
@@ -714,7 +702,7 @@ func devCommand(args *command.Args, opts *devOptions) error {
 					}
 				}
 			}
-			url := fmt.Sprintf("http://%s:%d", host, p.port)
+			url := fmt.Sprintf("http://%s:%d", host, p.App.Config().Port)
 			if err := browser.Open(url); err != nil {
 				log.Errorf("error opening browser: open %s manually (error was %s)", url, err)
 			}

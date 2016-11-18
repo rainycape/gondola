@@ -1,12 +1,18 @@
 {{/*
   extends: base.html
-  include: reload.html
 */}}
 {{ define "title" }}Panic{{ end }}
 <div class="header error">
+  {{ template "reload_message.html" . }}
   <h1>Panic{{ with .Subtitle }} <small>{{ . }}</small>{{ end }}</h1>
   <h3>{{ .Error | to_html }}</h3>
 </div>
+  {{ if .IsDevServer }}
+    <h3 class="dev-server-error">
+      <span>This is not a bug in your code</span>
+      This panic happened inside Gondola's development server. Please, <a href="https://github.com/rainycape/gondola">report this issue</a>.
+    </h3>
+  {{ end }}
 {{ if .Location }}
   <div class="header code">
     <h3>At {{ .Location }}</h3>
@@ -28,4 +34,3 @@
   </div>
 {{ end }}
 <small>Note: This page is only generared in debug mode. When running in production mode, errors are reported to the administrator email.</small>
-{{ template "reload.html" . }}

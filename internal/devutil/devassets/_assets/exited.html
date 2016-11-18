@@ -1,9 +1,9 @@
 {{/*
   extends: base.html
-  include: reload.html
 */}}
 {{ define "title" }}Exited{{ end }}
 <div class="header error">
+  {{ template "reload_message.html" . }}
   <h1>Exited with code {{ .ExitCode }}</h1>
   <h3>{{ .Error | to_html }}</h3>
 </div>
@@ -13,4 +13,3 @@
     <pre><code>{{ . }}</code></pre>
   </div>
 {{ end }}
-{{ template "reload.html" . }}

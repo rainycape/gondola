@@ -1,5 +1,3 @@
-var GONDOLA_DEV_SERVER_STATUS = '/_gondola_dev_server_status';
-
 var XMLHttpFactories = [
     function () {return new XMLHttpRequest()},
     function () {return new ActiveXObject("Msxml2.XMLHTTP")},
@@ -58,26 +56,4 @@ function appStatus(callback) {
             callback(resp);
         }
     });
-}
-
-function pollReload() {
-    var built, started;
-    appStatus(function(resp) {
-        if (!resp) {
-            // Assume the app has started and since the request
-            // is being forwarded to the app, the handler for this
-            // path does not exist.
-            location.reload(true);
-        } else {
-            built = resp.built;
-            started = resp.started;
-        }
-    });
-    setInterval(function() {
-        appStatus(function(resp) {
-            if (!resp || (built && resp.built != built) || (started && resp.started && resp.started != started)) {
-                location.reload(true);
-            }
-        });
-    }, 500);
 }

@@ -53,7 +53,9 @@
   <div class="clear"></div>
 </div>
 <small>Note: This page is only available in debug mode.</small>
-<script type="text/javascript" src="{{ asset "mux.js" }}"></script>
+<script type="text/javascript">
+  {{ template "app.js" . }}
+</script>
 <script type="text/javascript" src="{{ asset "d3.v2.js" }}"></script>
 <script type="text/javascript" src="{{ asset "rickshaw.min.js" }}"></script>
 <script type="text/javascript" src="{{ asset "monitor.js" }}"></script>

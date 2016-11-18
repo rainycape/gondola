@@ -1,0 +1,44 @@
+{{ with @BroadcasterWebsocketUrl  }}
+<script type="text/javascript">
+function __gondola_server_updates(timestamp) {
+    if (!("WebSocket" in window)) {
+      // Browser does not support WebSockets
+      var enabled = document.getElementById("gondola-live-reload-enabled-message");
+      if (enabled) {
+        enabled.style.display = "none";
+      }
+      var disabled = document.getElementById("gondola-live-reload-disabled-message");
+      if (disabled) {
+        disabled.style.display = "inline";
+      }
+      var reason = document.getElementById("gondola-live-reload-disabled-reason");
+      if (reason) {
+        reason.innerText = "(your browser doesn't have WebSocket support)";
+      }
+      return;
+    }
+    var url = "{{ . }}";
+    try {
+        var sock = new WebSocket(url);
+        sock.onmessage = function(ev) {
+            var msg = JSON.parse(ev.data);
+            if (msg.type == "reload") {
+                location.reload(true);
+            } else if (msg.type == "timestamp") {
+                if (timestamp && timestamp != msg.timestamp) {
+                    location.reload(true);
+                } else {
+                    timestamp = msg.timestamp;
+                }
+            }
+        };
+        sock.onclose = function() {
+            __gondola_server_updates(timestamp);
+        };
+    } catch (ex) {
+        setTimeout(function() { __gondola_server_updates(timestamp)}, 100);
+    }
+}
+__gondola_server_updates();
+</script>
+{{ end }}

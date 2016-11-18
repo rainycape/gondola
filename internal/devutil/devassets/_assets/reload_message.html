@@ -1,0 +1,16 @@
+<h6 style="font-size: 10px; text-align: center; float: right; margin-bottom: 1em; line-height: 1.5em;">
+    {{ $enabled := __gondola_is_live_reload_enabled }}
+    <span id="gondola-live-reload-enabled-message"{{ if not $enabled }} style="display: none;"{{ end }}>
+        {{ $name := or .Name .Project.Name }}
+        This page will reload automatically
+        {{ with $name }}
+            once {{ . }} starts or compilation finishes
+        {{ end }}
+    </span>
+    <span id="gondola-live-reload-disabled-message"{{ if $enabled }} style="display: none;"{{ end }}>
+        Live reload is not available. You must refresh this page manually.
+        <span style="display: block" id="gondola-live-reload-disabled-reason">
+            {{ with __gondola_is_live_reload_disabled_reason }}({{ . }}){{ end }}
+        </span>
+    </span>
+</h6>

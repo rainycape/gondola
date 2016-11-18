@@ -1,9 +1,9 @@
 {{/*
   extends: base.html
-  include: reload.html
 */}}
 {{ define "title" }}Errors building {{ .Project.Name }}{{ end }}
 <div class="header error">
+  {{ template "reload_message.html" . }}
   <h1>{{ .Count }} errors building {{ .Project.Name }}</h1>
 </div>
 {{ range .Errors }}
@@ -14,4 +14,3 @@
     {{ end }}
   </div>
 {{ end }}
-{{ template "reload.html" . }}

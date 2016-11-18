@@ -1,17 +1,17 @@
 {{/*
   extends: base.html
-  include: reload.html, spin.html
+  include: spin.js
 */}}
 {{ define "title" }}Building {{ .Name }}...{{ end }}
 <div class="header success">
+  {{ template "reload_message.html" . }}
   <h1>Building {{ .Name }}...</h1>
   <div style="height: 200px; position: relative;">
     <div id="spinner"></div>
   </div>
 </div>
-<small>Note: This page is automatically reloaded once {{ .Name }} starts.</small>
-{{ template "spin.html" . }}
 <script type="text/javascript">
+{{ template "spin.js" }}
 var opts = {
   lines: 13, // The number of lines to draw
   length: 20, // The length of each line
@@ -33,4 +33,3 @@ var opts = {
 var target = document.getElementById('spinner');
 var spinner = new Spinner(opts).spin(target);
 </script>
-{{ template "reload.html" . }}

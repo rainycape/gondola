@@ -3,19 +3,20 @@ package app
 import (
 	"errors"
 	"io"
-	"os"
 
 	"gnd.la/app/profile"
+	"gnd.la/internal/devutil/devassets"
 	"gnd.la/internal/templateutil"
 	"gnd.la/template"
 	"gnd.la/template/assets"
 
 	"github.com/rainycape/vfs"
+	"gnd.la/internal/devutil/devserver"
 )
 
 var (
 	reservedVariables     = []string{"Ctx", "App", "Apps"}
-	internalAssetsManager = assets.New(appAssets, assetsPrefix)
+	internalAssetsManager = assets.New(devassets.AssetsFS, assetsPrefix)
 	profileHook           *template.Hook
 	errNoLoadedTemplate   = errors.New("this template was not loaded from App.LoadTemplate nor NewTemplate")
 
@@ -138,7 +139,7 @@ func newTemplate(app *App, fs vfs.VFS, manager *assets.Manager) *Template {
 }
 
 func newInternalTemplate(app *App) *Template {
-	return newTemplate(app, appAssets, internalAssetsManager)
+	return newTemplate(app, devassets.AssetsFS, internalAssetsManager)
 }
 
 // LoadTemplate loads a template for the given *App, using the given
@@ -162,8 +163,7 @@ func nop() interface{} { return nil }
 
 func init() {
 	if profile.On {
-		inDevServer = os.Getenv("GONDOLA_DEV_SERVER") != ""
-		if inDevServer {
+		if devserver.IsActive() {
 			t := newInternalTemplate(&App{})
 			t.tmpl.Funcs([]*template.Func{
 				{Name: "_gondola_profile_info", Fn: getProfileInfo},

@@ -1,5 +1,5 @@
 {{/*
-  include: mux.js
+  include: app.js, reload_message.html
 */}}
 <!DOCTYPE html>
 <html>
@@ -128,6 +128,16 @@ pre .current {
 pre abbr {
   border-bottom: 1px dotted #FCFCFC;
   cursor: pointer;
+}
+.dev-server-error {
+  text-align: center;
+  color: #8B0000;
+  margin: 0.3em 0;
+  line-height: 1.5em;
+}
+.dev-server-error span {
+  display: block;
+  text-transform: uppercase;
 }
 </style>
 </head>

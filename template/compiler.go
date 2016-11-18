@@ -1366,6 +1366,7 @@ func newProgram(tmpl *Template) (*program, error) {
 	if tmpl.contentTypeIsHTML() {
 		tmpl.addHtmlEscaping()
 	}
+	tmpl.cleanupTrees()
 	p := &program{tmpl: tmpl, code: make(map[string][]inst), context: make(map[string][]*context)}
 	if err := compileTemplate(p, tmpl); err != nil {
 		return nil, err

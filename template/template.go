@@ -774,7 +774,6 @@ func (t *Template) load(name string, included bool, from string) error {
 	}
 	var renames map[string]string
 	for k, v := range treeMap {
-		v.Root.Nodes = t.removeVarNopNodes(v, v.Root.Nodes)
 		if _, contains := t.trees[k]; contains {
 			log.Debugf("Template %s redefined", k)
 			// Redefinition of a template, which is allowed
@@ -955,6 +954,16 @@ func (t *Template) addHtmlEscaping() {
 				t.trees[v.Tree.Name] = v.Tree
 			}
 		}
+	}
+}
+
+// cleanupTrees removes unnecessary nodes, added only to either
+// make the parser or the escaping in html/template happy.
+// IT CAN'T BE CALLED BEFORE addHtmlEscaping(), since adding the
+// html/template escaping requires executing the template.
+func (t *Template) cleanupTrees() {
+	for _, v := range t.trees {
+		v.Root.Nodes = t.removeVarNopNodes(v, v.Root.Nodes)
 	}
 }
 

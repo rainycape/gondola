@@ -181,7 +181,10 @@ func (p *program) removeEmptyTemplateInvocations() {
 			if v.op == opTEMPLATE {
 				_, t := decodeVal(v.val)
 				tmplName := p.strings[t]
-				tmplCode := p.code[tmplName]
+				tmplCode, ok := p.code[tmplName]
+				if !ok {
+					panic(fmt.Errorf("missing template %q", tmplName))
+				}
 				if len(tmplCode) == 0 {
 					// Empty template invocation, remove it
 					compilerDebugf("remove empty template invocation %q from %q\n", tmplName, name)

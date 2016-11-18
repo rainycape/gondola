@@ -354,6 +354,9 @@ func (app *App) include(prefix string, child *App, containerTemplate string) err
 			return fmt.Errorf("duplicate app name %q", v.app.name)
 		}
 	}
+	if containerTemplate == "" {
+		return fmt.Errorf("empty container template while loading app %v", child.Name())
+	}
 	child.parent = app
 	included := &includedApp{
 		prefix:    prefix,

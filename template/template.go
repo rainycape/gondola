@@ -910,13 +910,7 @@ func (t *Template) renameTemplates(renames map[string]string) {
 	})
 }
 
-func (t *Template) addHtmlHooks() {
-	// Unfortunately, there's a bug in text/template executor which
-	// ends up panic'ing if there's an error in a mangled template, so
-	// we must wrap this in a recover.
-	defer func() {
-		recover()
-	}()
+func (t *Template) addHtmlEscaping() {
 	// Add the root template with the name "", so html/template
 	// can find it and escape all the trees from it
 	if _, ok := t.trees[""]; !ok && t.root != "" {
@@ -926,11 +920,18 @@ func (t *Template) addHtmlHooks() {
 		}
 		t.tmpl = tt
 	}
-	// Need to execute it once, for html/template to add
-	// the escaping hooks.
-	if err := t.tmpl.Execute(ioutil.Discard, nil); err != nil {
-		panic(err)
-	}
+
+	// Don't care about errors here, since the differences between
+	// the execution models of text/template and gnd.la/template will
+	// almost always cause errors (specially due to functions which
+	// receive arguments not explicitely mentioned in the template).
+	t.tmpl.Execute(ioutil.Discard, nil)
+
+	// Add escaping functions
+	t.addFuncMap(htmlEscapeFuncs, true)
+
+	// html/template might introduce new trees. it renames the
+	// template invocations, but we must add the trees ourselves
 	// Note we're calling the added method which allows us
 	// to retrieve the underlying text/template and list
 	// all its trees.
@@ -938,21 +939,6 @@ func (t *Template) addHtmlHooks() {
 		if t.trees[v.Name()] == nil {
 			// New tree created by html/template escaping
 			t.trees[v.Name()] = v.Tree
-		}
-	}
-}
-
-func (t *Template) addHtmlEscaping() {
-	t.addHtmlHooks()
-	// Add escaping functions
-	t.addFuncMap(htmlEscapeFuncs, true)
-	// html/template might introduce new trees. it renames the
-	// template invocations, but we must add the trees ourselves
-	for _, v := range t.tmpl.Templates() {
-		if v.Tree != nil {
-			if t.trees[v.Tree.Name] == nil {
-				t.trees[v.Tree.Name] = v.Tree
-			}
 		}
 	}
 }

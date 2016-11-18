@@ -83,6 +83,7 @@ const (
 var (
 	ErrNoAssetsManager       = errors.New("template does not have an assets manager")
 	ErrAssetsAlreadyPrepared = errors.New("assets have been already prepared")
+	errEmptyTemplateName     = errors.New("empty template name")
 	commentRe                = regexp.MustCompile(`(?s:\{\{\\*(.*?)\*/\}\})`)
 	keyRe                    = regexp.MustCompile(`(?s:\s*([\w\-_])+?(:|\|))`)
 	defineRe                 = regexp.MustCompile(`(\{\{\s*?define.*?\}\})`)
@@ -986,6 +987,9 @@ func (t *Template) Parse(name string) error {
 }
 
 func (t *Template) ParseVars(name string, vars VarMap) error {
+	if name == "" {
+		return errEmptyTemplateName
+	}
 	if t.name == "" {
 		t.name = name
 	}

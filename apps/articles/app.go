@@ -7,13 +7,7 @@ import (
 	"gnd.la/util/apputil"
 )
 
-const (
-	appName = "Articles"
-)
-
 var (
-	templatesFS = apputil.MustOpenVFS(appName, "tmpl", tmplData)
-
 	getArticlesApp func(kvs.Storage) *ArticlesApp
 	setArticlesApp func(kvs.Storage, *ArticlesApp)
 )
@@ -25,8 +19,9 @@ type ArticlesApp struct {
 
 func New() *ArticlesApp {
 	a := &ArticlesApp{
-		ReusableApp: apputil.NewReusableApp(appName),
+		ReusableApp: apputil.NewReusableApp("Articles"),
 	}
+	templatesFS := a.MustOpenVFS("tmpl", tmplData)
 	a.AddTemplateVars(map[string]interface{}{
 		"Article": ArticleHandlerName,
 		"List":    ArticleListHandlerName,

@@ -5,19 +5,15 @@ import (
 	"gnd.la/apps/docs/doc"
 	"gnd.la/kvs"
 	"gnd.la/template/assets"
-	_ "gnd.la/template/assets/sass"
+	_ "gnd.la/template/assets/sass" // import the scss compiler for docs.scss
 	"gnd.la/util/apputil"
 )
 
 const (
 	assetsPrefix = "/assets/"
-	appName      = "Docs"
 )
 
 var (
-	assetsFS    = apputil.MustOpenVFS(appName, "assets", assetsData)
-	templatesFS = apputil.MustOpenVFS(appName, "tmpl", tmplData)
-
 	getDocsApp func(kvs.Storage) *DocsApp
 	setDocsApp func(kvs.Storage, *DocsApp)
 )
@@ -39,8 +35,10 @@ type DocsApp struct {
 
 func New() *DocsApp {
 	a := &DocsApp{
-		ReusableApp: apputil.NewReusableApp(appName),
+		ReusableApp: apputil.NewReusableApp("Docs"),
 	}
+	assetsFS := a.MustOpenVFS("assets", assetsData)
+	templatesFS := a.MustOpenVFS("tmpl", tmplData)
 	a.Prefix = "/doc/"
 	reverseDoc := func(s string) string { return a.MustReverse(PackageHandlerName, s) }
 	reverseSource := func(s string) string { return a.MustReverse(SourceHandlerName, s) }
@@ -48,7 +46,6 @@ func New() *DocsApp {
 	doc.SetEnvironment(a, a.Environment)
 	setDocsApp(a, a)
 	setDocsApp(a.Environment, a)
-	a.SetName(appName)
 	manager := assets.New(assetsFS, assetsPrefix)
 	a.SetAssetsManager(manager)
 	a.Handle("^"+assetsPrefix, app.HandlerFromHTTPFunc(manager.Handler()))

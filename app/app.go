@@ -564,6 +564,33 @@ func (app *App) AddTemplatePlugin(plugin *template.Plugin) {
 	app.templatePlugins = append(app.templatePlugins, plugin)
 }
 
+// LoadTemplatePlugin loads the template from name, using the app templates VFS and
+// assets manager, and then adds it as a plugin at the given position.
+// See also App.AddTemplatePlugin.
+func (app *App) LoadTemplatePlugin(name string, pos assets.Position) error {
+	tmpl := template.New(app.templatesFS, app.assetsManager)
+	// Functions defined by gnd.la/app.Template
+	tmpl.RawFuncs(map[string]interface{}{
+		"t":       nop,
+		"tn":      nop,
+		"tc":      nop,
+		"tnc":     nop,
+		"reverse": nop,
+	})
+	if err := tmpl.Parse(name); err != nil {
+		return err
+	}
+	app.AddTemplatePlugin(&template.Plugin{Template: tmpl, Position: pos})
+	return nil
+}
+
+// MustLoadTemplatePlugin is a shorthand for LoadTemplatesPlugin which panics when there's an error.
+func (app *App) MustLoadTemplatePlugin(name string, pos assets.Position) {
+	if err := app.LoadTemplatePlugin(name, pos); err != nil {
+		panic(err)
+	}
+}
+
 // LoadTemplate loads a template using the template
 // loader and the asset manager assocciated with
 // this app

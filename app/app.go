@@ -1143,7 +1143,13 @@ func (app *App) errorPage(ctx *Context, elapsed time.Duration, skip int, stackSk
 		"IsDevServer": devserver.IsDevServer(app),
 	}
 	if err := t.Execute(ctx, data); err != nil {
-		panic(err)
+		var msg string
+		if file, line, ok := runtimeutil.PanicLocation(); ok {
+			msg = fmt.Sprintf("error rendering error page: %v @ %s:%d)", err, file, line)
+		} else {
+			msg = fmt.Sprintf("error rendering error page: %v", err)
+		}
+		ctx.WriteString(msg)
 	}
 }
 

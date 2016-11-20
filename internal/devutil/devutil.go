@@ -39,7 +39,7 @@ func (b *Broadcaster) Broadcast(msg interface{}) {
 func (b *Broadcaster) Attach(a *app.App) {
 	a.HandleWebsocket(b.pattern(), b.handler())
 	a.AddTemplateVars(devserver.TemplateVars(&app.Context{}))
-	a.AddHook(devserver.ReloadHook())
+	a.AddTemplatePlugin(devserver.ReloadPlugin())
 	b.ts = time.Now()
 }
 

@@ -196,7 +196,7 @@ type App struct {
 	templatesCache     map[string]*Template
 	templateProcessors []TemplateProcessor
 	namespace          *namespace
-	hooks              []*template.Hook
+	templatePlugins    []*template.Plugin
 	started            time.Time
 	address            string
 	mu                 sync.Mutex
@@ -380,12 +380,12 @@ func (app *App) include(prefix string, child *App, containerTemplate string) err
 			return fmt.Errorf("error importing %q assets: %s", child.name, err)
 		}
 	}
-	for _, v := range child.hooks {
+	for _, v := range child.templatePlugins {
 		v.Template.AddNamespace(child.name)
 		if err := app.rewriteAssets(v.Template, included); err != nil {
 			return err
 		}
-		app.hooks = append(app.hooks, v)
+		app.AddTemplatePlugin(v)
 	}
 	app.included = append(app.included, included)
 	if app.namespace == nil {
@@ -557,8 +557,11 @@ func (app *App) AddTemplateVars(vars template.VarMap) {
 	}
 }
 
-func (app *App) AddHook(hook *template.Hook) {
-	app.hooks = append(app.hooks, hook)
+// AddTemplatePlugin adds a *template.Plugin which will be added to
+// all templates rendered by this app. See gnd.la/template.Plugin for
+// more information.
+func (app *App) AddTemplatePlugin(plugin *template.Plugin) {
+	app.templatePlugins = append(app.templatePlugins, plugin)
 }
 
 // LoadTemplate loads a template using the template
@@ -587,14 +590,14 @@ func (app *App) LoadTemplate(name string) (*Template, error) {
 			})
 		}
 		tmpl.tmpl.Funcs(funcs)
-		for _, v := range app.hooks {
-			if err := tmpl.tmpl.Hook(v); err != nil {
-				return nil, fmt.Errorf("error hooking %q: %s", v.Template.Root(), err)
+		for _, v := range app.templatePlugins {
+			if err := tmpl.tmpl.AddPlugin(v); err != nil {
+				return nil, fmt.Errorf("error adding plugin %q: %s", v.Template.Root(), err)
 			}
 		}
 		if profile.On {
-			if profileHook != nil {
-				tmpl.tmpl.Hook(profileHook)
+			if profilePlugin != nil {
+				tmpl.tmpl.AddPlugin(profilePlugin)
 			}
 		}
 		if err := tmpl.prepare(); err != nil {
@@ -854,10 +857,10 @@ func (app *App) ListenAndServe() error {
 	signal.Emit(WILL_LISTEN, app)
 	app.started = time.Now().UTC()
 	if devserver.IsActive() {
-		// Attach the automatic reload hook to automatically
+		// Attach the automatic reload template plugin to automatically
 		// reload the page when the server restarts
 		app.AddTemplateVars(devserver.TemplateVars(&Context{}))
-		app.AddHook(devserver.ReloadHook())
+		app.AddTemplatePlugin(devserver.ReloadPlugin())
 	} else {
 		if app.Logger != nil {
 			if app.address != "" {
@@ -1124,7 +1127,7 @@ func (app *App) errorPage(ctx *Context, elapsed time.Duration, skip int, stackSk
 		panic(terr)
 	}
 	if devserver.IsActive() {
-		t.tmpl.Hook(devserver.ReloadHook())
+		t.tmpl.AddPlugin(devserver.ReloadPlugin())
 	}
 	if terr := t.prepare(); terr != nil {
 		panic(terr)
@@ -1439,22 +1442,22 @@ func (app *App) Prepare() error {
 		child.userFunc = app.userFunc
 		child.Logger = app.Logger
 	}
-	// Add hooks from each included app to all the other apps
-	for _, h := range app.hooks {
+	// Add template plugins from each included app to all the other apps
+	for _, h := range app.templatePlugins {
 		if h.Position == assets.None {
 			continue
 		}
 		for _, v := range app.included {
 			child := v.app
 			has := false
-			for _, ch := range child.hooks {
+			for _, ch := range child.templatePlugins {
 				if ch == h {
 					has = true
 					break
 				}
 			}
 			if !has {
-				child.hooks = append(child.hooks, h)
+				child.templatePlugins = append(child.templatePlugins, h)
 			}
 		}
 	}

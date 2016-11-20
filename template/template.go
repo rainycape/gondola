@@ -68,8 +68,8 @@ const (
 	rightDelim            = "}}"
 	dataKey               = "Data"
 	varsKey               = "Vars"
-	topBoilerplateName    = "_gondola_top_hooks"
-	bottomBoilerplateName = "_gondola_bottom_hooks"
+	topBoilerplateName    = "_gondola_top_boilerplate"
+	bottomBoilerplateName = "_gondola_bottom_boilerplate"
 	topAssetsFuncName     = "_gondola_topAssets"
 	AssetFuncName         = "asset"
 	bottomAssetsFuncName  = "_gondola_bottomAssets"
@@ -94,7 +94,14 @@ var (
 	templatePrepend          = fmt.Sprintf("{{ $%s := %s }}", varsKey, varNop)
 )
 
-type Hook struct {
+// A Plugin represents a template which can be automatically attached to another template
+// without the parent template invoking the plugged-in template. Depending on the Position
+// field, the plugin might be inserted at the following locations.
+//
+//	assets.Position.Top: Inside the <head>
+//	assets.Position.Bottom: Just before the <body> is closed.
+//	assets.Position.None: The plugin is added to the template, but it must invoke it explicitely.
+type Plugin struct {
 	Template *Template
 	Position assets.Position
 }
@@ -118,7 +125,7 @@ type Template struct {
 	topAssets     []byte
 	bottomAssets  []byte
 	contentType   string
-	hooks         []*Hook
+	plugins       []*Plugin
 	children      []*Template
 	loaded        []string
 }
@@ -203,20 +210,24 @@ func (t *Template) InsertTemplate(tmpl *Template, name string) error {
 	return nil
 }
 
-func (t *Template) Hook(hook *Hook) error {
-	if err := t.noCompiled("can't add hook"); err != nil {
+// AddPlugin plugs another template into this one. See the Plugin type
+// for more information.
+func (t *Template) AddPlugin(plugin *Plugin) error {
+	if err := t.noCompiled("can't add plugin"); err != nil {
 		return err
 	}
-	for _, h := range hook.Template.hooks {
-		if err := t.Hook(h); err != nil {
+	// Add the template plugins as plugins of this one
+	for _, h := range plugin.Template.plugins {
+		if err := t.AddPlugin(h); err != nil {
 			return err
 		}
 	}
-	if err := t.importTrees(hook.Template, ""); err != nil {
+	if err := t.importTrees(plugin.Template, ""); err != nil {
 		return err
 	}
-	t.addFuncMap(hook.Template.funcMap, false)
-	t.hooks = append(t.hooks, hook)
+	// Add functions from the plugged-in template
+	t.addFuncMap(plugin.Template.funcMap, false)
+	t.plugins = append(t.plugins, plugin)
 	return nil
 }
 
@@ -224,7 +235,7 @@ func (t *Template) Compile() error {
 	if err := t.noCompiled("can't compile"); err != nil {
 		return err
 	}
-	if err := t.prepareHooks(); err != nil {
+	if err := t.preparePlugins(); err != nil {
 		return err
 	}
 	for _, v := range t.referencedTemplates() {
@@ -337,7 +348,7 @@ func (t *Template) preparedAssetsGroups(vars VarMap, parent *Template, groups []
 		}
 	}
 	var err error
-	for _, v := range t.hooks {
+	for _, v := range t.plugins {
 		if groups, err = v.Template.preparedAssetsGroups(vars, parent, groups); err != nil {
 			return nil, err
 		}
@@ -499,8 +510,8 @@ func (t *Template) prepareAssets() error {
 	return nil
 }
 
-func (t *Template) prepareHooks() error {
-	for _, v := range t.hooks {
+func (t *Template) preparePlugins() error {
+	for _, v := range t.plugins {
 		var key string
 		switch v.Position {
 		case assets.Top:
@@ -511,7 +522,7 @@ func (t *Template) prepareHooks() error {
 			// must be manually referenced from
 			// another template
 		default:
-			return fmt.Errorf("invalid hook position %d", v.Position)
+			return fmt.Errorf("invalid plugin position %d", v.Position)
 		}
 		if key != "" {
 			node := &parse.TemplateNode{

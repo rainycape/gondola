@@ -38,12 +38,12 @@ func SetIsDevServer(s kvs.Storage, value bool) {
 	s.Set(devServerKey, value)
 }
 
-func ReloadHook() *template.Hook {
+func ReloadPlugin() *template.Plugin {
 	reload := template.New(devassets.AssetsFS, nil)
 	if err := reload.Parse("reload.html"); err != nil {
 		panic(err)
 	}
-	return &template.Hook{
+	return &template.Plugin{
 		Template: reload,
 		Position: assets.Bottom,
 	}

@@ -17,7 +17,7 @@ import (
 var (
 	reservedVariables     = []string{"Ctx", "App", "Apps"}
 	internalAssetsManager = assets.New(devassets.AssetsFS, assetsPrefix)
-	profileHook           *template.Hook
+	profilePlugin         *template.Plugin
 	errNoLoadedTemplate   = errors.New("this template was not loaded from App.LoadTemplate nor NewTemplate")
 
 	templateFuncs = []*template.Func{
@@ -174,7 +174,7 @@ func init() {
 			if err := t.parse("profile.html", nil); err != nil {
 				panic(err)
 			}
-			profileHook = &template.Hook{Template: t.tmpl, Position: assets.Bottom}
+			profilePlugin = &template.Plugin{Template: t.tmpl, Position: assets.Bottom}
 		}
 	}
 }

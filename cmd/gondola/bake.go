@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"go/build"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/rainycape/command"
 
+	"github.com/rainycape/vfs"
 	"gnd.la/internal/gen/genutil"
 	"gnd.la/log"
 	"gnd.la/util/vfsutil"
@@ -66,14 +68,33 @@ func writeBakedFSCode(w io.Writer, opts *bakeOptions, extensions []string) (err 
 			return err
 		}
 	}
-	if _, err := fmt.Fprintf(w, "var %s = ", opts.Name); err != nil {
-		return err
-	}
 	var buf bytes.Buffer
 	if err := vfsutil.Bake(&buf, opts.Dir, extensions); err != nil {
 		return err
 	}
 	data := buf.String()
+	var files []string
+	fs, err := vfs.TarGzip(bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		return err
+	}
+	err = vfs.Walk(fs, "/", func(fs vfs.VFS, path string, info os.FileInfo, err error) error {
+		if !info.IsDir() {
+			files = append(files, strings.TrimPrefix(path, "/"))
+		}
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	if len(files) > 0 {
+		if _, err := fmt.Fprintf(w, "// %s \n", strings.Join(files, ", ")); err != nil {
+			return err
+		}
+	}
+	if _, err := fmt.Fprintf(w, "var %s = ", opts.Name); err != nil {
+		return err
+	}
 	if opts.VFS {
 		_, err = fmt.Fprintf(w, "vfsutil.MustOpenBaked(%q)\n", data)
 	} else {

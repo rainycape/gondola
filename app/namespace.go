@@ -3,6 +3,8 @@ package app
 import (
 	"fmt"
 	"reflect"
+
+	"gnd.la/internal/runtimeutil"
 )
 
 type namespace struct {
@@ -78,8 +80,22 @@ func (ns *namespace) addNs(name string, ans *namespace) error {
 	return nil
 }
 
-func (ns *namespace) eval(ctx *Context) (map[string]interface{}, error) {
-	m := make(map[string]interface{}, len(ns.vars)+len(ns.funcs)+len(ns.namespaces)+2)
+func (ns *namespace) eval(ctx *Context) (m map[string]interface{}, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			var pe error
+			if e, ok := r.(error); ok {
+				pe = e
+			} else {
+				pe = fmt.Errorf("%v", r)
+			}
+			err = pe
+			if file, line, ok := runtimeutil.PanicLocation(); ok {
+				err = fmt.Errorf("%v (at %s:%d)", pe, file, line)
+			}
+		}
+	}()
+	m = make(map[string]interface{}, len(ns.vars)+len(ns.funcs)+len(ns.namespaces)+2)
 	for k, v := range ns.vars {
 		m[k] = v
 	}
@@ -104,7 +120,6 @@ func (ns *namespace) eval(ctx *Context) (map[string]interface{}, error) {
 	if ctx != nil {
 		m["Request"] = ctx.R
 	}
-	var err error
 	for k, v := range ns.namespaces {
 		if m[k], err = v.eval(ctx); err != nil {
 			return nil, err

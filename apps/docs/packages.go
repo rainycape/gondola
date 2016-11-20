@@ -43,7 +43,15 @@ func StopUpdatingPackages() {
 }
 
 func updatePackages(e *doc.Environment) {
-	for _, gr := range getDocsApp(e).Groups {
+	app, _ := e.Get(envAppKey).(*App)
+	if app == nil {
+		return
+	}
+	data, _ := app.Data().(*appData)
+	if data == nil {
+		return
+	}
+	for _, gr := range data.Groups {
 		for _, pkg := range gr.Packages {
 			if err := updatePackage(e, pkg); err != nil {
 				log.Errorf("error updating %s: %s", pkg, err)

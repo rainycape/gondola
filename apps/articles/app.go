@@ -2,37 +2,34 @@ package articles
 
 import (
 	"gnd.la/app"
+	"gnd.la/app/reusableapp"
 	"gnd.la/apps/articles/article"
-	"gnd.la/kvs"
-	"gnd.la/util/apputil"
 )
 
-var (
-	getArticlesApp func(kvs.Storage) *ArticlesApp
-	setArticlesApp func(kvs.Storage, *ArticlesApp)
-)
-
-type ArticlesApp struct {
-	*apputil.ReusableApp
+type appData struct {
 	Articles []*article.Article
 }
 
-func New() *ArticlesApp {
-	a := &ArticlesApp{
-		ReusableApp: apputil.NewReusableApp("Articles"),
-	}
-	templatesFS := a.MustOpenVFS("tmpl", tmplData)
+func articlesData(ctx *app.Context) *appData {
+	d, _ := reusableapp.Data(ctx).(*appData)
+	return d
+}
+
+type App struct {
+	reusableapp.App
+}
+
+func New() *App {
+	a := reusableapp.New(reusableapp.Options{
+		Name:          "Articles",
+		Data:          &appData{},
+		TemplatesData: tmplData,
+	})
 	a.AddTemplateVars(map[string]interface{}{
 		"Article": ArticleHandlerName,
 		"List":    ArticleListHandlerName,
 	})
 	a.Handle("^/(.+)/$", ArticleHandler, app.NamedHandler(ArticleHandlerName))
 	a.Handle("^/$", ArticleListHandler, app.NamedHandler(ArticleListHandlerName))
-	a.SetTemplatesFS(templatesFS)
-	setArticlesApp(a, a)
-	return a
-}
-
-func init() {
-	kvs.TypeFuncs(&getArticlesApp, &setArticlesApp)
+	return &App{App: *a}
 }

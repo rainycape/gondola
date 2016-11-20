@@ -112,14 +112,15 @@ type handlerInfo struct {
 }
 
 type includedApp struct {
-	prefix    string
 	app       *App
+	name      string
+	prefix    string
 	container string
 	renames   map[string]string
 }
 
 func (a *includedApp) assetFuncName() string {
-	return strings.ToLower(a.app.name) + "_" + template.AssetFuncName
+	return strings.ToLower(a.name) + "_" + template.AssetFuncName
 }
 
 func (a *includedApp) assetFunc(t *template.Template) func(string) (string, error) {
@@ -188,7 +189,6 @@ type App struct {
 	appendSlash        bool
 	errorHandler       ErrorHandler
 	languageHandler    LanguageHandler
-	name               string
 	userFunc           UserFunc
 	assetsManager      *assets.Manager
 	templatesFS        vfs.VFS
@@ -312,8 +312,10 @@ func (app *App) AddRecoverHandler(rh RecoverHandler) {
 	app.RecoverHandlers = append(app.RecoverHandlers, rh)
 }
 
-func (app *App) Include(prefix string, included *App, containerTemplate string) {
-	if err := app.include(prefix, included, containerTemplate); err != nil {
+// Include should be considered a private API. It's only exported so
+// gnd.la/app/reusableapp can call into it.
+func (app *App) Include(prefix string, name string, included *App, containerTemplate string) {
+	if err := app.include(prefix, name, included, containerTemplate); err != nil {
 		panic(err)
 	}
 	if app.namespace == nil {
@@ -326,19 +328,19 @@ func (app *App) Include(prefix string, included *App, containerTemplate string) 
 	if apps == nil {
 		apps = make(map[string]interface{})
 	}
-	apps[included.name] = included
+	apps[name] = included
 	app.namespace.vars["Apps"] = apps
 }
 
-func (app *App) include(prefix string, child *App, containerTemplate string) error {
+func (app *App) include(prefix string, name string, child *App, containerTemplate string) error {
 	if child.parent != nil {
-		return fmt.Errorf("app %v already has been included in another app", child)
+		return fmt.Errorf("app %+v already has been included in another app", child)
 	}
-	if child.name == "" {
-		return fmt.Errorf("included app %v can't have an empty name", child)
+	if name == "" {
+		return fmt.Errorf("included app %+v can't have an empty name", child)
 	}
 	if prefix == "" {
-		return fmt.Errorf("can't include app %s with empty prefix", child.name)
+		return fmt.Errorf("can't include app %s with empty prefix", name)
 	}
 	// prefix must start with / and end without /,
 	// fix it if it doesn't match
@@ -350,19 +352,20 @@ func (app *App) include(prefix string, child *App, containerTemplate string) err
 	}
 	for _, v := range app.included {
 		if v.prefix == prefix {
-			return fmt.Errorf("can't include app at prefix %q, app %q is already using it", prefix, v.app.name)
+			return fmt.Errorf("can't include app at prefix %q, app %q is already using it", prefix, v.name)
 		}
-		if v.app.name == child.name {
-			return fmt.Errorf("duplicate app name %q", v.app.name)
+		if v.name == name {
+			return fmt.Errorf("duplicate app name %q", name)
 		}
 	}
 	if containerTemplate == "" {
-		return fmt.Errorf("empty container template while loading app %v", child.Name())
+		return fmt.Errorf("empty container template while loading app %v", name)
 	}
 	child.parent = app
 	included := &includedApp{
-		prefix:    prefix,
 		app:       child,
+		name:      name,
+		prefix:    prefix,
 		container: containerTemplate,
 	}
 	if containerTemplate != "" {
@@ -377,11 +380,11 @@ func (app *App) include(prefix string, child *App, containerTemplate string) err
 	child.childInfo = included
 	if child.assetsManager != nil {
 		if err := app.importAssets(included); err != nil {
-			return fmt.Errorf("error importing %q assets: %s", child.name, err)
+			return fmt.Errorf("error importing %q assets: %s", name, err)
 		}
 	}
 	for _, v := range child.templatePlugins {
-		v.Template.AddNamespace(child.name)
+		v.Template.AddNamespace(name)
 		if err := app.rewriteAssets(v.Template, included); err != nil {
 			return err
 		}
@@ -392,7 +395,7 @@ func (app *App) include(prefix string, child *App, containerTemplate string) err
 		app.namespace = &namespace{}
 	}
 	if child.namespace != nil {
-		if err := app.namespace.addNs(child.name, child.namespace); err != nil {
+		if err := app.namespace.addNs(name, child.namespace); err != nil {
 			return err
 		}
 	}
@@ -450,15 +453,19 @@ func (app *App) SetAppendSlash(b bool) {
 	app.appendSlash = b
 }
 
+// Name returns the app name. Note that only apps which have been included into
+// another app have a name. The main app will always have an empty name.
 func (app *App) Name() string {
-	return app.name
-}
-
-func (app *App) SetName(name string) {
+	var name string
 	if app.parent != nil {
-		panic(fmt.Errorf("can't rename app %q, it has been already included", app.name))
+		for _, c := range app.parent.included {
+			if c.app == app {
+				name = c.name
+				break
+			}
+		}
 	}
-	app.name = name
+	return name
 }
 
 // ErrorHandler returns the error handler (if any)
@@ -662,7 +669,7 @@ func (app *App) loadTemplate(fs vfs.VFS, manager *assets.Manager, name string) (
 		}
 	}
 	if app.parent != nil && fs == app.templatesFS {
-		t.tmpl.AddNamespace(app.name)
+		t.tmpl.AddNamespace(app.Name())
 		if !t.tmpl.IsFinal() {
 			return app.parent.chainTemplate(t, app.childInfo)
 		}
@@ -710,7 +717,7 @@ func (app *App) loadContainerTemplate(included *includedApp) (*Template, string,
 	if err != nil {
 		return nil, "", err
 	}
-	name := template.NamespacedName([]string{included.app.name}, "~")
+	name := template.NamespacedName([]string{included.name}, "~")
 	found := false
 	var loc string
 	for _, v := range container.tmpl.Trees() {
@@ -886,8 +893,14 @@ func (app *App) ListenAndServe() error {
 	if devserver.IsActive() {
 		// Attach the automatic reload template plugin to automatically
 		// reload the page when the server restarts
-		app.AddTemplateVars(devserver.TemplateVars(&Context{}))
-		app.AddTemplatePlugin(devserver.ReloadPlugin())
+		vars := devserver.TemplateVars(&Context{})
+		plugin := devserver.ReloadPlugin()
+		app.AddTemplateVars(vars)
+		app.AddTemplatePlugin(plugin)
+		for _, c := range app.included {
+			c.app.AddTemplateVars(vars)
+			c.app.AddTemplatePlugin(plugin)
+		}
 	} else {
 		if app.Logger != nil {
 			if app.address != "" {
@@ -1320,7 +1333,7 @@ func (app *App) importAssets(included *includedApp) error {
 		return nil
 	}
 	m := app.assetsManager
-	prefix := strings.ToLower(included.app.name)
+	prefix := strings.ToLower(included.name)
 	renames := make(map[string]string)
 	err := vfs.Walk(im.VFS(), "/", func(fs vfs.VFS, p string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
@@ -1329,7 +1342,7 @@ func (app *App) importAssets(included *includedApp) error {
 		if p != "" && p[0] == '/' {
 			p = p[1:]
 		}
-		log.Debugf("will import asset %v from app %s", p, included.app.name)
+		log.Debugf("will import asset %v from app %s", p, included.name)
 		src, err := im.Load(p)
 		if err != nil {
 			return err
@@ -1420,18 +1433,6 @@ func (app *App) EncryptSigner(salt []byte) (*cryptoutil.EncryptSigner, error) {
 		Encrypter: encrypter,
 		Signer:    signer,
 	}, nil
-}
-
-// Clone returns a copy of the *App. This is mainly useful for including an
-// app multiple times. Note that cloning an App which has been already included
-// is considered a programming error and will result in a panic.
-func (app *App) Clone() *App {
-	if app.parent != nil {
-		panic(fmt.Errorf("can't clone app %s, it has been already included", app.name))
-	}
-	a := *app
-	a.kv = *(a.kv.Copy())
-	return &a
 }
 
 // Prepare is automatically called for you. This function is

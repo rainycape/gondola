@@ -5,6 +5,7 @@ import (
 	"path"
 
 	"gnd.la/app"
+	"gnd.la/app/reusableapp"
 	"gnd.la/apps/articles/article"
 	"gnd.la/template"
 )
@@ -33,7 +34,8 @@ func reverseAppArticle(a *app.App, article interface{}) (string, error) {
 func reverseAppsArticle(a *app.App, art interface{}, checked map[*app.App]bool) (string, error) {
 	checked[a] = true
 	var articles []*article.Article
-	if aa := getArticlesApp(a); aa != nil {
+	aa, _ := reusableapp.AppData(a).(*appData)
+	if aa != nil {
 		articles = aa.Articles
 	}
 	switch x := art.(type) {

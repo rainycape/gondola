@@ -57,19 +57,20 @@ func List(fs vfs.VFS, dir string) ([]*article.Article, error) {
 
 // Load loads articles from the given directory in the given fs
 // into the given app.
-func (a *ArticlesApp) Load(fs vfs.VFS, dir string) ([]*article.Article, error) {
+func (a *App) Load(fs vfs.VFS, dir string) ([]*article.Article, error) {
 	articles, err := List(fs, dir)
 	if err != nil {
 		return nil, err
 	}
-	a.Articles = append(a.Articles, articles...)
-	sortArticles(a.Articles)
+	data := a.Data().(*appData)
+	data.Articles = append(data.Articles, articles...)
+	sortArticles(data.Articles)
 	return articles, nil
 }
 
 // LoadDir works like Load, but loads the articles from the given directory
 // in the local filesystem.
-func (a *ArticlesApp) LoadDir(dir string) ([]*article.Article, error) {
+func (a *App) LoadDir(dir string) ([]*article.Article, error) {
 	fs, err := vfs.FS(dir)
 	if err != nil {
 		return nil, err
@@ -90,8 +91,8 @@ func sortArticles(articles []*article.Article) {
 }
 
 func getArticles(ctx *app.Context) []*article.Article {
-	if a := getArticlesApp(ctx.App()); a != nil {
-		return a.Articles
+	if data := articlesData(ctx); data != nil {
+		return data.Articles
 	}
 	return nil
 }

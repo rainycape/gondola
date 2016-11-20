@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"gnd.la/app"
+	"gnd.la/app/reusableapp"
 	"gnd.la/apps/docs/doc"
 	"gnd.la/log"
 )
@@ -34,8 +35,8 @@ type packageGroup struct {
 
 func ListHandler(ctx *app.Context) {
 	var groups []*packageGroup
-	dctx := doc.GetEnvironment(ctx.App())
-	for _, gr := range getDocsApp(ctx.App()).Groups {
+	dctx := getEnvironment(ctx)
+	for _, gr := range appDocGroups(ctx) {
 		var groupPackages []*doc.Package
 		for _, v := range gr.Packages {
 			pkgs, err := dctx.ImportPackages(packageDir(dctx, v))
@@ -66,7 +67,7 @@ func ListHandler(ctx *app.Context) {
 }
 
 func StdListHandler(ctx *app.Context) {
-	dctx := doc.GetEnvironment(ctx.App())
+	dctx := getEnvironment(ctx)
 	allPkgs, err := dctx.ImportPackages(dctx.Join(dctx.Context.GOROOT, "src"))
 	if err != nil {
 		panic(err)
@@ -94,7 +95,7 @@ func StdListHandler(ctx *app.Context) {
 }
 
 func PackageHandler(ctx *app.Context) {
-	dctx := doc.GetEnvironment(ctx.App())
+	dctx := getEnvironment(ctx)
 	rel := ctx.IndexValue(0)
 	if rel[len(rel)-1] == '/' {
 		ctx.MustRedirectReverse(true, PackageHandlerName, rel[:len(rel)-1])
@@ -172,4 +173,12 @@ func packageDir(dctx *doc.Environment, p string) string {
 		stdSrc = dctx.Join(dctx.Context.GOROOT, "src")
 	}
 	return dctx.Join(stdSrc, p)
+}
+
+func getEnvironment(ctx *app.Context) *doc.Environment {
+	data, _ := reusableapp.Data(ctx).(*appData)
+	if data != nil {
+		return data.Environment
+	}
+	return nil
 }

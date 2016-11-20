@@ -2,20 +2,9 @@ package docs
 
 import (
 	"gnd.la/app"
+	"gnd.la/app/reusableapp"
 	"gnd.la/apps/docs/doc"
-	"gnd.la/kvs"
-	"gnd.la/template/assets"
 	_ "gnd.la/template/assets/sass" // import the scss compiler for docs.scss
-	"gnd.la/util/apputil"
-)
-
-const (
-	assetsPrefix = "/assets/"
-)
-
-var (
-	getDocsApp func(kvs.Storage) *DocsApp
-	setDocsApp func(kvs.Storage, *DocsApp)
 )
 
 // Group represents a group of packages to be displayed under the same
@@ -27,42 +16,61 @@ type Group struct {
 	Packages []string
 }
 
-type DocsApp struct {
-	*apputil.ReusableApp
+type Options struct {
+	Groups []*Group
+}
+
+type appData struct {
 	Groups      []*Group
 	Environment *doc.Environment
 }
 
-func New() *DocsApp {
-	a := &DocsApp{
-		ReusableApp: apputil.NewReusableApp("Docs"),
+type App struct {
+	reusableapp.App
+}
+
+func (a *App) Environment() *doc.Environment {
+	return a.Data().(*appData).Environment
+}
+
+func New(opts Options) *App {
+	data := &appData{
+		Groups: opts.Groups,
 	}
-	assetsFS := a.MustOpenVFS("assets", assetsData)
-	templatesFS := a.MustOpenVFS("tmpl", tmplData)
+	a := reusableapp.New(reusableapp.Options{
+		Name:          "Docs",
+		AssetsData:    assetsData,
+		TemplatesData: tmplData,
+		Data:          data,
+	})
 	a.Prefix = "/doc/"
 	reverseDoc := func(s string) string { return a.MustReverse(PackageHandlerName, s) }
 	reverseSource := func(s string) string { return a.MustReverse(SourceHandlerName, s) }
-	a.Environment = doc.NewEnvironment(reverseDoc, reverseSource)
-	doc.SetEnvironment(a, a.Environment)
-	setDocsApp(a, a)
-	setDocsApp(a.Environment, a)
-	manager := assets.New(assetsFS, assetsPrefix)
-	a.SetAssetsManager(manager)
-	a.Handle("^"+assetsPrefix, app.HandlerFromHTTPFunc(manager.Handler()))
+	data.Environment = doc.NewEnvironment(reverseDoc, reverseSource)
+	data.Environment.Set(envAppKey, a)
 	a.AddTemplateVars(map[string]interface{}{
 		"List":    ListHandlerName,
 		"StdList": StdListHandlerName,
 		"Package": PackageHandlerName,
 		"Source":  SourceHandlerName,
 	})
-	a.SetTemplatesFS(templatesFS)
 	a.Handle("^/$", ListHandler, app.NamedHandler(ListHandlerName))
 	a.Handle("^/pkg/std/?", StdListHandler, app.NamedHandler(StdListHandlerName))
 	a.Handle("^/pkg/(.+)", PackageHandler, app.NamedHandler(PackageHandlerName))
 	a.Handle("^/src/(.+)", SourceHandler, app.NamedHandler(SourceHandlerName))
-	return a
+	return &App{App: *a}
 }
 
-func init() {
-	kvs.TypeFuncs(&getDocsApp, &setDocsApp)
+func appDocGroups(ctx *app.Context) []*Group {
+	data, _ := reusableapp.Data(ctx).(*appData)
+	if data != nil {
+		return data.Groups
+	}
+	return nil
 }
+
+type envKey int
+
+const (
+	envAppKey envKey = iota
+)

@@ -121,6 +121,7 @@ func TestSendEmail(t *testing.T) {
 	count := 0
 	printer = func(format string, args ...interface{}) (int, error) {
 		res = fmt.Sprintf(format, args...)
+		res = replaceBoundary(res)
 		// This is useful when adding new tests
 		ioutil.WriteFile(filepath.Join("testdata", fmt.Sprintf("out.%d.eml", count)), []byte(res), 0644)
 		count++

@@ -79,7 +79,11 @@ func (o *mysqlOpener) Open(t testing.TB) (*Orm, interface{}) {
 		t.Skipf("MySQL is not running, skipping test (%v)", err)
 	}
 	conn.Close()
-	orm := newOrm(t, "mysql://gotest:gotest@/test", true)
+	creds := os.Getenv("GONDOLA_ORM_MYSQL_CREDENTIALS")
+	if creds == "" {
+		creds = "gotest:gotest"
+	}
+	orm := newOrm(t, "mysql://"+creds+"@/", true)
 	db := orm.SqlDB()
 	if _, err := db.Exec("DROP DATABASE IF EXISTS gotest"); err != nil {
 		t.Skipf("cannot connect to mysql database, skipping test: %s", err)
@@ -90,7 +94,7 @@ func (o *mysqlOpener) Open(t testing.TB) (*Orm, interface{}) {
 	if err := orm.Close(); err != nil {
 		t.Fatal(err)
 	}
-	return newOrm(t, "mysql://gotest:gotest@/gotest", true), nil
+	return newOrm(t, "mysql://"+creds+"@/gotest", true), nil
 }
 
 func (o *mysqlOpener) Close(_ interface{}) {}

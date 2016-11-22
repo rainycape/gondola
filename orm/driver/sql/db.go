@@ -185,6 +185,28 @@ func (d *DB) quoteWith(s string, q byte) string {
 }
 
 func (d *DB) preparedStmt(s string) *sql.Stmt {
+	// Don't bother making a prepared statement if
+	// the transaction is non-nil, since the current
+	// implementation of d.tx.Stmt() (as of Go 1.8 freeze)
+	// will end up parsing the query string again. Given
+	// that tx prepared statements won't be valid once
+	// the transaction goes away, we'll most likely end
+	// up parsing twice for one execution.
+	//
+	// XXX: Also, sqlite has some issues with prepared stmts
+	// and transactions. TestMigrations in gnd.la/orm wouldn't
+	// pass because the connection which created the 1st
+	// "migration "table was incorrectly in a transaction and when
+	// creating the table for the 1st migration (BadMigration1),
+	// the inspection would return that no table was present.
+	// Eventually, the table would appear and some other part
+	// of the test would fail.
+	//
+	// TLDR: Make sure the sqlite tests pass if you remove the following
+	// check
+	if d.tx != nil {
+		return nil
+	}
 	key := crc32.ChecksumIEEE(internal.StringToBytes(s))
 	d.mu.RLock()
 	cached, ok := d.cache[key]

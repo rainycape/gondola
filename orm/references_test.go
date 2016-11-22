@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"gnd.la/orm/driver"
+	"gnd.la/orm/driver/sql"
+	"gnd.la/orm/driver/sqlite"
 )
 
 type BadEvent struct {
@@ -83,9 +85,16 @@ func testIterErr(t *testing.T, iter *Iter) {
 }
 
 func testReferences(t *testing.T, o *Orm) {
-	if o.Driver().Capabilities()&driver.CAP_JOIN == 0 {
+	drv := o.Driver()
+	if drv.Capabilities()&driver.CAP_JOIN == 0 {
 		t.Log("skipping references test")
 		return
+	}
+	if sdrv, ok := drv.(*sql.Driver); ok {
+		_, isSQLite := sdrv.Backend().(*sqlite.Backend)
+		if isSQLite {
+			o.SqlDB().Exec("PRAGMA foreign_keys = ON")
+		}
 	}
 	// Register Event first and then Timestamp. The ORM should
 	// re-arrange them so Timestamp is created before Event.

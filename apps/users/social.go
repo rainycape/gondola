@@ -5,67 +5,61 @@ import (
 	"reflect"
 
 	"gnd.la/app"
+	"gnd.la/net/oauth2"
 	"gnd.la/orm"
 )
 
+type SocialAccountType string
+
+func (s SocialAccountType) String() string { return string(s) }
+
 const (
-	SocialTypeFacebook = "Facebook"
-	SocialTypeTwitter  = "Twitter"
-	SocialTypeGoogle   = "Google"
-	SocialTypeGithub   = "Github"
+	SocialAccountTypeFacebook SocialAccountType = "Facebook"
+	SocialAccountTypeTwitter  SocialAccountType = "Twitter"
+	SocialAccountTypeGoogle   SocialAccountType = "Google"
+	SocialAccountTypeGithub   SocialAccountType = "Github"
 )
 
-type socialType struct {
-	Name        string       // The user field name, must be one of the SocialType.. constants
-	Type        reflect.Type // Go Type used to store information
-	App         interface{}  // Pointer to pointer to App variable
-	ClassName   string       // Class name for the social button
-	HandlerName string       // The handler for signing in
-	IconName    string       // The icon name
-	Popup       bool         // Wheter the JS sign in uses a manual pop-up window
+type socialAccountType struct {
+	Name        SocialAccountType // The user struct field name, must be one of the SocialType.. constants
+	Type        reflect.Type      // Go Type used to store information
+	ClassName   string            // Class name for the social button
+	HandlerName string            // The handler for signing in
+	IconName    string            // The icon name
+	Popup       bool              // Wheter the JS sign in uses a manual pop-up window
 	PopupWidth  int
 	PopupHeight int
 }
 
-func (s *socialType) IsEnabled() bool {
-	val := reflect.ValueOf(s.App)
-	return !val.Elem().IsNil()
-}
-
 var (
 	// This maps the social user field names to their
-	// types and the app variable that must be non-nil
-	// to activate that type.
-	socialTypes = []*socialType{
-		{
-			Name:        SocialTypeFacebook,
+	// types.
+	socialAccountTypes = map[SocialAccountType]*socialAccountType{
+		SocialAccountTypeFacebook: {
+			Name:        SocialAccountTypeFacebook,
 			Type:        reflect.TypeOf((*Facebook)(nil)),
-			App:         &FacebookApp,
 			ClassName:   "facebook",
 			HandlerName: SignInFacebookHandlerName,
 			IconName:    "facebook",
 		},
-		{
-			Name:        SocialTypeTwitter,
+		SocialAccountTypeTwitter: {
+			Name:        SocialAccountTypeTwitter,
 			Type:        reflect.TypeOf((*Twitter)(nil)),
-			App:         &TwitterApp,
 			ClassName:   "twitter",
 			HandlerName: SignInTwitterHandlerName,
 			IconName:    "twitter",
 			Popup:       true,
 		},
-		{
-			Name:        SocialTypeGoogle,
+		SocialAccountTypeGoogle: {
+			Name:        SocialAccountTypeGoogle,
 			Type:        reflect.TypeOf((*Google)(nil)),
-			App:         &GoogleApp,
 			ClassName:   "google",
 			HandlerName: SignInGoogleHandlerName,
 			IconName:    "google",
 		},
-		{
-			Name:        SocialTypeGithub,
+		SocialAccountTypeGithub: {
+			Name:        SocialAccountTypeGithub,
 			Type:        reflect.TypeOf((*Github)(nil)),
-			App:         &GithubApp,
 			ClassName:   "github",
 			HandlerName: SignInGithubHandlerName,
 			IconName:    "github",
@@ -74,24 +68,7 @@ var (
 			PopupHeight: 800,
 		},
 	}
-
-	socialTypesByName = map[string]*socialType{}
 )
-
-func enabledSocialTypes() []*socialType {
-	added := make(map[string]bool)
-	var types []*socialType
-	for _, v := range SocialOrder {
-		if added[v] {
-			continue
-		}
-		added[v] = true
-		if st := socialTypesByName[v]; st != nil && st.IsEnabled() {
-			types = append(types, st)
-		}
-	}
-	return types
-}
 
 type socialAccount interface {
 	accountId() interface{}
@@ -100,9 +77,9 @@ type socialAccount interface {
 	email() string
 }
 
-func userWithSocialAccount(ctx *app.Context, name string, acc socialAccount) (reflect.Value, error) {
-	user, userVal := newEmptyUser()
-	ok, err := ctx.Orm().One(orm.Eq(name+".Id", acc.accountId()), userVal)
+func userWithSocialAccount(ctx *app.Context, name SocialAccountType, acc socialAccount) (reflect.Value, error) {
+	user, userVal := newEmptyUser(ctx)
+	ok, err := ctx.Orm().One(orm.Eq(name.String()+".Id", acc.accountId()), userVal)
 	if err != nil {
 		return reflect.Value{}, err
 	}
@@ -111,7 +88,7 @@ func userWithSocialAccount(ctx *app.Context, name string, acc socialAccount) (re
 	imageFormatVal := acVal.FieldByName("ImageFormat")
 	imageURLVal := acVal.FieldByName("ImageURL")
 	if ok {
-		prev := getUserValue(user, name)
+		prev := getUserValue(user, name.String())
 		if prev != nil {
 			prevVal := reflect.Indirect(reflect.ValueOf(prev))
 			prevImage := prevVal.FieldByName("Image").String()
@@ -125,7 +102,7 @@ func userWithSocialAccount(ctx *app.Context, name string, acc socialAccount) (re
 		// Note: don't update main email, since it could
 		// cause a conflict if the new email is already in the db.
 		// already registered wi
-		setUserValue(user, name, acc)
+		setUserValue(user, name.String(), acc)
 	} else {
 		image, imageFormat, imageURL := fetchImage(ctx, acc.imageURL())
 		imageVal.Set(reflect.ValueOf(image))
@@ -140,39 +117,41 @@ func userWithSocialAccount(ctx *app.Context, name string, acc socialAccount) (re
 				return reflect.Value{}, err
 			}
 			if ok {
-				setUserValue(user, name, acc)
+				setUserValue(user, name.String(), acc)
 			}
 		}
 		if !ok {
 			// This is a bit racy, but we'll live with it for now
 			username := acc.username()
 			freeUsername := FindFreeUsername(ctx, username)
-			user = newUser(freeUsername)
+			user = newUser(ctx, freeUsername)
 			setUserValue(user, "AutomaticUsername", true)
 			setUserValue(user, "Email", acc.email())
-			setUserValue(user, name, acc)
+			setUserValue(user, name.String(), acc)
 		}
 	}
 	ctx.Orm().MustSave(user.Interface())
 	return user, nil
 }
 
-func getSocial(src interface{}) (*socialType, error) {
+func getSocial(src interface{}) (*socialAccountType, error) {
 	switch x := src.(type) {
 	case string:
-		st := socialTypesByName[x]
+		st := socialAccountTypes[SocialAccountType(x)]
 		if st == nil {
 			return nil, fmt.Errorf("no social type named %s", x)
 		}
 		return st, nil
-	case *socialType:
+	case *socialAccountType:
 		return x, nil
 	}
 	return nil, fmt.Errorf("invalid social identifier type %T (%v)", src, src)
 }
 
-func init() {
-	for _, v := range socialTypes {
-		socialTypesByName[v.Name] = v
+func oauth2SignInHandler(handler oauth2.OAuth2TokenHandler, client *oauth2.Client, scopes []string) app.Handler {
+	if handler != nil && client != nil {
+		h := oauth2.Handler(handler, client, scopes)
+		return app.Anonymous(h)
 	}
+	return nil
 }

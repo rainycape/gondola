@@ -45,12 +45,10 @@ func signInTwitterUserHandler(ctx *app.Context, twUser *twitter.User, token *twi
 			Token:    token.Key,
 			Secret:   token.Secret,
 		}
-		user, err = userWithSocialAccount(ctx, SocialTypeTwitter, tw)
+		user, err = userWithSocialAccount(ctx, SocialAccountTypeTwitter, tw)
 		if err != nil {
 			panic(err)
 		}
 	}
 	windowCallbackHandler(ctx, user, callback)
 }
-
-var signInTwitterHandler = twitter.AuthHandler(TwitterApp, signInTwitterUserHandler)

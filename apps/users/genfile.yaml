@@ -1,7 +1,0 @@
-json:
-    marshal-json: false
-    buffer-size: 16384
-    buffers-per-proc: 8
-    methods:
-        User:
-            ImageURL: image_url

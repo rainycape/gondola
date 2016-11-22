@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"gnd.la/app"
@@ -40,60 +39,53 @@ const (
 
 	FacebookChannelHandlerName = "users-facebook-channel"
 	ImageHandlerName           = "users-image-handler"
-)
 
-var (
-	SiteName                = ""
-	Salt                    = []byte("gnd.la/apps/users")
-	PasswordResetExpiry     = 24 * time.Hour
-	SignInHandlerName       = app.SignInHandlerName
 	SignInTemplateName      = "sign-in.html"
 	SignInModalTemplateName = "sign-in-modal.html"
 	SignUpTemplateName      = "sign-up.html"
 	ForgotTemplateName      = "forgot.html"
 	ResetTemplateName       = "reset.html"
+)
 
-	SignInHandler           = app.NamedHandler(app.SignInHandlerName, app.Anonymous(signInHandler))
-	SignInFacebookHandler   = app.NamedHandler(SignInFacebookHandlerName, app.Anonymous(signInFacebookHandler))
-	SignInGoogleHandler     = app.NamedHandler(SignInGoogleHandlerName, app.Anonymous(signInGoogleHandler))
-	SignInTwitterHandler    = app.NamedHandler(SignInTwitterHandlerName, app.Anonymous(signInTwitterHandler))
-	SignInGithubHandler     = app.NamedHandler(SignInGithubHandlerName, app.Anonymous(signInGithubHandler))
-	SignUpHandler           = app.NamedHandler(SignUpHandlerName, app.Anonymous(signUpHandler))
-	SignOutHandler          = app.NamedHandler(SignOutHandlerName, app.SignOutHandler)
-	ForgotHandler           = app.NamedHandler(ForgotHandlerName, app.Anonymous(forgotHandler))
-	ResetHandler            = app.NamedHandler(ResetHandlerName, resetHandler)
-	JSSignInHandler         = app.NamedHandler(JSSignInHandlerName, app.Anonymous(jsSignInHandler))
-	JSSignInFacebookHandler = app.NamedHandler(JSSignInFacebookHandlerName, app.Anonymous(jsSignInFacebookHandler))
-	JSSignInGoogleHandler   = app.NamedHandler(JSSignInGoogleHandlerName, app.Anonymous(jsSignInGoogleHandler))
-	JSSignUpHandler         = app.NamedHandler(JSSignUpHandlerName, app.Anonymous(jsSignUpHandler))
-	FacebookChannelHandler  = app.NamedHandler(FacebookChannelHandlerName, facebookChannelHandler)
-	UserImageHandler        = app.NamedHandler(ImageHandlerName, imageHandler)
+var (
+	Salt                = []byte("gnd.la/apps/users")
+	PasswordResetExpiry = 24 * time.Hour
+	SignInHandlerName   = app.SignInHandlerName
+
+	SignInHandler           = app.Anonymous(signInHandler)
+	SignUpHandler           = app.Anonymous(signUpHandler)
+	SignOutHandler          = app.SignOutHandler
+	ForgotHandler           = app.Anonymous(forgotHandler)
+	JSSignInHandler         = app.Anonymous(jsSignInHandler)
+	JSSignInFacebookHandler = app.Anonymous(jsSignInFacebookHandler)
+	JSSignInGoogleHandler   = app.Anonymous(jsSignInGoogleHandler)
+	JSSignUpHandler         = app.Anonymous(jsSignUpHandler)
 )
 
 func signInHandler(ctx *app.Context) {
 	modal := ctx.FormValue("modal") != ""
-	st := enabledSocialTypes()
-	if !modal && !AllowUserSignIn && len(st) == 1 {
+	d := data(ctx)
+	if !modal && !d.allowDirectSignIn() && d.hasEnabledSocialSignin() {
 		// Redirect to the only available social sign-in
-		ctx.MustRedirectReverse(false, st[0].HandlerName)
+		ctx.MustRedirectReverse(false, d.enabledSocialAccountTypes()[0].HandlerName)
 		return
 	}
 	from := ctx.FormValue(app.SignInFromParameterName)
 	signIn := SignIn{From: from}
 	form := form.New(ctx, &signIn)
-	if AllowUserSignIn && form.Submitted() && form.IsValid() {
+	if d.allowDirectSignIn() && form.Submitted() && form.IsValid() {
 		ctx.MustSignIn(asGondolaUser(reflect.ValueOf(signIn.User)))
 		ctx.RedirectBack()
 		return
 	}
-	user, _ := newEmptyUser()
+	user, _ := newEmptyUser(ctx)
 	data := map[string]interface{}{
-		"SocialTypes":       st,
-		"AllowUserSignIn":   AllowUserSignIn,
-		"AllowRegistration": AllowRegistration,
-		"From":              from,
-		"SignInForm":        form,
-		"SignUpForm":        SignUpForm(ctx, user),
+		"SocialAccountTypes": d.enabledSocialAccountTypes(),
+		"From":               from,
+		"SignInForm":         form,
+		"SignUpForm":         SignUpForm(ctx, user),
+		"AllowDirectSignIn":  d.allowDirectSignIn(),
+		"AllowRegistration":  d.allowRegistration(),
 	}
 	tmpl := SignInTemplateName
 	if modal && SignInModalTemplateName != "" {
@@ -103,7 +95,8 @@ func signInHandler(ctx *app.Context) {
 }
 
 func jsSignInHandler(ctx *app.Context) {
-	if !AllowUserSignIn {
+	d := data(ctx)
+	if !d.allowDirectSignIn() {
 		ctx.NotFound("")
 		return
 	}
@@ -119,12 +112,13 @@ func jsSignInHandler(ctx *app.Context) {
 }
 
 func signUpHandler(ctx *app.Context) {
-	if !allowRegistration() {
+	d := data(ctx)
+	if !d.allowDirectSignIn() {
 		ctx.NotFound("")
 		return
 	}
 	from := ctx.FormValue(app.SignInFromParameterName)
-	user, _ := newEmptyUser()
+	user, _ := newEmptyUser(ctx)
 	form := SignUpForm(ctx, user)
 	if form.Submitted() && form.IsValid() {
 		saveNewUser(ctx, user)
@@ -139,11 +133,12 @@ func signUpHandler(ctx *app.Context) {
 }
 
 func jsSignUpHandler(ctx *app.Context) {
-	if !allowRegistration() {
+	d := data(ctx)
+	if !d.allowRegistration() {
 		ctx.NotFound("")
 		return
 	}
-	user, _ := newEmptyUser()
+	user, _ := newEmptyUser(ctx)
 	form := SignUpForm(ctx, user)
 	if form.Submitted() && form.IsValid() {
 		saveNewUser(ctx, user)
@@ -154,11 +149,12 @@ func jsSignUpHandler(ctx *app.Context) {
 }
 
 func forgotHandler(ctx *app.Context) {
-	if !AllowUserSignIn {
+	d := data(ctx)
+	if !d.allowDirectSignIn() {
 		ctx.NotFound("")
 		return
 	}
-	var user *User
+	var user User
 	var isEmail bool
 	var sent bool
 	var fields struct {
@@ -174,13 +170,15 @@ func forgotHandler(ctx *app.Context) {
 		} else {
 			field = "User.NormalizedUsername"
 		}
-		ok := c.Orm().MustOne(orm.Eq(field, username), &user)
+		userVal, userIface := newEmptyUser(ctx)
+		ok := c.Orm().MustOne(orm.Eq(field, username), userIface)
 		if !ok {
 			if isEmail {
 				return i18n.Errorf("address %q does not belong to any registered user", username)
 			}
 			return i18n.Errorf("username %q does not belong to any registered user", username)
 		}
+		user = getUserValue(userVal, "User").(User)
 		if user.Email == "" {
 			return i18n.Errorf("username %q does not have any registered emails", username)
 		}
@@ -213,7 +211,7 @@ func forgotHandler(ctx *app.Context) {
 		msg := &mail.Message{
 			To:      user.Email,
 			From:    from,
-			Subject: fmt.Sprintf(ctx.T("Reset your %s password"), SiteName),
+			Subject: fmt.Sprintf(ctx.T("Reset your %s password"), d.opts.SiteName),
 		}
 		ctx.MustSendMail("reset_password.txt", data, msg)
 		sent = true
@@ -251,7 +249,7 @@ func decodeResetPayload(ctx *app.Context, payload string) (reflect.Value, error)
 	if time.Since(time.Unix(ts, 0)) > PasswordResetExpiry {
 		return reflect.Value{}, errResetExpired
 	}
-	user, userVal := newEmptyUser()
+	user, userVal := newEmptyUser(ctx)
 	ok := ctx.Orm().MustOne(orm.Eq("User.UserId", userId), userVal)
 	if !ok {
 		return reflect.Value{}, errNoSuchUser
@@ -259,8 +257,9 @@ func decodeResetPayload(ctx *app.Context, payload string) (reflect.Value, error)
 	return user, nil
 }
 
-func resetHandler(ctx *app.Context) {
-	if !AllowUserSignIn {
+func ResetHandler(ctx *app.Context) {
+	d := data(ctx)
+	if !d.allowDirectSignIn() {
 		ctx.NotFound("")
 		return
 	}
@@ -321,25 +320,6 @@ func saveNewUser(ctx *app.Context, user reflect.Value) {
 	ctx.MustSignIn(asGondolaUser(user))
 }
 
-func delayedHandler(f func() app.Handler) app.Handler {
-	var handler app.Handler
-	var mu sync.Mutex
-	return func(ctx *app.Context) {
-		if handler == nil {
-			mu.Lock()
-			defer mu.Unlock()
-			if handler == nil {
-				handler = f()
-				if handler == nil {
-					ctx.NotFound("")
-					return
-				}
-			}
-		}
-		handler(ctx)
-	}
-}
-
 func windowCallbackHandler(ctx *app.Context, user reflect.Value, callback string) {
 	inWindow := ctx.FormValue("window") != ""
 	if user.IsValid() {
@@ -349,7 +329,7 @@ func windowCallbackHandler(ctx *app.Context, user reflect.Value, callback string
 		var payload []byte
 		if user.IsValid() {
 			var err error
-			payload, err = JSONEncode(user.Interface())
+			payload, err = JSONEncode(ctx, user.Interface())
 			if err != nil {
 				panic(err)
 			}
@@ -365,8 +345,4 @@ func windowCallbackHandler(ctx *app.Context, user reflect.Value, callback string
 			ctx.MustRedirectReverse(false, app.SignInHandlerName)
 		}
 	}
-}
-
-func allowRegistration() bool {
-	return AllowUserSignIn && AllowRegistration
 }

@@ -7,8 +7,6 @@ import (
 	"gnd.la/crypto/password"
 	"gnd.la/form"
 	"gnd.la/i18n"
-	"gnd.la/orm"
-	"gnd.la/orm/driver"
 )
 
 var (
@@ -58,36 +56,17 @@ type SignIn struct {
 }
 
 func (s *SignIn) ValidateUsername(ctx *app.Context) error {
-	norm := Normalize(s.Username)
-	_, userVal := newEmptyUser()
-	var ok bool
-	o := ctx.Orm()
-	q1 := orm.Eq("User.NormalizedUsername", norm)
-	q2 := orm.Eq("User.NormalizedEmail", norm)
-	if o.Driver().Capabilities()&driver.CAP_OR != 0 {
-		ok = o.MustOne(orm.Or(q1, q2), userVal)
-	} else {
-		ok = o.MustOne(q1, userVal)
-		if !ok {
-			ok = o.MustOne(q2, userVal)
-		}
+	user, err := getByUsernameOrEmail(ctx, s.Username)
+	if err != nil {
+		return err
 	}
-	if !ok {
-		return ErrNoUser
-	}
-	s.User = userVal
+	s.User = user
 	return nil
 }
 
 func (s *SignIn) ValidatePassword(ctx *app.Context) error {
 	if s.User != nil {
-		pw := getUserValue(reflect.ValueOf(s.User), "Password").(password.Password)
-		if !pw.IsValid() {
-			return ErrNoPassword
-		}
-		if pw.Check(s.Password) != nil {
-			return ErrInvalidPassword
-		}
+		return validateUserPassword(ctx, s.User, s.Password)
 	}
 	return nil
 }

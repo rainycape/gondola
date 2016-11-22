@@ -1,0 +1,5 @@
+{{/*
+  styles|bundable: users.scss
+  scripts|bundable: (users.js)
+*/}}
+{{ with @Current }}<script type="text/javascript">var ___user = {{.|json}};</script>{{ end }}

@@ -260,8 +260,8 @@
         }
     }
     ns.startSigninIn = function() {
-        {{ if and (not @AllowUserSignIn) (eq (len @SocialTypes) 1) }}
-            {{ $st := index @SocialTypes 0 }}
+        {{ if and (not @AllowUserSignIn) (eq (len @SocialAccountTypes) 1) }}
+            {{ $st := index @SocialAccountTypes 0 }}
             {{ if eq $st.Name "Facebook" }}
                 ns.facebookSignIn();
             {{ else if eq $st.Name "Google" }}

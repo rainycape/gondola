@@ -7,15 +7,7 @@ import (
 
 	"gnd.la/app"
 	"gnd.la/net/oauth2"
-)
-
-var (
-	signInGoogleHandler = delayedHandler(func() app.Handler {
-		if GoogleApp != nil {
-			return oauth2.Handler(signInGoogleTokenHandler, GoogleApp.Client, GoogleScopes)
-		}
-		return nil
-	})
+	"gnd.la/social/google"
 )
 
 type Google struct {
@@ -48,7 +40,9 @@ func (g *Google) email() string {
 }
 
 func signInGoogleTokenHandler(ctx *app.Context, client *oauth2.Client, token *oauth2.Token) {
-	user, err := userFromGoogleToken(ctx, token)
+	d := data(ctx)
+	googleApp := d.opts.GoogleApp.Clone(ctx)
+	user, err := userFromGoogleToken(ctx, googleApp, token)
 	if err != nil {
 		panic(err)
 	}
@@ -59,11 +53,13 @@ func signInGoogleTokenHandler(ctx *app.Context, client *oauth2.Client, token *oa
 func jsSignInGoogleHandler(ctx *app.Context) {
 	code := ctx.RequireFormValue(oauth2.Code)
 	redir := "postmessage" // this is the redir value used for G+ JS sign in
-	token, err := GoogleApp.Clone(ctx).Exchange(redir, code)
+	d := data(ctx)
+	googleApp := d.opts.GoogleApp.Clone(ctx)
+	token, err := googleApp.Exchange(redir, code)
 	if err != nil {
 		panic(err)
 	}
-	user, err := userFromGoogleToken(ctx, token)
+	user, err := userFromGoogleToken(ctx, googleApp, token)
 	if err != nil {
 		panic(err)
 	}
@@ -71,8 +67,8 @@ func jsSignInGoogleHandler(ctx *app.Context) {
 	writeJSONEncoded(ctx, user)
 }
 
-func userFromGoogleToken(ctx *app.Context, token *oauth2.Token) (reflect.Value, error) {
-	person, err := GoogleApp.Clone(ctx).Person("me", token.Key)
+func userFromGoogleToken(ctx *app.Context, googleApp *google.App, token *oauth2.Token) (reflect.Value, error) {
+	person, err := googleApp.Person("me", token.Key)
 	if err != nil {
 		return reflect.Value{}, err
 	}
@@ -87,5 +83,5 @@ func userFromGoogleToken(ctx *app.Context, token *oauth2.Token) (reflect.Value, 
 		Expires:  token.Expires,
 		Refresh:  token.Refresh,
 	}
-	return userWithSocialAccount(ctx, SocialTypeGoogle, guser)
+	return userWithSocialAccount(ctx, SocialAccountTypeGoogle, guser)
 }

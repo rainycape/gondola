@@ -1,38 +1,38 @@
-@fbcolor: #3b5998;
-@gcolor: #dd4b39;
-@twcolor: #33ccff;
-@ghcolor: #3a3a3a;
-@button_radius: 4px;
+$fbcolor: #3b5998;
+$gcolor: #dd4b39;
+$twcolor: #33ccff;
+$ghcolor: #3a3a3a;
+$button_radius: 4px;
 
-.rounded-corners (@radius: 5px) {
-  -webkit-border-radius: @radius;
-  -moz-border-radius: @radius;
-  border-radius: @radius;
+@mixin rounded-corners ($radius: 5px) {
+  -webkit-border-radius: $radius;
+  -moz-border-radius: $radius;
+  border-radius: $radius;
 }
 
-.rounded-left-corners (@radius: 5px) {
-    -moz-border-radius-topleft: 5px;
-    -webkit-border-top-left-radius: 5px;
-    border-top-left-radius: 5px;
-    -moz-border-radius-bottomleft: 5px;
-    -webkit-border-bottom-left-radius: 5px;
-    border-bottom-left-radius: 5px;
+@mixin rounded-left-corners ($radius: 5px) {
+    -moz-border-radius-topleft: $radius;
+    -webkit-border-top-left-radius: $radius;
+    border-top-left-radius: $radius;
+    -moz-border-radius-bottomleft: $radius;
+    -webkit-border-bottom-left-radius: $radius;
+    border-bottom-left-radius: $radius;
 }
 
-.social-button (@color) {
-    .rounded-corners(@button_radius);
-    background: @color;
-    background: -webkit-linear-gradient(@color, darken(@color, 10%));
-    background: -ms-linear-gradient(@color, darken(@color, 10%));
-    background: linear-gradient(@color, darken(@color, 10%));
-    border: 1px solid darken(@color, 20%);
+@mixin social-button ($color) {
+    @include rounded-corners($button_radius);
+    background: $color;
+    background: -webkit-linear-gradient($color, darken($color, 10%));
+    background: -ms-linear-gradient($color, darken($color, 10%));
+    background: linear-gradient($color, darken($color, 10%));
+    border: 1px solid darken($color, 20%);
 }
 
-.social-icon (@color) {
+@mixin social-icon ($color) {
     // pre-compute the final color, so we avoid having an rgba color
     // in the CSS.
-    background: fade(mix(@color, rgba(255, 255, 255, 0.15)), 100%);
-    border-right: 1px solid darken(@color, 10%);
+    background: fade(mix($color, rgba(255, 255, 255, 0.15)), 100%);
+    border-right: 1px solid darken($color, 10%);
 }
 
 .social-sign-in, .social-sign-in-inline {
@@ -41,31 +41,31 @@
         border-bottom: 1px solid #e5e5e5;
     }
     .facebook {
-        .social-button(@fbcolor);
+        @include social-button($fbcolor);
 
         .icon {
-            .social-icon(@fbcolor);
+            @include social-icon($fbcolor);
         }
     }
     .google {
-        .social-button(@gcolor);
+        @include social-button($gcolor);
 
         .icon {
-            .social-icon(@gcolor);
+            @include social-icon($gcolor);
         }
     }
     .twitter {
-        .social-button(@twcolor);
+        @include social-button($twcolor);
 
         .icon {
-            .social-icon(@twcolor);
+            @include social-icon($twcolor);
         }
     }
     .github {
-        .social-button(@ghcolor);
+        @include social-button($ghcolor);
 
         .icon {
-            .social-icon(@ghcolor);
+            @include social-icon($ghcolor);
         }
     }
     a {
@@ -82,7 +82,7 @@
         }
 
         .icon {
-            .rounded-left-corners(@button_radius);
+            @include rounded-left-corners($button_radius);
             display: inline-block;
             position: absolute;
             left: 0;

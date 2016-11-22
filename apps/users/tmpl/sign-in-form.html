@@ -5,10 +5,9 @@
   <div class="col-md-12">
     <h4 class="sign-in-title">{{ printf (t "Sign In to %s") @SiteName }}</h4>
     {{ $From := .From }}
-    {{ $AllowUserSignIn := .AllowUserSignIn }}
-    {{ with .SocialTypes }}
-      <div class="social-sign-in{{ if $AllowUserSignIn }} user-sign-in{{ end }}">
-        {{ range . }}
+    {{ if .SocialAccountTypes }}
+      <div class="social-sign-in{{ if .AllowDirectSignIn }} user-sign-in{{ end }}">
+        {{ range .SocialAccountTypes }}
           {{ if eq .Name "Google" }}
             <div><!-- gapi.signin.render works only on block elements -->
               <a class="google" data-scope="{{ join @GoogleScopes " " }}"
@@ -27,7 +26,7 @@
         {{ end }}
       </div>
     {{ end }}
-    {{ if .AllowUserSignIn }}
+    {{ if .AllowDirectSignIn }}
       <div class="sign-in-form">
         <div id="sign-in-form">
           <form method="post" data-js-action="{{ reverse @JSSignIn }}" action="{{ reverse @SignIn }}">

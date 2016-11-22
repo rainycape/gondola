@@ -10,16 +10,10 @@ import (
 
 	"gnd.la/app"
 	"gnd.la/crypto/password"
-	"gnd.la/i18n"
-	"gnd.la/net/mail"
-	"gnd.la/orm"
-	"gnd.la/signal"
-	"gnd.la/util/structs"
 )
 
 var (
-	userType  reflect.Type = nil
-	innerType              = reflect.TypeOf(User{})
+	innerType = reflect.TypeOf(User{})
 )
 
 type missingFieldError struct {
@@ -35,42 +29,6 @@ func (e *missingFieldError) Error() string {
 	}
 	return fmt.Sprintf("user type %s requires a field named %q of type %s e.g. type %s struct {\n\t...\n\t%s %s\n}",
 		typ.Name(), e.name, e.fieldTyp, typ.Name(), e.name, e.fieldTyp)
-}
-
-func SetType(val interface{}) {
-	var typ reflect.Type
-	if tt, ok := val.(reflect.Type); ok {
-		typ = tt
-	} else {
-		typ = reflect.TypeOf(val)
-	}
-	if typ != nil {
-		for typ.Kind() == reflect.Ptr {
-			typ = typ.Elem()
-		}
-	}
-	checkUserType(typ)
-	userType = typ
-}
-
-func checkUserType(typ reflect.Type) {
-	if typ == nil {
-		panic(fmt.Errorf("User type is not set - configure it with users.SetType(&MyUserType{})"))
-	}
-	s, err := structs.NewStruct(typ, nil)
-	if err != nil {
-		panic(err)
-	}
-	if !s.Embeds(innerType) {
-		panic(fmt.Errorf("invalid User type %s: must embed %s e.g type %s struct {\t\t%s\n\t...\n}", typ, innerType, typ.Name(), innerType))
-	}
-	for _, v := range socialTypes {
-		if v.IsEnabled() {
-			if !s.Has(v.Name, v.Type) {
-				panic(&missingFieldError{typ, v.Name, v.Type})
-			}
-		}
-	}
 }
 
 func Normalize(s string) string {
@@ -105,33 +63,15 @@ func (u *User) Save() {
 }
 
 func (u *User) ValidateUsername(ctx *app.Context) error {
-	norm := Normalize(u.Username)
-	_, userVal := newEmptyUser()
-	found, err := ctx.Orm().One(orm.Eq("User.NormalizedUsername", norm), userVal)
-	if err != nil {
-		panic(err)
-	}
-	if found {
-		return i18n.Errorf("username %q is already in use", u.Username)
-	}
-	return nil
+	return validateNewUsername(ctx, u.Username)
 }
 
 func (u *User) ValidateEmail(ctx *app.Context) error {
-	addr, err := mail.Validate(u.Email, true)
+	addr, err := validateNewEmail(ctx, u.Email)
 	if err != nil {
-		return i18n.Errorf("this does not look like a valid email address")
+		return err
 	}
 	u.Email = addr
-	norm := Normalize(u.Email)
-	_, userVal := newEmptyUser()
-	found, err := ctx.Orm().One(orm.Eq("User.NormalizedEmail", norm), userVal)
-	if err != nil {
-		panic(err)
-	}
-	if found {
-		return i18n.Errorf("email %q is already in use", u.Email)
-	}
 	return nil
 }
 
@@ -157,7 +97,7 @@ func asGondolaUser(v reflect.Value) app.User {
 	return v.Interface().(app.User)
 }
 
-func JSONEncode(user interface{}) ([]byte, error) {
+func JSONEncode(ctx *app.Context, user interface{}) ([]byte, error) {
 	v := reflect.ValueOf(user)
 	for v.Kind() == reflect.Ptr {
 		v = v.Elem()
@@ -168,7 +108,7 @@ func JSONEncode(user interface{}) ([]byte, error) {
 		"username": inner.Username,
 		"admin":    inner.Admin,
 	}
-	if img, _ := Image(v.Interface()); img != "" {
+	if img, _ := Image(ctx, v.Interface()); img != "" {
 		val["image"] = img
 	}
 	if fb, ok := getUserValue(v, "Facebook").(*Facebook); ok {
@@ -191,7 +131,7 @@ func JSONEncode(user interface{}) ([]byte, error) {
 }
 
 func writeJSONEncoded(ctx *app.Context, user reflect.Value) {
-	json, err := JSONEncode(user.Interface())
+	json, err := JSONEncode(ctx, user.Interface())
 	if err != nil {
 		panic(err)
 	}
@@ -202,20 +142,18 @@ func writeJSONEncoded(ctx *app.Context, user reflect.Value) {
 	}
 }
 
-func newUser(username string) reflect.Value {
-	u := reflect.New(userType)
+func newUser(ctx *app.Context, username string) reflect.Value {
+	u := reflect.New(getUserType(ctx))
 	setUserValue(u, "Username", username)
 	setUserValue(u, "Created", time.Now().UTC())
 	return u
 }
 
-func newEmptyUser() (reflect.Value, interface{}) {
-	user := reflect.New(userType)
+func newEmptyUser(ctx *app.Context) (reflect.Value, interface{}) {
+	user := reflect.New(getUserType(ctx))
 	return user, user.Interface()
 }
 
-func init() {
-	signal.Listen(app.DID_PREPARE, func() {
-		checkUserType(userType)
-	})
+func getUserType(ctx *app.Context) reflect.Type {
+	return data(ctx).userType
 }

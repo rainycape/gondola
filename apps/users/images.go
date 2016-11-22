@@ -23,7 +23,7 @@ var (
 	imagePrefix string
 )
 
-func userImageId(val reflect.Value) (string, string) {
+func userImageId(ctx *app.Context, val reflect.Value) (string, string) {
 	if image, _ := getUserValue(val, "Image").(string); image != "" {
 		return image, getUserValue(val, "ImageFormat").(string)
 	}
@@ -33,8 +33,9 @@ func userImageId(val reflect.Value) (string, string) {
 		}
 		val = val.Elem()
 	}
-	for _, v := range enabledSocialTypes() {
-		fval := val.FieldByName(v.Name)
+	d := data(ctx)
+	for _, v := range d.enabledSocialAccountTypes() {
+		fval := val.FieldByName(v.Name.String())
 		if fval.IsValid() && fval.Elem().IsValid() {
 			image := fval.Elem().FieldByName("Image")
 			if image.String() != "" {
@@ -46,7 +47,7 @@ func userImageId(val reflect.Value) (string, string) {
 	return "", ""
 }
 
-func Image(user interface{}) (string, error) {
+func Image(ctx *app.Context, user interface{}) (string, error) {
 	if imagePrefix == "" || user == nil {
 		return "", nil
 	}
@@ -60,10 +61,10 @@ func Image(user interface{}) (string, error) {
 		}
 		val = val.Elem()
 	}
-	if val.Type() != userType {
-		return "", fmt.Errorf("invalid user type %s, must be %s", val.Type(), userType)
+	if val.Type() != getUserType(ctx) {
+		return "", fmt.Errorf("invalid user type %s, must be %s", val.Type(), getUserType(ctx))
 	}
-	id, format := userImageId(val)
+	id, format := userImageId(ctx, val)
 	if id != "" {
 		if format == "jpeg" {
 			format = "jpg"
@@ -73,7 +74,7 @@ func Image(user interface{}) (string, error) {
 	return "", nil
 }
 
-func imageHandler(ctx *app.Context) {
+func UserImageHandler(ctx *app.Context) {
 	if ImageHandler != nil {
 		ImageHandler(ctx)
 		return

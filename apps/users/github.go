@@ -8,15 +8,6 @@ import (
 	"gnd.la/net/oauth2"
 )
 
-var (
-	signInGithubHandler = delayedHandler(func() app.Handler {
-		if GithubApp != nil {
-			return oauth2.Handler(signInGithubTokenHandler, GithubApp.Client, GithubScopes)
-		}
-		return nil
-	})
-)
-
 type Github struct {
 	Id          int64     `form:"-" json:"id" orm:",index,unique"`
 	Username    string    `form:"-" json:"username"`
@@ -61,7 +52,8 @@ func signInGithubTokenHandler(ctx *app.Context, client *oauth2.Client, token *oa
 }
 
 func userFromGithubToken(ctx *app.Context, token *oauth2.Token) (reflect.Value, error) {
-	client := GithubApp.Clone(ctx)
+	d := data(ctx)
+	client := d.opts.GithubApp.Clone(ctx)
 	ghUser, err := client.User("", token.Key)
 	if err != nil {
 		return reflect.Value{}, err
@@ -88,5 +80,5 @@ func userFromGithubToken(ctx *app.Context, token *oauth2.Token) (reflect.Value, 
 	if gh.Email == "" && len(emails) > 0 {
 		gh.Email = emails[0].Address
 	}
-	return userWithSocialAccount(ctx, SocialTypeGithub, gh)
+	return userWithSocialAccount(ctx, SocialAccountTypeGithub, gh)
 }

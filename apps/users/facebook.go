@@ -11,15 +11,6 @@ import (
 	"gnd.la/social/facebook"
 )
 
-var (
-	signInFacebookHandler = delayedHandler(func() app.Handler {
-		if FacebookApp != nil {
-			return oauth2.Handler(signInFacebookTokenHandler, FacebookApp.Client, FacebookPermissions)
-		}
-		return nil
-	})
-)
-
 type Facebook struct {
 	Id          string    `form:"-" sql:",unique" json:"id"`
 	Username    string    `form:"-" json:"username"`
@@ -64,7 +55,8 @@ func signInFacebookTokenHandler(ctx *app.Context, client *oauth2.Client, token *
 
 func jsSignInFacebookHandler(ctx *app.Context) {
 	req := ctx.FormValue("req")
-	resp, err := FacebookApp.Clone(ctx).ParseSignedRequest(req)
+	fbApp := data(ctx).opts.FacebookApp.Clone(ctx)
+	resp, err := fbApp.ParseSignedRequest(req)
 	if err != nil {
 		panic(err)
 	}
@@ -72,7 +64,7 @@ func jsSignInFacebookHandler(ctx *app.Context) {
 	// specified format, this will make it easier
 	// to find it if it happens.
 	code := resp["code"].(string)
-	token, err := FacebookApp.Clone(ctx).Exchange("", code)
+	token, err := fbApp.Exchange("", code)
 	user, err := userFromFacebookToken(ctx, token)
 	if err != nil {
 		panic(err)
@@ -85,11 +77,11 @@ func fetchFacebookUser(ctx *app.Context, token *oauth2.Token) (*Facebook, error)
 	fields := "id,name,first_name,last_name,email,username,picture.width(200),picture.height(200)"
 	values := make(url.Values)
 	values.Set("fields", fields)
+	fbApp := data(ctx).opts.FacebookApp.Clone(ctx)
 	var person *facebook.Person
-	if err := FacebookApp.Clone(ctx).Get("/me", values, token.Key, &person); err != nil {
+	if err := fbApp.Get("/me", values, token.Key, &person); err != nil {
 		return nil, err
 	}
-	fmt.Printf("PERS %+v", person)
 	var imageURL string
 	if person.Picture != nil && person.Picture.Data != nil && !person.Picture.Data.IsSilhouette {
 		imageURL = person.Picture.Data.URL
@@ -108,15 +100,16 @@ func fetchFacebookUser(ctx *app.Context, token *oauth2.Token) (*Facebook, error)
 }
 
 func userFromFacebookToken(ctx *app.Context, token *oauth2.Token) (reflect.Value, error) {
-	extended, err := FacebookApp.Clone(ctx).Extend(token)
+	fbApp := data(ctx).opts.FacebookApp.Clone(ctx)
+	extended, err := fbApp.Clone(ctx).Extend(token)
 	if err != nil {
 		return reflect.Value{}, err
 	}
 	user, err := fetchFacebookUser(ctx, extended)
-	return userWithSocialAccount(ctx, SocialTypeFacebook, user)
+	return userWithSocialAccount(ctx, SocialAccountTypeFacebook, user)
 }
 
-func facebookChannelHandler(ctx *app.Context) {
+func FacebookChannelHandler(ctx *app.Context) {
 	ctx.Header().Set("Content-Type", "text/html")
 	fmt.Fprintf(ctx, "<script src=\"//connect.facebook.net/en_US/all.js\"></script>")
 }

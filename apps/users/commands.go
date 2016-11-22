@@ -13,16 +13,15 @@ import (
 )
 
 func registerUser(ctx *app.Context) {
-	checkUserType(userType)
 	username := ctx.RequireIndexValue(0)
-	userVal, _ := newEmptyUser()
+	userVal, _ := newEmptyUser(ctx)
 	updating := false
 	if ctx.Orm().MustOne(ByUsername(username), userVal.Interface()) {
 		// Updating existing user
 		updating = true
 	} else {
 		// Creating a new one
-		userVal = newUser(username)
+		userVal = newUser(ctx, username)
 	}
 	var askPassword bool
 	ctx.ParseParamValue("p", &askPassword)
@@ -55,8 +54,7 @@ func registerUser(ctx *app.Context) {
 }
 
 func listUsers(ctx *app.Context) {
-	checkUserType(userType)
-	userVal, ptr := newEmptyUser()
+	userVal, ptr := newEmptyUser(ctx)
 	iter := ctx.Orm().All().Iter()
 	w := tabwriter.NewWriter(os.Stdout, 0, 8, 2, '\t', tabwriter.Debug)
 	fmt.Fprint(w, "ID\tUsername\tEmail\tAdmin?\n")

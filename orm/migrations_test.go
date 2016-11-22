@@ -58,7 +58,7 @@ func testMigrations(t *testing.T, o *Orm) {
 	clearRegistry()
 	o.mustRegister((*Migration2)(nil), migrationOptions)
 	if err := o.Initialize(); err != nil {
-		t.Errorf("error initizing Migration2: %s", err)
+		t.Errorf("error initializing Migration2: %s", err)
 	}
 	if _, err := o.Insert(&Migration2{Value: "Gondola"}); err != nil {
 		t.Errorf("error inserting Migration2: %s", err)

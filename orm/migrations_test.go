@@ -121,7 +121,3 @@ func testMigrations(t *testing.T, o *Orm) {
 func TestMigrations(t *testing.T) {
 	runTest(t, testMigrations)
 }
-
-/*func TestBadMigration1(t *testing.T) {
-	runTest(t, testBadMigration1)
-}*/

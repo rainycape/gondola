@@ -2,10 +2,11 @@ package social
 
 import (
 	"fmt"
+	"time"
+
 	"gnd.la/app"
 	"gnd.la/log"
 	"gnd.la/tasks"
-	"time"
 )
 
 const (
@@ -55,8 +56,7 @@ func (s *Sharer) Schedule(a *app.App, interval time.Duration) {
 	if name == "" {
 		name = fmt.Sprintf("Sharer.%s.%p", s.service, s)
 	}
-	options := &tasks.Options{Name: name}
-	s.task = tasks.Schedule(a, s.share, options, pollInterval, true)
+	s.task = tasks.Schedule(a, s.share, pollInterval, tasks.Name(name), tasks.RunOnListen())
 }
 
 func (s *Sharer) Stop() {

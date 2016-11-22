@@ -12,6 +12,8 @@ import (
 
 	"net"
 
+	"path/filepath"
+
 	_ "gnd.la/orm/driver/mysql"
 	_ "gnd.la/orm/driver/postgres"
 	_ "gnd.la/orm/driver/sqlite"
@@ -36,7 +38,15 @@ func (o *sqliteOpener) Open(t testing.TB) (*Orm, interface{}) {
 }
 
 func (o *sqliteOpener) Close(data interface{}) {
-	os.Remove(data.(string))
+	// sqlite will create multiple files per db,
+	// since we're using journal_mode = WAL
+	files, err := filepath.Glob(data.(string) + "*")
+	if err != nil {
+		panic(err)
+	}
+	for _, f := range files {
+		os.Remove(f)
+	}
 }
 
 func (o *sqliteOpener) Name() string { return "sqlite" }

@@ -10,6 +10,8 @@ import (
 	"os/user"
 	"testing"
 
+	"net"
+
 	_ "gnd.la/orm/driver/mysql"
 	_ "gnd.la/orm/driver/postgres"
 	_ "gnd.la/orm/driver/sqlite"
@@ -58,6 +60,12 @@ type mysqlOpener struct {
 }
 
 func (o *mysqlOpener) Open(t testing.TB) (*Orm, interface{}) {
+	// Check if MySQL is running
+	conn, err := net.Dial("tcp", "localhost:3306")
+	if err != nil {
+		t.Skipf("MySQL is not running, skipping test (%v)", err)
+	}
+	conn.Close()
 	orm := newOrm(t, "mysql://gotest:gotest@/test", true)
 	db := orm.SqlDB()
 	if _, err := db.Exec("DROP DATABASE IF EXISTS gotest"); err != nil {

@@ -13,6 +13,8 @@ import (
 	"net/textproto"
 	"strings"
 
+	"sort"
+
 	"gnd.la/util/stringutil"
 )
 
@@ -105,8 +107,13 @@ func sendMail(to []string, cc []string, bcc []string, msg *Message) error {
 			return err
 		}
 	}
-	for k, v := range headers {
-		buf.WriteString(fmt.Sprintf("%s: %s\r\n", k, v))
+	hk := make([]string, 0, len(headers))
+	for k := range headers {
+		hk = append(hk, k)
+	}
+	sort.Strings(hk)
+	for _, k := range hk {
+		buf.WriteString(fmt.Sprintf("%s: %s\r\n", k, headers[k]))
 	}
 	buf.WriteString("MIME-Version: 1.0\r\n")
 	mw := multipart.NewWriter(&buf)

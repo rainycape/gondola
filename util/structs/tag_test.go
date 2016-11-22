@@ -48,21 +48,24 @@ var (
 
 func TestParseTags(t *testing.T) {
 	for _, v := range cases {
-		tag, err := ParseTag(v.tag)
-		if err != nil {
-			if v.err == "" {
-				t.Error(err)
+		t.Run(v.tag, func(t *testing.T) {
+
+			tag, err := ParseTag(v.tag)
+			if err != nil {
+				if v.err == "" {
+					t.Error(err)
+				} else {
+					if v.err != err.Error() {
+						t.Errorf("expecting error %v, got %v", v.err, err)
+					}
+				}
 			} else {
-				if v.err != err.Error() {
-					t.Errorf("expecting error %v, got %v", v.err, err)
+				if v.err != "" {
+					t.Errorf("expecting error %v, got value %v", v.err, tag)
+				} else if !reflect.DeepEqual(v.value, tag) {
+					t.Errorf("different tags: want %v, got %v", v.value, tag)
 				}
 			}
-		} else {
-			if v.err != "" {
-				t.Errorf("expecting error %v, got value %v", v.err, tag)
-			} else if !reflect.DeepEqual(v.value, tag) {
-				t.Errorf("different tags: want %v, got %v", v.value, tag)
-			}
-		}
+		})
 	}
 }

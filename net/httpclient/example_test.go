@@ -12,7 +12,7 @@ func ExampleIter() {
 	// running tests. Usually you should pass a *app.Context
 	// to httpclient.New.
 	c := httpclient.New(nil)
-	req, err := http.NewRequest("GET", "http://httpbin.org/redirect/3", nil)
+	req, err := http.NewRequest("GET", "http://httpbin.org/relative-redirect/3", nil)
 	if err != nil {
 		panic(err)
 	}
@@ -31,5 +31,5 @@ func ExampleIter() {
 	fmt.Println("Intermediate", urls)
 	// Output:
 	// Last http://httpbin.org/get
-	// Intermediate [http://httpbin.org/redirect/3 http://httpbin.org/redirect/2 http://httpbin.org/redirect/1]
+	// Intermediate [http://httpbin.org/relative-redirect/3 http://httpbin.org/relative-redirect/2 http://httpbin.org/relative-redirect/1]
 }

@@ -29,6 +29,11 @@ var (
 			"",
 		},
 		{
+			",help='this contains an = sign'",
+			&Tag{name: "", values: map[string]string{"help": "this contains an = sign"}},
+			"",
+		},
+		{
 			"-",
 			&Tag{name: "-", values: map[string]string{}},
 			"",

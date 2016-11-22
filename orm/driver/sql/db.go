@@ -130,10 +130,13 @@ func (d *DB) Begin() (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	dc := *d
-	dc.tx = tx
-	dc.conn = tx
-	return &dc, nil
+	return &DB{
+		sqlDb:                d.sqlDb,
+		tx:                   tx,
+		conn:                 tx,
+		driver:               d.driver,
+		replacesPlaceholders: d.replacesPlaceholders,
+	}, nil
 }
 
 func (d *DB) Commit() error {

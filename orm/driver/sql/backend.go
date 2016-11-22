@@ -219,13 +219,13 @@ func (b *SqlBackend) Inspect(db *DB, m driver.Model, schema string) (*Table, err
 
 func (b *SqlBackend) DefineField(db *DB, m driver.Model, table *Table, f *Field) (string, []string, error) {
 	s := fmt.Sprintf("%s %s", db.QuoteIdentifier(f.Name), f.Type)
-	if f.Constraint(ConstraintPrimaryKey) != nil && len(table.PrimaryKeys()) == 1 {
+	if f.HasConstraint(ConstraintPrimaryKey) && len(table.PrimaryKeys()) == 1 {
 		s += " PRIMARY KEY"
 	}
-	if f.Constraint(ConstraintUnique) != nil {
+	if f.HasConstraint(ConstraintUnique) {
 		s += " UNIQUE"
 	}
-	if f.Constraint(ConstraintNotNull) != nil {
+	if f.HasConstraint(ConstraintNotNull) {
 		s += " NOT NULL"
 	}
 	if f.HasOption(OptionAutoIncrement) {
@@ -248,7 +248,7 @@ func (b *SqlBackend) AddFields(db *DB, m driver.Model, prevTable *Table, newTabl
 		idx := modelFields.MNameMap[v.Name]
 		field := v
 		hasDefault := modelFields.HasDefault(idx)
-		if hasDefault && v.Constraint(ConstraintNotNull) != nil {
+		if hasDefault && v.HasConstraint(ConstraintNotNull) {
 			// ORM level default
 			// Must be added as nullable first, then the default value
 			// must be set and finally the field has to be altered to be
@@ -275,7 +275,7 @@ func (b *SqlBackend) AddFields(db *DB, m driver.Model, prevTable *Table, newTabl
 			if _, err := db.Exec(fmt.Sprintf("UPDATE %s SET %s = ?", tableName, fieldName), value); err != nil {
 				return err
 			}
-			if v.Constraint(ConstraintNotNull) != nil {
+			if v.HasConstraint(ConstraintNotNull) {
 				if err := db.Backend().AlterField(db, m, newTable, field, v); err != nil {
 					return err
 				}

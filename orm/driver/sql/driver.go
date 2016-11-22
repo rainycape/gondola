@@ -628,10 +628,10 @@ func (d *Driver) mergeTable(m driver.Model, prevTable *Table, newTable *Table) e
 		prev := existing[v.Name]
 		if prev == nil {
 			// Check if we can add the field
-			if v.Constraint(ConstraintNotNull) != nil && !fieldHasDefault(m, v) {
+			if v.HasConstraint(ConstraintNotNull) && !fieldHasDefault(m, v) {
 				return fmt.Errorf("can't add NOT NULL field %q to table %q without a default value", v.Name, m.Table())
 			}
-			if v.Constraint(ConstraintPrimaryKey) != nil {
+			if v.HasConstraint(ConstraintPrimaryKey) {
 				return fmt.Errorf("can't add PRIMARY KEY field %q to table %q", v.Name, m.Table())
 			}
 			missing = append(missing, v)

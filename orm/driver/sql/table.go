@@ -79,6 +79,10 @@ func (f *Field) Constraint(ct ConstraintType) *Constraint {
 	return nil
 }
 
+func (f *Field) HasConstraint(ct ConstraintType) bool {
+	return f.Constraint(ct) != nil
+}
+
 func (f *Field) SQL(db *DB, m driver.Model, table *Table) (string, []string, error) {
 	return db.Backend().DefineField(db, m, table, f)
 }
@@ -119,7 +123,7 @@ type Table struct {
 func (t *Table) PrimaryKeys() []string {
 	var keys []string
 	for _, v := range t.Fields {
-		if v.Constraint(ConstraintPrimaryKey) != nil {
+		if v.HasConstraint(ConstraintPrimaryKey) {
 			keys = append(keys, v.Name)
 		}
 	}

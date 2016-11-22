@@ -21,7 +21,7 @@ import (
 type sqliteOpener struct {
 }
 
-func (o *sqliteOpener) Open(t T) (*Orm, interface{}) {
+func (o *sqliteOpener) Open(t testing.TB) (*Orm, interface{}) {
 	f, err := ioutil.TempFile("", "sqlite-")
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +40,7 @@ func (o *sqliteOpener) Close(data interface{}) {
 type postgresOpener struct {
 }
 
-func (o *postgresOpener) Open(t T) (*Orm, interface{}) {
+func (o *postgresOpener) Open(t testing.TB) (*Orm, interface{}) {
 	u, err := user.Current()
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +57,7 @@ func (o *postgresOpener) Close(_ interface{}) {}
 type mysqlOpener struct {
 }
 
-func (o *mysqlOpener) Open(t T) (*Orm, interface{}) {
+func (o *mysqlOpener) Open(t testing.TB) (*Orm, interface{}) {
 	orm := newOrm(t, "mysql://gotest:gotest@/test", true)
 	db := orm.SqlDB()
 	if _, err := db.Exec("DROP DATABASE IF EXISTS gotest"); err != nil {

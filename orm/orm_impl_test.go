@@ -11,20 +11,10 @@ import (
 	"gnd.la/orm/driver"
 )
 
-// Interface for testing.B and testing.T
-type T interface {
-	Error(...interface{})
-	Errorf(string, ...interface{})
-	Fatal(...interface{})
-	Logf(string, ...interface{})
-	Skip(...interface{})
-	Skipf(string, ...interface{})
-}
-
 // Interface for orm openers, so we can run each individual
 // test with any available driver.
 type opener interface {
-	Open(T) (*Orm, interface{})
+	Open(testing.TB) (*Orm, interface{})
 	Close(interface{})
 }
 
@@ -139,7 +129,7 @@ func clearRegistry(o *Orm) {
 	}
 }
 
-func newOrm(t T, url string, logging bool) *Orm {
+func newOrm(t testing.TB, url string, logging bool) *Orm {
 	clearRegistry(nil)
 	o, err := New(config.MustParseURL(url))
 	if err != nil {

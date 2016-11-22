@@ -14,17 +14,17 @@ type tagCase struct {
 var (
 	cases = []tagCase{
 		{
-			",label:Message,help:'Please, enter a message'",
+			",label=Message,help='Please, enter a message'",
 			&Tag{name: "", values: map[string]string{"label": "Message", "help": "Please, enter a message"}},
 			"",
 		},
 		{
-			"foo,label:bar,help:let's rock",
+			"foo,label=bar,help=let's rock",
 			&Tag{name: "foo", values: map[string]string{"label": "bar", "help": "let's rock"}},
 			"",
 		},
 		{
-			"foo,label:bar,help:'let\\'s rock'",
+			"foo,label=bar,help='let\\'s rock'",
 			&Tag{name: "foo", values: map[string]string{"label": "bar", "help": "let's rock"}},
 			"",
 		},

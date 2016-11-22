@@ -927,7 +927,7 @@ func NewDriver(b Backend, url *config.URL) (*Driver, error) {
 		return nil, err
 	}
 	if mc, ok := url.Fragment.Int("max_conns"); ok {
-		setMaxConns(conn, mc)
+		conn.SetMaxOpenConns(mc)
 	}
 	if mic, ok := url.Fragment.Int("max_idle_conns"); ok {
 		conn.SetMaxIdleConns(mic)

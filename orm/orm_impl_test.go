@@ -6,6 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"reflect"
+	"runtime"
+
+	"strings"
+
 	"gnd.la/config"
 	"gnd.la/log"
 	"gnd.la/orm/driver"
@@ -16,12 +21,26 @@ import (
 type opener interface {
 	Open(testing.TB) (*Orm, interface{})
 	Close(interface{})
+	Name() string
 }
 
 var (
 	drv     = flag.String("driver", "default", "Driver to use for running the driver-less tests")
 	openers = make(map[string]opener)
 )
+
+func funcName(f interface{}) string {
+	ptr := reflect.ValueOf(f).Pointer()
+	rf := runtime.FuncForPC(ptr)
+	if rf != nil {
+		return rf.Name()
+	}
+	return ""
+}
+
+func testName(openerName string, f interface{}) string {
+	return openerName + "-" + strings.TrimPrefix(funcName(f), "gnd.la/orm.")
+}
 
 func runTest(t *testing.T, f func(*testing.T, *Orm)) {
 	o := openers[*drv]
@@ -31,7 +50,9 @@ func runTest(t *testing.T, f func(*testing.T, *Orm)) {
 	orm, data := o.Open(t)
 	defer o.Close(data)
 	defer orm.Close()
-	f(t, orm)
+	t.Run(testName(o.Name(), f), func(t *testing.T) {
+		f(t, orm)
+	})
 }
 
 func runBenchmark(b *testing.B, f func(*testing.B, *Orm)) {
@@ -647,10 +668,10 @@ func runAllTests(t *testing.T, o opener) {
 	orm, data := o.Open(t)
 	defer o.Close(data)
 	defer orm.Close()
-	testOrm(t, orm)
+	testOrm(t, orm, o.Name())
 }
 
-func testOrm(t *testing.T, o *Orm) {
+func testOrm(t *testing.T, o *Orm, name string) {
 	tests := []func(*testing.T, *Orm){
 		testCodecs,
 		testAutoIncrement,
@@ -670,7 +691,9 @@ func testOrm(t *testing.T, o *Orm) {
 		testSaveUnchanged,
 	}
 	for _, v := range tests {
-		clearRegistry(o)
-		v(t, o)
+		t.Run(testName(name, v), func(t *testing.T) {
+			clearRegistry(o)
+			v(t, o)
+		})
 	}
 }

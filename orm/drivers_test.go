@@ -39,6 +39,8 @@ func (o *sqliteOpener) Close(data interface{}) {
 	os.Remove(data.(string))
 }
 
+func (o *sqliteOpener) Name() string { return "sqlite" }
+
 type postgresOpener struct {
 }
 
@@ -55,6 +57,7 @@ func (o *postgresOpener) Open(t testing.TB) (*Orm, interface{}) {
 }
 
 func (o *postgresOpener) Close(_ interface{}) {}
+func (o *postgresOpener) Name() string        { return "postgresql" }
 
 type mysqlOpener struct {
 }
@@ -81,6 +84,7 @@ func (o *mysqlOpener) Open(t testing.TB) (*Orm, interface{}) {
 }
 
 func (o *mysqlOpener) Close(_ interface{}) {}
+func (o *mysqlOpener) Name() string        { return "mysql" }
 
 func TestSqlite(t *testing.T) {
 	runAllTests(t, &sqliteOpener{})

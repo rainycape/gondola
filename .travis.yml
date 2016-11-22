@@ -1,3 +1,4 @@
 language: go
 go:
     - 1.7
+go_import_path: gnd.la

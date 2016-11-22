@@ -37,21 +37,9 @@ func (s *scanner) Scan(src interface{}) error {
 	case bool:
 		return s.Backend.ScanBool(x, s.nonPtrOut(s.Out), s.Tag)
 	case []byte:
-		s.Nil = len(x) == 0
-		if c := codec.FromTag(s.Tag); c != nil {
-			if p := pipe.FromTag(s.Tag); p != nil {
-				var err error
-				if x, err = p.Decode(x); err != nil {
-					return err
-				}
-			}
-			addr := s.Out.Addr()
-			return c.Decode(x, addr.Interface())
-		}
-
-		return s.Backend.ScanByteSlice(x, s.Out, s.Tag)
+		return s.scanByteSlice(x)
 	case string:
-		return s.Backend.ScanString(x, s.nonPtrOut(s.Out), s.Tag)
+		return s.scanString(x)
 	case time.Time:
 		return s.Backend.ScanTime(&x, s.nonPtrOut(s.Out), s.Tag)
 	}
@@ -65,6 +53,45 @@ func (s *scanner) nonPtrOut(out *reflect.Value) *reflect.Value {
 		return &val
 	}
 	return out
+}
+
+func (s *scanner) scanByteSlice(x []byte) error {
+	s.Nil = len(x) == 0
+	c, p := s.codecAndPipe()
+	if c != nil {
+		if p != nil {
+			var err error
+			if x, err = p.Decode(x); err != nil {
+				return err
+			}
+		}
+		addr := s.Out.Addr()
+		return c.Decode(x, addr.Interface())
+	}
+	return s.Backend.ScanByteSlice(x, s.Out, s.Tag)
+}
+
+func (s *scanner) scanString(x string) error {
+	c, p := s.codecAndPipe()
+	if c != nil {
+		data := []byte(x)
+		if p != nil {
+			var err error
+			if data, err = p.Decode(data); err != nil {
+				return err
+			}
+		}
+		addr := s.Out.Addr()
+		return c.Decode(data, addr.Interface())
+	}
+	return s.Backend.ScanString(x, s.nonPtrOut(s.Out), s.Tag)
+}
+
+func (s *scanner) codecAndPipe() (*codec.Codec, *pipe.Pipe) {
+	if c := codec.FromTag(s.Tag); c != nil {
+		return c, pipe.FromTag(s.Tag)
+	}
+	return nil, nil
 }
 
 func newScanner(val *reflect.Value, t *structs.Tag, backend Backend) *scanner {

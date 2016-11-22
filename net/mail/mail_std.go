@@ -184,10 +184,10 @@ func sendMail(to []string, cc []string, bcc []string, msg *Message) error {
 		thw.Write(crlf)
 		for _, v := range htmlAttachments {
 			attachmentHeader := make(textproto.MIMEHeader)
-			attachmentHeader.Set("Content-Type", v.ContentType)
 			attachmentHeader.Set("Content-Disposition", "inline")
-			attachmentHeader.Set("Content-ID", fmt.Sprintf("<%s>", v.ContentID))
+			attachmentHeader.Set("Content-Id", fmt.Sprintf("<%s>", v.ContentID))
 			attachmentHeader.Set("Content-Transfer-Encoding", "base64")
+			attachmentHeader.Set("Content-Type", v.ContentType)
 			aw, err := htmlWriter.CreatePart(attachmentHeader)
 			if err != nil {
 				return err
@@ -212,9 +212,9 @@ func sendMail(to []string, cc []string, bcc []string, msg *Message) error {
 			continue
 		}
 		attachmentHeader := make(textproto.MIMEHeader)
-		attachmentHeader.Set("Content-Type", v.ContentType)
 		attachmentHeader.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", v.Name))
 		attachmentHeader.Set("Content-Transfer-Encoding", "base64")
+		attachmentHeader.Set("Content-Type", v.ContentType)
 		aw, err := mw.CreatePart(attachmentHeader)
 		if err != nil {
 			return err

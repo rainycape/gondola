@@ -947,6 +947,11 @@ func (t *Template) addHtmlEscaping() {
 	// to retrieve the underlying text/template and list
 	// all its trees.
 	for _, v := range t.tmpl.Text().Templates() {
+		if v.Name() == "" {
+			// Copy of the root tree with empty name introduced to
+			// make the escaping find the root template, ignore it
+			continue
+		}
 		if t.trees[v.Name()] == nil {
 			// New tree created by html/template escaping
 			t.trees[v.Name()] = v.Tree

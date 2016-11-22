@@ -33,6 +33,10 @@ type Driver struct {
 	transforms map[reflect.Type]struct{}
 }
 
+func (d *Driver) Backend() Backend {
+	return d.backend
+}
+
 func (d *Driver) Check() error {
 	if err := d.db.sqlDb.Ping(); err != nil {
 		return err

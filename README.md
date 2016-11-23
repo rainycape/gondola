@@ -1,6 +1,8 @@
 Gondola
 ==========
 
+[![Build Status](https://travis-ci.org/rainycape/gondola.svg?branch=master)](https://travis-ci.org/rainycape/gondola)
+
 The web framework for writing faster sites, faster. Written in Go.
 View documentation at [http://gondolaweb.com](http://gondolaweb.com).
 

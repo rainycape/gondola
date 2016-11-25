@@ -29,6 +29,8 @@ type fsWatcher struct {
 	watched     map[string]time.Time
 	stopPolling chan struct{}
 	mu          sync.RWMutex
+	Added       func(string)
+	Removed     func(string)
 	Changed     func(string)
 	IsValidFile func(string) bool
 }
@@ -97,6 +99,7 @@ func (w *fsWatcher) AddPackages(pkgs []*build.Package) error {
 }
 
 func (w *fsWatcher) watch() {
+	// TODO: Add better support for added/removed files
 	var t *time.Timer
 	for {
 		select {
@@ -163,10 +166,19 @@ func (w *fsWatcher) doPolling() {
 	for k, v := range watched {
 		st, err := os.Stat(k)
 		if err != nil {
+			if os.IsNotExist(err) {
+				// Removed file or directory
+				w.removed(k)
+				continue
+			}
 			log.Errorf("error stat'ing %s: %v", k, err)
 			continue
 		}
 		if st.IsDir() {
+			// Update stored modTime
+			w.mu.Lock()
+			w.watched[k] = st.ModTime()
+			w.mu.Unlock()
 			if !v.IsZero() && st.ModTime().Equal(v) {
 				// Nothing new in this dir
 				continue
@@ -178,40 +190,31 @@ func (w *fsWatcher) doPolling() {
 			}
 			if v.IsZero() {
 				// 1st time we're polling this dir, add its files
-				w.mu.Lock()
+				// without triggering the Added() handler.
 				for _, e := range entries {
-					if e.IsDir() {
-						continue
-					}
 					p := filepath.Join(k, e.Name())
-					if !w.isValidFile(p) {
+					if !w.isValidEntry(p, e) {
 						continue
 					}
+					w.mu.Lock()
 					w.watched[p] = e.ModTime()
+					w.mu.Unlock()
 				}
-				w.mu.Unlock()
 			} else {
 				var added []os.FileInfo
 				w.mu.RLock()
 				for _, e := range entries {
 					p := filepath.Join(k, e.Name())
-					if _, found := w.watched[p]; !found {
+					if _, found := w.watched[p]; !found && w.isValidEntry(p, e) {
 						added = append(added, e)
 					}
 				}
 				w.mu.RUnlock()
-				if len(added) > 0 {
-					w.mu.Lock()
-					for _, e := range added {
-						w.watched[filepath.Join(k, e.Name())] = e.ModTime()
-					}
-					w.mu.Unlock()
-					for _, e := range added {
-						w.changed(filepath.Join(k, e.Name()))
-					}
+				for _, e := range added {
+					w.added(filepath.Join(k, e.Name()), e.ModTime())
 				}
 			}
-		} else if w.isValidFile(k) {
+		} else if w.isValidEntry(k, st) {
 			if mt := st.ModTime(); !mt.Equal(v) {
 				w.watched[k] = mt
 				if !v.IsZero() {
@@ -223,10 +226,32 @@ func (w *fsWatcher) doPolling() {
 	}
 }
 
+func (w *fsWatcher) added(path string, modTime time.Time) {
+	w.mu.Lock()
+	w.watched[path] = modTime
+	w.mu.Unlock()
+	if w.Added != nil {
+		w.Added(path)
+	}
+}
+
+func (w *fsWatcher) removed(path string) {
+	w.mu.Lock()
+	delete(w.watched, path)
+	w.mu.Unlock()
+	if w.Removed != nil {
+		w.Removed(path)
+	}
+}
+
 func (w *fsWatcher) changed(path string) {
 	if w.Changed != nil {
 		w.Changed(path)
 	}
+}
+
+func (w *fsWatcher) isValidEntry(path string, info os.FileInfo) bool {
+	return (info != nil && info.IsDir()) || w.isValidFile(path)
 }
 
 func (w *fsWatcher) isValidFile(path string) bool {

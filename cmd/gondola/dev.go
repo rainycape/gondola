@@ -248,7 +248,10 @@ func (p *Project) StartMonitoring() error {
 	watcher.IsValidFile = func(path string) bool {
 		return path == p.configPath || isSource(path)
 	}
-	watcher.Changed = func(path string) {
+
+	var timer *time.Timer
+	var mu sync.Mutex
+	onChanged := func(path string) {
 		if path == p.configPath {
 			log.Infof("Config file %s changed, restarting...", p.configPath)
 			if err := p.Stop(); err != nil {
@@ -258,9 +261,23 @@ func (p *Project) StartMonitoring() error {
 				log.Panicf("Error starting %s: %s", p.Name(), err)
 			}
 		} else {
-			p.Build()
+			// Merge multiple events arriving in
+			// a small time window
+			mu.Lock()
+			if timer == nil {
+				timer = time.AfterFunc(10*time.Millisecond, func() {
+					mu.Lock()
+					timer = nil
+					p.Build()
+					mu.Unlock()
+				})
+			}
+			mu.Unlock()
 		}
 	}
+	watcher.Added = onChanged
+	watcher.Removed = onChanged
+	watcher.Changed = onChanged
 	if err := watcher.AddPackages(pkgs); err != nil {
 		return err
 	}

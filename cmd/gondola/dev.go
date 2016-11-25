@@ -116,6 +116,212 @@ func (b *BuildError) Code() template.HTML {
 	return s
 }
 
+type Builder struct {
+	Dir     string
+	GoFlags string
+	Tags    string
+	Cmd     *exec.Cmd
+}
+
+func (b *Builder) Cancel() {
+	if cmd := b.Cmd; cmd != nil {
+		if proc := b.Cmd.Process; proc != nil {
+			if proc != nil {
+				proc.Signal(os.Interrupt)
+			}
+		}
+	}
+	b.Cmd = nil
+}
+
+func (b *Builder) Build() ([]*BuildError, error) {
+	b.Cancel()
+	cmd, err := b.compilerCmd()
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = io.MultiWriter(&buf, os.Stderr)
+	err = cmd.Run()
+	var errs []*BuildError
+	if err != nil {
+		exitErr, ok := err.(*exec.ExitError)
+		if !ok {
+			log.Panic(err)
+		}
+		if es := exitStatus(exitErr.ProcessState); es != 1 && es != 2 {
+			// gc returns 1 when it can't find a package, 2 when there are compilation errors
+			log.Panic(err)
+		}
+		r := bufio.NewReader(bytes.NewReader(buf.Bytes()))
+		var pkg string
+		for {
+			eline, err := r.ReadString('\n')
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				log.Panic(err)
+			}
+			var be *BuildError
+			switch {
+			case strings.HasPrefix(eline, "package "):
+				// package level error, like cyclic or non-allowed
+				// (e.g. internal) imports. We need to create an error
+				// now, since this line will usually be followed by
+				// lines starting with \t
+				pkg = strings.TrimSpace(eline[len("package"):])
+				be = &BuildError{
+					Error: strings.TrimSpace(eline),
+				}
+			case strings.HasPrefix(eline, "#"):
+				// Package name before file level errors
+				pkg = strings.TrimSpace(eline[1:])
+			case strings.HasPrefix(eline, "\t"):
+				// Info related to the previous error. Let it
+				// crash if we don't have a previous error, just
+				// in case there are any circumstances where a line
+				// starting with \t means something else in the future.
+				// This way the problem will be easier to catch.
+				be := errs[len(errs)-1]
+				be.Error += fmt.Sprintf(" (%s)", strings.TrimSpace(eline))
+			default:
+				parts := strings.SplitN(eline, ":", 3)
+				if len(parts) == 3 {
+					// file level error => filename:line:error
+					filename := filepath.Clean(filepath.Join(b.Dir, parts[0]))
+					line, err := strconv.Atoi(parts[1])
+					if err != nil {
+						// Not a line number, show error message
+						be = &BuildError{
+							Error: strings.TrimSpace(eline),
+						}
+						break
+					}
+					be = &BuildError{
+						Filename: filename,
+						Line:     line,
+						Error:    strings.TrimSpace(parts[2]),
+					}
+				} else {
+					// Unknown error, just show the error message
+					be = &BuildError{
+						Error: strings.TrimSpace(eline),
+					}
+				}
+			}
+			if be != nil {
+				be.Package = pkg
+				errs = append(errs, be)
+			}
+		}
+	}
+	if c := len(errs); c > 0 {
+		return errs, fmt.Errorf("%d errors", c)
+	}
+	return nil, nil
+}
+
+func (b *Builder) GoInstallDeps() {
+	args := []string{"test", "-i"}
+	args = append(args, b.buildTags()...)
+	b.goCmd(args...).Run()
+}
+
+func (b *Builder) BuildCommandString() string {
+	cmd, _ := b.compilerCmd()
+	if cmd != nil {
+		return cmdString(cmd)
+	}
+	return ""
+}
+
+func (b *Builder) buildTags() []string {
+	if b.Tags != "" {
+		return []string{"-tags", b.Tags}
+	}
+	return nil
+}
+
+func (b *Builder) downloadDeps() {
+	cmd := b.goCmd("get", "-v", "-d", "."+string(filepath.Separator)+"...")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+}
+
+func (b *Builder) goCmd(args ...string) *exec.Cmd {
+	cmd := exec.Command("go", args...)
+	cmd.Dir = b.Dir
+	return cmd
+}
+
+func (b *Builder) compilerCmd() (*exec.Cmd, error) {
+	// Download deps, if any
+	b.downloadDeps()
+	// -e reports all the errors
+	gcflags := []string{"-e"}
+	args := []string{"build"}
+	if b.GoFlags != "" {
+		fields, err := stringutil.SplitFields(b.GoFlags, " ")
+		if err != nil {
+			return nil, fmt.Errorf("error parsing -goflags: %v", err)
+		}
+		for ii := 0; ii < len(fields); ii++ {
+			field := fields[ii]
+			if field == "-gcflags" {
+				subFields, err := stringutil.SplitFields(fields[ii+1], " ")
+				if err != nil {
+					return nil, fmt.Errorf("error parsing -gcflags: %v", err)
+				}
+				gcflags = append(gcflags, subFields...)
+				ii++
+				continue
+			}
+			args = append(args, field)
+		}
+	}
+	args = append(args, "-gcflags")
+	args = append(args, strings.Join(gcflags, " "))
+	args = append(args, b.buildTags()...)
+	lib := filepath.Join(b.Dir, "lib")
+	if st, err := os.Stat(lib); err == nil && st.IsDir() {
+		// If there's a lib directory, add it to rpath
+		args = append(args, []string{"-ldflags", "-r lib"}...)
+	}
+	cmd := b.goCmd(args...)
+	return cmd, nil
+}
+
+type Project struct {
+	sync.Mutex
+	App          *app.App
+	dir          string
+	configPath   string
+	tags         string
+	goFlags      string
+	noDebug      bool
+	noCache      bool
+	profile      bool
+	port         int
+	proxy        *httputil.ReverseProxy
+	proxyChecked bool
+	builder      *Builder
+	errors       []*BuildError
+	cmd          *exec.Cmd
+	watcher      *fsWatcher
+	built        time.Time
+	started      time.Time
+	// runtime info
+	out      bytes.Buffer
+	runError error
+	exitCode int
+	// used for telling the browser to reload
+	broadcaster devutil.Broadcaster
+}
+
 func NewProject(dir string, config string) *Project {
 	p := &Project{
 		dir:        dir,
@@ -134,33 +340,6 @@ func NewProject(dir string, config string) *Project {
 	return p
 }
 
-type Project struct {
-	sync.Mutex
-	App          *app.App
-	dir          string
-	configPath   string
-	tags         string
-	goFlags      string
-	noDebug      bool
-	noCache      bool
-	profile      bool
-	port         int
-	proxy        *httputil.ReverseProxy
-	proxyChecked bool
-	buildCmd     *exec.Cmd
-	errors       []*BuildError
-	cmd          *exec.Cmd
-	watcher      *fsWatcher
-	built        time.Time
-	started      time.Time
-	// runtime info
-	out      bytes.Buffer
-	runError error
-	exitCode int
-	// used for telling the browser to reload
-	broadcaster devutil.Broadcaster
-}
-
 func (p *Project) Listen() {
 	os.Setenv("GONDOLA_IS_DEV_SERVER", "1")
 	p.App.MustListenAndServe()
@@ -168,21 +347,6 @@ func (p *Project) Listen() {
 
 func (p *Project) Name() string {
 	return filepath.Base(p.dir)
-}
-
-func (p *Project) buildTags() []string {
-	tags := p.tags
-	if p.profile {
-		if tags == "" {
-			tags = "profile"
-		} else {
-			tags += " profile"
-		}
-	}
-	if tags != "" {
-		return []string{"-tags", tags}
-	}
-	return nil
 }
 
 func (p *Project) importPackage(imported map[string]bool, pkgs *[]*build.Package, path string) []error {
@@ -393,56 +557,21 @@ func (p *Project) GoCmd(args ...string) *exec.Cmd {
 	return cmd
 }
 
-func (p *Project) CompilerCmd() *exec.Cmd {
-	// -e reports all the errors
-	gcflags := []string{"-e"}
-	args := []string{"build"}
-	if p.goFlags != "" {
-		fields, err := stringutil.SplitFields(p.goFlags, " ")
-		if err != nil {
-			panic(fmt.Errorf("error parsing -goflags: %v", err))
-		}
-		for ii := 0; ii < len(fields); ii++ {
-			field := fields[ii]
-			if field == "-gcflags" {
-				subFields, err := stringutil.SplitFields(fields[ii+1], " ")
-				if err != nil {
-					panic(fmt.Errorf("error parsing -gcflags: %v", err))
-				}
-				gcflags = append(gcflags, subFields...)
-				ii++
-				continue
-			}
-			args = append(args, field)
-		}
-	}
-	args = append(args, "-gcflags")
-	args = append(args, strings.Join(gcflags, " "))
-	args = append(args, p.buildTags()...)
-	lib := filepath.Join(p.dir, "lib")
-	if st, err := os.Stat(lib); err == nil && st.IsDir() {
-		// If there's a lib directory, add it to rpath
-		args = append(args, []string{"-ldflags", "-r lib"}...)
-	}
-	cmd := exec.Command("go", args...)
-	cmd.Dir = p.dir
-	return cmd
-}
-
 // Build builds the project. If the project was already building, the build
 // is restarted.
 func (p *Project) Build() {
-	cmd := p.CompilerCmd()
+	builder := &Builder{
+		Dir:     p.dir,
+		GoFlags: p.goFlags,
+		Tags:    p.tags,
+	}
 	var restarted bool
 	p.Lock()
-	if p.buildCmd != nil {
-		proc := p.buildCmd.Process
-		if proc != nil {
-			proc.Signal(os.Interrupt)
-			restarted = true
-		}
+	if p.builder != nil {
+		p.builder.Cancel()
+		restarted = true
 	}
-	p.buildCmd = cmd
+	p.builder = builder
 	p.StopMonitoring()
 	p.Unlock()
 	if err := p.Stop(); err != nil {
@@ -450,110 +579,32 @@ func (p *Project) Build() {
 	}
 	p.errors = nil
 	if !restarted {
-		log.Infof("Building %s (%s)", p.Name(), cmdString(cmd))
+		log.Infof("Building %s (%s)", p.Name(), builder.BuildCommandString())
 	}
-	var buf bytes.Buffer
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = io.MultiWriter(&buf, os.Stderr)
-	err := p.buildCmd.Run()
+	var err error
+	p.errors, err = builder.Build()
 	p.Lock()
 	defer p.Unlock()
-	if p.buildCmd != cmd {
+	if p.builder != builder {
 		// Canceled by another build
 		return
 	}
-	p.buildCmd = nil
+	p.builder = nil
 	p.built = time.Now().UTC()
 	if err != nil {
-		exitErr, ok := err.(*exec.ExitError)
-		if !ok {
-			log.Panic(err)
-		}
-		if es := exitStatus(exitErr.ProcessState); es != 1 && es != 2 {
-			// gc returns 1 when it can't find a package, 2 when there are compilation errors
-			log.Panic(err)
-		}
-		r := bufio.NewReader(bytes.NewReader(buf.Bytes()))
-		var pkg string
-		for {
-			eline, err := r.ReadString('\n')
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				log.Panic(err)
-			}
-			var be *BuildError
-			switch {
-			case strings.HasPrefix(eline, "package "):
-				// package level error, like cyclic or non-allowed
-				// (e.g. internal) imports. We need to create an error
-				// now, since this line will usually be followed by
-				// lines starting with \t
-				pkg = strings.TrimSpace(eline[len("package"):])
-				be = &BuildError{
-					Error: strings.TrimSpace(eline),
-				}
-			case strings.HasPrefix(eline, "#"):
-				// Package name before file level errors
-				pkg = strings.TrimSpace(eline[1:])
-			case strings.HasPrefix(eline, "\t"):
-				// Info related to the previous error. Let it
-				// crash if we don't have a previous error, just
-				// in case there are any circumstances where a line
-				// starting with \t means something else in the future.
-				// This way the problem will be easier to catch.
-				be := p.errors[len(p.errors)-1]
-				be.Error += fmt.Sprintf(" (%s)", strings.TrimSpace(eline))
-			default:
-				parts := strings.SplitN(eline, ":", 3)
-				if len(parts) == 3 {
-					// file level error => filename:line:error
-					filename := filepath.Clean(filepath.Join(p.dir, parts[0]))
-					line, err := strconv.Atoi(parts[1])
-					if err != nil {
-						// Not a line number, show error message
-						be = &BuildError{
-							Error: strings.TrimSpace(eline),
-						}
-						break
-					}
-					be = &BuildError{
-						Filename: filename,
-						Line:     line,
-						Error:    strings.TrimSpace(parts[2]),
-					}
-				} else {
-					// Unknown error, just show the error message
-					be = &BuildError{
-						Error: strings.TrimSpace(eline),
-					}
-				}
-			}
-			if be != nil {
-				be.Package = pkg
-				p.errors = append(p.errors, be)
-			}
-		}
-	}
-	if c := len(p.errors); c == 0 {
-		// TODO: Report error when starting project via web
+		log.Errorf("%d errors building %s", len(p.errors), p.Name())
+		p.reloadClients()
+	} else {
 		if err := p.startLocked(); err != nil {
 			log.Panic(err)
 		}
-	} else {
-		log.Errorf("%d errors building %s", c, p.Name())
-		p.reloadClients()
 	}
 	if err := p.StartMonitoring(); err != nil {
 		log.Errorf("Error monitoring files for project %s: %s. Development server must be manually restarted.", p.Name(), err)
 	}
 	// Build dependencies, to speed up future builds
 	go func() {
-		args := []string{"test", "-i"}
-		args = append(args, p.buildTags()...)
-		p.GoCmd(args...).Run()
+		builder.GoInstallDeps()
 	}()
 }
 
@@ -618,17 +669,6 @@ func (p *Project) Handler(ctx *app.Context) {
 
 func (p *Project) reloadClients() {
 	p.broadcaster.BroadcastReload()
-}
-
-func (p *Project) waitForBuild() {
-	for {
-		p.Lock()
-		if p.buildCmd == nil {
-			p.Unlock()
-			break
-		}
-		p.Unlock()
-	}
 }
 
 func (p *Project) isRunning() bool {

@@ -161,8 +161,8 @@ func (t *Template) ExpandInto(dir string, gae bool) error {
 			if err != nil {
 				panic(err)
 			}
-			if ext := filepath.Ext(p); ext == ".gtmpl" {
-				p = p[:len(p)-len(ext)]
+			if output, ok := isTemplateFile(p); ok {
+				p = output
 				tmpl, err := template.New(filepath.Base(p)).Parse(string(data))
 				if err != nil {
 					panic(err)
@@ -216,6 +216,18 @@ func LoadTemplates(dir string) ([]*Template, error) {
 		templates = append(templates, &tmpl)
 	}
 	return templates, nil
+}
+
+func isTemplateFile(filename string) (output string, isTemplate bool) {
+	ext := filepath.Ext(filename)
+	if ext == ".gtmpl" {
+		nonExt := filename[:len(filename)-len(ext)]
+		// Check if the file has two extensions (e.g. .css.gtmpl)
+		if filepath.Ext(nonExt) != "" {
+			return nonExt, true
+		}
+	}
+	return "", false
 }
 
 func isEmptyDir(dir string) bool {

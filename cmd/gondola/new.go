@@ -146,6 +146,7 @@ func (t *Template) ExpandInto(dir string, gae bool) error {
 		"AppEncryptionKey": stringutil.RandomPrintable(32),
 		"DevSecret":        stringutil.RandomPrintable(64),
 		"DevEncryptionKey": stringutil.RandomPrintable(32),
+		"ProjectName":      filepath.Base(dir),
 	}
 	for hdr != nil {
 		p := filepath.Join(dir, filepath.FromSlash(hdr.Name))

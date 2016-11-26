@@ -742,11 +742,7 @@ func devCommand(args *command.Args, opts *devOptions) error {
 	p.noCache = opts.NoCache
 	p.profile = opts.Profile
 	go p.Build()
-	eof := "C"
-	if runtime.GOOS == "windows" {
-		eof = "Z"
-	}
-	log.Infof("Starting Gondola development server on port %d (press Control+%s to exit)", p.port, eof)
+	log.Infof("Starting Gondola development server on port %d (press Control+C to exit)", p.port)
 	if !opts.NoBrowser {
 		time.AfterFunc(time.Second, func() {
 			host := "localhost"

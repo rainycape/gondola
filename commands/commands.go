@@ -26,41 +26,31 @@ var (
 
 type command struct {
 	handler app.Handler
-	help    string
-	usage   string
-	flags   []*Flag
+	opts    options
 }
 
 // Register registers a new command with the
-// given function and options (which might be nil).
-func Register(f app.Handler, o *Options) error {
-	var name string
-	var help string
-	var usage string
-	var flags []*Flag
-	if o != nil {
-		name = o.Name
-		help = o.Help
-		usage = o.Usage
-		flags = o.Flags
+// given function and options.
+func Register(f app.Handler, opts ...Option) error {
+	o := options{}
+	for _, f := range opts {
+		o = f(o)
 	}
-	if name == "" {
+	if o.Name == "" {
 		qname := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
 		p := strings.Split(qname, ".")
-		name = p[len(p)-1]
-		if name == "" {
-			return fmt.Errorf("could not determine name for function %v. Please, provide a name using Options.", f)
+		o.Name = p[len(p)-1]
+		if o.Name == "" {
+			return fmt.Errorf("could not determine name for function %v. Please, provide a name using Name().", f)
 		}
+		o.Name = stringutil.CamelCaseToLower(o.Name, "-")
 	}
-	cmdName := stringutil.CamelCaseToLower(name, "-")
-	if _, ok := commands[cmdName]; ok {
-		return fmt.Errorf("duplicate command name %q", name)
+	if _, ok := commands[o.Name]; ok {
+		return fmt.Errorf("duplicate command name %q", o.Name)
 	}
-	commands[cmdName] = &command{
+	commands[o.Name] = &command{
 		handler: f,
-		help:    help,
-		usage:   usage,
-		flags:   flags,
+		opts:    o,
 	}
 	return nil
 }
@@ -77,8 +67,8 @@ func Remove(name string) {
 
 // MustRegister works like Register, but panics
 // if there's an error
-func MustRegister(f app.Handler, o *Options) {
-	if err := Register(f, o); err != nil {
+func MustRegister(f app.Handler, opts ...Option) {
+	if err := Register(f, opts...); err != nil {
 		panic(err)
 	}
 }
@@ -124,7 +114,7 @@ func executeCommand(name string, cmd *command, args []string, a *app.App) (err e
 		commandHelp(name, -1, os.Stderr)
 	}
 	flags := map[string]interface{}{}
-	for _, arg := range cmd.flags {
+	for _, arg := range cmd.opts.Flags {
 		switch arg.typ {
 		case typBool:
 			var b bool
@@ -158,7 +148,7 @@ func executeCommand(name string, cmd *command, args []string, a *app.App) (err e
 	}
 	var params []string
 	paramValues := make(map[string]string)
-	for _, arg := range cmd.flags {
+	for _, arg := range cmd.opts.Flags {
 		params = append(params, arg.name)
 		paramValues[arg.name] = fmt.Sprintf("%v", reflect.ValueOf(flags[arg.name]).Elem().Interface())
 	}
@@ -247,12 +237,12 @@ func commandHelp(name string, maxLen int, w io.Writer) {
 	if maxLen < 0 {
 		maxLen = len(name) + 1
 	}
-	fmt.Fprintf(w, "%s:%s%s\n", name, strings.Repeat(" ", maxLen-len(name)), commands[name].help)
+	fmt.Fprintf(w, "%s:%s%s\n", name, strings.Repeat(" ", maxLen-len(name)), commands[name].opts.Help)
 	indent := strings.Repeat(" ", maxLen+1)
-	if usage := commands[name].usage; usage != "" {
+	if usage := commands[name].opts.Usage; usage != "" {
 		fmt.Fprintf(w, "\n%sUsage: %s %s %s\n", indent, os.Args[0], name, usage)
 	}
-	if flags := commands[name].flags; len(flags) > 0 {
+	if flags := commands[name].opts.Flags; len(flags) > 0 {
 		fmt.Fprintf(w, "\n%sAvailable flags for %v:\n", indent, name)
 		maxArgLen := -1
 		helps := make([]string, len(flags))
@@ -329,8 +319,6 @@ func commandIsHidden(name string) bool {
 }
 
 func init() {
-	MustRegister(help, &Options{
-		Help: "Show available commands with their respective help.",
-	})
+	MustRegister(help, Help("Show available commands with their respective help."))
 	signal.Listen(app.WILL_PREPARE, execute)
 }

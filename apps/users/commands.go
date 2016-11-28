@@ -68,16 +68,14 @@ func listUsers(ctx *app.Context) {
 }
 
 func init() {
-	commands.Register(registerUser, &commands.Options{
-		Usage: "[-s | -p | -e email ] <username>",
-		Help:  "Registers a new user",
-		Flags: commands.Flags(
-			commands.BoolFlag("s", false, "Create an admin - if the user already exists is made an admin"),
-			commands.BoolFlag("p", false, "Update the user password, only used when updating a user"),
-			commands.StringFlag("e", "", "Email for the created user"),
-		),
-	})
-	commands.Register(listUsers, &commands.Options{
-		Help: "List all registered users",
-	})
+	commands.MustRegister(registerUser,
+		commands.Usage("[-s | -p | -e email ] <username>"),
+		commands.Help("Registers a new user"),
+		commands.BoolFlag("s", false, "Create an admin - if the user already exists is made an admin"),
+		commands.BoolFlag("p", false, "Update the user password, only used when updating a user"),
+		commands.StringFlag("e", "", "Email for the created user"),
+	)
+	commands.MustRegister(listUsers,
+		commands.Help("List all registered users"),
+	)
 }

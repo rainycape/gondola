@@ -6,21 +6,25 @@ const (
 	typString
 )
 
-// Flag is a opaque type used to represent a flag for
+// cmdFlag is a opaque type used to represent a flag for
 // a command. Use the BoolFlag(), IntFlag() and
 // StringFlag() functions to create a Flag. You can also
 // use the convenience function Flags() to create a
 // slice with several flags.
-type Flag struct {
+type cmdFlag struct {
 	name string
 	help string
 	typ  int
 	def  interface{}
 }
 
-// Options is used to specify the command options when
+// Option is a function type which sets one or several command options.
+// Use the Option implementations in this package.
+type Option func(opts options) options
+
+// options is used to specify the command options when
 // registering it.
-type Options struct {
+type options struct {
 	// The name of the command. If no name is provided,
 	// it will be obtained from the function name, transforming
 	// its name from camel case to words separated by a '-'
@@ -31,37 +35,63 @@ type Options struct {
 	Usage string
 	// Any flags this command might accept. Use the convenience
 	// functions to define them.
-	Flags []*Flag
+	Flags []*cmdFlag
 }
 
-// Flags is a convenience function which returns the received flags as a slice.
-func Flags(flags ...*Flag) []*Flag {
-	return flags
-}
-
-func makeFlag(name string, help string, typ int, def interface{}) *Flag {
-	return &Flag{
+func makeFlag(name string, help string, typ int, def interface{}) Option {
+	fl := &cmdFlag{
 		name: name,
 		help: help,
 		typ:  typ,
 		def:  def,
 	}
+	return func(opts options) options {
+		opts.Flags = append(opts.Flags, fl)
+		return opts
+	}
 }
 
-// BoolFlag returns a flag of type bool with the given name,
+// BoolFlag adds a flag of type bool with the given name,
 // default value and help.
-func BoolFlag(name string, def bool, help string) *Flag {
+func BoolFlag(name string, def bool, help string) Option {
 	return makeFlag(name, help, typBool, def)
 }
 
-// IntFlag returns a flag of type int with the given name,
+// IntFlag adds a flag of type int with the given name,
 // default value and help.
-func IntFlag(name string, def int, help string) *Flag {
+func IntFlag(name string, def int, help string) Option {
 	return makeFlag(name, help, typInt, def)
 }
 
-// StringFlag returns a flag of type string with the given name,
+// StringFlag adds a flag of type string with the given name,
 // default value and help.
-func StringFlag(name string, def string, help string) *Flag {
+func StringFlag(name string, def string, help string) Option {
 	return makeFlag(name, help, typString, def)
+}
+
+// Name sets the name of the command. If no name is provided,
+// it will be obtained from the function name, transforming
+// its name from camel case to words separated by a '-'
+func Name(name string) Option {
+	return func(opts options) options {
+		opts.Name = name
+		return opts
+	}
+}
+
+// Help sets help string that will be printed for a command.
+func Help(help string) Option {
+	return func(opts options) options {
+		opts.Help = help
+		return opts
+	}
+}
+
+// Usage sets the command usage help string. Usage is printed just after
+// the help, prepending the command to it.
+func Usage(usage string) Option {
+	return func(opts options) options {
+		opts.Usage = usage
+		return opts
+	}
 }

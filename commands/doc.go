@@ -10,13 +10,13 @@
 // Then register it using Register() or MustRegister().
 //
 //  func init() {
-//	commands.MustRegister(MyCommand, nil)
+//	    commands.MustRegister(MyCommand)
 //  }
 //
 // This will create a command named my-comand. To specify additional
-// command options, like its name or the flags it might accept, set
-// the Options parameter. See the documentation on Options on this
-// page for information on each field or, alternatively, check the
+// command options, like its name or the flags it might accept, use
+// the Option parameter. See the documentation on the Option functions on this
+// package for information on each one of them, alternatively, check the
 // example down this page.
 //
 // If you're using gnd.la/app.App.ListenAndServe or gnd.la/app.App.MustListenAndServe,
@@ -31,7 +31,7 @@
 //	// Set up ORM, config etc...
 //	config.MustParse()
 //	a := app.New()
-//	// Set up context processors and finalizers, etc... on a
+//	// Set up context processors and finalizers, etc...
 //	// Now check if there's a command and run it
 //	if !commands.Execute(a) {
 //	    // No command supplied. Set up your handlers and
@@ -50,10 +50,11 @@
 // accessed using IndexValue() (0 represents the first non-flag argument). ParseIndexValue()
 // and related methods are also supported.
 //
-//  commands.MustRegister(FlagsCommand, &commands.Options{
-//	Help: "This command does nothing interesting",
-//	Flags: commands.Flags(commands.IntFlag("foo", 0, "Help for foo flag"), commands.BoolFlag("bar", false, "Help for bar flag")),
-//  })
+//  commands.MustRegister(FlagsCommand,
+//	    commands.Help("This command does nothing interesting"),
+//	    commands.IntFlag("foo", 0, "Help for foo flag"),
+//      commands.BoolFlag("bar", false, "Help for bar flag")),
+//  )
 //
 //  func FlagCommand(ctx *app.Context) {
 //	var foo int

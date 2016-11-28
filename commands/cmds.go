@@ -109,17 +109,15 @@ func renderTemplate(ctx *app.Context) {
 }
 
 func init() {
-	Register(catFile, &Options{
-		Help:  "Prints a file from the blobstore to the stdout",
-		Flags: Flags(BoolFlag("meta", false, "Print file metatada instead of file data")),
-	})
-	Register(makeAssets, &Options{
-		Help: "Pre-compile and bundle all app assets",
-	})
-	Register(printResources, &Options{Name: "_print-resources"})
-	Register(renderTemplate, &Options{
-		Name:  "_render-template",
-		Help:  "Render a template and print its output",
-		Flags: Flags(StringFlag("o", "", "Output file. If empty or -, outputs to stdout")),
-	})
+	MustRegister(catFile,
+		Help("Prints a file from the blobstore to the stdout"),
+		BoolFlag("meta", false, "Print file metatada instead of file data"),
+	)
+	MustRegister(makeAssets, Help("Pre-compile and bundle all app assets"))
+	MustRegister(printResources, Name("_print-resources"))
+	MustRegister(renderTemplate,
+		Name("_render-template"),
+		Help("Render a template and print its output"),
+		StringFlag("o", "", "Output file. If empty or -, outputs to stdout"),
+	)
 }

@@ -264,7 +264,14 @@ func (d *Driver) Operate(m driver.Model, q query.Q, ops []*operation.Operation) 
 				buf.WriteString(unquote(fieldName))
 			} else {
 				buf.WriteString(d.backend.Placeholder(len(params)))
-				params = append(params, op.Value)
+				val := op.Value
+				if _, ok := d.transforms[reflect.TypeOf(val)]; ok {
+					val, err = d.backend.TransformOutValue(reflect.ValueOf(val))
+					if err != nil {
+						return nil, err
+					}
+				}
+				params = append(params, val)
 			}
 		default:
 			return nil, fmt.Errorf("operator %d is not supported", op.Operator)

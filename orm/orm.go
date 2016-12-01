@@ -60,6 +60,15 @@ func (o *Orm) Exists(t *Table, q query.Q) (bool, error) {
 	return o.Table(t).Filter(q).Exists()
 }
 
+// MustExists is a shorthand for Exists which panics in case of error
+func (o *Orm) MustExists(t *Table, q query.Q) bool {
+	exists, err := o.Table(t).Filter(q).Exists()
+	if err != nil {
+		panic(err)
+	}
+	return exists
+}
+
 // Count is a shorthand for Table(t).Filter(q).Count()
 // Pass nil to count all the objects in the given table.
 func (o *Orm) Count(t *Table, q query.Q) (uint64, error) {

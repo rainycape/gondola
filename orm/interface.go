@@ -17,6 +17,7 @@ type Interface interface {
 	TypeTable(reflect.Type) *Table
 	Table(t *Table) *Query
 	Exists(t *Table, q query.Q) (bool, error)
+	MustExists(t *Table, q query.Q) bool
 	Count(t *Table, q query.Q) (uint64, error)
 	Query(q query.Q) *Query
 	One(q query.Q, out ...interface{}) (bool, error)

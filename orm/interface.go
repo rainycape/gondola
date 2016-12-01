@@ -1,6 +1,9 @@
 package orm
 
 import (
+	"reflect"
+
+	"gnd.la/orm/operation"
 	"gnd.la/orm/query"
 )
 
@@ -11,6 +14,7 @@ import (
 // See the Orm documentation to find what each
 // method does.
 type Interface interface {
+	TypeTable(reflect.Type) *Table
 	Table(t *Table) *Query
 	Exists(t *Table, q query.Q) (bool, error)
 	Count(t *Table, q query.Q) (uint64, error)
@@ -30,4 +34,6 @@ type Interface interface {
 	Delete(obj interface{}) error
 	MustDelete(obj interface{})
 	Begin() (*Tx, error)
+	Operate(*Table, query.Q, ...*operation.Operation) (Result, error)
+	MustOperate(*Table, query.Q, ...*operation.Operation) Result
 }

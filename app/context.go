@@ -1,6 +1,10 @@
 package app
 
 import (
+	"compress/gzip"
+	"compress/zlib"
+	"encoding/json"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -38,6 +42,7 @@ type ContextFinalizer func(*Context)
 type Context struct {
 	http.ResponseWriter
 	R               *http.Request
+	bodyReader      io.Reader
 	provider        ContextProvider
 	reProvider      *regexpProvider
 	handlerName     string
@@ -56,6 +61,7 @@ type Context struct {
 func (c *Context) reset() {
 	c.ResponseWriter = nil
 	c.R = nil
+	c.bodyReader = nil
 	c.statusCode = 0
 	c.started = time.Now()
 	c.cookies = nil
@@ -581,6 +587,38 @@ func (c *Context) Wait() {
 // never be).
 func (c *Context) Logger() log.Interface {
 	return c.logger()
+}
+
+// Read implements the io.Reader interface, reading from the request
+// body. If there's no available request (e.g. the context originated
+// from a scheduled task), Read() will always return 0, io.EOF. If
+// the request headers indicate that the body is compressed (via
+// Content-Encoding header), Read will automatically decompress the data
+// for "gzip" and "deflate". Note that request headers won't be altered
+// and callers can always read the raw request body data using Context.R.Body.
+func (c *Context) Read(p []byte) (n int, err error) {
+	if c.R == nil || c.R.Body == nil {
+		return 0, io.EOF
+	}
+	if c.bodyReader == nil {
+		switch c.R.Header.Get("Content-Encoding") {
+		case "gzip":
+			gzr, err := gzip.NewReader(c.R.Body)
+			if err != nil {
+				return 0, err
+			}
+			c.bodyReader = gzr
+		case "deflate":
+			zr, err := zlib.NewReader(c.R.Body)
+			if err != nil {
+				return 0, err
+			}
+			c.bodyReader = zr
+		default:
+			c.bodyReader = c.R.Body
+		}
+	}
+	return c.bodyReader.Read(p)
 }
 
 // Intercept http.ResponseWriter calls to find response

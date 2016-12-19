@@ -1,10 +1,6 @@
 package app
 
-import (
-	"net/http"
-
-	"golang.org/x/net/websocket"
-)
+import "net/http"
 
 // Handler is the function type used to satisfy a request
 // (not necessarily HTTP) with a given *Context.
@@ -12,10 +8,6 @@ import (
 // (via gnd.la/app.App), executing commands
 // (via gnd.la/commands) and tasks (via gnd.la/task).
 type Handler func(*Context)
-
-// WebsocketHandler is the function type used to handle
-// websocket requests via HTTP(S). See also App.HandleWebsocket.
-type WebsocketHandler func(*Context, *websocket.Conn)
 
 // HandlerOptions represent the different options which might be
 // specified when registering a Handler in an App.

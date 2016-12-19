@@ -6,7 +6,6 @@ package app
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -21,8 +20,6 @@ import (
 	"sync"
 	"text/template/parse"
 	"time"
-
-	"golang.org/x/net/websocket"
 
 	"gnd.la/app/cookies"
 	"gnd.la/app/profile"
@@ -240,31 +237,6 @@ func (app *App) Handle(pattern string, handler Handler, opts ...HandlerOption) {
 		info.pathMatch = []int{0, len(p)}
 	}
 	app.handlers = append(app.handlers, info)
-}
-
-// HandleWebsocket has the same semantics as App.Handle, but responds to websocket
-// requests rather than normal HTTP(S) requests.
-func (app *App) HandleWebsocket(pattern string, handler WebsocketHandler, opts ...HandlerOption) {
-	type wsKey int
-	const (
-		ctxKey wsKey = iota
-	)
-	if handler == nil {
-		panic(fmt.Errorf("handler for websocket pattern %q can't be nil", pattern))
-	}
-	wsHandler := websocket.Handler(func(ws *websocket.Conn) {
-		ctx := ws.Request().Context().Value(ctxKey).(*Context)
-		handler(ctx, ws)
-	})
-	reqHandler := func(ctx *Context) {
-		req := ctx.Request()
-		newCtx := context.WithValue(req.Context(), ctxKey, ctx)
-		newReq := ctx.Request().WithContext(newCtx)
-		rw := ctx.ResponseWriter
-		ctx.ResponseWriter = nil
-		wsHandler.ServeHTTP(rw, newReq)
-	}
-	app.Handle(pattern, reqHandler, opts...)
 }
 
 // AddContextProcessor adds context processor to the App.

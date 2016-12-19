@@ -47,8 +47,9 @@ func (b *Broadcaster) pattern() string {
 	return devserver.UpdatesPath()
 }
 
-func (b *Broadcaster) handler() func(*app.Context, *websocket.Conn) {
-	return func(ctx *app.Context, ws *websocket.Conn) {
+func (b *Broadcaster) handler() app.Handler {
+	return func(ctx *app.Context) {
+		ws := ctx.Websocket()
 		b.add(ws)
 		io.Copy(ioutil.Discard, ws)
 		b.remove(ws)

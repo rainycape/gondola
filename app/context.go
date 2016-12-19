@@ -428,6 +428,23 @@ func (c *Context) MustExecute(name string, data interface{}) {
 	}
 }
 
+// DecodeJSON creates a json.Decoder reading from
+// the Context and calls Decode with the v argument.
+// See also Context.Read for more information on
+// transparent decompression.
+func (c *Context) DecodeJSON(v interface{}) error {
+	dec := json.NewDecoder(c)
+	return dec.Decode(v)
+}
+
+// MustDecodeJSON is a shorthand for DecodeJSON which panics
+// instead of returning an error.
+func (c *Context) MustDecodeJSON(v interface{}) {
+	if err := c.DecodeJSON(v); err != nil {
+		panic(err)
+	}
+}
+
 // WriteJSON is equivalent to serialize.WriteJSON(ctx, data)
 func (c *Context) WriteJSON(data interface{}) (int, error) {
 	return serialize.WriteJSON(c, data)

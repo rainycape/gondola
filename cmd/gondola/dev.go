@@ -30,6 +30,8 @@ import (
 	"gnd.la/log"
 	"gnd.la/util/stringutil"
 
+	"io/ioutil"
+
 	"github.com/rainycape/browser"
 	"github.com/rainycape/command"
 	"gnd.la/internal/devutil/devassets"
@@ -404,10 +406,21 @@ func (p *Project) StartMonitoring() error {
 	if err != nil {
 		return err
 	}
+	var files []string
 	pkgs, err := p.Packages()
 	if err != nil && len(pkgs) == 0 {
-		// TODO: Show the packages which failed to be monitored
-		return err
+		// Monitor just the files in the project directory
+		infos, err2 := ioutil.ReadDir(p.dir)
+		if err2 != nil {
+			// Return the original error, since it will show
+			// why the the packages failed to import
+			return err
+		}
+		for _, entry := range infos {
+			if !entry.IsDir() {
+				files = append(files, filepath.Join(p.dir, entry.Name()))
+			}
+		}
 	}
 	watcher.IsValidFile = func(path string) bool {
 		return path == p.configPath || isSource(path)
@@ -442,8 +455,18 @@ func (p *Project) StartMonitoring() error {
 	watcher.Added = onChanged
 	watcher.Removed = onChanged
 	watcher.Changed = onChanged
-	if err := watcher.AddPackages(pkgs); err != nil {
-		return err
+	if len(files) > 0 {
+		// Packages could not be imported and we're
+		// using files as a fallback.
+		for _, f := range files {
+			if err := watcher.Add(f); err != nil {
+				return err
+			}
+		}
+	} else {
+		if err := watcher.AddPackages(pkgs); err != nil {
+			return err
+		}
 	}
 	if err := watcher.Add(p.configPath); err != nil {
 		return err

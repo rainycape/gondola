@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"gnd.la/app"
-	"gnd.la/signal"
+	"gnd.la/signals"
 )
 
 var pendingTasks struct {
@@ -40,7 +40,7 @@ func gondolaRunTasksHandler(ctx *app.Context) {
 }
 
 func init() {
-	signal.Listen(app.WILL_PREPARE, func(_ string, obj interface{}) {
+	signals.Listen(app.WILL_PREPARE, func(_ string, obj interface{}) {
 		a := obj.(*app.App)
 		a.Handle("/gondola-run-tasks", gondolaRunTasksHandler)
 	})

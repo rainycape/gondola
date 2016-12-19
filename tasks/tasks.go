@@ -12,7 +12,7 @@ import (
 
 	"gnd.la/app"
 	"gnd.la/internal/runtimeutil"
-	"gnd.la/signal"
+	"gnd.la/signals"
 )
 
 var running struct {
@@ -259,7 +259,7 @@ func init() {
 	// Admin commands are executed on WILL_PREPARE so we
 	// won't reach this point if there's an admin command
 	// provided in the cmdline.
-	signal.Listen(app.DID_PREPARE, func(_ string, obj interface{}) {
+	signals.Listen(app.DID_PREPARE, func(_ string, obj interface{}) {
 		a := obj.(*app.App)
 		onListenTasks.Lock()
 		var pending []*Task

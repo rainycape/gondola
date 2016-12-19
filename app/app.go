@@ -36,7 +36,7 @@ import (
 	"gnd.la/log"
 	"gnd.la/net/mail"
 	"gnd.la/orm"
-	"gnd.la/signal"
+	"gnd.la/signals"
 	"gnd.la/template"
 	"gnd.la/template/assets"
 	"gnd.la/util/stringutil"
@@ -860,7 +860,7 @@ func (app *App) ListenAndServe() error {
 	if err := app.checkPort(); err != nil {
 		return err
 	}
-	signal.Emit(WILL_LISTEN, app)
+	signals.Emit(WILL_LISTEN, app)
 	app.started = time.Now().UTC()
 	if devserver.IsActive() {
 		// Attach the automatic reload template plugin to automatically
@@ -885,7 +885,7 @@ func (app *App) ListenAndServe() error {
 	var err error
 	time.AfterFunc(500*time.Millisecond, func() {
 		if err == nil {
-			signal.Emit(DID_LISTEN, app)
+			signals.Emit(DID_LISTEN, app)
 		}
 	})
 	err = http.ListenAndServe(app.address+":"+strconv.Itoa(app.cfg.Port), app)
@@ -1426,7 +1426,7 @@ func (app *App) Prepare() error {
 			return err
 		}
 	}
-	signal.Emit(WILL_PREPARE, app)
+	signals.Emit(WILL_PREPARE, app)
 	if s := app.cfg.Secret; s != "" && len(s) < 32 &&
 		os.Getenv("GONDOLA_ALLOW_SHORT_SECRET") == "" && !devserver.IsDevServer(app) {
 		return fmt.Errorf("secret %q is too short, must be at least 32 characters - use gondola random-string to generate one", s)
@@ -1462,7 +1462,7 @@ func (app *App) Prepare() error {
 		}
 	}
 	app.prepared = true
-	signal.Emit(DID_PREPARE, app)
+	signals.Emit(DID_PREPARE, app)
 	return nil
 }
 

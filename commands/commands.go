@@ -14,7 +14,7 @@ import (
 
 	"gnd.la/app"
 	"gnd.la/internal/runtimeutil"
-	"gnd.la/signal"
+	"gnd.la/signals"
 	"gnd.la/tasks"
 	"gnd.la/util/stringutil"
 )
@@ -322,5 +322,5 @@ func commandIsHidden(name string) bool {
 
 func init() {
 	MustRegister(help, Help("Show available commands with their respective help."))
-	signal.Listen(app.WILL_PREPARE, execute)
+	signals.Listen(app.WILL_PREPARE, execute)
 }

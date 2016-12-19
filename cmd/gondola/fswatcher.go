@@ -251,7 +251,14 @@ func (w *fsWatcher) changed(path string) {
 }
 
 func (w *fsWatcher) isValidEntry(path string, info os.FileInfo) bool {
-	return (info != nil && info.IsDir()) || w.isValidFile(path)
+	if info != nil {
+		if info.IsDir() {
+			// Ignore hidden dirs
+			return info.Name()[0] != '.'
+		}
+		return w.isValidFile(path)
+	}
+	return false
 }
 
 func (w *fsWatcher) isValidFile(path string) bool {

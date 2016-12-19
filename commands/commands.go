@@ -157,18 +157,20 @@ func executeCommand(name string, cmd *command, args []string, a *app.App) (err e
 		params:      params,
 		paramValues: paramValues,
 	}
-	defer func() {
-		if r := recover(); r != nil {
-			if e, ok := r.(error); ok {
-				err = e
-			} else {
-				err = fmt.Errorf("%v", r)
+	if os.Getenv("GONDOLA_COMMANDS_NO_RECOVER") == "" {
+		defer func() {
+			if r := recover(); r != nil {
+				if e, ok := r.(error); ok {
+					err = e
+				} else {
+					err = fmt.Errorf("%v", r)
+				}
+				if file, line, ok := runtimeutil.PanicLocation(); ok {
+					err = fmt.Errorf("%v (at %s:%d)", err, file, line)
+				}
 			}
-			if file, line, ok := runtimeutil.PanicLocation(); ok {
-				err = fmt.Errorf("%v (at %s:%d)", err, file, line)
-			}
-		}
-	}()
+		}()
+	}
 	ctx := a.NewContext(provider)
 	defer a.CloseContext(ctx)
 	cmd.handler(ctx)

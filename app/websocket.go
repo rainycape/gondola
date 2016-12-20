@@ -4,8 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strconv"
+	"strings"
 
 	"golang.org/x/net/websocket"
+
+	"gnd.la/internal/devutil/devserver"
 )
 
 type wsKey int
@@ -46,4 +51,29 @@ func (c *Context) Websocket() *websocket.Conn {
 		panic(errors.New("no websocket assocciated with handler - did you use App.Handle() rather than App.HandleWebsocket()?"))
 	}
 	return ws
+}
+
+// WebsocketURL returns an absolute websocket URL from a relative
+// URL (relative to the current request), adjusting also the protocol
+// (e.g. http to ws and https to wss). Note that this function calls
+// Context.URL(), so check its documentation to make sure the current
+// request URL can be correctly determined.
+func (c *Context) WebsocketURL(rel string) (*url.URL, error) {
+	u, err := c.URL().Parse(rel)
+	if err != nil {
+		return nil, err
+	}
+	switch u.Scheme {
+	case "http":
+		u.Scheme = "ws"
+	case "https":
+		u.Scheme = "wss"
+	}
+	if sep := strings.IndexByte(u.Host, ':'); sep >= 0 && devserver.IsActive() {
+		// If we're running from the development server, we need to send
+		// the request directly to the app, since the httputil proxy doesn't
+		// support websockets.
+		u.Host = u.Host[:sep] + ":" + strconv.Itoa(c.app.Config().Port)
+	}
+	return u, nil
 }

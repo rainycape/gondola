@@ -48,7 +48,7 @@ func (listener *listener) Remove() {
 }
 
 // Listen adds a new listener for the given signal name. The returned Listener can
-// used to stop listening for the signal by calling its Remove method.
+// be used to stop listening for the signal by calling its Remove method.
 func Listen(name string, handler Handler) Listener {
 	listener := &listener{
 		Name:    name,
@@ -71,4 +71,34 @@ func Emit(name string, data interface{}) {
 	for _, listener := range cpy {
 		listener.Handler(name, data)
 	}
+}
+
+// Signal is a conveniency type which allows callers to listen and (if desired)
+// emit a given signal without providing access to the signal name itself.
+// This allows better encapsulation as well as a simple way to implement
+// type safesignals. See the package documentation for a complete example.
+type Signal struct {
+	name string
+	listeners
+}
+
+// New returns a new Signal
+func New(name string) *Signal {
+	return &Signal{
+		name: name,
+	}
+}
+
+// Listen is a shorthand for Listen(signame, handler), where signame
+// is the signal name received in New().
+func (s *Signal) Listen(handler func(interface{})) Listener {
+	return Listen(s.name, func(_ string, data interface{}) {
+		handler(data)
+	})
+}
+
+// Emit is a shorthand for Emit(signame, data), where signame
+// is the signal name received in New().
+func (s *Signal) Emit(data interface{}) {
+	Emit(s.name, data)
 }

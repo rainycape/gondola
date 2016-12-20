@@ -13,7 +13,6 @@ import (
 	"gnd.la/app"
 	"gnd.la/internal/httpserve"
 	"gnd.la/net/httpclient"
-	"gnd.la/signals"
 )
 
 var (
@@ -148,8 +147,7 @@ func defaultFetchImage(ctx *app.Context, url string) (string, string, error) {
 }
 
 func init() {
-	signals.Listen(app.WILL_LISTEN, func(_ string, obj interface{}) {
-		a := obj.(*app.App)
+	app.Signals.WillListen.Listen(func(a *app.App) {
 		placeholder := "0000placeholder0000"
 		rev, err := a.Reverse(ImageHandlerName, placeholder, placeholder)
 		if err == nil {

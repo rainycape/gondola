@@ -31,10 +31,7 @@ var (
 )
 
 const (
-	// WILL_INITIALIZE is emitted just before a gnd.la/orm.Orm is
-	// initialized. The object is a *gnd.la/orm.Orm.
-	WILL_INITIALIZE = "gnd.la/orm.will-initialize"
-	orm             = "orm"
+	orm = "orm"
 )
 
 type Orm struct {

@@ -15,7 +15,6 @@ import (
 	"gnd.la/log"
 	"gnd.la/orm/driver"
 	"gnd.la/orm/query"
-	"gnd.la/signals"
 	"gnd.la/util/stringutil"
 	"gnd.la/util/structs"
 	"gnd.la/util/types"
@@ -188,7 +187,7 @@ func (o *Orm) initializePending() error {
 func (o *Orm) Initialize() error {
 	globalRegistry.Lock()
 	defer globalRegistry.Unlock()
-	signals.Emit(WILL_INITIALIZE, o)
+	Signals.WillInitialize.emit(o)
 	if err := o.initializePending(); err != nil {
 		return err
 	}

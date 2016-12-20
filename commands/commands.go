@@ -14,8 +14,6 @@ import (
 
 	"gnd.la/app"
 	"gnd.la/internal/runtimeutil"
-	"gnd.la/signals"
-	"gnd.la/tasks"
 	"gnd.la/util/stringutil"
 )
 

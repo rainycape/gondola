@@ -366,7 +366,10 @@ func (c *Context) requestScheme() string {
 	return ""
 }
 
-// URL return the absolute URL for the current request.
+// URL return the absolute URL for the current request. Note that
+// if your app is running behind a proxy, you might need to properly
+// configure the App as well as the appropriate X-headers in your
+// proxy and your app (X-Forwarded-For, X-Scheme, etc...).
 func (c *Context) URL() *url.URL {
 	if c.R != nil {
 		u := *c.R.URL

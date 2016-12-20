@@ -25,5 +25,5 @@ var Signals = struct {
 	// initialized.
 	WillInitialize *ormSignal
 }{
-	&ormSignal{signals.New("gnd.la/orm.will-initialize")},
+	&ormSignal{signals.New("will-initialize")},
 }

@@ -43,28 +43,19 @@ var Signals = struct {
 }
 
 func ExampleSignal() {
-	Signals.MessageReceived.Listen(func(msg *Message) {
+	listener := Signals.MessageReceived.Listen(func(msg *Message) {
 		fmt.Println(msg.Text, msg.Timestamp.Unix())
 	})
 	Signals.MessageReceived.emit(&Message{
 		Text:      "hello",
 		Timestamp: time.Unix(42, 0),
 	})
-	// Output: hello 42
-}
-
-func ExampleRemove() {
-	const (
-		signame = "mysignal"
-		payload = "emitted"
-	)
-	listener := signals.Listen(signame, func(_ string, data interface{}) {
-		fmt.Println(data)
-	})
-	signals.Emit(signame, payload)
 	listener.Remove()
 	// Emitting again won't cause the listener to be called
 	// since the listener was removed.
-	signals.Emit(signame, payload)
-	// Output: emitted
+	Signals.MessageReceived.emit(&Message{
+		Text:      "hello again",
+		Timestamp: time.Unix(42*2, 0),
+	})
+	// Output: hello 42
 }

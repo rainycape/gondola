@@ -32,8 +32,8 @@ var Signals = struct {
 	// DidPrepare is emitted when App.Prepare ends without errors.
 	DidPrepare *appSignal
 }{
-	WillListen:  &appSignal{signals.New("gnd.la/app.will-listen")},
-	DidListen:   &appSignal{signals.New("gnd.la/app.did-listen")},
-	WillPrepare: &appSignal{signals.New("gnd.la/app.will-prepare")},
-	DidPrepare:  &appSignal{signals.New("gnd.la/app.did-prepare")},
+	WillListen:  &appSignal{signals.New("will-listen")},
+	DidListen:   &appSignal{signals.New("did-listen")},
+	WillPrepare: &appSignal{signals.New("will-prepare")},
+	DidPrepare:  &appSignal{signals.New("did-prepare")},
 }

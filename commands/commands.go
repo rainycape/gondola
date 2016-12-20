@@ -207,18 +207,9 @@ func Execute(a *app.App) (bool, error) {
 	return false, nil
 }
 
-func execute(name string, obj interface{}) {
+func execute(a *app.App) {
 	if executed {
 		return
-	}
-	var a *app.App
-	switch o := obj.(type) {
-	case *app.App:
-		a = o
-	case *tasks.Task:
-		a = o.App
-	default:
-		panic("unreachable")
 	}
 	done, err := Execute(a)
 	if err != nil {
@@ -320,5 +311,5 @@ func commandIsHidden(name string) bool {
 
 func init() {
 	MustRegister(help, Help("Show available commands with their respective help."))
-	signals.Listen(app.WILL_PREPARE, execute)
+	app.Signals.WillPrepare.Listen(execute)
 }

@@ -14,6 +14,7 @@ import (
 	"net/http/pprof"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -39,8 +40,6 @@ import (
 	"gnd.la/template"
 	"gnd.la/template/assets"
 	"gnd.la/util/stringutil"
-
-	"path/filepath"
 
 	"github.com/rainycape/vfs"
 )

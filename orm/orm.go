@@ -591,7 +591,7 @@ func (o *Orm) compileTimeInterfaceTest() Interface {
 	return o
 }
 
-// Open creates a new ORM using the specified
+// New creates a new ORM using the specified
 // configuration URL.
 func New(url *config.URL) (*Orm, error) {
 	name := url.Scheme

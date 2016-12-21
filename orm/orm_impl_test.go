@@ -3,13 +3,12 @@ package orm
 import (
 	"bytes"
 	"flag"
-	"testing"
-	"time"
-
+	"os"
 	"reflect"
 	"runtime"
-
 	"strings"
+	"testing"
+	"time"
 
 	"gnd.la/config"
 	"gnd.la/log"
@@ -164,7 +163,7 @@ func newOrm(t testing.TB, url string, logging bool) *Orm {
 	if logging {
 		// Set logger
 		o.SetLogger(log.Std)
-		if testing.Verbose() {
+		if testing.Verbose() && os.Getenv("ORM_TEST_DEBUG") != "" {
 			log.SetLevel(log.LDebug)
 		}
 	} else {

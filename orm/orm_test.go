@@ -72,6 +72,10 @@ func TestSaveUnchanged(t *testing.T) {
 	runTest(t, testSaveUnchanged)
 }
 
+func TestQueryTransform(t *testing.T) {
+	runTest(t, testQueryTransform)
+}
+
 func BenchmarkLoadSaveMethods(b *testing.B) {
 	runBenchmark(b, benchmarkLoadSaveMethods)
 }

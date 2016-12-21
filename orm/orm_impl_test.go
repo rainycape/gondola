@@ -136,6 +136,11 @@ type Defaulter struct {
 	Val3 time.Time `orm:",default=today()"`
 }
 
+type Timestamped struct {
+	Id        int64 `orm:",primary_key,auto_increment"`
+	Timestamp time.Time
+}
+
 func equalTimes(t1, t2 time.Time) bool {
 	// Compare seconds, since some backends (like sqlite) loss subsecond precission
 	return t1.Truncate(time.Second).Equal(t2.Truncate(time.Second))
@@ -664,6 +669,36 @@ func testSaveUnchanged(t *testing.T, o *Orm) {
 	}
 }
 
+func testQueryTransform(t *testing.T, o *Orm) {
+	o.mustRegister((*Timestamped)(nil), nil)
+	o.mustInitialize()
+	ts := time.Now()
+	obj := &Timestamped{
+		Timestamp: ts,
+	}
+	if _, err := o.Save(obj); err != nil {
+		t.Error(err)
+		return
+	}
+	typ := reflect.TypeOf(obj)
+	tbl := o.TypeTable(typ)
+	// Try to retrieve the item with an eq query
+	c, err := o.Table(tbl).Filter(Eq("Timestamp", ts)).Count()
+	if err != nil {
+		t.Error(err)
+	} else if c != 1 {
+		t.Errorf("expecting 1 object, got %v", c)
+	}
+	// Try to retrieve the item with a between query
+	c, err = o.Table(tbl).Filter(Between("Timestamp", ts.Add(-time.Second), ts.Add(time.Second))).Count()
+	if err != nil {
+		t.Error(err)
+	} else if c != 1 {
+		t.Errorf("expecting 1 object, got %v", c)
+	}
+
+}
+
 func runAllTests(t *testing.T, o opener) {
 	orm, data := o.Open(t)
 	defer o.Close(data)
@@ -689,6 +724,7 @@ func testOrm(t *testing.T, o *Orm, name string) {
 		testDefaults,
 		testMigrations,
 		testSaveUnchanged,
+		testQueryTransform,
 	}
 	for _, v := range tests {
 		t.Run(testName(name, v), func(t *testing.T) {

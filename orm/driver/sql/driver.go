@@ -264,12 +264,9 @@ func (d *Driver) Operate(m driver.Model, q query.Q, ops []*operation.Operation) 
 				buf.WriteString(unquote(fieldName))
 			} else {
 				buf.WriteString(d.backend.Placeholder(len(params)))
-				val := op.Value
-				if _, ok := d.transforms[reflect.TypeOf(val)]; ok {
-					val, err = d.backend.TransformOutValue(reflect.ValueOf(val))
-					if err != nil {
-						return nil, err
-					}
+				val, err := d.transformOutValue(op.Value)
+				if err != nil {
+					return nil, err
 				}
 				params = append(params, val)
 			}
@@ -767,11 +764,26 @@ func (d *Driver) clause(buf *bytes.Buffer, params *[]interface{}, m driver.Model
 			return nil
 		}
 		fmt.Fprintf(buf, format, dbName, d.backend.Placeholder(len(*params)+begin))
-		*params = append(*params, f.Value)
+		val, err := d.transformOutValue(f.Value)
+		if err != nil {
+			return err
+		}
+		*params = append(*params, val)
 		return nil
 	}
 	fmt.Fprintf(buf, format, dbName)
 	return nil
+}
+
+func (d *Driver) transformOutValue(val interface{}) (interface{}, error) {
+	if _, ok := d.transforms[reflect.TypeOf(val)]; ok {
+		var err error
+		val, err = d.backend.TransformOutValue(reflect.ValueOf(val))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return val, nil
 }
 
 func (d *Driver) conditions(buf *bytes.Buffer, params *[]interface{}, m driver.Model, q []query.Q, sep string, begin int) error {

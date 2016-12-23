@@ -240,7 +240,11 @@ func (b *Backend) canAddField(f *sql.Field) bool {
 func sqliteOpener(url *config.URL) (driver.Driver, error) {
 	drv, err := sql.NewDriver(sqliteBackend, url)
 	if err == nil {
-		if _, err := drv.DB().Exec("PRAGMA foreign_keys = on"); err != nil {
+		db := drv.DB()
+		if _, err := db.Exec("PRAGMA foreign_keys = on"); err != nil {
+			return nil, err
+		}
+		if _, err := db.Exec("PRAGMA journal_mode = WAL"); err != nil {
 			return nil, err
 		}
 	}

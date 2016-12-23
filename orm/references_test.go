@@ -275,8 +275,12 @@ func test2LevelReferences(t *testing.T, o *Orm) {
 		t.Fatal(err)
 	}
 
+	now := time.Now()
 	ts := &Timestamp{
-		Timestamp: time.Now(),
+		// Remove subsecond precision, since the sqlite
+		// backend can't handle subsecond precision. Also,
+		// convert to UTC since the orm will always return UTC
+		Timestamp: now.Add(-time.Nanosecond * time.Duration(now.Nanosecond())).UTC(),
 	}
 	if _, err := o.Insert(ts); err != nil {
 		t.Fatal(err)
@@ -289,20 +293,39 @@ func test2LevelReferences(t *testing.T, o *Orm) {
 		t.Fatal(err)
 	}
 
-	evp1 := &EventProperty{
+	evp := &EventProperty{
 		EventId: ev.Id,
 		Key:     "key",
 		Value:   "value",
 	}
-	if _, err := o.Insert(evp1); err != nil {
+	if _, err := o.Insert(evp); err != nil {
 		t.Fatal(err)
 	}
 	var evp2 EventProperty
-	if _, err := o.Query(Eq("Event|Timestamp|Id", ev.Timestamp)).One(&evp2); err != nil {
+	q := Eq("Event|Timestamp|Id", ev.Timestamp)
+	if _, err := o.One(q, &evp2); err != nil {
 		t.Fatal(err)
 	}
-	evp1.Id = evp2.Id
-	if !reflect.DeepEqual(evp1, &evp2) {
-		t.Errorf("expecting %T = %+v, got %+v instead", evp2, evp1, evp2)
+	compare := func(obj1, obj2 interface{}) {
+		if !reflect.DeepEqual(obj1, obj2) {
+			t.Errorf("expecting %T = %+v, got %+v instead", obj1, obj1, obj2)
+		}
 	}
+	compare(evp, &evp2)
+	// Try to retrieve other objects part of the join
+	var ts2 Timestamp
+	var ev2 Event
+	if _, err := o.One(q, &evp2, &ts2); err != nil {
+		t.Fatal(err)
+	}
+	compare(evp, &evp2)
+	compare(ts, &ts2)
+	if _, err := o.One(q, &ev2); err != nil {
+		t.Fatal(err)
+	}
+	compare(ev, &ev2)
+	if _, err := o.One(q, &ts2); err != nil {
+		t.Fatal(err)
+	}
+	compare(ts, &ts2)
 }

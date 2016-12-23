@@ -506,14 +506,15 @@ func (o *Orm) models(objs []interface{}, q query.Q, sort []driver.Sort, jt JoinT
 	jm := &joinModel{}
 	models := make(map[*model]struct{})
 	var methods []*driver.Methods
-	for _, v := range objs {
+
+	joinObj := func(v interface{}) error {
 		vm, err := o.model(v)
 		if err != nil {
-			return nil, nil, err
+			return err
 		}
 		last, err := jm.joinWith(vm, nil, jt)
 		if err != nil {
-			return nil, nil, err
+			return err
 		}
 		r := reflect.ValueOf(v)
 		if r.Type().Kind() == reflect.Ptr && r.IsNil() {
@@ -521,10 +522,19 @@ func (o *Orm) models(objs []interface{}, q query.Q, sort []driver.Sort, jt JoinT
 		}
 		models[vm] = struct{}{}
 		methods = append(methods, vm.fields.Methods)
+		return nil
 	}
-	if jm.model == nil {
-		return nil, nil, errNoModel
+
+	// First, try to join the models as is. If some of them fail,
+	// store which ones and try to join them later, since joining
+	// with the query or the sort might give us a path to the model.
+	var failedJoins []interface{}
+	for _, v := range objs {
+		if err := joinObj(v); err != nil {
+			failedJoins = append(failedJoins, v)
+		}
 	}
+
 	if q != nil {
 		if err := jm.joinWithQuery(q, jt, models, &methods); err != nil {
 			return nil, nil, err
@@ -534,6 +544,17 @@ func (o *Orm) models(objs []interface{}, q query.Q, sort []driver.Sort, jt JoinT
 		if err := jm.joinWithSort(sort, jt, models, &methods); err != nil {
 			return nil, nil, err
 		}
+	}
+
+	// Now try to join any failed objects. Any error here is fatal.
+	for _, v := range failedJoins {
+		if err := joinObj(v); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	if jm.model == nil {
+		return nil, nil, errNoModel
 	}
 	return jm, methods, nil
 }

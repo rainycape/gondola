@@ -209,6 +209,12 @@ func (j *joinModel) joinWith(model *model, q query.Q, jt JoinType) (*joinModel, 
 		j.model = model
 		return j, nil
 	}
+	for cur := j; cur != nil; cur = cur.Next() {
+		if cur.model == model {
+			cur.skip = false
+			return cur, nil
+		}
+	}
 	m := j
 	if q == nil {
 		var candidates []*join

@@ -34,6 +34,10 @@ func (j JoinType) String() string {
 	return "unknown JoinType"
 }
 
+const (
+	modelSep = '|'
+)
+
 type reference struct {
 	model string
 	field string
@@ -92,14 +96,6 @@ func (m *model) Indexes() []*index.Index {
 }
 
 func (m *model) Map(qname string) (string, reflect.Type, error) {
-	sep := strings.IndexByte(qname, '|')
-	if sep >= 0 {
-		name := qname[:sep]
-		if name != m.name && name != m.shortName {
-			return "", nil, errNotThisModel(name)
-		}
-		qname = qname[sep+1:]
-	}
 	if n, ok := m.fields.QNameMap[qname]; ok {
 		return m.fields.QuotedNames[n], m.fields.Types[n], nil
 	}
@@ -122,7 +118,7 @@ func (m *model) String() string {
 }
 
 func (m *model) fullName(qname string) string {
-	return m.name + "|" + qname
+	return m.name + string(modelSep) + qname
 }
 
 type join struct {
@@ -264,11 +260,12 @@ func (j *joinModel) joinWith(model *model, q query.Q, jt JoinType) (*joinModel, 
 }
 
 func (j *joinModel) joinWithField(field string, jt JoinType, models map[*model]struct{}, methods *[]*driver.Methods) error {
-	pipe := strings.IndexByte(field, '|')
-	if pipe < 0 {
+	sep := strings.IndexByte(field, modelSep)
+	if sep < 0 {
 		return nil
 	}
-	typ := field[:pipe]
+	typ := field[:sep]
+	rem := field[sep+1:]
 	m := j
 	for {
 		if model := m.model.namedReferences[typ]; model != nil {
@@ -294,6 +291,9 @@ func (j *joinModel) joinWithField(field string, jt JoinType, models map[*model]s
 		}
 		m = join.model
 	}
+	if rem != "" {
+		return m.joinWithField(rem, jt, models, methods)
+	}
 	return nil
 }
 
@@ -318,17 +318,33 @@ func (j *joinModel) joinWithQuery(q query.Q, jt JoinType, models map[*model]stru
 	return nil
 }
 
+func (j *joinModel) Next() *joinModel {
+	if j.join != nil {
+		return j.join.model
+	}
+	return nil
+}
+
 func (j *joinModel) Map(qname string) (string, reflect.Type, error) {
 	var candidates []mapCandidate
-	for cur := j; ; {
-		n, t, err := cur.model.Map(qname)
+	parts := strings.Split(qname, string(modelSep))
+	var field string
+	var typ string
+	switch len(parts) {
+	case 1:
+		field = parts[0]
+	default:
+		field = parts[len(parts)-1]
+		typ = parts[len(parts)-2]
+	}
+	for cur := j; cur != nil; cur = cur.Next() {
+		if typ != "" && typ != cur.model.name && typ != cur.model.shortName {
+			continue
+		}
+		n, t, err := cur.model.Map(field)
 		if err == nil {
 			candidates = append(candidates, mapCandidate{n, t})
 		}
-		if cur.join == nil {
-			break
-		}
-		cur = cur.join.model
 	}
 	switch len(candidates) {
 	case 0:
@@ -388,5 +404,6 @@ func (e errNotThisModel) Error() string {
 type errAmbiguous string
 
 func (e errAmbiguous) Error() string {
-	return fmt.Sprintf("field name %q is ambiguous. Please, indicate the type like e.g. Type|Field", string(e))
+	return fmt.Sprintf("field name %q is ambiguous. Please, indicate the type like e.g. Type%sField",
+		string(e), string(modelSep))
 }

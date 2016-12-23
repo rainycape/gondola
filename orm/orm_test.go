@@ -48,6 +48,10 @@ func TestReferences(t *testing.T) {
 	runTest(t, testReferences)
 }
 
+func Test2LevelReferences(t *testing.T) {
+	runTest(t, test2LevelReferences)
+}
+
 func TestInvalidCodecs(t *testing.T) {
 	runTest(t, testInvalidCodecs)
 }

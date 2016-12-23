@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +20,13 @@ type Event struct {
 	Id        int64 `orm:",primary_key,auto_increment"`
 	Timestamp int64 `orm:",references=Timestamp"`
 	Name      string
+}
+
+type EventProperty struct {
+	Id      int64 `orm:",primary_key,auto_increment"`
+	EventId int64 `orm:",references=Event"`
+	Key     string
+	Value   string
 }
 
 type TimedEvent struct {
@@ -233,5 +241,68 @@ func testReferences(t *testing.T, o *Orm) {
 	// Violate the FK
 	if _, err := o.Save(&Event{Timestamp: 1337}); err == nil {
 		t.Error("expecting an error when violating FK")
+	}
+}
+
+func test2LevelReferences(t *testing.T, o *Orm) {
+	drv := o.Driver()
+	if drv.Capabilities()&driver.CAP_JOIN == 0 {
+		t.Log("skipping references test")
+		return
+	}
+	if sdrv, ok := drv.(*sql.Driver); ok {
+		_, isSQLite := sdrv.Backend().(*sqlite.Backend)
+		if isSQLite {
+			o.SqlDB().Exec("PRAGMA foreign_keys = ON")
+		}
+	}
+	_, err := o.Register((*Event)(nil), &Options{
+		Table: "test_2level_references_event",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = o.Register((*Timestamp)(nil), &Options{
+		Table: "test_2level_references_timestamp",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = o.Register((*EventProperty)(nil), &Options{
+		Table: "test_2level_references_event_property",
+	})
+	if err := o.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	ts := &Timestamp{
+		Timestamp: time.Now(),
+	}
+	if _, err := o.Insert(ts); err != nil {
+		t.Fatal(err)
+	}
+
+	ev := &Event{
+		Timestamp: ts.Id,
+	}
+	if _, err := o.Insert(ev); err != nil {
+		t.Fatal(err)
+	}
+
+	evp1 := &EventProperty{
+		EventId: ev.Id,
+		Key:     "key",
+		Value:   "value",
+	}
+	if _, err := o.Insert(evp1); err != nil {
+		t.Fatal(err)
+	}
+	var evp2 EventProperty
+	if _, err := o.Query(Eq("Event|Timestamp|Id", ev.Timestamp)).One(&evp2); err != nil {
+		t.Fatal(err)
+	}
+	evp1.Id = evp2.Id
+	if !reflect.DeepEqual(evp1, &evp2) {
+		t.Errorf("expecting %T = %+v, got %+v instead", evp2, evp1, evp2)
 	}
 }

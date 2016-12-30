@@ -91,8 +91,22 @@ func (o *Orm) Register(t interface{}, opts *Options) (*Table, error) {
 	return o.registerLocked(t, opts)
 }
 
+type ormStructConfigurator struct{}
+
+func (ormStructConfigurator) DecomposeField(s *structs.Struct, typ reflect.Type, tag *structs.Tag) bool {
+	// Don't decompose fields with a codec
+	if tag.Has("codec") {
+		return false
+	}
+	// Avoid decomposing time.Time
+	if typ.Name() == "Time" && typ.PkgPath() == "time" {
+		return false
+	}
+	return true
+}
+
 func (o *Orm) registerLocked(t interface{}, opts *Options) (*Table, error) {
-	s, err := structs.NewStruct(t, o.dtags())
+	s, err := structs.New(t, o.dtags(), ormStructConfigurator{})
 	if err != nil {
 		switch err {
 		case structs.ErrNoStruct:

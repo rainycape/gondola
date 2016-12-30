@@ -224,12 +224,21 @@ func (f *Form) makeFields(names []string) error {
 	return nil
 }
 
+type formStructConfigurator struct{}
+
+func (formStructConfigurator) DecomposeField(s *structs.Struct, typ reflect.Type, tag *structs.Tag) bool {
+	if typ == fileType {
+		return false
+	}
+	return true
+}
+
 func (f *Form) appendVal(val interface{}) error {
 	v, err := types.SettableValue(val)
 	if err != nil {
 		return err
 	}
-	s, err := structs.NewStruct(val, formTags)
+	s, err := structs.New(val, formTags, formStructConfigurator{})
 	if err != nil {
 		return err
 	}

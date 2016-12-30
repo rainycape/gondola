@@ -3,8 +3,9 @@ package structs
 import (
 	"errors"
 	"fmt"
-	"gnd.la/util/stringutil"
 	"reflect"
+
+	"gnd.la/util/stringutil"
 )
 
 var (
@@ -31,6 +32,8 @@ type Struct struct {
 	QNameMap map[string]int
 	// Lists the field indexes prefix for pointers in embedded structs
 	Pointers [][]int
+	tags     []string
+	conf     Configurator
 }
 
 // Map takes a qualified struct name and returns its mangled name and type
@@ -59,34 +62,14 @@ func (s *Struct) Has(field string, typ reflect.Type) bool {
 	return false
 }
 
-func NewStruct(t interface{}, tags []string) (*Struct, error) {
-	var typ reflect.Type
-	if tt, ok := t.(reflect.Type); ok {
-		typ = tt
-	} else {
-		typ = reflect.TypeOf(t)
+func (s *Struct) initialize(typ reflect.Type) error {
+	if err := s.initializeFields(typ, "", "", nil); err != nil {
+		return err
 	}
-	for typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
-	}
-	if typ.Kind() != reflect.Struct {
-		return nil, ErrNoStruct
-	}
-	if typ.NumField() == 0 {
-		return nil, ErrNoFields
-	}
-	s := &Struct{
-		Type:     typ,
-		MNameMap: make(map[string]int),
-		QNameMap: make(map[string]int),
-	}
-	if err := fields(typ, tags, s, "", "", nil); err != nil {
-		return nil, err
-	}
-	return s, nil
+	return nil
 }
 
-func fields(typ reflect.Type, tags []string, s *Struct, qprefix, mprefix string, index []int) error {
+func (s *Struct) initializeFields(typ reflect.Type, qprefix, mprefix string, index []int) error {
 	n := typ.NumField()
 	for ii := 0; ii < n; ii++ {
 		field := typ.Field(ii)
@@ -94,7 +77,7 @@ func fields(typ reflect.Type, tags []string, s *Struct, qprefix, mprefix string,
 			// Unexported
 			continue
 		}
-		ftag := NewTag(field, tags)
+		ftag := NewTag(field, s.tags)
 		name := ftag.Name()
 		if name == "-" {
 			// Ignored field
@@ -116,7 +99,7 @@ func fields(typ reflect.Type, tags []string, s *Struct, qprefix, mprefix string,
 			ptr = true
 			t = t.Elem()
 		}
-		if t.Kind() == reflect.Struct && decompose(t, ftag) {
+		if t.Kind() == reflect.Struct && s.decomposeField(t, ftag) {
 			// Inner struct
 			idx := make([]int, len(index))
 			copy(idx, index)
@@ -125,7 +108,7 @@ func fields(typ reflect.Type, tags []string, s *Struct, qprefix, mprefix string,
 			if !ftag.Has("inline") {
 				prefix += name + "_"
 			}
-			err := fields(t, tags, s, qname+".", prefix, idx)
+			err := s.initializeFields(t, qname+".", prefix, idx)
 			if err != nil {
 				return err
 			}
@@ -149,12 +132,44 @@ func fields(typ reflect.Type, tags []string, s *Struct, qprefix, mprefix string,
 	return nil
 }
 
-// Returns wheter a stuct should decomposed into its fields
-func decompose(typ reflect.Type, tag *Tag) bool {
-	// TODO: The ORM needs the fields tagged with a codec
-	// to not be broken into their members. Make this a
-	// parameter, since other users of this function
-	// might want all the fields. Make also struct types
-	// like time.Time configurable
-	return !tag.Has("codec") && !(typ.Name() == "Time" && typ.PkgPath() == "time")
+func (s *Struct) decomposeField(typ reflect.Type, tag *Tag) bool {
+	if s.conf != nil {
+		return s.conf.DecomposeField(s, typ, tag)
+	}
+	return true
+}
+
+type Configurator interface {
+	// Returns wheter a Struct should decompose the given struct field
+	// into its fields or just use the struct as is.
+	DecomposeField(s *Struct, typ reflect.Type, tag *Tag) bool
+}
+
+func New(t interface{}, tags []string, conf Configurator) (*Struct, error) {
+	var typ reflect.Type
+	if tt, ok := t.(reflect.Type); ok {
+		typ = tt
+	} else {
+		typ = reflect.TypeOf(t)
+	}
+	for typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+	if typ.Kind() != reflect.Struct {
+		return nil, ErrNoStruct
+	}
+	if typ.NumField() == 0 {
+		return nil, ErrNoFields
+	}
+	s := &Struct{
+		Type:     typ,
+		MNameMap: make(map[string]int),
+		QNameMap: make(map[string]int),
+		tags:     tags,
+		conf:     conf,
+	}
+	if err := s.initialize(typ); err != nil {
+		return nil, err
+	}
+	return s, nil
 }

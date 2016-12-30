@@ -47,7 +47,7 @@ func (d *appData) setUserType(user interface{}) {
 	if typ == nil {
 		panic(fmt.Errorf("User type is not set - configure it with users.SetType(&MyUserType{})"))
 	}
-	s, err := structs.NewStruct(typ, nil)
+	s, err := structs.New(typ, nil, nil)
 	if err != nil {
 		panic(err)
 	}

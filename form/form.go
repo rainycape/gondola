@@ -608,6 +608,22 @@ func (f *Form) render(fields []*Field) (template.HTML, error) {
 	return template.HTML(buf.String()), err
 }
 
+// EncType returns the recommended enctype for the form, which
+// is derived from its field types. Typically, this will be
+// called from an HTML template like:
+//
+//	<form action="..." method="..." enctype="{{ .MyForm.EncType }}">
+func (f *Form) EncType() string {
+	if f != nil {
+		for _, field := range f.fields {
+			if field.Type == FILE {
+				return "multipart/form-data"
+			}
+		}
+	}
+	return "application/x-www-form-urlencoded"
+}
+
 // Render renders all the fields in the form, in the order
 // specified during construction.
 func (f *Form) Render() (template.HTML, error) {

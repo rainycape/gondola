@@ -1,58 +1,75 @@
 package form
 
 import (
-	"io/ioutil"
+	"io"
 	"mime/multipart"
 	"reflect"
 )
 
 var (
-	fileType = reflect.TypeOf(File{})
+	fileType = reflect.TypeOf((*File)(nil)).Elem()
 )
 
-// File represents an uploaded file. The slice fields should
-// not be accessed directly, the helper methods should be used
-// instead.
-type File []interface{}
+// File represents a file uploaded using a form. To use files
+// in a form struct, just include a field of File type and check
+// if it was provided using its IsEmpty() method. Its filename
+// can be retrieved using the Filename() method.
+type File interface {
+	IsEmpty() bool
+	Filename() string
 
-func (f File) IsEmpty() bool {
-	return len(f) == 0
+	io.Reader
+	io.ReaderAt
+	io.Seeker
+	io.Closer
 }
 
-func (f File) Header() *multipart.FileHeader {
-	if f.IsEmpty() {
-		return nil
-	}
-	return f[1].(*multipart.FileHeader)
+type formFile struct {
+	file   multipart.File
+	header *multipart.FileHeader
 }
 
-func (f File) Filename() string {
+func (f *formFile) IsEmpty() bool {
+	return f == nil || f.file == nil || f.header == nil
+}
+
+func (f *formFile) Filename() string {
 	if f.IsEmpty() {
 		return ""
 	}
-	return f.Header().Filename
+	return f.header.Filename
 }
 
-func (f File) multipartFile() multipart.File {
-	return f[0].(multipart.File)
+func (f *formFile) Read(p []byte) (n int, err error) {
+	if f.IsEmpty() {
+		return 0, io.EOF
+	}
+	return f.file.Read(p)
 }
 
-func (f File) Read(p []byte) (n int, err error) {
-	return f.multipartFile().Read(p)
+// ReadAt implements io.ReaderAt
+func (f *formFile) ReadAt(p []byte, off int64) (n int, err error) {
+	if f.IsEmpty() {
+		return 0, io.EOF
+	}
+	return f.file.ReadAt(p, off)
 }
 
-func (f File) ReadAt(p []byte, off int64) (n int, err error) {
-	return f.multipartFile().ReadAt(p, off)
+// Seek implements io.Seeker
+func (f *formFile) Seek(offset int64, whence int) (int64, error) {
+	if f.IsEmpty() {
+		return 0, io.EOF
+	}
+	return f.file.Seek(offset, whence)
 }
 
-func (f File) Seek(offset int64, whence int) (int64, error) {
-	return f.multipartFile().Seek(offset, whence)
+func (f *formFile) Close() error {
+	if f.IsEmpty() {
+		return nil
+	}
+	return f.file.Close()
 }
 
-func (f File) Close() error {
-	return f.multipartFile().Close()
-}
-
-func (f File) ReadAll() ([]byte, error) {
-	return ioutil.ReadAll(f)
+func (f *formFile) compileTimeCheck() File {
+	return f
 }

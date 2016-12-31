@@ -81,7 +81,10 @@ func (f *Form) validate() {
 				continue
 			}
 			if file != nil && header != nil {
-				value := File([]interface{}{file, header})
+				value := &formFile{
+					file:   file,
+					header: header,
+				}
 				v.value.Set(reflect.ValueOf(value))
 			}
 		} else {

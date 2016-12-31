@@ -108,7 +108,7 @@ func (o *Orm) All() *Query {
 // has an integer primary key with auto_increment, it will be
 // be populated with the database assigned id.
 func (o *Orm) Insert(obj interface{}) (Result, error) {
-	m, err := o.model(obj)
+	m, err := o.modelFrom(obj)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (o *Orm) insert(m *model, obj interface{}) (Result, error) {
 }
 
 func (o *Orm) Update(q query.Q, obj interface{}) (Result, error) {
-	m, err := o.model(obj)
+	m, err := o.modelFrom(obj)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func (o *Orm) update(m *model, q query.Q, obj interface{}) (Result, error) {
 // this operation in just one query, but most require two
 // trips to the database.
 func (o *Orm) Upsert(q query.Q, obj interface{}) (Result, error) {
-	m, err := o.model(obj)
+	m, err := o.modelFrom(obj)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (o *Orm) MustUpsert(q query.Q, obj interface{}) Result {
 // the composite key is non-zero, an update will be tried
 // before performing an insert.
 func (o *Orm) Save(obj interface{}) (Result, error) {
-	m, err := o.model(obj)
+	m, err := o.modelFrom(obj)
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +338,7 @@ func (o *Orm) DeleteFrom(t *Table, q query.Q) (Result, error) {
 // previously registered as a table and must have a primary key,
 // either simple or composite.
 func (o *Orm) Delete(obj interface{}) error {
-	m, err := o.model(obj)
+	m, err := o.modelFrom(obj)
 	if err != nil {
 		return err
 	}
@@ -502,17 +502,33 @@ func (o *Orm) SetLogger(logger *log.Logger) {
 	}
 }
 
-func (o *Orm) models(objs []interface{}, q query.Q, sort []driver.Sort, jt JoinType) (*joinModel, []*driver.Methods, error) {
-	jm := &joinModel{}
-	models := make(map[*model]struct{})
-	var methods []*driver.Methods
-
-	joinObj := func(v interface{}) error {
-		vm, err := o.model(v)
+func (o *Orm) queryModel(objs []interface{}, q *Query) (*joinModel, error) {
+	outputModels := make([]*model, 0, len(objs))
+	// First, map each output value to a model.
+	for _, v := range objs {
+		om, err := o.modelFrom(v)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		last, err := jm.joinWith(vm, nil, jt)
+		outputModels = append(outputModels, om)
+	}
+
+	jm := &joinModel{}
+	var qu query.Q
+	var sort []driver.Sort
+	jt := JoinTypeInner
+	if q != nil {
+		qu = q.q
+		sort = q.opts.Sort
+		jt = q.jtype
+
+		if q.model != nil {
+			jm = q.model.clone()
+		}
+	}
+
+	joinObject := func(v interface{}, m *model) error {
+		last, err := jm.joinWith(m, nil, jt)
 		if err != nil {
 			return err
 		}
@@ -520,43 +536,41 @@ func (o *Orm) models(objs []interface{}, q query.Q, sort []driver.Sort, jt JoinT
 		if r.Type().Kind() == reflect.Ptr && r.IsNil() {
 			last.skip = true
 		}
-		models[vm] = struct{}{}
-		methods = append(methods, vm.fields.Methods)
 		return nil
 	}
 
 	// First, try to join the models as is. If some of them fail,
 	// store which ones and try to join them later, since joining
 	// with the query or the sort might give us a path to the model.
-	var failedJoins []interface{}
-	for _, v := range objs {
-		if err := joinObj(v); err != nil {
-			failedJoins = append(failedJoins, v)
+	var failedJoins []int
+	for ii, v := range objs {
+		if err := joinObject(v, outputModels[ii]); err != nil {
+			failedJoins = append(failedJoins, ii)
 		}
 	}
 
-	if q != nil {
-		if err := jm.joinWithQuery(q, jt, models, &methods); err != nil {
-			return nil, nil, err
+	if qu != nil {
+		if err := jm.joinWithQuery(qu, jt); err != nil {
+			return nil, err
 		}
 	}
 	if sort != nil {
-		if err := jm.joinWithSort(sort, jt, models, &methods); err != nil {
-			return nil, nil, err
+		if err := jm.joinWithSort(sort, jt); err != nil {
+			return nil, err
 		}
 	}
 
 	// Now try to join any failed objects. Any error here is fatal.
-	for _, v := range failedJoins {
-		if err := joinObj(v); err != nil {
-			return nil, nil, err
+	for _, ii := range failedJoins {
+		if err := joinObject(objs[ii], outputModels[ii]); err != nil {
+			return nil, err
 		}
 	}
 
 	if jm.model == nil {
-		return nil, nil, errNoModel
+		return nil, errNoModel
 	}
-	return jm, methods, nil
+	return jm, nil
 }
 
 func (o *Orm) fieldByIndex(val reflect.Value, indexes []int) reflect.Value {

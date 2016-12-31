@@ -167,12 +167,30 @@ func (d *Driver) Query(m driver.Model, q query.Q, opts driver.QueryOptions) driv
 	return &Iter{model: m, rows: rows, driver: d}
 }
 
-func (d *Driver) Count(m driver.Model, q query.Q, opts driver.QueryOptions) (uint64, error) {
-	var count uint64
-	query, params, err := d.Select([]string{"COUNT(*)"}, false, m, q, opts)
+func (d *Driver) Count(field string, m driver.Model, q query.Q, opts driver.QueryOptions) (uint64, error) {
+	buf := getBuffer()
+	buf.WriteString("COUNT(")
+	if opts.Distinct && field != "" {
+		buf.WriteString("DISTINCT ")
+	}
+	if field == "" {
+		buf.WriteByte('*')
+	} else {
+		dbName, _, err := m.Map(field)
+		if err != nil {
+			putBuffer(buf)
+			return 0, err
+		}
+		buf.WriteString(dbName)
+	}
+	buf.WriteByte(')')
+	query, params, err := d.Select([]string{buf.String()}, false, m, q, opts)
+	putBuffer(buf)
 	if err != nil {
+		putBuffer(query)
 		return 0, err
 	}
+	var count uint64
 	err = d.db.QueryRow(buftos(query), params...).Scan(&count)
 	putBuffer(query)
 	return count, err

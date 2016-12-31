@@ -1,12 +1,15 @@
 package orm
 
 import (
+	"gnd.la/app/profile"
 	"gnd.la/orm/driver"
 )
 
 type Iter struct {
-	q     *Query
-	limit *int
+	q       *Query
+	model   *joinModel
+	methods []*driver.Methods
+	limit   *int
 	driver.Iter
 	err error
 }
@@ -19,23 +22,19 @@ func (i *Iter) Next(out ...interface{}) bool {
 		return false
 	}
 	if i.Iter == nil {
-		if i.q.model == nil {
-			i.q.model, i.q.methods, i.err = i.q.orm.models(out, i.q.q, i.q.opts.Sort, i.q.jtype)
+		if i.model == nil {
+			i.model, i.err = i.q.orm.queryModel(out, i.q)
 			if i.err != nil {
 				return false
 			}
-		} else {
-			i.q.methods = append(i.q.methods, i.q.model.fields.Methods)
-			for cur := i.q.model.join; cur != nil; cur = cur.model.join {
-				i.q.methods = append(i.q.methods, cur.model.fields.Methods)
-			}
 		}
-		i.Iter = i.q.exec(i.limit)
+		i.methods = i.model.Methods()
+		i.Iter = i.exec()
 	}
 	ok := i.Iter.Next(out...)
 	if ok {
 		for ii, v := range out {
-			if i.err = i.q.methods[ii].Load(v); i.err != nil {
+			if i.err = i.methods[ii].Load(v); i.err != nil {
 				break
 			}
 		}
@@ -94,4 +93,15 @@ func (i *Iter) Close() error {
 		return err
 	}
 	return nil
+}
+
+func (i *Iter) exec() driver.Iter {
+	if profile.On && profile.Profiling() {
+		defer profile.Start(orm).Note("query", i.model.String()).End()
+	}
+	opts := i.q.opts
+	if i.limit != nil {
+		opts.Limit = *i.limit
+	}
+	return i.q.orm.conn.Query(i.model, i.q.q, opts)
 }

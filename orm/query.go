@@ -10,18 +10,18 @@ import (
 )
 
 type Query struct {
-	orm     *Orm
-	model   *joinModel
-	methods []*driver.Methods
-	jtype   JoinType
-	q       query.Q
-	opts    driver.QueryOptions
-	err     error
+	orm   *Orm
+	jtype JoinType
+	q     query.Q
+	model *joinModel
+	opts  driver.QueryOptions
+	err   error
 }
 
 func newQuery(o *Orm, q query.Q, model *joinModel) *Query {
 	return &Query{
 		orm:   o,
+		jtype: JoinTypeInner,
 		q:     q,
 		model: model,
 		opts:  driver.QueryOptions{Limit: -1, Offset: -1},
@@ -30,7 +30,7 @@ func newQuery(o *Orm, q query.Q, model *joinModel) *Query {
 
 func (q *Query) ensureTable(f string) error {
 	if q.model == nil {
-		fmt.Errorf("no table selected, set one with Table() before calling %s()", f)
+		return fmt.Errorf("no table selected, set one with Table() before calling %s()", f)
 	}
 	return nil
 }
@@ -213,15 +213,48 @@ func (q *Query) Count() (uint64, error) {
 	if err := q.ensureTable("Count"); err != nil {
 		return 0, err
 	}
+	model, err := q.orm.queryModel(nil, q)
+	if err != nil {
+		return 0, err
+	}
 	if profile.On && profile.Profiling() {
 		defer profile.Start(orm).Note("count", q.model.String()).End()
 	}
-	return q.orm.driver.Count(q.model, q.q, q.opts)
+	return q.orm.driver.Count("", model, q.q, q.opts)
+}
+
+// CountField returns the number of ocurrences for the given field. Note that
+// you have to set the table manually before calling this function. This
+// function might be combined with Query.Distinct() to perform a COUNT(DISTINCT...).
+func (q *Query) CountField(field string) (uint64, error) {
+	if err := q.ensureTable("CountField"); err != nil {
+		return 0, err
+	}
+	model, err := q.orm.queryModel(nil, q)
+	if err != nil {
+		return 0, err
+	}
+	if err := model.joinWithField(field, q.jtype); err != nil {
+		return 0, err
+	}
+	if profile.On && profile.Profiling() {
+		defer profile.Start(orm).Note("count-field", q.model.String()).End()
+	}
+	return q.orm.driver.Count(field, model, q.q, q.opts)
 }
 
 // MustCount works like Count, but panics if there's an error.
 func (q *Query) MustCount() uint64 {
 	c, err := q.Count()
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+// MustCountField works like CountField, but panics if there's an error.
+func (q *Query) MustCountField(field string) uint64 {
+	c, err := q.CountField(field)
 	if err != nil {
 		panic(err)
 	}
@@ -247,18 +280,7 @@ func (q *Query) iter(limit *int) *Iter {
 	}
 }
 
-func (q *Query) exec(limit *int) driver.Iter {
-	if profile.On && profile.Profiling() {
-		defer profile.Start(orm).Note("query", q.model.String()).End()
-	}
-	opts := q.opts
-	if limit != nil {
-		opts.Limit = *limit
-	}
-	return q.orm.conn.Query(q.model, q.q, opts)
-}
-
-// Field is a conveniency function which returns a reference to a field
+// F is a conveniency function which returns a reference to a field
 // to be used in a query, mostly used for joins.
 func F(field string) query.F {
 	return query.F(field)

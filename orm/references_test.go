@@ -178,15 +178,15 @@ func testReferences(t *testing.T, o *Orm) {
 	}
 	// Fetch all the events for timestamp with id=1, but ignore the timestamp using an
 	// explicit table.
-	iter = o.Query(Eq("Timestamp|Id", 1)).Sort("Event|Name", ASC).Table(timestampTable.Skip().MustJoin(eventTable, nil, InnerJoin)).Iter()
-	for count = 0; iter.Next(nil, &event); count++ {
+	iter = o.Query(Eq("Timestamp|Id", 1)).Sort("Event|Name", ASC).Table(timestampTable.Skip().MustJoin(eventTable, nil, JoinTypeInner)).Iter()
+	for count = 0; iter.Next((*Timestamp)(nil), &event); count++ {
 		testEvent(t, event, count)
 	}
-	testCount(t, count, -1, "timestamp Id=1")
 	testIterErr(t, iter)
+	testCount(t, count, -1, "timestamp Id=1")
 	// Fetch all the events for timestamp with id=2. There are no events so event
 	// should be nil.
-	iter = o.Query(Eq("Timestamp|Id", 2)).Join(LeftJoin).Iter()
+	iter = o.Query(Eq("Timestamp|Id", 2)).Join(JoinTypeLeft).Iter()
 	for count = 0; iter.Next(&timestamp, &event); count++ {
 		if event != nil {
 			t.Errorf("expecting nil event for Timestamp Id=2, got %+v instead", event)
@@ -219,7 +219,7 @@ func testReferences(t *testing.T, o *Orm) {
 	}
 	testCount(t, count, 1, "Event Id=2")
 	testIterErr(t, iter)
-	iter = o.Query(Eq("Event|Id", 4)).Table(eventTable.MustJoin(timestampTable, nil, LeftJoin)).Iter()
+	iter = o.Query(Eq("Event|Id", 4)).Table(eventTable.MustJoin(timestampTable, nil, JoinTypeLeft)).Iter()
 	for count = 0; iter.Next(&event, &timestamp); count++ {
 		if event.Name != "E4" {
 			t.Errorf("expecting event name E4, got %s instead", event.Name)

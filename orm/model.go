@@ -14,21 +14,21 @@ import (
 type JoinType int
 
 const (
-	InnerJoin JoinType = JoinType(driver.InnerJoin)
-	OuterJoin JoinType = JoinType(driver.OuterJoin)
-	LeftJoin  JoinType = JoinType(driver.LeftJoin)
-	RightJoin JoinType = JoinType(driver.RightJoin)
+	JoinTypeInner JoinType = JoinType(driver.InnerJoin)
+	JoinTypeOuter JoinType = JoinType(driver.OuterJoin)
+	JoinTypeLeft  JoinType = JoinType(driver.LeftJoin)
+	JoinTypeRight JoinType = JoinType(driver.RightJoin)
 )
 
 func (j JoinType) String() string {
 	switch j {
-	case InnerJoin:
+	case JoinTypeInner:
 		return "INNER JOIN"
-	case OuterJoin:
+	case JoinTypeOuter:
 		return "OUTER JOIN"
-	case LeftJoin:
+	case JoinTypeLeft:
 		return "LEFT OUTER JOIN"
-	case RightJoin:
+	case JoinTypeRight:
 		return "OUTER JOIN"
 	}
 	return "unknown JoinType"
@@ -204,6 +204,23 @@ func (j *joinModel) String() string {
 	return strings.Join(s, "")
 }
 
+func (j *joinModel) isJoinedWith(m *model) bool {
+	for cur := j; cur != nil; cur = cur.Next() {
+		if cur.model == m {
+			return true
+		}
+	}
+	return false
+}
+
+func (j *joinModel) Methods() []*driver.Methods {
+	var methods []*driver.Methods
+	for cur := j; cur != nil; cur = cur.Next() {
+		methods = append(methods, cur.model.fields.Methods)
+	}
+	return methods
+}
+
 func (j *joinModel) joinWith(model *model, q query.Q, jt JoinType) (*joinModel, error) {
 	if j.model == nil {
 		j.model = model
@@ -265,7 +282,7 @@ func (j *joinModel) joinWith(model *model, q query.Q, jt JoinType) (*joinModel, 
 	return m.join.model, nil
 }
 
-func (j *joinModel) joinWithField(field string, jt JoinType, models map[*model]struct{}, methods *[]*driver.Methods) error {
+func (j *joinModel) joinWithField(field string, jt JoinType) error {
 	sep := strings.IndexByte(field, modelSep)
 	if sep < 0 {
 		return nil
@@ -276,7 +293,7 @@ func (j *joinModel) joinWithField(field string, jt JoinType, models map[*model]s
 	for {
 		if model := m.model.namedReferences[typ]; model != nil {
 			// Check if we're already joined to this model
-			if _, ok := models[model]; ok {
+			if j.isJoinedWith(model) {
 				break
 			}
 			// Joins derived from queries are always implicit
@@ -287,8 +304,6 @@ func (j *joinModel) joinWithField(field string, jt JoinType, models map[*model]s
 				return err
 			}
 			last.skip = true
-			models[model] = struct{}{}
-			*methods = append(*methods, model.fields.Methods)
 			break
 		}
 		join := m.join
@@ -298,26 +313,26 @@ func (j *joinModel) joinWithField(field string, jt JoinType, models map[*model]s
 		m = join.model
 	}
 	if rem != "" {
-		return m.joinWithField(rem, jt, models, methods)
+		return m.joinWithField(rem, jt)
 	}
 	return nil
 }
 
-func (j *joinModel) joinWithSort(sort []driver.Sort, jt JoinType, models map[*model]struct{}, methods *[]*driver.Methods) error {
+func (j *joinModel) joinWithSort(sort []driver.Sort, jt JoinType) error {
 	for _, v := range sort {
-		if err := j.joinWithField(v.Field(), jt, models, methods); err != nil {
+		if err := j.joinWithField(v.Field(), jt); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (j *joinModel) joinWithQuery(q query.Q, jt JoinType, models map[*model]struct{}, methods *[]*driver.Methods) error {
-	if err := j.joinWithField(q.FieldName(), jt, models, methods); err != nil {
+func (j *joinModel) joinWithQuery(q query.Q, jt JoinType) error {
+	if err := j.joinWithField(q.FieldName(), jt); err != nil {
 		return err
 	}
 	for _, sq := range q.SubQ() {
-		if err := j.joinWithQuery(sq, jt, models, methods); err != nil {
+		if err := j.joinWithQuery(sq, jt); err != nil {
 			return err
 		}
 	}
@@ -359,7 +374,10 @@ func (j *joinModel) Map(qname string) (string, reflect.Type, error) {
 		c := candidates[0]
 		return c.name, c.typ, nil
 	default:
-		return "", nil, errAmbiguous(qname)
+		return "", nil, &errAmbiguous{
+			Field: qname,
+			Model: j,
+		}
 	}
 	panic("unreachable")
 }
@@ -407,9 +425,16 @@ func (e errNotThisModel) Error() string {
 	return fmt.Sprintf("name %q does not correspond to this model", string(e))
 }
 
-type errAmbiguous string
+type errAmbiguous struct {
+	Field string
+	Model *joinModel
+}
 
 func (e errAmbiguous) Error() string {
-	return fmt.Sprintf("field name %q is ambiguous. Please, indicate the type like e.g. Type%sField",
-		string(e), string(modelSep))
+	var names []string
+	for cur := e.Model; cur != nil; cur = cur.Next() {
+		names = append(names, cur.model.name)
+	}
+	return fmt.Sprintf("field name %q is ambiguous (candidates are %v) - please, indicate the type like e.g. Type%sField",
+		e.Field, strings.Join(names, ","), string(modelSep))
 }

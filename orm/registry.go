@@ -431,7 +431,7 @@ func (o *Orm) dtags() []string {
 	return allTags
 }
 
-func (o *Orm) model(obj interface{}) (*model, error) {
+func (o *Orm) modelFrom(obj interface{}) (*model, error) {
 	t := reflect.TypeOf(obj)
 	if t == nil {
 		return nil, errUntypedNilPointer

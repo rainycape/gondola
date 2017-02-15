@@ -103,7 +103,8 @@ func (b *Backend) Inspect(db *sql.DB, m driver.Model) (*sql.Table, error) {
 }
 
 func (b *Backend) HasIndex(db *sql.DB, m driver.Model, idx *index.Index, name string) (bool, error) {
-	rows, err := db.Query(fmt.Sprintf("PRAGMA index_info(%s)", name))
+	quoted := db.QuoteString(name)
+	rows, err := db.Query(fmt.Sprintf("PRAGMA index_info(%s)", quoted))
 	if err != nil {
 		return false, err
 	}

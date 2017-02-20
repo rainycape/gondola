@@ -105,9 +105,9 @@ func (d *Driver) createIndex(m driver.Model, idx *index.Index, name string) erro
 	if idx.Unique {
 		buf.WriteString("UNIQUE ")
 	}
-	buf.WriteString("INDEX ")
+	buf.WriteString("INDEX \"")
 	buf.WriteString(name)
-	buf.WriteString(" ON \"")
+	buf.WriteString("\" ON \"")
 	buf.WriteString(m.Table())
 	buf.WriteString("\" (")
 	fields := m.Fields()

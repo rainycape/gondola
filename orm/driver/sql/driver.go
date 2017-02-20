@@ -982,9 +982,11 @@ func NewDriver(b Backend, url *config.URL) (*Driver, error) {
 	return driver, nil
 }
 
-// Assume s is quoted
+// Assume s is a quoted qualified name. The table name and field
+// are separated by a '.'. Note that the table name might contain also
+// the '.' character, so we want to look the last occurence of '.'.
 func unquote(s string) string {
-	p := strings.Index(s, ".")
+	p := strings.LastIndex(s, ".")
 	return s[p+2 : len(s)-1]
 }
 

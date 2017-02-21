@@ -126,8 +126,14 @@ func s3Opener(url *config.URL) (driver.Driver, error) {
 		}
 		s := s3.New(auth, region)
 		bucket = s.Bucket(value)
-		if err := bucket.PutBucket(s3.Private); err != nil {
-			return nil, err
+		if s := url.Fragment.Get("acl"); s != "-" {
+			acl := s3.Private
+			if s != "" {
+				acl = s3.ACL(s)
+			}
+			if err := bucket.PutBucket(acl); err != nil {
+				return nil, err
+			}
 		}
 		buckets.Lock()
 		if buckets.buckets == nil {

@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"path/filepath"
 	"time"
+	"math/rand"
 
 	"gnd.la/log"
 

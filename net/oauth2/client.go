@@ -182,7 +182,7 @@ func (c *Client) Get(u string, form url.Values, accessToken string) (*httpclient
 	return c.do(c.client().GetForm, u, form, accessToken)
 }
 
-// Get sends an oAuth 2 POST request.
+// Post gets sends an oAuth 2 POST request.
 func (c *Client) Post(u string, form url.Values, accessToken string) (*httpclient.Response, error) {
 	return c.do(c.client().PostForm, u, form, accessToken)
 }

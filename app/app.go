@@ -393,7 +393,7 @@ func (app *App) SetTrustXHeaders(t bool) {
 	app.trustXHeaders = t
 }
 
-// AppendSlash returns if the app will automatically append
+// AppendsSlash returns if the app will automatically append
 // a slash when appropriate. See SetAppendSlash for a more
 // detailed description.
 func (app *App) AppendsSlash() bool {

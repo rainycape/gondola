@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-// FormatSize returns the given size in bytes formatted as a
+// Size returns the given size in bytes formatted as a
 // human readable string. The precision and unit will vary
 // depending on the size.
 func Size(s uint64) string {

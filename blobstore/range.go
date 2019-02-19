@@ -24,7 +24,7 @@ func (r *Range) IsValid() bool {
 	return !r.empty()
 }
 
-// Range() returns the Range's Start and End, which
+// Range returns the Range's Start and End, which
 // might be nil.
 func (r *Range) Range() (*int64, *int64) {
 	return r.Start, r.End

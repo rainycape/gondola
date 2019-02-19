@@ -47,7 +47,7 @@ func FileExists(filename string) bool {
 	return ex && !isDir
 }
 
-// FileExists returns true iff a directory exists
+// DirExists returns true iff a directory exists
 // at the given path.
 func DirExists(filename string) bool {
 	ex, isDir := Exists(filename)
